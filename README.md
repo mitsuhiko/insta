@@ -1,5 +1,7 @@
 # Insta
 
+<a href="https://crates.io/crates/insta"><img src="https://img.shields.io/crates/v/insta.svg" alt=""></a>
+
 Insta is a simple snapshot testing library for Rust.
 
 This crate exports two basic macros for snapshot testing:
@@ -17,6 +19,9 @@ To update the snapshots export the `INSTA_UPDATE` environment variable
 and set it to `1`.  The snapshots can then be committed.
 
 <img src="https://github.com/mitsuhiko/insta/blob/master/screenshots/insta.gif?raw=true">
+
+* [Documentation](https://docs.rs/insta)
+* [Crate](https://crates.io/crates/insta)
 
 ## Example
 
@@ -37,3 +42,7 @@ if the result is okay.  Once you are satisifed run the tests again with
 ```
 $ INSTA_UPDATE=1 cargo test
 ```
+
+## License
+
+Insta is licensed under the Apache 2 license.
