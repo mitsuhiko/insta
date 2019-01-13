@@ -2,7 +2,12 @@
 name = "insta"
 version = "0.1.0"
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
+description = "A snapshot testing library for Rust"
 edition = "2018"
+homepage = "https://github.com/mitsuhiko/insta"
+repository = "https://github.com/mitsuhiko/insta"
+keywords = ["snapshot", "testing", "jest"]
+readme = "README.md"
 
 [features]
 serialization = ["serde", "serde_yaml"]
