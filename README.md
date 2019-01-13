@@ -16,6 +16,8 @@ the `name` of the snapshot has to be provided to the assertion macro.
 To update the snapshots export the `INSTA_UPDATE` environment variable
 and set it to `1`.  The snapshots can then be committed.
 
+<img src="https://github.com/mitsuhiko/insta/blob/master/screenshots/insta.gif?raw=true">
+
 ## Example
 
 ```rust
