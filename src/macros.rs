@@ -1,7 +1,7 @@
 /// Assets a `Serialize` snapshot.
-/// 
+///
 /// The value needs to implement the `serde::Serialize` trait.
-/// 
+///
 /// This requires the `serialization` feature to be enabled.
 #[cfg(feature = "serialization")]
 #[macro_export]
@@ -13,7 +13,7 @@ macro_rules! assert_serialized_snapshot_matches {
 }
 
 /// Assets a `Debug` snapshot.
-/// 
+///
 /// The value needs to implement the `fmt::Debug` trait.
 #[macro_export]
 macro_rules! assert_debug_snapshot_matches {

@@ -51,10 +51,11 @@ fn should_update_snapshot() -> bool {
 
 pub fn get_snapshot_filename(name: &str, module_path: &str, base: &str) -> PathBuf {
     let path = Path::new(base);
-    path.parent()
-        .unwrap()
-        .join("snapshots")
-        .join(format!("{}__{}.snap", module_path.rsplit("::").next().unwrap(), name))
+    path.parent().unwrap().join("snapshots").join(format!(
+        "{}__{}.snap",
+        module_path.rsplit("::").next().unwrap(),
+        name
+    ))
 }
 
 #[derive(Debug)]
@@ -158,18 +159,20 @@ pub fn assert_snapshot(
             None => {
                 writeln!(
                     std::io::stderr(),
-                    "  {} {}",
+                    "  {} {}\n{}",
                     style("created snapshot").green(),
-                    style(snapshot_file.display()).cyan().underlined()
+                    style(snapshot_file.display()).cyan().underlined(),
+                    style(new_snapshot).dim(),
                 )?;
             }
         }
     } else {
         match old.as_ref().map(|x| &x.snapshot) {
             None => panic!(
-                "Missing snapshot '{}' in line {}{}",
+                "Missing snapshot '{}' in line {}\n{}\n{}",
                 name,
                 line,
+                style(new_snapshot).dim(),
                 RunHint(&snapshot_file, old.as_ref()),
             ),
             Some(ref old_snapshot) => {
@@ -177,7 +180,7 @@ pub fn assert_snapshot(
                 let changeset = Changeset::new(new_snapshot, old_snapshot, "\n");
                 assert!(
                     false,
-                    "snapshot '{}' mismatched in line {}:\n{}\n{}{}",
+                    "snapshot '{}' mismatched in line {}:\n{}{}{}",
                     name,
                     line,
                     title,
