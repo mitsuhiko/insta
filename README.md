@@ -4,7 +4,7 @@
 
 <div align="center">
   <img src="https://github.com/mitsuhiko/insta/blob/master/screenshots/logo.png?raw=true" width="250" height="250">
-  <p><strong>inst: a snapshot testing library for Rust</strong></p>
+  <p><strong>insta: a snapshot testing library for Rust</strong></p>
 </div>
 
 ## What is Snapshot Testing?
