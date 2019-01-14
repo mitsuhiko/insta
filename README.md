@@ -2,6 +2,8 @@
 
 <a href="https://crates.io/crates/insta"><img src="https://img.shields.io/crates/v/insta.svg" alt=""></a>
 
+<img src="https://github.com/mitsuhiko/insta/blob/master/screenshots/logo.png?raw=true">
+
 Insta is a simple snapshot testing library for Rust.
 
 This crate exports two basic macros for snapshot testing:
