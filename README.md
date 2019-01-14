@@ -2,9 +2,10 @@
 
 <a href="https://crates.io/crates/insta"><img src="https://img.shields.io/crates/v/insta.svg" alt=""></a>
 
-<img src="https://github.com/mitsuhiko/insta/blob/master/screenshots/logo.png?raw=true" width="250" height="250">
-
-Insta is a simple snapshot testing library for Rust.
+<div align="center">
+  <img src="https://github.com/mitsuhiko/insta/blob/master/screenshots/logo.png?raw=true" width="250" height="250">
+  <p><strong>inst: a snapshot testing library for Rust</strong></p>
+</div>
 
 This crate exports two basic macros for snapshot testing:
 `assert_snapshot_matches!` for comparing basic string snapshots and
