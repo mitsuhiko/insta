@@ -1,0 +1,23 @@
+os: linux
+language: rust
+cache:
+  cargo: true
+
+git:
+  depth: 1
+
+branches:
+  only:
+    - master
+
+script: make $SUITE
+
+matrix:
+  include:
+    - env: SUITE=test
+    - env: SUITE=format-check
+    - env: SUITE=lint
+
+  allow_failures:
+    - env: SUITE=format-check
+    - env: SUITE=lint
