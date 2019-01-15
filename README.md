@@ -3,7 +3,7 @@
 <a href="https://crates.io/crates/insta"><img src="https://img.shields.io/crates/v/insta.svg" alt=""></a>
 
 <div align="center">
-  <img src="https://github.com/mitsuhiko/insta/blob/master/screenshots/logo.png?raw=true" width="250" height="250">
+  <img src="https://github.com/mitsuhiko/insta/blob/master/assets/logo.png?raw=true" width="250" height="250">
   <p><strong>insta: a snapshot testing library for Rust</strong></p>
 </div>
 
@@ -25,7 +25,7 @@ fn test_snapshots() {
 }
 ```
 
-<img src="https://github.com/mitsuhiko/insta/blob/master/screenshots/insta.gif?raw=true">
+<img src="https://github.com/mitsuhiko/insta/blob/master/assets/insta.gif?raw=true">
 
 ## API
 
