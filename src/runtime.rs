@@ -77,6 +77,7 @@ fn get_cargo_workspace(manifest_dir: &str) -> &Path {
         let output = std::process::Command::new(env!("CARGO"))
             .arg("metadata")
             .arg("--format-version=1")
+            .current_dir(manifest_dir)
             .output()
             .unwrap();
         let manifest: Manifest = serde_json::from_slice(&output.stdout).unwrap();
