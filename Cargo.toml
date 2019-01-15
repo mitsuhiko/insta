@@ -10,7 +10,7 @@ repository = "https://github.com/mitsuhiko/insta"
 keywords = ["snapshot", "testing", "jest"]
 readme = "README.md"
 exclude = [
-    "screenshots/*"
+    "assets/*"
 ]
 
 [package.metadata.docs.rs]
