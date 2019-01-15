@@ -32,6 +32,7 @@ macro_rules! assert_snapshot_matches {
                 $crate::_macro_support::assert_snapshot(
                     &$name,
                     value,
+                    env!("CARGO_MANIFEST_DIR"),
                     module_path!(),
                     file!(),
                     line!(),

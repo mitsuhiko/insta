@@ -17,12 +17,14 @@ exclude = [
 all-features = true
 
 [features]
-serialization = ["serde", "serde_yaml"]
+serialization = ["serde_yaml"]
 
 [dependencies]
 difference = "2.0.0"
-serde = { version = "1.0.84", optional = true }
+serde = { version = "1.0.84", features = ["derive"] }
 failure = "0.1.5"
 serde_yaml = { version = "0.8.8", optional = true }
 console = "0.7.2"
 chrono = "0.4.6"
+serde_json = "1.0.35"
+lazy_static = "1.2.0"

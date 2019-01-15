@@ -5,14 +5,22 @@ use std::fs;
 use std::io::Write;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use chrono::Utc;
 use console::{style, Color};
 use difference::Changeset;
 use failure::Error;
+use lazy_static::lazy_static;
 
+use serde::Deserialize;
+use serde_json;
 #[cfg(feature = "serialization")]
 use {serde::Serialize, serde_yaml};
+
+lazy_static! {
+    static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
+}
 
 struct RunHint<'a>(&'a Path, Option<&'a Snapshot>);
 
@@ -57,8 +65,35 @@ fn should_update_snapshot() -> bool {
     }
 }
 
-pub fn get_snapshot_filename(name: &str, module_path: &str, base: &str) -> PathBuf {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+fn get_cargo_workspace(manifest_dir: &str) -> &Path {
+    let mut workspaces = WORKSPACES.lock().unwrap();
+    if let Some(rv) = workspaces.get(manifest_dir) {
+        rv
+    } else {
+        #[derive(Deserialize)]
+        struct Manifest {
+            workspace_root: String,
+        }
+        let output = std::process::Command::new(env!("CARGO"))
+            .arg("metadata")
+            .arg("--format-version=1")
+            .output()
+            .unwrap();
+        let manifest: Manifest = serde_json::from_slice(&output.stdout).unwrap();
+        let path = Box::leak(Box::new(PathBuf::from(manifest.workspace_root)));
+        workspaces.insert(manifest_dir.to_string(), path.as_path());
+        workspaces.get(manifest_dir).unwrap()
+    }
+}
+
+pub fn get_snapshot_filename(
+    name: &str,
+    manifest_dir: &str,
+    module_path: &str,
+    base: &str,
+) -> PathBuf {
+    let cargo_workspace = get_cargo_workspace(manifest_dir);
+    let root = Path::new(cargo_workspace);
     let base = Path::new(base);
     root.join(base.parent().unwrap())
         .join("snapshots")
@@ -127,11 +162,12 @@ impl Snapshot {
 pub fn assert_snapshot(
     name: &str,
     new_snapshot: &str,
+    manifest_dir: &str,
     module_path: &str,
     file: &str,
     line: u32,
 ) -> Result<(), Error> {
-    let snapshot_file = get_snapshot_filename(name, module_path, file);
+    let snapshot_file = get_snapshot_filename(name, manifest_dir, module_path, file);
     let old = Snapshot::from_file(&snapshot_file).ok();
 
     // if the snapshot matches we're done.
