@@ -1,7 +1,7 @@
 # Insta
 
 <a href="https://crates.io/crates/insta"><img src="https://img.shields.io/crates/v/insta.svg" alt=""></a>
-<a href="https://travis-ci.com/mitsuhiko/insta"><img src="https://travis-ci.com/getsentry/sentry-rust.svg?branch=master" alt=""></a>
+<a href="https://travis-ci.com/mitsuhiko/insta"><img src="https://travis-ci.com/mitsuhiko/insta.svg?branch=master" alt=""></a>
 
 <div align="center">
   <img src="https://github.com/mitsuhiko/insta/blob/master/assets/logo.png?raw=true" width="250" height="250">
