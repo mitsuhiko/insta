@@ -7,7 +7,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
-use console::style;
+use console::{style, Color};
 use difference::Changeset;
 use failure::Error;
 
@@ -18,10 +18,18 @@ struct RunHint<'a>(&'a Path, Option<&'a Snapshot>);
 
 impl<'a> fmt::Display for RunHint<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let file = style(self.0.display())
+            .underlined()
+            .fg(if fs::metadata(&self.0).is_ok() {
+                Color::Cyan
+            } else {
+                Color::Red
+            });
+
         write!(
             f,
             "\n{title:-^width$}\nSnapshot: {file}\n",
-            file = style(self.0.display()).cyan().underlined(),
+            file = file,
             title = style(" Snapshot Information ").bold(),
             width = 74
         )?;
@@ -50,12 +58,15 @@ fn should_update_snapshot() -> bool {
 }
 
 pub fn get_snapshot_filename(name: &str, module_path: &str, base: &str) -> PathBuf {
-    let path = Path::new(base);
-    path.parent().unwrap().join("snapshots").join(format!(
-        "{}__{}.snap",
-        module_path.rsplit("::").next().unwrap(),
-        name
-    ))
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let base = Path::new(base);
+    root.join(base.parent().unwrap())
+        .join("snapshots")
+        .join(format!(
+            "{}__{}.snap",
+            module_path.rsplit("::").next().unwrap(),
+            name
+        ))
 }
 
 #[derive(Debug)]
