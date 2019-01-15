@@ -36,7 +36,7 @@ impl<'a> fmt::Display for RunHint<'a> {
 
         if let Some(ref old) = self.1 {
             for (key, value) in old.metadata.iter() {
-                write!(f, "{}: {}\n", key, style(value).cyan())?;
+                writeln!(f, "{}: {}", key, style(value).cyan())?;
             }
         }
 
@@ -115,7 +115,7 @@ impl Snapshot {
         }
         let mut f = fs::File::create(&self.path)?;
         for (key, value) in self.metadata.iter() {
-            write!(f, "{}: {}\n", key, value)?;
+            writeln!(f, "{}: {}", key, value)?;
         }
         f.write_all(b"\n")?;
         f.write_all(self.snapshot.as_bytes())?;
@@ -149,7 +149,7 @@ pub fn assert_snapshot(
         metadata.insert("Source".to_string(), file.to_string());
         let snapshot = Snapshot {
             path: snapshot_file.to_path_buf(),
-            metadata: metadata,
+            metadata,
             snapshot: new_snapshot.to_string(),
         };
         snapshot.save()?;
