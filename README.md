@@ -57,6 +57,16 @@ if the result is okay.  Once you are satisifed run the tests again with
 $ INSTA_UPDATE=1 cargo test
 ```
 
+## Contributing
+
+To build and run tests for the Insta crate itself, you can clone this
+repository and run:
+
+```
+$ make build
+$ make test
+```
+
 ## License
 
 Insta is licensed under the Apache 2 license.
