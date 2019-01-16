@@ -13,7 +13,7 @@
 //! where this is used.  The name of the file is `<module>__<name>.snap` where
 //! the `name` of the snapshot has to be provided to the assertion macro.
 //!
-//! To update the snapshots export the `INSTA_UPDATE` environment variable
+//! To update the snapshots export the `INSA_UPDATE` environment variable
 //! and set it to `1`.  The snapshots can then be committed.
 //!
 //! # Example
@@ -36,6 +36,10 @@
 //! $ INSTA_UPDATE=1 cargo test
 //! ```
 //!
+//! For more information on updating see [Snapshot Updating].
+//!
+//! [Snapshot Updating]: #snapshot-updating
+//!
 //! # Snapshot files
 //!
 //! The committed snapshot files will have a header with some meta information
@@ -51,6 +55,34 @@
 //!     2,
 //!     3
 //! ]
+//! ```
+//!
+//! # Snapshot Updating
+//!
+//! During test runs snapshots can be updated by exporting the `INSTA_UPDATE`
+//! environment variable.  The easist mode is `INSTA_UPDATE=1` which accepts
+//! all changes and writes them back into the snapshot files.
+//!
+//! The second mode is `INSTA_UPDATE=new` which will write the new snapshots
+//! into a `.snap.new` file next to the normal stored `.snap` file.  You can
+//! then use `diff` and [`bat`](https://github.com/sharkdp/bat) to compare the files:
+//!
+//! Compare:
+//!
+//! ```ignore
+//! $ diff -u tests/snapshots/file.snap{,.new} | bat
+//! ```
+//!
+//! Accept:
+//!
+//! ```ignore
+//! $ mv tests/snapshots/file.snap{.new,}
+//! ```
+//!
+//! Discard:
+//!
+//! ```ignore
+//! $ rm tests/snapshots/file.snap
 //! ```
 #[macro_use]
 mod macros;

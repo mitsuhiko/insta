@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::env;
-use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::io::{BufRead, BufReader, Read};
@@ -22,45 +21,17 @@ lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
 }
 
-struct RunHint<'a>(&'a Path, Option<&'a Snapshot>);
-
-impl<'a> fmt::Display for RunHint<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let file = style(self.0.display())
-            .underlined()
-            .fg(if fs::metadata(&self.0).is_ok() {
-                Color::Cyan
-            } else {
-                Color::Red
-            });
-
-        write!(
-            f,
-            "\n{title:-^width$}\nSnapshot: {file}\n",
-            file = file,
-            title = style(" Snapshot Information ").bold(),
-            width = 74
-        )?;
-
-        if let Some(ref old) = self.1 {
-            for (key, value) in old.metadata.iter() {
-                writeln!(f, "{}: {}", key, style(value).cyan())?;
-            }
-        }
-
-        write!(
-            f,
-            "\n{hint}\n",
-            hint = style("To update the snapshots re-run the tests with INSTA_UPDATE=1.").dim(),
-        )?;
-        Ok(())
-    }
+enum UpdateBehavior {
+    InPlace,
+    NewFile,
+    NoUpdate,
 }
 
-fn should_update_snapshot() -> bool {
+fn update_snapshot_behavior() -> UpdateBehavior {
     match env::var("INSTA_UPDATE").ok().as_ref().map(|x| x.as_str()) {
-        None | Some("") => false,
-        Some("1") => true,
+        None | Some("") => UpdateBehavior::NoUpdate,
+        Some("new") => UpdateBehavior::NewFile,
+        Some("1") => UpdateBehavior::InPlace,
         _ => panic!("invalid value for INSTA_UPDATE"),
     }
 }
@@ -146,10 +117,21 @@ impl Snapshot {
     }
 
     pub fn save(&self) -> Result<(), Error> {
-        if let Some(folder) = self.path.parent() {
+        self.save_impl(&self.path)
+    }
+
+    pub fn save_new(&self) -> Result<PathBuf, Error> {
+        let mut path = self.path.to_path_buf();
+        path.set_extension("snap.new");
+        self.save_impl(&path)?;
+        Ok(path)
+    }
+
+    pub fn save_impl(&self, path: &Path) -> Result<(), Error> {
+        if let Some(folder) = path.parent() {
             fs::create_dir_all(&folder)?;
         }
-        let mut f = fs::File::create(&self.path)?;
+        let mut f = fs::File::create(&path)?;
         for (key, value) in self.metadata.iter() {
             writeln!(f, "{}: {}", key, value)?;
         }
@@ -158,6 +140,58 @@ impl Snapshot {
         f.write_all(b"\n")?;
         Ok(())
     }
+}
+
+pub fn print_snapshot_diff(name: &str, old_snapshot: Option<&Snapshot>, new_snapshot: &Snapshot) {
+    let file = style(new_snapshot.path.display()).underlined().fg(
+        if fs::metadata(&new_snapshot.path).is_ok() {
+            Color::Cyan
+        } else {
+            Color::Red
+        },
+    );
+
+    println!(
+        "{title:-^width$}\nSnapshot: {name}\nFile: {file}",
+        name = style(name).yellow(),
+        file = file,
+        title = style(" Snapshot Information ").bold(),
+        width = 74
+    );
+
+    if let Some(old_snapshot) = old_snapshot {
+        let title = Changeset::new("- got this run", "+ expected snapshot", "\n");
+        let changeset = Changeset::new(&new_snapshot.snapshot, &old_snapshot.snapshot, "\n");
+
+        if let Some(value) = old_snapshot.metadata.get("Created") {
+            println!("Created: {}", style(value).cyan());
+        }
+        if let Some(value) = old_snapshot.metadata.get("Creator") {
+            println!("Creator: {}", style(value).cyan());
+        }
+
+        println!(
+            "{title:-^width$}",
+            title = style(" Snapshot Differences ").bold(),
+            width = 74
+        );
+        println!("{}", title);
+        println!("{}", changeset);
+    } else {
+        println!(
+            "{title:-^width$}",
+            title = style(" New Snapshot ").bold(),
+            width = 74
+        );
+        println!("{}", style(&new_snapshot.snapshot).dim());
+        println!();
+    }
+
+    println!("{title:-^width$}", title = style("").bold(), width = 74);
+    println!(
+        "{hint}",
+        hint = style("To update the snapshots re-run the tests with INSTA_UPDATE=1.").dim(),
+    );
 }
 
 pub fn assert_snapshot(
@@ -176,66 +210,46 @@ pub fn assert_snapshot(
         return Ok(());
     }
 
-    if should_update_snapshot() {
-        let mut metadata = BTreeMap::new();
-        metadata.insert("Created".to_string(), Utc::now().to_rfc3339());
-        metadata.insert(
-            "Creator".to_string(),
-            format!("{}@{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
-        );
-        metadata.insert("Source".to_string(), file.to_string());
-        let snapshot = Snapshot {
-            path: snapshot_file.to_path_buf(),
-            metadata,
-            snapshot: new_snapshot.to_string(),
-        };
-        snapshot.save()?;
+    let mut metadata = BTreeMap::new();
+    metadata.insert("Created".to_string(), Utc::now().to_rfc3339());
+    metadata.insert(
+        "Creator".to_string(),
+        format!("{}@{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
+    );
+    metadata.insert("Source".to_string(), file.to_string());
+    let new = Snapshot {
+        path: snapshot_file.to_path_buf(),
+        metadata,
+        snapshot: new_snapshot.to_string(),
+    };
 
-        match old {
-            Some(ref old) => {
-                let title = Changeset::new("- old snapshot", "+ new snapshot", "\n");
-                let changeset = Changeset::new(&old.snapshot, new_snapshot, "\n");
-                writeln!(
-                    std::io::stderr(),
-                    "  {} {}\n{}\n{}",
-                    style("updated snapshot").green(),
-                    style(snapshot_file.display()).cyan().underlined(),
-                    title,
-                    changeset,
-                )?;
-            }
-            None => {
-                writeln!(
-                    std::io::stderr(),
-                    "  {} {}\n{}",
-                    style("created snapshot").green(),
-                    style(snapshot_file.display()).cyan().underlined(),
-                    style(new_snapshot).dim(),
-                )?;
-            }
+    print_snapshot_diff(name, old.as_ref(), &new);
+
+    match update_snapshot_behavior() {
+        UpdateBehavior::InPlace => {
+            new.save()?;
+            writeln!(
+                std::io::stderr(),
+                "  {} {}\n",
+                style("updated snapshot").green(),
+                style(snapshot_file.display()).cyan().underlined(),
+            )?;
         }
-    } else {
-        match old.as_ref().map(|x| &x.snapshot) {
-            None => panic!(
-                "Missing snapshot '{}' in line {}\n{}\n{}",
-                name,
-                line,
-                style(new_snapshot).dim(),
-                RunHint(&snapshot_file, old.as_ref()),
-            ),
-            Some(ref old_snapshot) => {
-                let title = Changeset::new("- got this run", "+ expected snapshot", "\n");
-                let changeset = Changeset::new(new_snapshot, old_snapshot, "\n");
-                assert!(
-                    false,
-                    "snapshot '{}' mismatched in line {}:\n{}{}{}",
-                    name,
-                    line,
-                    title,
-                    changeset,
-                    RunHint(&snapshot_file, old.as_ref()),
-                );
-            }
+        UpdateBehavior::NewFile => {
+            let new_path = new.save_new()?;
+            writeln!(
+                std::io::stderr(),
+                "  {} {}\n",
+                style("stored new snapshot").green(),
+                style(new_path.display()).cyan().underlined(),
+            )?;
+        }
+        UpdateBehavior::NoUpdate => {
+            assert!(
+                false,
+                "snapshot assertion for '{}' failed in line {}",
+                name, line
+            );
         }
     }
 
