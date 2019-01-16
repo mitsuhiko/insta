@@ -67,6 +67,10 @@ $ make build
 $ make test
 ```
 
+You can also start a readily configured online workspace using Gitpod:
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://github.com/mitsuhiko/insta)
+
 ## License
 
 Insta is licensed under the Apache 2 license.
