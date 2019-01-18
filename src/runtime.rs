@@ -28,9 +28,9 @@ enum UpdateBehavior {
 
 fn update_snapshot_behavior() -> UpdateBehavior {
     match env::var("INSTA_UPDATE").ok().as_ref().map(|x| x.as_str()) {
-        None | Some("") => UpdateBehavior::NoUpdate,
-        Some("new") => UpdateBehavior::NewFile,
-        Some("1") => UpdateBehavior::InPlace,
+        None | Some("") | Some("new") => UpdateBehavior::NewFile,
+        Some("always") | Some("1") => UpdateBehavior::InPlace,
+        Some("no") => UpdateBehavior::NoUpdate,
         _ => panic!("invalid value for INSTA_UPDATE"),
     }
 }
@@ -67,40 +67,69 @@ fn print_changeset_diff(changeset: &Changeset) {
     }
     let mut lines = vec![];
 
+    let mut lineno = 1;
     for diff in diffs.iter() {
         match *diff {
             Difference::Same(ref x) => {
                 for line in x.lines() {
-                    lines.push((Mode::Same, line));
+                    lines.push((Mode::Same, lineno, line));
+                    lineno += 1;
                 }
             }
             Difference::Add(ref x) => {
                 for line in x.lines() {
-                    lines.push((Mode::Add, line));
+                    lines.push((Mode::Add, lineno, line));
+                    lineno += 1;
                 }
             }
             Difference::Rem(ref x) => {
                 for line in x.lines() {
-                    lines.push((Mode::Rem, line));
+                    lines.push((Mode::Rem, lineno, line));
+                    lineno += 1;
                 }
             }
         }
     }
 
-    for (i, (mode, line)) in lines.iter().enumerate() {
+    let width = console::Term::stdout().size().1 as usize;
+    println!(
+        "──────┬{:─^1$}",
+        "",
+        width.saturating_sub(7),
+    );
+    for (i, (mode, lineno, line)) in lines.iter().enumerate() {
         match mode {
-            Mode::Add => println!("{}{}", style("+").green(), style(line).green()),
-            Mode::Rem => println!("{}{}", style("-").red(), style(line).red()),
+            Mode::Add => println!(
+                "{:>5} │{}{}",
+                style(lineno).dim().bold(),
+                style("+").green(),
+                style(line).green()
+            ),
+            Mode::Rem => println!(
+                "{:>5} │{}{}",
+                style(lineno).dim().bold(),
+                style("-").red(),
+                style(line).red()
+            ),
             Mode::Same => {
-                if lines[i.saturating_sub(5)..=(i + 5).min(lines.len())]
+                if lines[i.saturating_sub(5)..(i + 5).min(lines.len())]
                     .into_iter()
-                    .any(|(x, _)| *x != Mode::Same)
+                    .any(|x| x.0 != Mode::Same)
                 {
-                    println!(" {}", style(line).dim());
+                    println!(
+                        "{:>5} │ {}",
+                        style(lineno).dim().bold(),
+                        style(line).dim()
+                    );
                 }
             }
         }
     }
+    println!(
+        "──────┴{:─^1$}",
+        "",
+        width.saturating_sub(7),
+    );
 }
 
 pub fn get_snapshot_filename(
@@ -279,7 +308,7 @@ fn print_snapshot_diff(
         });
 
     println!(
-        "{title:-^width$}\nFile: {file}\nSnapshot: {name}",
+        "{title:━^width$}\nFile: {file}\nSnapshot: {name}",
         name = style(name).yellow(),
         file = file,
         title = style(" Snapshot Differences ").bold(),
@@ -287,7 +316,6 @@ fn print_snapshot_diff(
     );
 
     new_snapshot.print_changes(old_snapshot);
-    println!("{title:-^width$}", title = style("").bold(), width = width);
 }
 
 pub fn assert_snapshot(
@@ -323,7 +351,7 @@ pub fn assert_snapshot(
     print_snapshot_diff(cargo_workspace, name, old.as_ref(), &new);
     println!(
         "{hint}",
-        hint = style("To update the snapshots re-run the tests with INSTA_UPDATE=1.").dim(),
+        hint = style("To update snapshots re-run the tests with INSTA_UPDATE=yes or use `cargo insta review`").dim(),
     );
 
     match update_snapshot_behavior() {
@@ -335,6 +363,7 @@ pub fn assert_snapshot(
                 style("updated snapshot").green(),
                 style(snapshot_file.display()).cyan().underlined(),
             )?;
+            return Ok(());
         }
         UpdateBehavior::NewFile => {
             let new_path = new.save_new()?;
@@ -345,14 +374,14 @@ pub fn assert_snapshot(
                 style(new_path.display()).cyan().underlined(),
             )?;
         }
-        UpdateBehavior::NoUpdate => {
-            assert!(
-                false,
-                "snapshot assertion for '{}' failed in line {}",
-                name, line
-            );
-        }
+        UpdateBehavior::NoUpdate => {}
     }
+
+    assert!(
+        false,
+        "snapshot assertion for '{}' failed in line {}",
+        name, line
+    );
 
     Ok(())
 }
