@@ -1,4 +1,7 @@
-//! "insta" is a simple snapshot testing library for Rust.
+//! <div align="center">
+//!  <img src="https://github.com/mitsuhiko/insta/blob/master/assets/logo.png?raw=true" width="250" height="250">
+//!  <p><strong>insta: a snapshot testing library for Rust</strong></p>
+//!</div>
 //!
 //! # How it Operates
 //!
@@ -14,6 +17,13 @@
 //! the `name` of the snapshot has to be provided to the assertion macro.
 //!
 //! # Example
+//! 
+//! Install `insta` and `cargo-insta`:
+//! 
+//! ```
+//! $ cargo add --dev insta
+//! $ cargo install cargo-insta
+//! ```
 //!
 //! ```rust,ignore
 //! use insta::assert_debug_snapshot_matches;
@@ -32,7 +42,6 @@
 //! will let you interactively review them:
 //!
 //! ```ignore
-//! $ cargo install cargo-insta
 //! $ cargo test
 //! $ cargo insta review
 //! ```

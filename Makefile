@@ -23,4 +23,8 @@ lint:
 	@rustup component add clippy 2> /dev/null
 	@cargo clippy
 
-.PHONY: all doc test cargotest format format-check lint
+update-readme:
+	@cargo readme > README.md
+	@cd cargo-insta; cargo readme > README.md
+
+.PHONY: all doc test cargotest format format-check lint update-readme

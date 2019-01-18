@@ -157,6 +157,7 @@ pub fn get_snapshot_filename(
         ))
 }
 
+/// A helper to work with stored snapshots.
 #[derive(Debug)]
 pub struct Snapshot {
     path: PathBuf,
