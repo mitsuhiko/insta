@@ -90,6 +90,8 @@ mod runtime;
 #[cfg(test)]
 mod test;
 
+pub use crate::runtime::Snapshot;
+
 #[doc(hidden)]
 pub mod _macro_support {
     pub use crate::runtime::assert_snapshot;
