@@ -154,7 +154,7 @@ fn review_packages(cmd: &ReviewCommand) -> Result<(), Error> {
 
     println!("{}", style("insta review finished").bold());
     if !accepted.is_empty() {
-        println!("{}:", style("accept").green());
+        println!("{}:", style("accepted").green());
         for item in accepted {
             println!("  {}", item.display());
         }
