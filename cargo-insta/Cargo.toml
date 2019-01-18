@@ -1,0 +1,17 @@
+[package]
+name = "cargo-insta"
+version = "0.1.0"
+authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
+edition = "2018"
+
+[dependencies]
+insta = { version = "0.1.4", path = ".." }
+console = "0.7.5"
+clap = "2.32.0"
+difference = "2.0.0"
+structopt = "0.2.14"
+serde = { version = "1.0.84", features = ["derive"] }
+serde_json = "1.0.36"
+failure = "0.1.5"
+glob = "0.2.11"
+walkdir = "2.2.7"

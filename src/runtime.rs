@@ -11,6 +11,7 @@ use difference::{Changeset, Difference};
 use failure::Error;
 use lazy_static::lazy_static;
 
+use ci_info::is_ci;
 use serde::Deserialize;
 use serde_json;
 #[cfg(feature = "serialization")]
@@ -28,8 +29,15 @@ enum UpdateBehavior {
 
 fn update_snapshot_behavior() -> UpdateBehavior {
     match env::var("INSTA_UPDATE").ok().as_ref().map(|x| x.as_str()) {
-        None | Some("") | Some("new") => UpdateBehavior::NewFile,
+        None | Some("") | Some("auto") => {
+            if is_ci() {
+                UpdateBehavior::NoUpdate
+            } else {
+                UpdateBehavior::NewFile
+            }
+        }
         Some("always") | Some("1") => UpdateBehavior::InPlace,
+        Some("new") => UpdateBehavior::NewFile,
         Some("no") => UpdateBehavior::NoUpdate,
         _ => panic!("invalid value for INSTA_UPDATE"),
     }

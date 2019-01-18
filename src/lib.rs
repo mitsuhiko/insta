@@ -13,9 +13,6 @@
 //! where this is used.  The name of the file is `<module>__<name>.snap` where
 //! the `name` of the snapshot has to be provided to the assertion macro.
 //!
-//! To update the snapshots export the `INSA_UPDATE` environment variable
-//! and set it to `1`.  The snapshots can then be committed.
-//!
 //! # Example
 //!
 //! ```rust,ignore
@@ -29,11 +26,15 @@
 //! ```
 //!
 //! The recommended flow is to run the tests once, have them fail and check
-//! if the result is okay.  Once you are satisifed run the tests again with
-//! `INSTA_UPDATE` set to `1` and updates will be stored:
+//! if the result is okay.  By default the new snapshots are stored next
+//! to the old ones with the extra `.new` extension.  Once you are satisifed
+//! move the new files over.  You can also use `cargo insta review` which
+//! will let you interactively review them:
 //!
 //! ```ignore
-//! $ INSTA_UPDATE=1 cargo test
+//! $ cargo install cargo-insta
+//! $ cargo test
+//! $ cargo insta review
 //! ```
 //!
 //! For more information on updating see [Snapshot Updating].
@@ -59,31 +60,28 @@
 //!
 //! # Snapshot Updating
 //!
-//! During test runs snapshots can be updated by exporting the `INSTA_UPDATE`
-//! environment variable.  The easist mode is `INSTA_UPDATE=1` which accepts
-//! all changes and writes them back into the snapshot files.
+//! During test runs snapshots will be updated according to the `INSTA_UPDATE`
+//! environment variable.  The default is `auto` which will write all new
+//! snapshots into `.snap.new` files if no CI is detected.
 //!
-//! The second mode is `INSTA_UPDATE=new` which will write the new snapshots
-//! into a `.snap.new` file next to the normal stored `.snap` file.  You can
-//! then use `diff` and [`bat`](https://github.com/sharkdp/bat) to compare the files:
+//! `INSTA_UPDATE` modes:
 //!
-//! Compare:
+//! - `auto`: the default. `no` for CI environments or `new` otherwise
+//! - `always`: overwrites old snapshot files with new ones unasked
+//! - `new`: write new snapshots into `.snap.new` files.
+//! - `no`: does not update snapshot files at all (just runs tests)
 //!
-//! ```ignore
-//! $ diff -u tests/snapshots/file.snap{,.new} | bat
-//! ```
-//!
-//! Accept:
+//! When `new` is used as mode the `cargo-insta` command can be used to review
+//! the snapshots conveniently:
 //!
 //! ```ignore
-//! $ mv tests/snapshots/file.snap{.new,}
+//! $ cargo install cargo-insta
+//! $ cargo test
+//! $ cargo insta review
 //! ```
 //!
-//! Discard:
-//!
-//! ```ignore
-//! $ rm tests/snapshots/file.snap
-//! ```
+//! "enter" or "a" accepts a new snapshot, "escape" or "r" rejects,
+//! "space" or "s" skips the snapshot for now.
 #[macro_use]
 mod macros;
 mod runtime;
