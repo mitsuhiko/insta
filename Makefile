@@ -9,6 +9,7 @@ doc:
 test: cargotest
 
 cargotest:
+	@cargo test
 	@cargo test --all-features
 
 format:

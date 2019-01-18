@@ -20,7 +20,7 @@
 //! 
 //! Install `insta` and `cargo-insta`:
 //! 
-//! ```
+//! ```ignore
 //! $ cargo add --dev insta
 //! $ cargo install cargo-insta
 //! ```
