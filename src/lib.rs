@@ -82,6 +82,8 @@
 //!
 //! "enter" or "a" accepts a new snapshot, "escape" or "r" rejects,
 //! "space" or "s" skips the snapshot for now.
+//! 
+//! For more information invoke `cargo insta --help`.
 #[macro_use]
 mod macros;
 mod runtime;
