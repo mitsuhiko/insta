@@ -1,3 +1,4 @@
+use std::env;
 use std::path::{Path, PathBuf};
 
 use console::{set_colors_enabled, style, Key, Term};
@@ -214,7 +215,11 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
 }
 
 pub fn run() -> Result<(), Error> {
-    let opts = Opts::from_args();
+    // chop off cargo
+    let mut args = env::args_os();
+    args.next().unwrap();
+
+    let opts = Opts::from_iter(args);
     handle_color(&opts.color)?;
     match opts.command {
         Command::Review(cmd) => process_snapshots(&cmd, None),
