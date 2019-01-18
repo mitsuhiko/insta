@@ -75,7 +75,7 @@ impl SnapshotRef {
         Ok(())
     }
 
-    pub fn discard(&self) -> Result<(), Error> {
+    pub fn reject(&self) -> Result<(), Error> {
         fs::remove_file(&self.new_path)?;
         Ok(())
     }

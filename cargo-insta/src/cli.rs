@@ -177,7 +177,7 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
                 accepted.push(path);
             }
             Operation::Reject => {
-                snapshot.discard()?;
+                snapshot.reject()?;
                 rejected.push(path);
             }
             Operation::Skip => {
