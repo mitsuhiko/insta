@@ -16,6 +16,8 @@
 //! where this is used.  The name of the file is `<module>__<name>.snap` where
 //! the `name` of the snapshot has to be provided to the assertion macro.
 //!
+//! <img src="https://github.com/mitsuhiko/insta/blob/master/assets/insta.gif?raw=true" alt="">
+//!
 //! # Example
 //! 
 //! Install `insta` and `cargo-insta`:
