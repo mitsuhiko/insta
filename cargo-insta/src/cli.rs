@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use console::{style, Key, Term};
-use failure::Error;
+use console::{style, Key, Term, set_colors_enabled};
+use failure::{Error, err_msg};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
@@ -105,7 +105,18 @@ fn review_snapshot(
     }
 }
 
+fn handle_color(color: &Option<String>) -> Result<(), Error> {
+    match color.as_ref().map(|x| x.as_str()).unwrap_or("auto") {
+        "always" => set_colors_enabled(true),
+        "auto" => {},
+        "never" => set_colors_enabled(false),
+        color => return Err(err_msg(format!("invalid value for --color: {}", color)))
+    }
+    Ok(())
+}
+
 fn review_packages(cmd: &ReviewCommand) -> Result<(), Error> {
+    handle_color(&cmd.color)?;
     let term = Term::stdout();
     let manifest = get_package_metadata(cmd.manifest_path.as_ref().map(|x| x.as_path()))?;
     let packages = find_packages(&manifest, cmd.all)?;
