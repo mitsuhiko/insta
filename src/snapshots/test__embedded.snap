@@ -1,5 +1,7 @@
-Created: 2019-01-13T22:16:48.630931+00:00
-Creator: insta@0.1.0
+Created: 2019-01-20T21:06:59.853399+00:00
+Creator: insta@0.2.2
+Expression: "Just a string"
+Line: 3
 Source: src/test.rs
 
 Just a string

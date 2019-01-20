@@ -71,7 +71,7 @@ fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     }
 }
 
-fn print_changeset_diff(changeset: &Changeset) {
+fn print_changeset_diff(changeset: &Changeset, expr: Option<&str>) {
     let Changeset { ref diffs, .. } = *changeset;
     #[derive(PartialEq)]
     enum Mode {
@@ -106,6 +106,15 @@ fn print_changeset_diff(changeset: &Changeset) {
     }
 
     let width = console::Term::stdout().size().1 as usize;
+
+    if let Some(expr) = expr {
+        println!(
+            "{:─^1$}",
+            "",
+            width,
+        );
+        println!("{}", style(expr).dim());
+    }
     println!(
         "──────┬{:─^1$}",
         "",
@@ -277,7 +286,7 @@ impl Snapshot {
             println!();
             println!("{}", style("+new results").green());
         }
-        print_changeset_diff(&changeset);
+        print_changeset_diff(&changeset, self.metadata.get("Expression").map(|x| x.as_str()));
     }
 
     fn save(&self) -> Result<(), Error> {
@@ -340,6 +349,7 @@ pub fn assert_snapshot(
     module_path: &str,
     file: &str,
     line: u32,
+    expr: &str,
 ) -> Result<(), Error> {
     let cargo_workspace = get_cargo_workspace(manifest_dir);
     let snapshot_file = get_snapshot_filename(name, &cargo_workspace, module_path, file);
@@ -357,6 +367,8 @@ pub fn assert_snapshot(
         format!("{}@{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
     );
     metadata.insert("Source".to_string(), file.to_string());
+    metadata.insert("Line".to_string(), line.to_string());
+    metadata.insert("Expression".to_string(), expr.to_string());
     let new = Snapshot {
         path: snapshot_file.to_path_buf(),
         metadata,

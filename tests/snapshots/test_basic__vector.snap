@@ -1,5 +1,7 @@
-Created: 2019-01-13T22:38:10.557151+00:00
-Creator: insta@0.1.0
+Created: 2019-01-20T21:07:00.051813+00:00
+Creator: insta@0.2.2
+Expression: vec![1 , 2 , 3]
+Line: 7
 Source: tests/test_basic.rs
 
 [

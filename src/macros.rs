@@ -8,7 +8,7 @@
 macro_rules! assert_serialized_snapshot_matches {
     ($name:expr, $value:expr) => {{
         let value = $crate::_macro_support::serialize_value(&$value);
-        $crate::assert_snapshot_matches!($name, value);
+        $crate::assert_snapshot_matches!($name, value, stringify!($value));
     }};
 }
 
@@ -19,7 +19,7 @@ macro_rules! assert_serialized_snapshot_matches {
 macro_rules! assert_debug_snapshot_matches {
     ($name:expr, $value:expr) => {{
         let value = format!("{:#?}", $value);
-        $crate::assert_snapshot_matches!($name, value);
+        $crate::assert_snapshot_matches!($name, value, stringify!($value));
     }};
 }
 
@@ -27,6 +27,9 @@ macro_rules! assert_debug_snapshot_matches {
 #[macro_export]
 macro_rules! assert_snapshot_matches {
     ($name:expr, $value:expr) => {
+        $crate::assert_snapshot_matches!($name, $value, stringify!($value))
+    };
+    ($name:expr, $value:expr, $debug_expr:expr) => {
         match &$value {
             value => {
                 $crate::_macro_support::assert_snapshot(
@@ -36,6 +39,7 @@ macro_rules! assert_snapshot_matches {
                     module_path!(),
                     file!(),
                     line!(),
+                    $debug_expr,
                 )
                 .unwrap();
             }
