@@ -98,4 +98,16 @@ $ cargo insta review
 
 For more information invoke `cargo insta --help`.
 
+## Test Assertions
+
+By default the tests will fail when the snapshot assertion fails.  However
+if a test produces more than one snapshot it can be useful to force a test
+to pass so that all new snapshots are created in one go.
+
+This can be enabled by setting `INSTA_FORCE_PASS` to `1`:
+
+```rust
+$ INSTA_FORCE_PASS=1 cargo test --no-fail-fast
+```
+
 License: Apache-2.0
