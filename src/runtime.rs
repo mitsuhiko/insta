@@ -43,8 +43,8 @@ fn update_snapshot_behavior() -> UpdateBehavior {
 
 fn should_fail_in_tests() -> bool {
     match env::var("INSTA_FORCE_PASS").ok().as_ref().map(|x| x.as_str()) {
-        None | Some("") | Some("1") => false,
-        Some("0") => true,
+        None | Some("") | Some("0") => true,
+        Some("1") => false,
         _ => panic!("invalid value for INSTA_FORCE_PASS")
     }
 }
