@@ -121,7 +121,8 @@ impl<'a> Selector<'a> {
                     Segment::Wildcard => true,
                     Segment::Key(ref k) => element.as_str() == Some(&k),
                     Segment::Index(i) => element.as_i64() == Some(i64::from(i)),
-                    Segment::Range(..) => unreachable!(),
+                    // TODO: implement
+                    Segment::Range(..) => panic!("ranges are not implemented yet"),
                 };
                 if !is_match {
                     return false;

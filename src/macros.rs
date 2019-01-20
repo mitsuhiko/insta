@@ -3,6 +3,17 @@
 /// The value needs to implement the `serde::Serialize` trait.
 ///
 /// This requires the `serialization` feature to be enabled.
+///
+/// Unlike the `assert_debug_snapshot_matches` macro, this one has a secondary
+/// mode where redactions can be defined.  The macro takes a third argument
+/// which is an object with redaction rules (use jq inspired selector syntax):
+///
+/// ```no_run,ignore
+/// assert_serialized_snapshot_matches!("name", value, {
+///     ".key.to.redact" => "[replacement value]",
+///     ".another.key.*.to.redact" => 42
+/// });
+/// ```
 #[cfg(feature = "serialization")]
 #[macro_export]
 macro_rules! assert_serialized_snapshot_matches {
