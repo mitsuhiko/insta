@@ -1,7 +1,7 @@
 //! <div align="center">
 //!  <img src="https://github.com/mitsuhiko/insta/blob/master/assets/logo.png?raw=true" width="250" height="250">
 //!  <p><strong>insta: a snapshot testing library for Rust</strong></p>
-//!</div>
+//! </div>
 //!
 //! # How it Operates
 //!
@@ -95,11 +95,26 @@
 //! "space" or "s" skips the snapshot for now.
 //! 
 //! For more information invoke `cargo insta --help`.
+//! 
+//! # Test Assertions
+//! 
+//! By default the tests will fail when the snapshot assertion fails.  However
+//! if a test produces more than one snapshot it can be useful to force a test
+//! to pass so that all new snapshots are created in one go.
+//! 
+//! This can be enabled by setting `INSTA_FORCE_PASS` to `1`:
+//! 
+//! ```ignore
+//! $ INSTA_FORCE_PASS=1 cargo test --no-fail-fast
+//! ```
 #[macro_use]
 mod macros;
 mod runtime;
 #[cfg(test)]
 mod test;
+
+#[cfg(feature = "serialization")]
+mod serialization;
 
 pub use crate::runtime::Snapshot;
 
@@ -107,5 +122,5 @@ pub use crate::runtime::Snapshot;
 pub mod _macro_support {
     pub use crate::runtime::assert_snapshot;
     #[cfg(feature = "serialization")]
-    pub use crate::runtime::serialize_value;
+    pub use crate::serialization::serialize_value;
 }

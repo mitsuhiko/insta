@@ -14,8 +14,6 @@ use lazy_static::lazy_static;
 use ci_info::is_ci;
 use serde::Deserialize;
 use serde_json;
-#[cfg(feature = "serialization")]
-use {serde::Serialize, serde_yaml};
 
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
@@ -40,6 +38,14 @@ fn update_snapshot_behavior() -> UpdateBehavior {
         Some("new") => UpdateBehavior::NewFile,
         Some("no") => UpdateBehavior::NoUpdate,
         _ => panic!("invalid value for INSTA_UPDATE"),
+    }
+}
+
+fn should_fail_in_tests() -> bool {
+    match env::var("INSTA_FORCE_PASS").ok().as_ref().map(|x| x.as_str()) {
+        None | Some("") | Some("1") => false,
+        Some("0") => true,
+        _ => panic!("invalid value for INSTA_FORCE_PASS")
     }
 }
 
@@ -366,36 +372,31 @@ pub fn assert_snapshot(
     match update_snapshot_behavior() {
         UpdateBehavior::InPlace => {
             new.save()?;
-            writeln!(
-                std::io::stderr(),
+            eprintln!(
                 "  {} {}\n",
                 style("updated snapshot").green(),
                 style(snapshot_file.display()).cyan().underlined(),
-            )?;
+            );
             return Ok(());
         }
         UpdateBehavior::NewFile => {
             let new_path = new.save_new()?;
-            writeln!(
-                std::io::stderr(),
+            eprintln!(
                 "  {} {}\n",
                 style("stored new snapshot").green(),
                 style(new_path.display()).cyan().underlined(),
-            )?;
+            );
         }
         UpdateBehavior::NoUpdate => {}
     }
 
-    assert!(
-        false,
-        "snapshot assertion for '{}' failed in line {}",
-        name, line
-    );
+    if should_fail_in_tests() {
+        assert!(
+            false,
+            "snapshot assertion for '{}' failed in line {}",
+            name, line
+        );
+    }
 
     Ok(())
-}
-
-#[cfg(feature = "serialization")]
-pub fn serialize_value<S: Serialize>(s: &S) -> String {
-    serde_yaml::to_string(s).unwrap()
 }
