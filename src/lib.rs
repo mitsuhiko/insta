@@ -117,12 +117,16 @@ mod test;
 mod redaction;
 #[cfg(feature = "serialization")]
 mod serialization;
+
+pub use crate::runtime::Snapshot;
+
+// this should eventually become public api but probably somewhere else
+#[doc(hidden)]
 #[cfg(feature = "serialization")]
 pub use crate::redaction::Selector;
 #[cfg(feature = "serialization")]
+#[doc(hidden)]
 pub use serde_yaml::{Mapping, Number, Sequence, Value};
-
-pub use crate::runtime::Snapshot;
 
 #[doc(hidden)]
 pub mod _macro_support {
