@@ -1,6 +1,6 @@
 extern crate insta;
 
-use insta::{assert_debug_snapshot_matches};
+use insta::assert_debug_snapshot_matches;
 
 #[test]
 fn test_vector() {

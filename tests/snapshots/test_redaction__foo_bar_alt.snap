@@ -1,0 +1,18 @@
+Created: 2019-01-20T22:01:30.389866+00:00
+Creator: insta@0.2.2
+Expression: Selector::parse(".foo[\"bar\"]").unwrap()
+Line: 27
+Source: tests/test_redaction.rs
+
+Selector {
+    selectors: [
+        [
+            Key(
+                "foo"
+            ),
+            Key(
+                "bar"
+            )
+        ]
+    ]
+}

@@ -1,0 +1,9 @@
+Created: 2019-01-20T22:11:44.045212+00:00
+Creator: insta@0.2.2
+Expression: &User{id: Uuid::new_v4(), username: "john_doe".to_string(),}
+Line: 47
+Source: tests/test_redaction.rs
+
+---
+id: "[uuid]"
+username: john_doe

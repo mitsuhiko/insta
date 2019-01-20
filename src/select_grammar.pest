@@ -1,0 +1,19 @@
+WHITESPACE = _{ WHITE_SPACE }
+
+ident = @{ XID_START ~ XID_CONTINUE* }
+wildcard = { "." ~ "*" }
+key = @{ "." ~ ident }
+int = { "-"? ~ NUMBER+ }
+string = @{ "\"" ~ (!("\"") ~ ANY)* ~ "\""}
+
+subscript = { "[" ~ ( string | int ) ~ "]" }
+full_range = { "[" ~ "]" }
+range = { "[" ~ int ~ ":" ~ int ~ "]" }
+range_to = { "[" ~ ":" ~ int ~ "]" }
+range_from = { "[" ~ int ~ ":]" }
+
+segment = _{ wildcard | key | subscript | full_range | range | range_to | range_from }
+identity = { "." }
+
+selector = { (segment+ | identity) }
+selectors = { SOI ~ selector ~ ("," ~ selector)* ~ ","? ~ EOI }

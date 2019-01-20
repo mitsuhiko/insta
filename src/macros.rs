@@ -10,6 +10,14 @@ macro_rules! assert_serialized_snapshot_matches {
         let value = $crate::_macro_support::serialize_value(&$value);
         $crate::assert_snapshot_matches!($name, value, stringify!($value));
     }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
+        let mut vec = vec![];
+        $(
+            vec.push(($crate::Selector::parse($k).unwrap(), $crate::Value::from($v)));
+        )*
+        let value = $crate::_macro_support::serialize_value_redacted(&$value, &vec);
+        $crate::assert_snapshot_matches!($name, value, stringify!($value));
+    }}
 }
 
 /// Assets a `Debug` snapshot.
