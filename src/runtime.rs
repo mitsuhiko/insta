@@ -1,8 +1,10 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
 use chrono::Utc;
@@ -23,6 +25,46 @@ enum UpdateBehavior {
     InPlace,
     NewFile,
     NoUpdate,
+}
+
+fn format_rust_expression(value: &str) -> Cow<'_, str> {
+    if let Ok(mut proc) = Command::new("rustfmt")
+        .arg("--emit=stdout")
+        .arg("--edition=2018")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+    {
+        {
+            let stdin = proc.stdin.as_mut().unwrap();
+            stdin.write_all(b"fn _x(){").unwrap();
+            stdin.write_all(value.as_bytes()).unwrap();
+            stdin.write_all(b"}").unwrap();
+        }
+        if let Ok(output) = proc.wait_with_output() {
+            let mut buf = String::new();
+            let mut rv = String::new();
+            let mut reader = BufReader::new(&output.stdout[..]);
+            reader.read_line(&mut buf).unwrap();
+
+            buf.clear();
+            reader.read_line(&mut buf).unwrap();
+
+            let indentation = buf.len() - buf.trim_start().len();
+            rv.push_str(&buf[indentation..]);
+            loop {
+                buf.clear();
+                let read = reader.read_line(&mut buf).unwrap();
+                if read == 0 {
+                    break;
+                }
+                rv.push_str(buf.get(indentation..).unwrap_or(""));
+            }
+            rv.truncate(rv.trim_end().len());
+            return Cow::Owned(rv);
+        }
+    }
+    Cow::Borrowed(value)
 }
 
 fn update_snapshot_behavior() -> UpdateBehavior {
@@ -113,7 +155,7 @@ fn print_changeset_diff(changeset: &Changeset, expr: Option<&str>) {
 
     if let Some(expr) = expr {
         println!("{:─^1$}", "", width,);
-        println!("{}", style(expr).dim());
+        println!("{}", style(format_rust_expression(expr)).dim());
     }
     println!(
         "──────┬{:─^1$}",
@@ -195,7 +237,7 @@ impl Snapshot {
                 if read == 0 {
                     break;
                 }
-                if buf[buf.len() - read..].trim_right() == "---" {
+                if buf[buf.len() - read..].trim_end() == "---" {
                     buf.truncate(buf.len() - read);
                     break;
                 }
@@ -207,7 +249,7 @@ impl Snapshot {
             loop {
                 buf.clear();
                 let read = f.read_line(&mut buf)?;
-                if read == 0 || buf.trim_right().is_empty() {
+                if read == 0 || buf.trim_end().is_empty() {
                     buf.truncate(buf.len() - read);
                     break;
                 }
