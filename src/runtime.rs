@@ -214,7 +214,7 @@ impl Snapshot {
                 let mut iter = buf.splitn(2, ':');
                 if let Some(key) = iter.next() {
                     if let Some(value) = iter.next() {
-                        rv.insert(key.to_string(), value.to_string());
+                        rv.insert(key.to_lowercase(), value.to_string());
                     }
                 }
             }
@@ -283,10 +283,10 @@ impl Snapshot {
 
     /// Prints a diff against an old snapshot.
     pub fn print_changes(&self, old_snapshot: Option<&Snapshot>) {
-        if let Some(value) = self.metadata.get("Source") {
+        if let Some(value) = self.metadata.get("source") {
             println!("Source: {}", style(value).cyan());
         }
-        if let Some(value) = self.metadata.get("Created") {
+        if let Some(value) = self.metadata.get("created") {
             println!("New: {}", style(value).cyan());
         }
         let changeset = Changeset::new(
@@ -295,7 +295,7 @@ impl Snapshot {
             "\n",
         );
         if let Some(old_snapshot) = old_snapshot {
-            if let Some(value) = old_snapshot.metadata.get("Created") {
+            if let Some(value) = old_snapshot.metadata.get("created") {
                 println!("Old: {}", style(value).cyan());
             }
             println!();
@@ -308,7 +308,7 @@ impl Snapshot {
         }
         print_changeset_diff(
             &changeset,
-            self.metadata.get("Expression").map(|x| x.as_str()),
+            self.metadata.get("expression").map(|x| x.as_str()),
         );
     }
 
@@ -381,13 +381,13 @@ pub fn assert_snapshot(
     }
 
     let mut metadata = BTreeMap::new();
-    metadata.insert("Created".to_string(), Utc::now().to_rfc3339());
+    metadata.insert("created".to_string(), Utc::now().to_rfc3339());
     metadata.insert(
-        "Creator".to_string(),
+        "creator".to_string(),
         format!("{}@{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
     );
-    metadata.insert("Source".to_string(), file.to_string());
-    metadata.insert("Expression".to_string(), expr.to_string());
+    metadata.insert("source".to_string(), file.to_string());
+    metadata.insert("expression".to_string(), expr.to_string());
     let new = Snapshot {
         path: snapshot_file.to_path_buf(),
         metadata,

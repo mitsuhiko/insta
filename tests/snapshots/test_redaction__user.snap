@@ -1,8 +1,8 @@
 ---
-Created: "2019-01-21T21:26:22.165300+00:00"
-Creator: insta@0.3.0
-Expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
-Source: tests/test_redaction.rs
+created: "2019-01-21T21:31:54.349387+00:00"
+creator: insta@0.3.0
+expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
+source: tests/test_redaction.rs
 ---
 id: "[uuid]"
 username: john_doe
