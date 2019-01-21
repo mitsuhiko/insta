@@ -373,6 +373,7 @@ impl Snapshot {
         serde_yaml::to_writer(&mut f, &self.metadata)?;
         f.write_all(b"\n---\n")?;
         f.write_all(self.snapshot.as_bytes())?;
+        f.write_all(b"\n")?;
         Ok(())
     }
 }
