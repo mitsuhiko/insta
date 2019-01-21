@@ -20,20 +20,21 @@ all-features = true
 members = [".", "cargo-insta"]
 
 [features]
-serialization = ["serde_yaml", "pest", "pest_derive"]
+# This feature is now just always enabled because we use yaml internally now.
+serialization = []
 
 [dependencies]
 difference = "2.0.0"
-serde = { version = "1.0.84", features = ["derive"] }
+serde = { version = "1.0.85", features = ["derive"] }
 failure = "0.1.5"
-serde_yaml = { version = "0.8.8", optional = true }
-console = "0.7.4"
+serde_yaml = "0.8.8"
+console = "0.7.5"
 chrono = "0.4.6"
 serde_json = "1.0.36"
 lazy_static = "1.2.0"
 ci_info = "0.3.1"
-pest = { version = "2.1.0", optional = true }
-pest_derive = { version = "2.1.0", optional = true }
+pest = "2.1.0"
+pest_derive = "2.1.0"
 
 [dev-dependencies]
 uuid = { version = "0.7.1", features = ["serde", "v4"] }

@@ -13,5 +13,5 @@ pub fn serialize_value_redacted<S: Serialize>(s: &S, redactions: &[(Selector, Va
     for (selector, redaction) in redactions {
         value = selector.redact(value, &redaction);
     }
-    serde_yaml::to_string(&value).unwrap()
+    serde_yaml::to_string(&value).unwrap()[4..].to_string()
 }

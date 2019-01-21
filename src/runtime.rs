@@ -42,10 +42,14 @@ fn update_snapshot_behavior() -> UpdateBehavior {
 }
 
 fn should_fail_in_tests() -> bool {
-    match env::var("INSTA_FORCE_PASS").ok().as_ref().map(|x| x.as_str()) {
+    match env::var("INSTA_FORCE_PASS")
+        .ok()
+        .as_ref()
+        .map(|x| x.as_str())
+    {
         None | Some("") | Some("0") => true,
         Some("1") => false,
-        _ => panic!("invalid value for INSTA_FORCE_PASS")
+        _ => panic!("invalid value for INSTA_FORCE_PASS"),
     }
 }
 
@@ -108,11 +112,7 @@ fn print_changeset_diff(changeset: &Changeset, expr: Option<&str>) {
     let width = console::Term::stdout().size().1 as usize;
 
     if let Some(expr) = expr {
-        println!(
-            "{:─^1$}",
-            "",
-            width,
-        );
+        println!("{:─^1$}", "", width,);
         println!("{}", style(expr).dim());
     }
     println!(
@@ -136,7 +136,7 @@ fn print_changeset_diff(changeset: &Changeset, expr: Option<&str>) {
             ),
             Mode::Same => {
                 if lines[i.saturating_sub(5)..(i + 5).min(lines.len())]
-                    .into_iter()
+                    .iter()
                     .any(|x| x.0 != Mode::Same)
                 {
                     println!(
@@ -185,21 +185,41 @@ impl Snapshot {
     pub fn from_file<P: AsRef<Path>>(p: &P) -> Result<Snapshot, Error> {
         let mut f = BufReader::new(fs::File::open(p)?);
         let mut buf = String::new();
-        let mut metadata = BTreeMap::new();
 
-        loop {
-            buf.clear();
-            f.read_line(&mut buf)?;
-            if buf.trim().is_empty() {
-                break;
-            }
-            let mut iter = buf.splitn(2, ':');
-            if let Some(key) = iter.next() {
-                if let Some(value) = iter.next() {
-                    metadata.insert(key.to_string(), value.trim().to_string());
+        f.read_line(&mut buf)?;
+
+        // yaml format
+        let metadata = if buf.trim_end() == "---" {
+            loop {
+                let read = f.read_line(&mut buf)?;
+                if read == 0 {
+                    break;
+                }
+                if buf[buf.len() - read..].trim_right() == "---" {
+                    buf.truncate(buf.len() - read);
+                    break;
                 }
             }
-        }
+            serde_yaml::from_str(&buf)?
+        // legacy format
+        } else {
+            let mut rv = BTreeMap::new();
+            loop {
+                buf.clear();
+                let read = f.read_line(&mut buf)?;
+                if read == 0 || buf.trim_right().is_empty() {
+                    buf.truncate(buf.len() - read);
+                    break;
+                }
+                let mut iter = buf.splitn(2, ':');
+                if let Some(key) = iter.next() {
+                    if let Some(value) = iter.next() {
+                        rv.insert(key.to_string(), value.to_string());
+                    }
+                }
+            }
+            rv
+        };
 
         buf.clear();
         f.read_to_string(&mut buf)?;
@@ -286,7 +306,10 @@ impl Snapshot {
             println!();
             println!("{}", style("+new results").green());
         }
-        print_changeset_diff(&changeset, self.metadata.get("Expression").map(|x| x.as_str()));
+        print_changeset_diff(
+            &changeset,
+            self.metadata.get("Expression").map(|x| x.as_str()),
+        );
     }
 
     fn save(&self) -> Result<(), Error> {
@@ -305,12 +328,9 @@ impl Snapshot {
             fs::create_dir_all(&folder)?;
         }
         let mut f = fs::File::create(&path)?;
-        for (key, value) in self.metadata.iter() {
-            writeln!(f, "{}: {}", key, value)?;
-        }
-        f.write_all(b"\n")?;
+        serde_yaml::to_writer(&mut f, &self.metadata)?;
+        f.write_all(b"\n---\n")?;
         f.write_all(self.snapshot.as_bytes())?;
-        f.write_all(b"\n")?;
         Ok(())
     }
 }
@@ -367,7 +387,6 @@ pub fn assert_snapshot(
         format!("{}@{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
     );
     metadata.insert("Source".to_string(), file.to_string());
-    metadata.insert("Line".to_string(), line.to_string());
     metadata.insert("Expression".to_string(), expr.to_string());
     let new = Snapshot {
         path: snapshot_file.to_path_buf(),
