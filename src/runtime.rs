@@ -95,6 +95,12 @@ fn should_fail_in_tests() -> bool {
     }
 }
 
+fn get_cargo() -> String {
+    env::var("CARGO")
+        .ok()
+        .unwrap_or_else(|| "cargo".to_string())
+}
+
 fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     let mut workspaces = WORKSPACES.lock().unwrap();
     if let Some(rv) = workspaces.get(manifest_dir) {
@@ -104,7 +110,7 @@ fn get_cargo_workspace(manifest_dir: &str) -> &Path {
         struct Manifest {
             workspace_root: String,
         }
-        let output = std::process::Command::new(env!("CARGO"))
+        let output = std::process::Command::new(get_cargo())
             .arg("metadata")
             .arg("--format-version=1")
             .current_dir(manifest_dir)
