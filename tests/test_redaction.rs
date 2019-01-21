@@ -1,7 +1,7 @@
-use uuid::Uuid;
-use insta::{Selector, Value};
 use insta::{assert_debug_snapshot_matches, assert_serialized_snapshot_matches};
+use insta::{Selector, Value};
 use serde::Serialize;
+use uuid::Uuid;
 
 #[test]
 fn test_redaction_basics() {

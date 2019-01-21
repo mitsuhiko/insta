@@ -5,12 +5,12 @@
 //!
 //! # How it Operates
 //!
-//! This crate exports two basic macros for snapshot testing:
-//! `assert_snapshot_matches!` for comparing basic string snapshots and
+//! This crate exports three basic macros for snapshot testing:
+//! `assert_snapshot_matches!` for comparing basic string snapshots,
 //! `assert_debug_snapshot_matches!` for snapshotting the debug print output of
-//! a type.  Additionally if the `serialization` feature is enabled the
-//! `assert_serialized_snapshot_matches!` macro becomes available which
-//! serializes an object with `serde` to yaml before snapshotting.
+//! a type and the `assert_serialized_snapshot_matches!` macro becomes
+//! available which serializes an object with `serde` to yaml before
+//! snapshotting.
 //!
 //! Snapshots are stored in the `snapshots` folder right next to the test file
 //! where this is used.  The name of the file is `<module>__<name>.snap` where
@@ -58,10 +58,12 @@
 //! that can make debugging easier and the snapshot:
 //!
 //! ```ignore
-//! Created: 2019-01-13T22:16:48.669496+00:00
-//! Creator: insta@0.1.0
-//! Source: tests/test_snapshots.rs
-//!
+//! ---
+//! created: "2019-01-21T22:03:13.792906+00:00"
+//! creator: insta@0.3.0
+//! expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
+//! source: tests/test_redaction.rs
+//! ---
 //! [
 //!     1,
 //!     2,
