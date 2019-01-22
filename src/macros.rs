@@ -1,10 +1,27 @@
 /// Assets a `Serialize` snapshot.
 ///
-/// The value needs to implement the `serde::Serialize` trait.
+/// The value needs to implement the `serde::Serialize` trait and the snapshot
+/// will be serialized in YAML format.  This does mean that unlike the debug
+/// snapshot variant the type of the value does not appear in the output.
+/// You can however use the `assert_ron_snapshot_matches!` macro to dump out
+/// the value in [RON](https://github.com/ron-rs/ron/) format which retains some
+/// type information for more accurate comparisions.
 ///
 /// Unlike the `assert_debug_snapshot_matches` macro, this one has a secondary
-/// mode where redactions can be defined.  The macro takes a third argument
-/// which is an object with redaction rules (use jq inspired selector syntax):
+/// mode where redactions can be defined.
+///
+/// The third argument to the macro can be an object expression for redaction.
+/// It's in the form `{ selector => replacement }` where the selector is in
+/// a form similar to [jq](https://github.com/stedolan/jq).  The following
+/// selector syntax is implemented:
+///
+/// - `.key`: selects the given key
+/// - `["key"]`: alternative syntax for keys
+/// - `[index]`: selects the given index in an array
+/// - `[]`: selects all items on an array
+/// - `.*`: selects all keys on that depth
+///
+/// Example:
 ///
 /// ```no_run,ignore
 /// assert_serialized_snapshot_matches!("name", value, {
@@ -12,13 +29,48 @@
 ///     ".another.key.*.to.redact" => 42
 /// });
 /// ```
+///
+/// The replacement value can be a string, integer or any other primitive value.
 #[macro_export]
 macro_rules! assert_serialized_snapshot_matches {
     ($name:expr, $value:expr) => {{
-        let value = $crate::_macro_support::serialize_value(&$value);
-        $crate::assert_snapshot_matches!($name, value, stringify!($value));
+        $crate::_assert_serialized_snapshot_matches!($name, $value, Yaml);
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
+        $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Yaml);
+    }}
+}
+
+/// Assets a `Serialize` snapshot in RON format.
+///
+/// This works exactly like `assert_serialized_snapshot_matches` but serializes
+/// in [RON](https://github.com/ron-rs/ron/) format instead of YAML which
+/// retains some type information for more accurate comparisions.
+#[macro_export]
+macro_rules! assert_ron_snapshot_matches {
+    ($name:expr, $value:expr) => {{
+        $crate::_assert_serialized_snapshot_matches!($name, $value, Ron);
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
+        $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Ron);
+    }}
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _assert_serialized_snapshot_matches {
+    ($name:expr, $value:expr, $format:ident) => {{
+        let value = $crate::_macro_support::serialize_value(
+            &$value,
+            $crate::_macro_support::SerializationFormat::$format
+        );
+        $crate::assert_snapshot_matches!(
+            $name,
+            value,
+            stringify!($value)
+        );
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*}, $format:ident) => {{
         let mut vec = vec![];
         $(
             vec.push((
@@ -26,14 +78,20 @@ macro_rules! assert_serialized_snapshot_matches {
                 $crate::_macro_support::Content::from($v)
             ));
         )*
-        let value = $crate::_macro_support::serialize_value_redacted(&$value, &vec);
+        let value = $crate::_macro_support::serialize_value_redacted(
+            &$value,
+            &vec,
+            $crate::_macro_support::SerializationFormat::$format
+        );
         $crate::assert_snapshot_matches!($name, value, stringify!($value));
     }}
 }
 
 /// Assets a `Debug` snapshot.
 ///
-/// The value needs to implement the `fmt::Debug` trait.
+/// The value needs to implement the `fmt::Debug` trait.  Thi is useful for
+/// simple values that do not implement the `Serialize` trait but does not
+/// permit redactions.
 #[macro_export]
 macro_rules! assert_debug_snapshot_matches {
     ($name:expr, $value:expr) => {{

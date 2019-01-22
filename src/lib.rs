@@ -127,5 +127,7 @@ pub mod _macro_support {
     pub use crate::content::Content;
     pub use crate::redaction::Selector;
     pub use crate::runtime::assert_snapshot;
-    pub use crate::serialization::{serialize_value, serialize_value_redacted};
+    pub use crate::serialization::{
+        serialize_value, serialize_value_redacted, SerializationFormat,
+    };
 }

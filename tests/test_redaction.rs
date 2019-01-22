@@ -1,5 +1,7 @@
 use insta::_macro_support::Selector;
-use insta::{assert_debug_snapshot_matches, assert_serialized_snapshot_matches};
+use insta::{
+    assert_debug_snapshot_matches, assert_ron_snapshot_matches, assert_serialized_snapshot_matches,
+};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -30,6 +32,27 @@ fn test_with_random_value() {
     assert_serialized_snapshot_matches!("user", &User {
         id: Uuid::new_v4(),
         username: "john_doe".to_string(),
+    }, {
+        ".id" => "[uuid]"
+    });
+}
+
+#[test]
+fn test_with_random_value_ron() {
+    #[derive(Serialize)]
+    pub struct Email(String);
+
+    #[derive(Serialize)]
+    pub struct User {
+        id: Uuid,
+        username: String,
+        email: Email,
+    }
+
+    assert_ron_snapshot_matches!("user_ron", &User {
+        id: Uuid::new_v4(),
+        username: "john_doe".to_string(),
+        email: Email("john@example.com".to_string()),
     }, {
         ".id" => "[uuid]"
     });

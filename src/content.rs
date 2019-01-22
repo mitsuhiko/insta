@@ -1,84 +1,6 @@
 use serde::ser::{self, Serialize, Serializer};
 use std::marker::PhantomData;
 
-pub struct SerializeTupleVariantAsMapValue<M> {
-    map: M,
-    name: &'static str,
-    fields: Vec<Content>,
-}
-
-impl<M> SerializeTupleVariantAsMapValue<M> {
-    pub fn new(map: M, name: &'static str, len: usize) -> Self {
-        SerializeTupleVariantAsMapValue {
-            map: map,
-            name: name,
-            fields: Vec::with_capacity(len),
-        }
-    }
-}
-
-impl<M> ser::SerializeTupleVariant for SerializeTupleVariantAsMapValue<M>
-where
-    M: ser::SerializeMap,
-{
-    type Ok = M::Ok;
-    type Error = M::Error;
-
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), M::Error>
-    where
-        T: Serialize,
-    {
-        let value = value.serialize(ContentSerializer::<M::Error>::new())?;
-        self.fields.push(value);
-        Ok(())
-    }
-
-    fn end(mut self) -> Result<M::Ok, M::Error> {
-        self.map
-            .serialize_value(&Content::TupleStruct(self.name, self.fields))?;
-        self.map.end()
-    }
-}
-
-pub struct SerializeStructVariantAsMapValue<M> {
-    map: M,
-    name: &'static str,
-    fields: Vec<(&'static str, Content)>,
-}
-
-impl<M> SerializeStructVariantAsMapValue<M> {
-    pub fn new(map: M, name: &'static str, len: usize) -> Self {
-        SerializeStructVariantAsMapValue {
-            map: map,
-            name: name,
-            fields: Vec::with_capacity(len),
-        }
-    }
-}
-
-impl<M> ser::SerializeStructVariant for SerializeStructVariantAsMapValue<M>
-where
-    M: ser::SerializeMap,
-{
-    type Ok = M::Ok;
-    type Error = M::Error;
-
-    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), M::Error>
-    where
-        T: Serialize,
-    {
-        let value = value.serialize(ContentSerializer::<M::Error>::new())?;
-        self.fields.push((key, value));
-        Ok(())
-    }
-
-    fn end(mut self) -> Result<M::Ok, M::Error> {
-        self.map
-            .serialize_value(&Content::Struct(self.name, self.fields))?;
-        self.map.end()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum Content {
     Bool(bool),
@@ -149,7 +71,7 @@ impl_from!(String, String);
 impl_from!(Vec<u8>, Bytes);
 
 impl From<()> for Content {
-    fn from(value: ()) -> Content {
+    fn from(_value: ()) -> Content {
         Content::Unit
     }
 }
