@@ -83,13 +83,12 @@ macro_rules! _assert_serialized_snapshot_matches {
         );
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}, $format:ident) => {{
-        let mut vec = vec![];
-        $(
-            vec.push((
+        let vec = vec![
+            $((
                 $crate::_macro_support::Selector::parse($k).unwrap(),
                 $crate::_macro_support::Content::from($v)
-            ));
-        )*
+            ),)*
+        ];
         let value = $crate::_macro_support::serialize_value_redacted(
             &$value,
             &vec,
@@ -101,7 +100,7 @@ macro_rules! _assert_serialized_snapshot_matches {
 
 /// Assets a `Debug` snapshot.
 ///
-/// The value needs to implement the `fmt::Debug` trait.  Thi is useful for
+/// The value needs to implement the `fmt::Debug` trait.  This is useful for
 /// simple values that do not implement the `Serialize` trait but does not
 /// permit redactions.
 #[macro_export]

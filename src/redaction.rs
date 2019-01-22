@@ -26,11 +26,58 @@ impl SelectorParseError {
 pub struct SelectParser;
 
 #[derive(Debug)]
+pub enum PathItem {
+    Content(Content),
+    Field(&'static str),
+    Index(u64, u64),
+}
+
+impl PathItem {
+    fn as_str(&self) -> Option<&str> {
+        match *self {
+            PathItem::Content(ref content) => content.as_str(),
+            PathItem::Field(s) => Some(s),
+            PathItem::Index(..) => None,
+        }
+    }
+
+    fn as_u64(&self) -> Option<u64> {
+        match *self {
+            PathItem::Content(ref content) => content.as_u64(),
+            PathItem::Field(_) => None,
+            PathItem::Index(idx, _) => Some(idx),
+        }
+    }
+
+    fn range_check(&self, start: Option<i64>, end: Option<i64>) -> bool {
+        fn expand_range(sel: i64, len: i64) -> i64 {
+            if sel < 0 {
+                (len + sel).max(0)
+            } else {
+                sel
+            }
+        }
+        let (idx, len) = match *self {
+            PathItem::Index(idx, len) => (idx as i64, len as i64),
+            _ => return false,
+        };
+        match (start, end) {
+            (None, None) => true,
+            (None, Some(end)) => idx < expand_range(end, len),
+            (Some(start), None) => idx >= expand_range(start, len),
+            (Some(start), Some(end)) => {
+                idx >= expand_range(start, len) && idx < expand_range(end, len)
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Segment<'a> {
     Wildcard,
     Key(Cow<'a, str>),
     Index(u64),
-    Range(Option<u64>, Option<u64>),
+    Range(Option<i64>, Option<i64>),
 }
 
 #[derive(Debug)]
@@ -112,7 +159,7 @@ impl<'a> Selector<'a> {
         Ok(Selector { selectors: rv })
     }
 
-    pub fn is_match(&self, path: &[Content]) -> bool {
+    pub fn is_match(&self, path: &[PathItem]) -> bool {
         for selector in &self.selectors {
             if selector.len() != path.len() {
                 return false;
@@ -122,8 +169,7 @@ impl<'a> Selector<'a> {
                     Segment::Wildcard => true,
                     Segment::Key(ref k) => element.as_str() == Some(&k),
                     Segment::Index(i) => element.as_u64() == Some(i),
-                    // TODO: implement
-                    Segment::Range(..) => panic!("ranges are not implemented yet"),
+                    Segment::Range(start, end) => element.range_check(start, end),
                 };
                 if !is_match {
                     return false;
@@ -137,7 +183,46 @@ impl<'a> Selector<'a> {
         self.redact_impl(value, redaction, &mut vec![])
     }
 
-    fn redact_impl(&self, value: Content, redaction: &Content, path: &mut Vec<Content>) -> Content {
+    fn redact_seq(
+        &self,
+        seq: Vec<Content>,
+        redaction: &Content,
+        path: &mut Vec<PathItem>,
+    ) -> Vec<Content> {
+        let len = seq.len();
+        seq.into_iter()
+            .enumerate()
+            .map(|(idx, value)| {
+                path.push(PathItem::Index(idx as u64, len as u64));
+                let new_value = self.redact_impl(value, redaction, path);
+                path.pop();
+                new_value
+            })
+            .collect()
+    }
+
+    fn redact_struct(
+        &self,
+        seq: Vec<(&'static str, Content)>,
+        redaction: &Content,
+        path: &mut Vec<PathItem>,
+    ) -> Vec<(&'static str, Content)> {
+        seq.into_iter()
+            .map(|(key, value)| {
+                path.push(PathItem::Field(key));
+                let new_value = self.redact_impl(value, redaction, path);
+                path.pop();
+                (key, new_value)
+            })
+            .collect()
+    }
+
+    fn redact_impl(
+        &self,
+        value: Content,
+        redaction: &Content,
+        path: &mut Vec<PathItem>,
+    ) -> Content {
         if self.is_match(&path) {
             redaction.clone()
         } else {
@@ -145,89 +230,49 @@ impl<'a> Selector<'a> {
                 Content::Map(map) => Content::Map(
                     map.into_iter()
                         .map(|(key, value)| {
-                            path.push(key.clone());
+                            path.push(PathItem::Content(key.clone()));
                             let new_value = self.redact_impl(value, redaction, path);
                             path.pop();
                             (key, new_value)
                         })
                         .collect(),
                 ),
-                Content::Seq(seq) => Content::Seq(
-                    seq.into_iter()
-                        .enumerate()
-                        .map(|(idx, value)| {
-                            path.push(Content::U64(idx as u64));
-                            let new_value = self.redact_impl(value, redaction, path);
-                            path.pop();
-                            new_value
-                        })
-                        .collect(),
-                ),
-                Content::Tuple(seq) => Content::Tuple(
-                    seq.into_iter()
-                        .enumerate()
-                        .map(|(idx, value)| {
-                            path.push(Content::U64(idx as u64));
-                            let new_value = self.redact_impl(value, redaction, path);
-                            path.pop();
-                            new_value
-                        })
-                        .collect(),
-                ),
-                Content::TupleStruct(name, seq) => Content::TupleStruct(
-                    name,
-                    seq.into_iter()
-                        .enumerate()
-                        .map(|(idx, value)| {
-                            path.push(Content::U64(idx as u64));
-                            let new_value = self.redact_impl(value, redaction, path);
-                            path.pop();
-                            new_value
-                        })
-                        .collect(),
-                ),
+                Content::Seq(seq) => Content::Seq(self.redact_seq(seq, redaction, path)),
+                Content::Tuple(seq) => Content::Tuple(self.redact_seq(seq, redaction, path)),
+                Content::TupleStruct(name, seq) => {
+                    Content::TupleStruct(name, self.redact_seq(seq, redaction, path))
+                }
                 Content::TupleVariant(name, variant_index, variant, seq) => Content::TupleVariant(
                     name,
                     variant_index,
                     variant,
-                    seq.into_iter()
-                        .enumerate()
-                        .map(|(idx, value)| {
-                            path.push(Content::U64(idx as u64));
-                            let new_value = self.redact_impl(value, redaction, path);
-                            path.pop();
-                            new_value
-                        })
-                        .collect(),
+                    self.redact_seq(seq, redaction, path),
                 ),
-                Content::Struct(name, seq) => Content::Struct(
-                    name,
-                    seq.into_iter()
-                        .map(|(key, value)| {
-                            path.push(Content::String(key.to_string()));
-                            let new_value = self.redact_impl(value, redaction, path);
-                            path.pop();
-                            (key, new_value)
-                        })
-                        .collect(),
-                ),
+                Content::Struct(name, seq) => {
+                    Content::Struct(name, self.redact_struct(seq, redaction, path))
+                }
                 Content::StructVariant(name, variant_index, variant, seq) => {
                     Content::StructVariant(
                         name,
                         variant_index,
                         variant,
-                        seq.into_iter()
-                            .map(|(key, value)| {
-                                path.push(Content::String(key.to_string()));
-                                let new_value = self.redact_impl(value, redaction, path);
-                                path.pop();
-                                (key, new_value)
-                            })
-                            .collect(),
+                        self.redact_struct(seq, redaction, path),
                     )
                 }
                 other => other,
             }
         }
     }
+}
+
+#[test]
+fn test_range_checks() {
+    assert_eq!(PathItem::Index(0, 10).range_check(None, Some(-1)), true);
+    assert_eq!(PathItem::Index(9, 10).range_check(None, Some(-1)), false);
+    assert_eq!(PathItem::Index(0, 10).range_check(Some(1), Some(-1)), false);
+    assert_eq!(PathItem::Index(1, 10).range_check(Some(1), Some(-1)), true);
+    assert_eq!(PathItem::Index(9, 10).range_check(Some(1), Some(-1)), false);
+    assert_eq!(PathItem::Index(0, 10).range_check(Some(1), None), false);
+    assert_eq!(PathItem::Index(1, 10).range_check(Some(1), None), true);
+    assert_eq!(PathItem::Index(9, 10).range_check(Some(1), None), true);
 }
