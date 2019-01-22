@@ -1,4 +1,4 @@
-/// Assets a `Serialize` snapshot.
+/// Assets a `Serialize` snapshot in YAML format.
 ///
 /// The value needs to implement the `serde::Serialize` trait and the snapshot
 /// will be serialized in YAML format.  This does mean that unlike the debug
@@ -6,6 +6,12 @@
 /// You can however use the `assert_ron_snapshot_matches!` macro to dump out
 /// the value in [RON](https://github.com/ron-rs/ron/) format which retains some
 /// type information for more accurate comparisions.
+///
+/// Example:
+///
+/// ```no_run,ignore
+/// assert_serialized_snapshot_matches!("snapshot_name", vec[1, 2, 3]);
+/// ```
 ///
 /// Unlike the `assert_debug_snapshot_matches` macro, this one has a secondary
 /// mode where redactions can be defined.
@@ -46,6 +52,12 @@ macro_rules! assert_serialized_snapshot_matches {
 /// This works exactly like `assert_serialized_snapshot_matches` but serializes
 /// in [RON](https://github.com/ron-rs/ron/) format instead of YAML which
 /// retains some type information for more accurate comparisions.
+///
+/// Example:
+///
+/// ```no_run,ignore
+/// assert_ron_snapshot_matches!("snapshot_name", vec[1, 2, 3]);
+/// ```
 #[macro_export]
 macro_rules! assert_ron_snapshot_matches {
     ($name:expr, $value:expr) => {{
@@ -101,6 +113,18 @@ macro_rules! assert_debug_snapshot_matches {
 }
 
 /// Assets a string snapshot.
+///
+/// This is the most simplistic of all assertion methods.  It just accepts
+/// a string to store as snapshot an does not apply any other transformations
+/// on it.  This is useful to build ones own primitives.
+///
+/// ```no_run,ignore
+/// assert_snapshot_matches!("snapshot_name", "reference value to snapshot");
+/// ```
+///
+/// Optionally a third argument can be given as expression which will be
+/// stringified as debug expression.  For more information on this look at the
+/// source of this macro and other assertion macros.
 #[macro_export]
 macro_rules! assert_snapshot_matches {
     ($name:expr, $value:expr) => {
