@@ -21,7 +21,10 @@ macro_rules! assert_serialized_snapshot_matches {
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
         let mut vec = vec![];
         $(
-            vec.push(($crate::Selector::parse($k).unwrap(), $crate::Value::from($v)));
+            vec.push((
+                $crate::_macro_support::Selector::parse($k).unwrap(),
+                $crate::_macro_support::Content::from($v)
+            ));
         )*
         let value = $crate::_macro_support::serialize_value_redacted(&$value, &vec);
         $crate::assert_snapshot_matches!($name, value, stringify!($value));

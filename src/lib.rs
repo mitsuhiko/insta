@@ -111,6 +111,7 @@
 //! ```
 #[macro_use]
 mod macros;
+mod content;
 mod redaction;
 mod runtime;
 mod serialization;
@@ -120,14 +121,11 @@ mod test;
 
 pub use crate::runtime::Snapshot;
 
-// this should eventually become public api but probably somewhere else
-#[doc(hidden)]
-pub use crate::redaction::Selector;
-#[doc(hidden)]
-pub use serde_yaml::{Mapping, Number, Sequence, Value};
-
+// these are here to make the macros work
 #[doc(hidden)]
 pub mod _macro_support {
+    pub use crate::content::Content;
+    pub use crate::redaction::Selector;
     pub use crate::runtime::assert_snapshot;
     pub use crate::serialization::{serialize_value, serialize_value_redacted};
 }

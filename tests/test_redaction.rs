@@ -1,16 +1,7 @@
+use insta::_macro_support::Selector;
 use insta::{assert_debug_snapshot_matches, assert_serialized_snapshot_matches};
-use insta::{Selector, Value};
 use serde::Serialize;
 use uuid::Uuid;
-
-#[test]
-fn test_redaction_basics() {
-    let value: Value = serde_yaml::from_str(r#"{"x":{"y":42}}"#).unwrap();
-    let selector = Selector::parse(".x.y").unwrap();
-    let new_value = selector.redact(value, &Value::from("[redacted]"));
-
-    assert_debug_snapshot_matches!("redaction_basics", &new_value);
-}
 
 #[test]
 fn test_selector_parser() {
