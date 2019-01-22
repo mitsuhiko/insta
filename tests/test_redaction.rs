@@ -1,6 +1,7 @@
 use insta::_macro_support::Selector;
 use insta::{
-    assert_debug_snapshot_matches, assert_ron_snapshot_matches, assert_serialized_snapshot_matches,
+    assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_ron_snapshot_matches,
+    assert_serialized_snapshot_matches,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -21,17 +22,22 @@ fn test_selector_parser() {
     assert_selector!("foo_bar_range", ".foo.bar[10:20]");
 }
 
+#[derive(Serialize)]
+pub struct Email(String);
+
+#[derive(Serialize)]
+pub struct User {
+    id: Uuid,
+    username: String,
+    email: Email,
+}
+
 #[test]
 fn test_with_random_value() {
-    #[derive(Serialize)]
-    pub struct User {
-        id: Uuid,
-        username: String,
-    }
-
     assert_serialized_snapshot_matches!("user", &User {
         id: Uuid::new_v4(),
         username: "john_doe".to_string(),
+        email: Email("john@example.com".to_string()),
     }, {
         ".id" => "[uuid]"
     });
@@ -39,20 +45,21 @@ fn test_with_random_value() {
 
 #[test]
 fn test_with_random_value_ron() {
-    #[derive(Serialize)]
-    pub struct Email(String);
-
-    #[derive(Serialize)]
-    pub struct User {
-        id: Uuid,
-        username: String,
-        email: Email,
-    }
-
     assert_ron_snapshot_matches!("user_ron", &User {
         id: Uuid::new_v4(),
-        username: "john_doe".to_string(),
+        username: "john_ron".to_string(),
         email: Email("john@example.com".to_string()),
+    }, {
+        ".id" => "[uuid]"
+    });
+}
+
+#[test]
+fn test_with_random_value_json() {
+    assert_json_snapshot_matches!("user_json", &User {
+        id: Uuid::new_v4(),
+        username: "jason_doe".to_string(),
+        email: Email("jason@example.com".to_string()),
     }, {
         ".id" => "[uuid]"
     });

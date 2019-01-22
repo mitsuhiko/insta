@@ -17,15 +17,8 @@
 /// mode where redactions can be defined.
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }` where the selector is in
-/// a form similar to [jq](https://github.com/stedolan/jq).  The following
-/// selector syntax is implemented:
-///
-/// - `.key`: selects the given key
-/// - `["key"]`: alternative syntax for keys
-/// - `[index]`: selects the given index in an array
-/// - `[]`: selects all items on an array
-/// - `.*`: selects all keys on that depth
+/// It's in the form `{ selector => replacement }`.  For more information
+/// about redactions see [redactions](index.html#redactions).
 ///
 /// Example:
 ///
@@ -58,6 +51,10 @@ macro_rules! assert_serialized_snapshot_matches {
 /// ```no_run,ignore
 /// assert_ron_snapshot_matches!("snapshot_name", vec[1, 2, 3]);
 /// ```
+///
+/// The third argument to the macro can be an object expression for redaction.
+/// It's in the form `{ selector => replacement }`.  For more information
+/// about redactions see [redactions](index.html#redactions).
 #[macro_export]
 macro_rules! assert_ron_snapshot_matches {
     ($name:expr, $value:expr) => {{
@@ -65,6 +62,31 @@ macro_rules! assert_ron_snapshot_matches {
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
         $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Ron);
+    }}
+}
+
+/// Assets a `Serialize` snapshot in JSON format.
+///
+/// This works exactly like `assert_serialized_snapshot_matches` but serializes
+/// in JSON format.  This is normally not recommended because it makes diffs
+/// less reliable, but it can be useful for certain specialized situations.
+///
+/// Example:
+///
+/// ```no_run,ignore
+/// assert_json_snapshot_matches!("snapshot_name", vec[1, 2, 3]);
+/// ```
+///
+/// The third argument to the macro can be an object expression for redaction.
+/// It's in the form `{ selector => replacement }`.  For more information
+/// about redactions see [redactions](index.html#redactions).
+#[macro_export]
+macro_rules! assert_json_snapshot_matches {
+    ($name:expr, $value:expr) => {{
+        $crate::_assert_serialized_snapshot_matches!($name, $value, Json);
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
+        $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Json);
     }}
 }
 

@@ -1,8 +1,9 @@
 ---
-created: "2019-01-22T21:37:33.121800+00:00"
+created: "2019-01-22T23:56:14.680763+00:00"
 creator: insta@0.4.1
-expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
+expression: "&User{id: Uuid::new_v4(),\n      username: \"john_doe\".to_string(),\n      email: Email(\"john@example.com\".to_string()),}"
 source: tests/test_redaction.rs
 ---
 id: "[uuid]"
 username: john_doe
+email: john@example.com

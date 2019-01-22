@@ -1,6 +1,7 @@
 use ron;
 use serde::de::value::Error;
 use serde::Serialize;
+use serde_json;
 use serde_yaml;
 
 use crate::content::{Content, ContentSerializer};
@@ -9,11 +10,13 @@ use crate::redaction::Selector;
 pub enum SerializationFormat {
     Ron,
     Yaml,
+    Json,
 }
 
 pub fn serialize_value<S: Serialize>(s: &S, format: SerializationFormat) -> String {
     match format {
         SerializationFormat::Yaml => serde_yaml::to_string(s).unwrap()[4..].to_string(),
+        SerializationFormat::Json => serde_json::to_string_pretty(s).unwrap(),
         SerializationFormat::Ron => {
             let mut serializer = ron::ser::Serializer::new(
                 Some(ron::ser::PrettyConfig {

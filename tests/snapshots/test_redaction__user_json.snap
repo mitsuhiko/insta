@@ -1,0 +1,11 @@
+---
+created: "2019-01-22T23:56:14.680274+00:00"
+creator: insta@0.4.1
+expression: "&User{id: Uuid::new_v4(),\n      username: \"jason_doe\".to_string(),\n      email: Email(\"jason@example.com\".to_string()),}"
+source: tests/test_redaction.rs
+---
+{
+  "id": "[uuid]",
+  "username": "jason_doe",
+  "email": "jason@example.com"
+}
