@@ -1,9 +1,8 @@
-Created: 2019-01-20T21:07:00.051790+00:00
-Creator: insta@0.2.2
-Expression: vec![1 , 2 , 3]
-Line: 14
-Source: tests/test_basic.rs
-
+---
+created: "2019-01-22T21:33:27.842166+00:00"
+creator: insta@0.4.1
+expression: "vec![1 , 2 , 3]"
+source: tests/test_basic.rs
 ---
 - 1
 - 2

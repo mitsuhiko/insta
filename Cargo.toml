@@ -35,6 +35,7 @@ lazy_static = "1.2.0"
 ci_info = "0.3.1"
 pest = "2.1.0"
 pest_derive = "2.1.0"
+ron = "0.4.1"
 
 [dev-dependencies]
 uuid = { version = "0.7.1", features = ["serde", "v4"] }

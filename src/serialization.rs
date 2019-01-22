@@ -1,17 +1,43 @@
+use ron;
+use serde::de::value::Error;
 use serde::Serialize;
 use serde_yaml;
 
+use crate::content::{Content, ContentSerializer};
 use crate::redaction::Selector;
-use serde_yaml::Value;
 
-pub fn serialize_value<S: Serialize>(s: &S) -> String {
-    serde_yaml::to_string(s).unwrap()
+pub enum SerializationFormat {
+    Ron,
+    Yaml,
 }
 
-pub fn serialize_value_redacted<S: Serialize>(s: &S, redactions: &[(Selector, Value)]) -> String {
-    let mut value = serde_yaml::to_value(s).unwrap();
+pub fn serialize_value<S: Serialize>(s: &S, format: SerializationFormat) -> String {
+    match format {
+        SerializationFormat::Yaml => serde_yaml::to_string(s).unwrap()[4..].to_string(),
+        SerializationFormat::Ron => {
+            let mut serializer = ron::ser::Serializer::new(
+                Some(ron::ser::PrettyConfig {
+                    new_line: "\n".to_string(),
+                    indentor: "  ".to_string(),
+                    ..ron::ser::PrettyConfig::default()
+                }),
+                true,
+            );
+            s.serialize(&mut serializer).unwrap();
+            serializer.into_output_string()
+        }
+    }
+}
+
+pub fn serialize_value_redacted<S: Serialize>(
+    s: &S,
+    redactions: &[(Selector, Content)],
+    format: SerializationFormat,
+) -> String {
+    let serializer = ContentSerializer::<Error>::new();
+    let mut value = Serialize::serialize(s, serializer).unwrap();
     for (selector, redaction) in redactions {
         value = selector.redact(value, &redaction);
     }
-    serde_yaml::to_string(&value).unwrap()[4..].to_string()
+    serialize_value(&value, format)
 }

@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use failure::Fail;
 use pest::Parser;
 use pest_derive::Parser;
-use serde_yaml::{Number, Value};
+
+use crate::content::Content;
 
 #[derive(Fail, Debug)]
 #[fail(display = "{}", _0)]
@@ -28,8 +29,8 @@ pub struct SelectParser;
 pub enum Segment<'a> {
     Wildcard,
     Key(Cow<'a, str>),
-    Index(i32),
-    Range(Option<i32>, Option<i32>),
+    Index(u64),
+    Range(Option<u64>, Option<u64>),
 }
 
 #[derive(Debug)]
@@ -111,7 +112,7 @@ impl<'a> Selector<'a> {
         Ok(Selector { selectors: rv })
     }
 
-    pub fn is_match(&self, path: &[Value]) -> bool {
+    pub fn is_match(&self, path: &[Content]) -> bool {
         for selector in &self.selectors {
             if selector.len() != path.len() {
                 return false;
@@ -120,7 +121,7 @@ impl<'a> Selector<'a> {
                 let is_match = match *segment {
                     Segment::Wildcard => true,
                     Segment::Key(ref k) => element.as_str() == Some(&k),
-                    Segment::Index(i) => element.as_i64() == Some(i64::from(i)),
+                    Segment::Index(i) => element.as_u64() == Some(i),
                     // TODO: implement
                     Segment::Range(..) => panic!("ranges are not implemented yet"),
                 };
@@ -132,16 +133,16 @@ impl<'a> Selector<'a> {
         true
     }
 
-    pub fn redact(&self, value: Value, redaction: &Value) -> Value {
+    pub fn redact(&self, value: Content, redaction: &Content) -> Content {
         self.redact_impl(value, redaction, &mut vec![])
     }
 
-    fn redact_impl(&self, value: Value, redaction: &Value, path: &mut Vec<Value>) -> Value {
+    fn redact_impl(&self, value: Content, redaction: &Content, path: &mut Vec<Content>) -> Content {
         if self.is_match(&path) {
             redaction.clone()
         } else {
             match value {
-                Value::Mapping(map) => Value::Mapping(
+                Content::Map(map) => Content::Map(
                     map.into_iter()
                         .map(|(key, value)| {
                             path.push(key.clone());
@@ -151,17 +152,80 @@ impl<'a> Selector<'a> {
                         })
                         .collect(),
                 ),
-                Value::Sequence(seq) => Value::Sequence(
+                Content::Seq(seq) => Content::Seq(
                     seq.into_iter()
                         .enumerate()
                         .map(|(idx, value)| {
-                            path.push(Value::Number(Number::from(idx)));
+                            path.push(Content::U64(idx as u64));
                             let new_value = self.redact_impl(value, redaction, path);
                             path.pop();
                             new_value
                         })
                         .collect(),
                 ),
+                Content::Tuple(seq) => Content::Tuple(
+                    seq.into_iter()
+                        .enumerate()
+                        .map(|(idx, value)| {
+                            path.push(Content::U64(idx as u64));
+                            let new_value = self.redact_impl(value, redaction, path);
+                            path.pop();
+                            new_value
+                        })
+                        .collect(),
+                ),
+                Content::TupleStruct(name, seq) => Content::TupleStruct(
+                    name,
+                    seq.into_iter()
+                        .enumerate()
+                        .map(|(idx, value)| {
+                            path.push(Content::U64(idx as u64));
+                            let new_value = self.redact_impl(value, redaction, path);
+                            path.pop();
+                            new_value
+                        })
+                        .collect(),
+                ),
+                Content::TupleVariant(name, variant_index, variant, seq) => Content::TupleVariant(
+                    name,
+                    variant_index,
+                    variant,
+                    seq.into_iter()
+                        .enumerate()
+                        .map(|(idx, value)| {
+                            path.push(Content::U64(idx as u64));
+                            let new_value = self.redact_impl(value, redaction, path);
+                            path.pop();
+                            new_value
+                        })
+                        .collect(),
+                ),
+                Content::Struct(name, seq) => Content::Struct(
+                    name,
+                    seq.into_iter()
+                        .map(|(key, value)| {
+                            path.push(Content::String(key.to_string()));
+                            let new_value = self.redact_impl(value, redaction, path);
+                            path.pop();
+                            (key, new_value)
+                        })
+                        .collect(),
+                ),
+                Content::StructVariant(name, variant_index, variant, seq) => {
+                    Content::StructVariant(
+                        name,
+                        variant_index,
+                        variant,
+                        seq.into_iter()
+                            .map(|(key, value)| {
+                                path.push(Content::String(key.to_string()));
+                                let new_value = self.redact_impl(value, redaction, path);
+                                path.pop();
+                                (key, new_value)
+                            })
+                            .collect(),
+                    )
+                }
                 other => other,
             }
         }

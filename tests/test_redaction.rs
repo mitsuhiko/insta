@@ -1,16 +1,9 @@
-use insta::{assert_debug_snapshot_matches, assert_serialized_snapshot_matches};
-use insta::{Selector, Value};
+use insta::_macro_support::Selector;
+use insta::{
+    assert_debug_snapshot_matches, assert_ron_snapshot_matches, assert_serialized_snapshot_matches,
+};
 use serde::Serialize;
 use uuid::Uuid;
-
-#[test]
-fn test_redaction_basics() {
-    let value: Value = serde_yaml::from_str(r#"{"x":{"y":42}}"#).unwrap();
-    let selector = Selector::parse(".x.y").unwrap();
-    let new_value = selector.redact(value, &Value::from("[redacted]"));
-
-    assert_debug_snapshot_matches!("redaction_basics", &new_value);
-}
 
 #[test]
 fn test_selector_parser() {
@@ -39,6 +32,27 @@ fn test_with_random_value() {
     assert_serialized_snapshot_matches!("user", &User {
         id: Uuid::new_v4(),
         username: "john_doe".to_string(),
+    }, {
+        ".id" => "[uuid]"
+    });
+}
+
+#[test]
+fn test_with_random_value_ron() {
+    #[derive(Serialize)]
+    pub struct Email(String);
+
+    #[derive(Serialize)]
+    pub struct User {
+        id: Uuid,
+        username: String,
+        email: Email,
+    }
+
+    assert_ron_snapshot_matches!("user_ron", &User {
+        id: Uuid::new_v4(),
+        username: "john_doe".to_string(),
+        email: Email("john@example.com".to_string()),
     }, {
         ".id" => "[uuid]"
     });
