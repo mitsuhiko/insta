@@ -270,17 +270,12 @@ impl Snapshot {
         };
 
         buf.clear();
-
         for (idx, line) in f.lines().enumerate() {
             let line = line?;
             if idx > 0 {
                 buf.push('\n');
             }
             buf.push_str(&line);
-        }
-
-        if buf.ends_with('\n') {
-            buf.truncate(buf.len() - 1);
         }
 
         Ok(Snapshot {
