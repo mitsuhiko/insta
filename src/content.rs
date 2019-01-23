@@ -1,3 +1,4 @@
+// this module is based on the content module in serde::private::ser
 use serde::ser::{self, Serialize, Serializer};
 use std::marker::PhantomData;
 
@@ -142,7 +143,7 @@ impl Serialize for Content {
             }
             Content::Seq(ref elements) => elements.serialize(serializer),
             Content::Tuple(ref elements) => {
-                use ser::SerializeTuple;
+                use serde::ser::SerializeTuple;
                 let mut tuple = serializer.serialize_tuple(elements.len())?;
                 for e in elements {
                     tuple.serialize_element(e)?;
@@ -150,7 +151,7 @@ impl Serialize for Content {
                 tuple.end()
             }
             Content::TupleStruct(n, ref fields) => {
-                use ser::SerializeTupleStruct;
+                use serde::ser::SerializeTupleStruct;
                 let mut ts = serializer.serialize_tuple_struct(n, fields.len())?;
                 for f in fields {
                     ts.serialize_field(f)?;
@@ -158,7 +159,7 @@ impl Serialize for Content {
                 ts.end()
             }
             Content::TupleVariant(n, i, v, ref fields) => {
-                use ser::SerializeTupleVariant;
+                use serde::ser::SerializeTupleVariant;
                 let mut tv = serializer.serialize_tuple_variant(n, i, v, fields.len())?;
                 for f in fields {
                     tv.serialize_field(f)?;
@@ -166,7 +167,7 @@ impl Serialize for Content {
                 tv.end()
             }
             Content::Map(ref entries) => {
-                use ser::SerializeMap;
+                use serde::ser::SerializeMap;
                 let mut map = serializer.serialize_map(Some(entries.len()))?;
                 for &(ref k, ref v) in entries {
                     map.serialize_entry(k, v)?;
@@ -174,7 +175,7 @@ impl Serialize for Content {
                 map.end()
             }
             Content::Struct(n, ref fields) => {
-                use ser::SerializeStruct;
+                use serde::ser::SerializeStruct;
                 let mut s = serializer.serialize_struct(n, fields.len())?;
                 for &(k, ref v) in fields {
                     s.serialize_field(k, v)?;
@@ -182,7 +183,7 @@ impl Serialize for Content {
                 s.end()
             }
             Content::StructVariant(n, i, v, ref fields) => {
-                use ser::SerializeStructVariant;
+                use serde::ser::SerializeStructVariant;
                 let mut sv = serializer.serialize_struct_variant(n, i, v, fields.len())?;
                 for &(k, ref v) in fields {
                     sv.serialize_field(k, v)?;
