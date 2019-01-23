@@ -27,6 +27,16 @@ enum UpdateBehavior {
     NoUpdate,
 }
 
+#[cfg(windows)]
+fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
+    path.as_ref().to_str().unwrap().replace('\\', '/').into()
+}
+
+#[cfg(not(windows))]
+fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
+    path.as_ref().to_string_lossy().into()
+}
+
 fn format_rust_expression(value: &str) -> Cow<'_, str> {
     if let Ok(mut proc) = Command::new("rustfmt")
         .arg("--emit=stdout")
@@ -230,8 +240,8 @@ pub struct Snapshot {
 
 impl Snapshot {
     /// Loads a snapshot from a file.
-    pub fn from_file<P: AsRef<Path>>(p: &P) -> Result<Snapshot, Error> {
-        let mut f = BufReader::new(fs::File::open(p)?);
+    pub fn from_file<P: AsRef<Path>>(p: P) -> Result<Snapshot, Error> {
+        let mut f = BufReader::new(fs::File::open(p.as_ref())?);
         let mut buf = String::new();
 
         f.read_line(&mut buf)?;
@@ -438,7 +448,7 @@ pub fn assert_snapshot(
         "creator".to_string(),
         format!("{}@{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
     );
-    metadata.insert("source".to_string(), file.to_string());
+    metadata.insert("source".to_string(), path_to_storage(file));
     metadata.insert("expression".to_string(), expr.to_string());
     let new = Snapshot {
         path: snapshot_file.to_path_buf(),
