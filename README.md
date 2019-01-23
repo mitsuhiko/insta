@@ -7,16 +7,24 @@
 
 ## How it Operates
 
-This crate exports three basic macros for snapshot testing:
-`assert_snapshot_matches!` for comparing basic string snapshots,
-`assert_debug_snapshot_matches!` for snapshotting the debug print output of
-a type and the `assert_serialized_snapshot_matches!` macro becomes
-available which serializes an object with `serde` to yaml before
-snapshotting.
+This crate exports multiple macros for snapshot testing:
+
+- `assert_snapshot_matches!` for comparing basic string snapshots.
+- `assert_debug_snapshot_matches!` for comparing `Debug` outputs of values.
+- `assert_serialized_snapshot_matches!` for comparing YAML serialized
+  output of types implementing `serde::Serialize`.
+- `assert_ron_snapshot_matches!` for comparing RON serialized output of
+  types implementing `serde::Serialize`.
+- `assert_json_snapshot_matches!` for comparing JSON serialized output of
+  types implementing `serde::Serialize`.
 
 Snapshots are stored in the `snapshots` folder right next to the test file
 where this is used.  The name of the file is `<module>__<name>.snap` where
 the `name` of the snapshot has to be provided to the assertion macro.
+
+For macros that work with `serde::Serialize` this crate also permits
+redacting of partial values.  See [redactions](#redactions) for more
+information.
 
 <img src="https://github.com/mitsuhiko/insta/blob/master/assets/insta.gif?raw=true" alt="">
 
@@ -110,6 +118,45 @@ This can be enabled by setting `INSTA_FORCE_PASS` to `1`:
 
 ```rust
 $ INSTA_FORCE_PASS=1 cargo test --no-fail-fast
+```
+
+## Redactions
+
+For all snapshots created based on `serde::Serialize` output `insta`
+supports redactions.  This permits replacing values with hardcoded other
+values to make snapshots stable when otherwise random or otherwise changing
+values are involved.
+
+Redactions can be defined as the third argument to those macros with
+the syntax `{ selector => replacement_value }`.
+
+The following selectors exist:
+
+- `.key`: selects the given key
+- `["key"]`: alternative syntax for keys
+- `[index]`: selects the given index in an array
+- `[]`: selects all items on an array
+- `[:end]`: selects all items up to `end` (excluding, supports negative indexing)
+- `[start:]`: selects all items starting with `start`
+- `[start:end]`: selects all items from `start` to `end` (end excluding,
+  supports negative indexing).
+- `.*`: selects all keys on that depth
+
+Example usage:
+
+```rust
+#[derive(Serialize)]
+pub struct User {
+    id: Uuid,
+    username: String,
+}
+
+assert_serialized_snapshot_matches!("user", &User {
+    id: Uuid::new_v4(),
+    username: "john_doe".to_string(),
+}, {
+    ".id" => "[uuid]"
+});
 ```
 
 License: Apache-2.0
