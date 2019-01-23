@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -270,7 +270,15 @@ impl Snapshot {
         };
 
         buf.clear();
-        f.read_to_string(&mut buf)?;
+
+        for (idx, line) in f.lines().enumerate() {
+            let line = line?;
+            if idx > 0 {
+                buf.push('\n');
+            }
+            buf.push_str(&line);
+        }
+
         if buf.ends_with('\n') {
             buf.truncate(buf.len() - 1);
         }
