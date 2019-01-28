@@ -11,7 +11,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-insta = { version = "0.5.0", path = ".." }
+insta = { version = "0.6.0", path = ".." }
 console = "0.7.5"
 clap = "2.32.0"
 difference = "2.0.0"
@@ -21,3 +21,6 @@ serde_json = "1.0.36"
 failure = "0.1.5"
 glob = "0.2.11"
 walkdir = "2.2.7"
+proc-macro2 = { version = "0.4.26", features = ["span-location-info"] }
+syn = { version = "0.15.26", features = ["full"] }
+quote = { version = "0.6.11" }

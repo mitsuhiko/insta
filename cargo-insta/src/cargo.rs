@@ -5,9 +5,11 @@ use std::path::{Component, Path, PathBuf};
 use std::process;
 
 use failure::{err_msg, Error};
-pub use insta::Snapshot;
+use insta::{PendingInlineSnapshot, Snapshot};
 use serde::Deserialize;
 use walkdir::{DirEntry, WalkDir};
+
+use crate::inline::FilePatcher;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Target {
@@ -30,6 +32,13 @@ pub struct Metadata {
     workspace_root: String,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum Operation {
+    Accept,
+    Reject,
+    Skip,
+}
+
 impl Metadata {
     pub fn workspace_root(&self) -> &Path {
         Path::new(&self.workspace_root)
@@ -42,41 +51,147 @@ struct ProjectLocation {
 }
 
 #[derive(Debug)]
-pub struct SnapshotRef {
-    old_path: PathBuf,
-    new_path: PathBuf,
+pub enum SnapshotContainerKind {
+    Inline,
+    External,
 }
 
-impl SnapshotRef {
-    fn new(new_path: PathBuf) -> SnapshotRef {
-        let mut old_path = new_path.clone();
-        old_path.set_extension("");
-        SnapshotRef { old_path, new_path }
-    }
+#[derive(Debug)]
+pub struct PendingSnapshot {
+    pub id: usize,
+    pub old: Option<Snapshot>,
+    pub new: Snapshot,
+    pub op: Operation,
+    pub line: Option<u32>,
+}
 
-    pub fn path(&self) -> &Path {
-        &self.old_path
-    }
-
-    pub fn load_old(&self) -> Result<Option<Snapshot>, Error> {
-        if fs::metadata(&self.old_path).is_err() {
-            Ok(None)
+impl PendingSnapshot {
+    pub fn id(&self) -> String {
+        if let Some(name) = self.new.snapshot_name() {
+            format!("{}#{}", self.new.module_name(), name)
         } else {
-            Snapshot::from_file(&self.old_path).map(Some)
+            format!(
+                "{}#inline+{}",
+                self.new.module_name(),
+                self.line.unwrap_or(0)
+            )
         }
     }
+}
 
-    pub fn load_new(&self) -> Result<Snapshot, Error> {
-        Snapshot::from_file(&self.new_path)
+#[derive(Debug)]
+pub struct SnapshotContainer {
+    snapshot_path: PathBuf,
+    target_path: PathBuf,
+    kind: SnapshotContainerKind,
+    snapshots: Vec<PendingSnapshot>,
+    patcher: Option<FilePatcher>,
+}
+
+impl SnapshotContainer {
+    fn load(
+        snapshot_path: PathBuf,
+        target_path: PathBuf,
+        kind: SnapshotContainerKind,
+    ) -> Result<SnapshotContainer, Error> {
+        let mut snapshots = Vec::new();
+        let patcher = match kind {
+            SnapshotContainerKind::External => {
+                let old = if fs::metadata(&target_path).is_err() {
+                    None
+                } else {
+                    Some(Snapshot::from_file(&target_path)?)
+                };
+                let new = Snapshot::from_file(&snapshot_path)?;
+                snapshots.push(PendingSnapshot {
+                    id: 0,
+                    old,
+                    new,
+                    op: Operation::Skip,
+                    line: None,
+                });
+                None
+            }
+            SnapshotContainerKind::Inline => {
+                let pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
+                let mut patcher = FilePatcher::open(&target_path)?;
+                for (id, pending) in pending_vec.into_iter().enumerate() {
+                    snapshots.push(PendingSnapshot {
+                        id,
+                        old: pending.old,
+                        new: pending.new,
+                        op: Operation::Skip,
+                        line: Some(pending.line),
+                    });
+                    patcher.add_snapshot_macro(pending.line as usize);
+                }
+                Some(patcher)
+            }
+        };
+
+        Ok(SnapshotContainer {
+            snapshot_path,
+            target_path,
+            kind,
+            snapshots,
+            patcher,
+        })
     }
 
-    pub fn accept(&self) -> Result<(), Error> {
-        fs::rename(&self.new_path, &self.old_path)?;
-        Ok(())
+    pub fn len(&self) -> usize {
+        self.snapshots.len()
     }
 
-    pub fn reject(&self) -> Result<(), Error> {
-        fs::remove_file(&self.new_path)?;
+    pub fn iter_snapshots(&mut self) -> impl Iterator<Item = &'_ mut PendingSnapshot> {
+        self.snapshots.iter_mut()
+    }
+
+    pub fn commit(&mut self) -> Result<(), Error> {
+        if let Some(ref mut patcher) = self.patcher {
+            let mut new_pending = vec![];
+            let mut did_accept = false;
+            let mut did_skip = false;
+
+            for (idx, snapshot) in self.snapshots.iter().enumerate() {
+                match snapshot.op {
+                    Operation::Accept => {
+                        patcher.set_new_content(idx, snapshot.new.contents());
+                        did_accept = true;
+                    }
+                    Operation::Reject => {}
+                    Operation::Skip => {
+                        new_pending.push(PendingInlineSnapshot::new(
+                            snapshot.new.clone(),
+                            snapshot.old.clone(),
+                            patcher.get_new_line(idx) as u32,
+                        ));
+                        did_skip = true;
+                    }
+                }
+            }
+
+            if did_accept {
+                patcher.save()?;
+            }
+            if did_skip {
+                PendingInlineSnapshot::save_batch(&self.snapshot_path, &new_pending)?;
+            } else {
+                fs::remove_file(&self.snapshot_path)?;
+            }
+        } else {
+            // should only be one or this is weird
+            for snapshot in self.snapshots.iter() {
+                match snapshot.op {
+                    Operation::Accept => {
+                        fs::rename(&self.snapshot_path, &self.target_path)?;
+                    }
+                    Operation::Reject => {
+                        fs::remove_file(&self.snapshot_path)?;
+                    }
+                    Operation::Skip => {}
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -98,7 +213,9 @@ impl Package {
         &self.version
     }
 
-    pub fn iter_snapshots(&self) -> impl Iterator<Item = SnapshotRef> {
+    pub fn iter_snapshot_containers(
+        &self,
+    ) -> impl Iterator<Item = Result<SnapshotContainer, Error>> {
         let mut roots = HashSet::new();
         for target in &self.targets {
             let root = target.src_path.parent().unwrap();
@@ -109,10 +226,11 @@ impl Package {
         roots.into_iter().flat_map(|root| {
             WalkDir::new(root.clone())
                 .into_iter()
-                .filter_entry(|e| !is_hidden(e))
+                .filter_entry(|e| e.file_type().is_file() || !is_hidden(e))
                 .filter_map(|e| e.ok())
-                .filter(move |e| {
-                    e.file_name().to_string_lossy().ends_with(".snap.new")
+                .filter_map(move |e| {
+                    let fname = e.file_name().to_string_lossy();
+                    if fname.ends_with(".snap.new")
                         && e.path()
                             .strip_prefix(&root)
                             .unwrap()
@@ -121,8 +239,27 @@ impl Package {
                                 Component::Normal(dir) => dir.to_str() == Some("snapshots"),
                                 _ => false,
                             })
+                    {
+                        let new_path = e.into_path();
+                        let mut old_path = new_path.clone();
+                        old_path.set_extension("");
+                        Some(SnapshotContainer::load(
+                            new_path,
+                            old_path,
+                            SnapshotContainerKind::External,
+                        ))
+                    } else if fname.starts_with(".") && fname.ends_with(".pending-snap") {
+                        let mut target_path = e.path().to_path_buf();
+                        target_path.set_file_name(&fname[1..fname.len() - 13]);
+                        Some(SnapshotContainer::load(
+                            e.path().to_path_buf(),
+                            target_path,
+                            SnapshotContainerKind::Inline,
+                        ))
+                    } else {
+                        None
+                    }
                 })
-                .map(|e| SnapshotRef::new(e.into_path()))
         })
     }
 }

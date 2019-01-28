@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
 use chrono::Utc;
-use console::{style, Color};
+use console::style;
 use difference::{Changeset, Difference};
 use failure::Error;
 use lazy_static::lazy_static;
@@ -16,6 +16,8 @@ use lazy_static::lazy_static;
 use ci_info::is_ci;
 use serde::Deserialize;
 use serde_json;
+
+use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot};
 
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
@@ -133,7 +135,7 @@ fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     }
 }
 
-fn print_changeset_diff(changeset: &Changeset, expr: Option<&str>) {
+fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
     let Changeset { ref diffs, .. } = *changeset;
     #[derive(PartialEq)]
     enum Mode {
@@ -214,218 +216,91 @@ fn print_changeset_diff(changeset: &Changeset, expr: Option<&str>) {
 }
 
 pub fn get_snapshot_filename(
-    name: &str,
+    module_name: &str,
+    snapshot_name: &str,
     cargo_workspace: &Path,
-    module_path: &str,
     base: &str,
 ) -> PathBuf {
     let root = Path::new(cargo_workspace);
     let base = Path::new(base);
     root.join(base.parent().unwrap())
         .join("snapshots")
-        .join(format!(
-            "{}__{}.snap",
-            module_path.rsplit("::").next().unwrap(),
-            name
-        ))
+        .join(format!("{}__{}.snap", module_name, snapshot_name))
 }
 
-/// A helper to work with stored snapshots.
-#[derive(Debug)]
-pub struct Snapshot {
-    path: PathBuf,
-    metadata: BTreeMap<String, String>,
-    snapshot: String,
-}
-
-impl Snapshot {
-    /// Loads a snapshot from a file.
-    pub fn from_file<P: AsRef<Path>>(p: P) -> Result<Snapshot, Error> {
-        let mut f = BufReader::new(fs::File::open(p.as_ref())?);
-        let mut buf = String::new();
-
-        f.read_line(&mut buf)?;
-
-        // yaml format
-        let metadata = if buf.trim_end() == "---" {
-            loop {
-                let read = f.read_line(&mut buf)?;
-                if read == 0 {
-                    break;
-                }
-                if buf[buf.len() - read..].trim_end() == "---" {
-                    buf.truncate(buf.len() - read);
-                    break;
-                }
-            }
-            serde_yaml::from_str(&buf)?
-        // legacy format
-        } else {
-            let mut rv = BTreeMap::new();
-            loop {
-                buf.clear();
-                let read = f.read_line(&mut buf)?;
-                if read == 0 || buf.trim_end().is_empty() {
-                    buf.truncate(buf.len() - read);
-                    break;
-                }
-                let mut iter = buf.splitn(2, ':');
-                if let Some(key) = iter.next() {
-                    if let Some(value) = iter.next() {
-                        rv.insert(key.to_lowercase(), value.to_string());
-                    }
-                }
-            }
-            rv
-        };
-
-        buf.clear();
-        for (idx, line) in f.lines().enumerate() {
-            let line = line?;
-            if idx > 0 {
-                buf.push('\n');
-            }
-            buf.push_str(&line);
-        }
-
-        Ok(Snapshot {
-            path: p.as_ref().to_path_buf(),
-            metadata,
-            snapshot: buf,
-        })
-    }
-
-    /// The path of the snapshot
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
-    /// Relative path to the workspace root.
-    pub fn relative_path(&self, root: &Path) -> &Path {
-        self.path.strip_prefix(root).ok().unwrap_or(&self.path)
-    }
-
-    /// Returns the module name.
-    pub fn module_name(&self) -> &str {
-        self.path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap_or("")
-            .split("__")
-            .next()
-            .unwrap()
-    }
-
-    /// Returns the snapshot name.
-    pub fn snapshot_name(&self) -> &str {
-        self.path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap_or("")
-            .split('.')
-            .next()
-            .unwrap_or("")
-            .splitn(2, "__")
-            .nth(1)
-            .unwrap_or("unknown")
-    }
-
-    /// The metadata in the snapshot.
-    pub fn metadata(&self) -> &BTreeMap<String, String> {
-        &self.metadata
-    }
-
-    /// The snapshot contents
-    pub fn contents(&self) -> &str {
-        &self.snapshot
-    }
-
-    /// Prints a diff against an old snapshot.
-    pub fn print_changes(&self, old_snapshot: Option<&Snapshot>) {
-        if let Some(value) = self.metadata.get("source") {
-            println!("Source: {}", style(value).cyan());
-        }
-        if let Some(value) = self.metadata.get("created") {
-            println!("New: {}", style(value).cyan());
-        }
-        let changeset = Changeset::new(
-            old_snapshot.as_ref().map_or("", |x| x.contents()),
-            &self.snapshot,
-            "\n",
-        );
-        if let Some(old_snapshot) = old_snapshot {
-            if let Some(value) = old_snapshot.metadata.get("created") {
-                println!("Old: {}", style(value).cyan());
-            }
-            println!();
-            println!("{}", style("-old snapshot").red());
-            println!("{}", style("+new results").green());
-        } else {
-            println!("Old: {}", style("n.a.").red());
-            println!();
-            println!("{}", style("+new results").green());
-        }
-        print_changeset_diff(
-            &changeset,
-            self.metadata.get("expression").map(|x| x.as_str()),
-        );
-    }
-
-    fn save(&self) -> Result<(), Error> {
-        self.save_impl(&self.path)
-    }
-
-    fn save_new(&self) -> Result<PathBuf, Error> {
-        let mut path = self.path.to_path_buf();
-        path.set_extension("snap.new");
-        self.save_impl(&path)?;
-        Ok(path)
-    }
-
-    fn save_impl(&self, path: &Path) -> Result<(), Error> {
-        if let Some(folder) = path.parent() {
-            fs::create_dir_all(&folder)?;
-        }
-        let mut f = fs::File::create(&path)?;
-        serde_yaml::to_writer(&mut f, &self.metadata)?;
-        f.write_all(b"\n---\n")?;
-        f.write_all(self.snapshot.as_bytes())?;
-        f.write_all(b"\n")?;
-        Ok(())
-    }
-}
-
-fn print_snapshot_diff(
-    cargo_workspace: &Path,
-    name: &str,
+/// Prints a diff against an old snapshot.
+pub fn print_snapshot_diff(
+    workspace_root: &Path,
+    new: &Snapshot,
     old_snapshot: Option<&Snapshot>,
+    line: Option<u32>,
+) {
+    if let Some(ref value) = new.metadata().get_relative_source(workspace_root) {
+        println!(
+            "Source: {}{}",
+            style(value.display()).cyan(),
+            if let Some(line) = line {
+                format!(":{}", style(line).bold())
+            } else {
+                "".to_string()
+            }
+        );
+    }
+    if let Some(ref value) = new.metadata().created {
+        println!("New: {}", style(value.to_rfc3339()).cyan());
+    }
+    let changeset = Changeset::new(
+        old_snapshot.as_ref().map_or("", |x| x.contents()),
+        &new.contents(),
+        "\n",
+    );
+    if let Some(old_snapshot) = old_snapshot {
+        if let Some(ref value) = old_snapshot.metadata().created {
+            println!("Old: {}", style(value.to_rfc3339()).cyan());
+        }
+        println!();
+        println!("{}", style("-old snapshot").red());
+        println!("{}", style("+new results").green());
+    } else {
+        println!("Old: {}", style("n.a.").red());
+        println!();
+        println!("{}", style("+new results").green());
+    }
+    print_changeset(
+        &changeset,
+        new.metadata().expression.as_ref().map(|x| x.as_str()),
+    );
+}
+
+fn print_snapshot_diff_with_title(
+    workspace_root: &Path,
     new_snapshot: &Snapshot,
+    old_snapshot: Option<&Snapshot>,
+    line: u32,
 ) {
     let width = console::Term::stdout().size().1 as usize;
 
-    let file = style(new_snapshot.relative_path(&cargo_workspace).display())
-        .underlined()
-        .fg(if fs::metadata(&new_snapshot.path).is_ok() {
-            Color::Cyan
-        } else {
-            Color::Red
-        });
-
     println!(
-        "{title:━^width$}\nFile: {file}\nSnapshot: {name}",
-        name = style(name).yellow(),
-        file = file,
+        "{title:━^width$}",
         title = style(" Snapshot Differences ").bold(),
         width = width
     );
 
-    new_snapshot.print_changes(old_snapshot);
+    if let Some(name) = new_snapshot.snapshot_name() {
+        println!("Snapshot: {}", style(name).yellow());
+    }
+
+    print_snapshot_diff(workspace_root, new_snapshot, old_snapshot, Some(line));
 }
 
+pub enum ReferenceValue<'a> {
+    Named(&'a str),
+    Inline(&'a str),
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn assert_snapshot(
-    name: &str,
+    refval: ReferenceValue<'_>,
     new_snapshot: &str,
     manifest_dir: &str,
     module_path: &str,
@@ -433,30 +308,70 @@ pub fn assert_snapshot(
     line: u32,
     expr: &str,
 ) -> Result<(), Error> {
+    let module_name = module_path.rsplit("::").next().unwrap();
     let cargo_workspace = get_cargo_workspace(manifest_dir);
-    let snapshot_file = get_snapshot_filename(name, &cargo_workspace, module_path, file);
-    let old = Snapshot::from_file(&snapshot_file).ok();
+
+    let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
+        ReferenceValue::Named(snapshot_name) => {
+            let snapshot_file =
+                get_snapshot_filename(module_name, snapshot_name, &cargo_workspace, file);
+            let old = if fs::metadata(&snapshot_file).is_ok() {
+                Some(Snapshot::from_file(&snapshot_file)?)
+            } else {
+                None
+            };
+            (Some(snapshot_name), Some(snapshot_file), old, None)
+        }
+        ReferenceValue::Inline(contents) => {
+            let mut filename = cargo_workspace.join(file);
+            let created = fs::metadata(&filename)?.created()?.into();
+            filename.set_file_name(format!(
+                ".{}.pending-snap",
+                filename
+                    .file_name()
+                    .expect("no filename")
+                    .to_str()
+                    .expect("non unicode filename")
+            ));
+            (
+                None,
+                None,
+                Some(Snapshot::from_components(
+                    module_name.to_string(),
+                    None,
+                    MetaData {
+                        created: Some(created),
+                        ..MetaData::default()
+                    },
+                    contents.to_string(),
+                )),
+                Some(filename),
+            )
+        }
+    };
 
     // if the snapshot matches we're done.
-    if old.as_ref().map_or(false, |x| x.snapshot == new_snapshot) {
+    if old.as_ref().map_or(false, |x| x.contents() == new_snapshot) {
         return Ok(());
     }
 
-    let mut metadata = BTreeMap::new();
-    metadata.insert("created".to_string(), Utc::now().to_rfc3339());
-    metadata.insert(
-        "creator".to_string(),
-        format!("{}@{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
+    let new = Snapshot::from_components(
+        module_name.to_string(),
+        snapshot_name.map(|x| x.to_string()),
+        MetaData {
+            created: Some(Utc::now()),
+            creator: Some(format!(
+                "{}@{}",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            )),
+            source: Some(path_to_storage(file)),
+            expression: Some(expr.to_string()),
+        },
+        new_snapshot.to_string(),
     );
-    metadata.insert("source".to_string(), path_to_storage(file));
-    metadata.insert("expression".to_string(), expr.to_string());
-    let new = Snapshot {
-        path: snapshot_file.to_path_buf(),
-        metadata,
-        snapshot: new_snapshot.to_string(),
-    };
 
-    print_snapshot_diff(cargo_workspace, name, old.as_ref(), &new);
+    print_snapshot_diff_with_title(cargo_workspace, &new, old.as_ref(), line);
     println!(
         "{hint}",
         hint = style("To update snapshots re-run the tests with INSTA_UPDATE=yes or use `cargo insta review`").dim(),
@@ -464,21 +379,36 @@ pub fn assert_snapshot(
 
     match update_snapshot_behavior() {
         UpdateBehavior::InPlace => {
-            new.save()?;
-            eprintln!(
-                "  {} {}\n",
-                style("updated snapshot").green(),
-                style(snapshot_file.display()).cyan().underlined(),
-            );
-            return Ok(());
+            if let Some(ref snapshot_file) = snapshot_file {
+                new.save(snapshot_file)?;
+                eprintln!(
+                    "  {} {}\n",
+                    style("updated snapshot").green(),
+                    style(snapshot_file.display()).cyan().underlined(),
+                );
+                return Ok(());
+            } else {
+                eprintln!(
+                    "  {}",
+                    style("error: cannot update inline snapshots in-place")
+                        .red()
+                        .bold(),
+                );
+            }
         }
         UpdateBehavior::NewFile => {
-            let new_path = new.save_new()?;
-            eprintln!(
-                "  {} {}\n",
-                style("stored new snapshot").green(),
-                style(new_path.display()).cyan().underlined(),
-            );
+            if let Some(ref snapshot_file) = snapshot_file {
+                let mut new_path = snapshot_file.to_path_buf();
+                new_path.set_extension("snap.new");
+                new.save(&new_path)?;
+                eprintln!(
+                    "  {} {}\n",
+                    style("stored new snapshot").green(),
+                    style(new_path.display()).cyan().underlined(),
+                );
+            } else {
+                PendingInlineSnapshot::new(new, old, line).save(pending_snapshots.unwrap())?;
+            }
         }
         UpdateBehavior::NoUpdate => {}
     }
@@ -487,7 +417,8 @@ pub fn assert_snapshot(
         assert!(
             false,
             "snapshot assertion for '{}' failed in line {}",
-            name, line
+            snapshot_name.unwrap_or("inline snapshot"),
+            line
         );
     }
 

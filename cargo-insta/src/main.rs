@@ -11,6 +11,7 @@
 //! ```
 mod cargo;
 mod cli;
+mod inline;
 
 fn main() {
     if let Err(err) = cli::run() {

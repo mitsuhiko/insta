@@ -1,6 +1,6 @@
 [package]
 name = "insta"
-version = "0.5.2"
+version = "0.6.0"
 license = "Apache-2.0"
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
 description = "A snapshot testing library for Rust"
@@ -29,13 +29,14 @@ serde = { version = "1.0.85", features = ["derive"] }
 failure = "0.1.5"
 serde_yaml = "0.8.8"
 console = "0.7.5"
-chrono = "0.4.6"
+chrono = { version = "0.4.6", features = ["serde"] }
 serde_json = "1.0.36"
 lazy_static = "1.2.0"
 ci_info = "0.3.1"
 pest = "2.1.0"
 pest_derive = "2.1.0"
 ron = "0.4.1"
-
-[dev-dependencies]
 uuid = { version = "0.7.1", features = ["serde", "v4"] }
+
+[patch.crates-io]
+proc-macro2 = { git = "https://github.com/mitsuhiko/proc-macro2", rev = "e09dfd48f2ac12a38898aa7812bd06935298d23f" }

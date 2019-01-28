@@ -3,10 +3,11 @@ use std::path::{Path, PathBuf};
 
 use console::{set_colors_enabled, style, Key, Term};
 use failure::{err_msg, Error};
+use insta::{print_snapshot_diff, Snapshot};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
-use crate::cargo::{find_packages, get_package_metadata, Metadata, Package, SnapshotRef};
+use crate::cargo::{find_packages, get_package_metadata, Metadata, Operation, Package};
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -61,43 +62,30 @@ pub struct ProcessCommand {
     pub pkg_args: PackageArgs,
 }
 
-#[derive(Clone, Copy, Debug)]
-enum Operation {
-    Accept,
-    Reject,
-    Skip,
-}
-
-fn process_snapshot(
+fn query_snapshot(
+    workspace_root: &Path,
     term: &Term,
-    cargo_workspace: &Path,
-    snapshot_ref: &SnapshotRef,
+    new: &Snapshot,
+    old: Option<&Snapshot>,
     pkg: &Package,
+    line: Option<u32>,
     i: usize,
     n: usize,
 ) -> Result<Operation, Error> {
-    let old = snapshot_ref.load_old()?;
-    let new = snapshot_ref.load_new()?;
-
-    let path = snapshot_ref
-        .path()
-        .strip_prefix(cargo_workspace)
-        .ok()
-        .unwrap_or_else(|| snapshot_ref.path());
-
     term.clear_screen()?;
     println!(
-        "{}{}{} {} in {} ({})",
+        "{}{}{} {} ({})",
         style("Reviewing [").bold(),
         style(format!("{}/{}", i, n)).yellow().bold(),
         style("]:").bold(),
-        style(path.display()).cyan().underlined().bold(),
         style(pkg.name()).dim(),
         pkg.version()
     );
 
-    println!("Snapshot: {}", style(new.snapshot_name()).yellow());
-    new.print_changes(old.as_ref());
+    if let Some(snapshot_name) = new.snapshot_name() {
+        println!("Snapshot: {}", style(snapshot_name).yellow());
+    }
+    print_snapshot_diff(workspace_root, new, old, line);
 
     println!("");
     println!(
@@ -145,12 +133,15 @@ fn handle_pkg_args(pkg_args: &PackageArgs) -> Result<(Metadata, Vec<Package>), E
 fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), Error> {
     let term = Term::stdout();
     let (metadata, packages) = handle_pkg_args(&cmd.pkg_args)?;
-    let snapshots: Vec<_> = packages
-        .iter()
-        .flat_map(|p| p.iter_snapshots().map(move |s| (s, p)))
-        .collect();
+    let mut snapshot_containers = vec![];
+    for package in &packages {
+        for snapshot_container in package.iter_snapshot_containers() {
+            snapshot_containers.push((snapshot_container?, package));
+        }
+    }
+    let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum();
 
-    if snapshots.is_empty() {
+    if snapshot_count == 0 {
         println!("{}: no snapshots to review", style("done").bold());
         return Ok(());
     }
@@ -158,33 +149,39 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     let mut accepted = vec![];
     let mut rejected = vec![];
     let mut skipped = vec![];
+    let mut num = 0;
 
-    for (idx, (snapshot, package)) in snapshots.iter().enumerate() {
-        let op = match op {
-            Some(op) => op,
-            None => process_snapshot(
-                &term,
-                metadata.workspace_root(),
-                snapshot,
-                package,
-                idx + 1,
-                snapshots.len(),
-            )?,
-        };
-        let path = snapshot.path().to_path_buf();
-        match op {
-            Operation::Accept => {
-                snapshot.accept()?;
-                accepted.push(path);
-            }
-            Operation::Reject => {
-                snapshot.reject()?;
-                rejected.push(path);
-            }
-            Operation::Skip => {
-                skipped.push(path);
+    for (snapshot_container, package) in snapshot_containers.iter_mut() {
+        for snapshot_ref in snapshot_container.iter_snapshots() {
+            num += 1;
+            let op = match op {
+                Some(op) => op,
+                None => query_snapshot(
+                    metadata.workspace_root(),
+                    &term,
+                    &snapshot_ref.new,
+                    snapshot_ref.old.as_ref(),
+                    package,
+                    snapshot_ref.line,
+                    num,
+                    snapshot_count,
+                )?,
+            };
+            match op {
+                Operation::Accept => {
+                    snapshot_ref.op = Operation::Accept;
+                    accepted.push(snapshot_ref.id());
+                }
+                Operation::Reject => {
+                    snapshot_ref.op = Operation::Reject;
+                    rejected.push(snapshot_ref.id());
+                }
+                Operation::Skip => {
+                    skipped.push(snapshot_ref.id());
+                }
             }
         }
+        snapshot_container.commit()?;
     }
 
     if op.is_none() {
@@ -195,19 +192,19 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     if !accepted.is_empty() {
         println!("{}:", style("accepted").green());
         for item in accepted {
-            println!("  {}", item.display());
+            println!("  {}", item);
         }
     }
     if !rejected.is_empty() {
         println!("{}:", style("rejected").red());
         for item in rejected {
-            println!("  {}", item.display());
+            println!("  {}", item);
         }
     }
     if !skipped.is_empty() {
         println!("{}:", style("skipped").yellow());
         for item in skipped {
-            println!("  {}", item.display());
+            println!("  {}", item);
         }
     }
 

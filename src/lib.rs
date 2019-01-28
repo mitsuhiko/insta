@@ -162,18 +162,23 @@ mod content;
 mod redaction;
 mod runtime;
 mod serialization;
+mod snapshot;
 
 #[cfg(test)]
 mod test;
 
-pub use crate::runtime::Snapshot;
+pub use crate::snapshot::Snapshot;
+
+// exported for cargo-insta only
+#[doc(hidden)]
+pub use crate::{runtime::print_snapshot_diff, snapshot::PendingInlineSnapshot};
 
 // these are here to make the macros work
 #[doc(hidden)]
 pub mod _macro_support {
     pub use crate::content::Content;
     pub use crate::redaction::Selector;
-    pub use crate::runtime::assert_snapshot;
+    pub use crate::runtime::{assert_snapshot, ReferenceValue};
     pub use crate::serialization::{
         serialize_value, serialize_value_redacted, SerializationFormat,
     };
