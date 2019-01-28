@@ -134,7 +134,7 @@ macro_rules! _assert_serialized_snapshot_matches {
             &vec,
             $crate::_macro_support::SerializationFormat::$format
         );
-        $crate::assert_snapshot_matches!(value, stringify!($value), @snapshot);
+        $crate::assert_snapshot_matches!(value, stringify!($value), @$snapshot);
     }};
     ($name:expr, $value:expr, $format:ident) => {{
         let value = $crate::_macro_support::serialize_value(
