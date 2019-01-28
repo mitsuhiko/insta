@@ -31,7 +31,7 @@ enum UpdateBehavior {
 
 #[cfg(windows)]
 fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
-    path.as_ref().to_str().unwrap().replace('\\', '/').into()
+    path.as_ref().to_str().unwrap().replace('\\', "/").into()
 }
 
 #[cfg(not(windows))]
