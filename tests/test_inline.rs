@@ -1,27 +1,22 @@
 use insta::{
     assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_ron_snapshot_matches,
-    assert_serialized_snapshot_matches, assert_yaml_snapshot_matches,
+    assert_serialized_snapshot_matches, assert_snapshot_matches, assert_yaml_snapshot_matches,
 };
 use serde::Serialize;
 
 #[test]
 fn test_simple() {
-    assert_debug_snapshot_matches!(vec![1, 2, 3], @r###"[
+    assert_debug_snapshot_matches!(vec![1, 2, 3, 4], @r###"[
     1,
     2,
-    3
+    3,
+    4
 ]"###);
 }
 
 #[test]
-fn test_complex() {
-    assert_debug_snapshot_matches!(vec![1, 2, 3, 4, 5], @r###"[
-    1,
-    2,
-    3,
-    4,
-    5
-]"###);
+fn test_single_line() {
+    assert_snapshot_matches!("Testing", @"Testing");
 }
 
 #[test]

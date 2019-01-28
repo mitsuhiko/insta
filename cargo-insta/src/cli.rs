@@ -62,6 +62,7 @@ pub struct ProcessCommand {
     pub pkg_args: PackageArgs,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn query_snapshot(
     workspace_root: &Path,
     term: &Term,
@@ -71,6 +72,7 @@ fn query_snapshot(
     line: Option<u32>,
     i: usize,
     n: usize,
+    snapshot_file: Option<&Path>,
 ) -> Result<Operation, Error> {
     term.clear_screen()?;
     println!(
@@ -82,10 +84,7 @@ fn query_snapshot(
         pkg.version()
     );
 
-    if let Some(snapshot_name) = new.snapshot_name() {
-        println!("Snapshot: {}", style(snapshot_name).yellow());
-    }
-    print_snapshot_diff(workspace_root, new, old, line);
+    print_snapshot_diff(workspace_root, new, old, snapshot_file, line);
 
     println!("");
     println!(
@@ -152,6 +151,7 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     let mut num = 0;
 
     for (snapshot_container, package) in snapshot_containers.iter_mut() {
+        let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
         for snapshot_ref in snapshot_container.iter_snapshots() {
             num += 1;
             let op = match op {
@@ -165,19 +165,20 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
                     snapshot_ref.line,
                     num,
                     snapshot_count,
+                    snapshot_file.as_ref().map(|x| x.as_path()),
                 )?,
             };
             match op {
                 Operation::Accept => {
                     snapshot_ref.op = Operation::Accept;
-                    accepted.push(snapshot_ref.id());
+                    accepted.push(snapshot_ref.summary());
                 }
                 Operation::Reject => {
                     snapshot_ref.op = Operation::Reject;
-                    rejected.push(snapshot_ref.id());
+                    rejected.push(snapshot_ref.summary());
                 }
                 Operation::Skip => {
-                    skipped.push(snapshot_ref.id());
+                    skipped.push(snapshot_ref.summary());
                 }
             }
         }

@@ -234,8 +234,27 @@ pub fn print_snapshot_diff(
     workspace_root: &Path,
     new: &Snapshot,
     old_snapshot: Option<&Snapshot>,
+    snapshot_file: Option<&Path>,
     line: Option<u32>,
 ) {
+    if let Some(snapshot_file) = snapshot_file {
+        let snapshot_file = workspace_root
+            .join(snapshot_file)
+            .strip_prefix(workspace_root)
+            .ok()
+            .map(|x| x.to_path_buf())
+            .unwrap_or_else(|| snapshot_file.to_path_buf());
+        println!(
+            "Snapshot file: {}",
+            style(snapshot_file.display()).cyan().underlined()
+        );
+    }
+    if let Some(name) = new.snapshot_name() {
+        println!("Snapshot: {}", style(name).yellow());
+    } else {
+        println!("Snapshot: {}", style("<inline>").dim());
+    }
+
     if let Some(ref value) = new.metadata().get_relative_source(workspace_root) {
         println!(
             "Source: {}{}",
@@ -278,20 +297,21 @@ fn print_snapshot_diff_with_title(
     new_snapshot: &Snapshot,
     old_snapshot: Option<&Snapshot>,
     line: u32,
+    snapshot_file: Option<&Path>,
 ) {
     let width = console::Term::stdout().size().1 as usize;
-
     println!(
         "{title:━^width$}",
         title = style(" Snapshot Differences ").bold(),
         width = width
     );
-
-    if let Some(name) = new_snapshot.snapshot_name() {
-        println!("Snapshot: {}", style(name).yellow());
-    }
-
-    print_snapshot_diff(workspace_root, new_snapshot, old_snapshot, Some(line));
+    print_snapshot_diff(
+        workspace_root,
+        new_snapshot,
+        old_snapshot,
+        snapshot_file,
+        Some(line),
+    );
 }
 
 pub enum ReferenceValue<'a> {
@@ -372,10 +392,16 @@ pub fn assert_snapshot(
         new_snapshot.to_string(),
     );
 
-    print_snapshot_diff_with_title(cargo_workspace, &new, old.as_ref(), line);
+    print_snapshot_diff_with_title(
+        cargo_workspace,
+        &new,
+        old.as_ref(),
+        line,
+        snapshot_file.as_ref().map(|x| x.as_path()),
+    );
     println!(
         "{hint}",
-        hint = style("To update snapshots re-run the tests with INSTA_UPDATE=yes or use `cargo insta review`").dim(),
+        hint = style("To update snapshots run `cargo insta review`").dim(),
     );
 
     match update_snapshot_behavior() {

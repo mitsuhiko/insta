@@ -66,16 +66,19 @@ pub struct PendingSnapshot {
 }
 
 impl PendingSnapshot {
-    pub fn id(&self) -> String {
-        if let Some(name) = self.new.snapshot_name() {
-            format!("{}#{}", self.new.module_name(), name)
-        } else {
-            format!(
-                "{}#inline+{}",
-                self.new.module_name(),
-                self.line.unwrap_or(0)
-            )
+    pub fn summary(&self) -> String {
+        use std::fmt::Write;
+        let mut rv = String::new();
+        if let Some(ref source) = self.new.metadata().source {
+            write!(&mut rv, "{}", source).unwrap();
         }
+        if let Some(line) = self.line {
+            write!(&mut rv, ":{}", line).unwrap();
+        }
+        if let Some(name) = self.new.snapshot_name() {
+            write!(&mut rv, " ({})", name).unwrap();
+        }
+        rv
     }
 }
 
@@ -136,6 +139,13 @@ impl SnapshotContainer {
             snapshots,
             patcher,
         })
+    }
+
+    pub fn snapshot_file(&self) -> Option<&Path> {
+        match self.kind {
+            SnapshotContainerKind::External => Some(&self.target_path),
+            SnapshotContainerKind::Inline => None,
+        }
     }
 
     pub fn len(&self) -> usize {
