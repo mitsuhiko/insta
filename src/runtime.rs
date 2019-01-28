@@ -114,7 +114,8 @@ fn get_cargo() -> String {
 }
 
 fn get_cargo_workspace(manifest_dir: &str) -> &Path {
-    let mut workspaces = WORKSPACES.lock().unwrap();
+    // we really do not care about locking here.
+    let mut workspaces = WORKSPACES.lock().unwrap_or_else(|x| x.into_inner());
     if let Some(rv) = workspaces.get(manifest_dir) {
         rv
     } else {
@@ -324,7 +325,7 @@ pub fn assert_snapshot(
         }
         ReferenceValue::Inline(contents) => {
             let mut filename = cargo_workspace.join(file);
-            let created = fs::metadata(&filename)?.created()?.into();
+            let created = fs::metadata(&filename)?.created().ok().map(|x| x.into());
             filename.set_file_name(format!(
                 ".{}.pending-snap",
                 filename
@@ -340,7 +341,7 @@ pub fn assert_snapshot(
                     module_name.to_string(),
                     None,
                     MetaData {
-                        created: Some(created),
+                        created: created,
                         ..MetaData::default()
                     },
                     contents.to_string(),
