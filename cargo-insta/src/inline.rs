@@ -159,12 +159,3 @@ impl FilePatcher {
         visitor.1
     }
 }
-
-#[test]
-fn test_patcher() {
-    let mut patcher = FilePatcher::open("tests/test_inline.rs").unwrap();
-    patcher.set_new_content(0, "this is the new content\nsecond line\nMOAR!");
-    patcher.set_new_content(1, "almost empty");
-    println!("{:#?}", &patcher.lines);
-    panic!();
-}

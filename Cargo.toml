@@ -39,4 +39,4 @@ ron = "0.4.1"
 uuid = { version = "0.7.1", features = ["serde", "v4"] }
 
 [patch.crates-io]
-proc-macro2 = { git = "https://github.com/dtolnay/proc-macro2", rev = "383649a8fa8754adf9da2a4dd8473b494ccfd2df" }
+proc-macro2 = { git = "https://github.com/dtolnay/proc-macro2", rev = "3b1f7d28c11a0f88ab52504c4b8e1dc9e7789883" }

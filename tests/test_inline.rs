@@ -1,4 +1,6 @@
-use insta::{assert_debug_snapshot_matches, assert_ron_snapshot_matches};
+use insta::{
+    assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_ron_snapshot_matches,
+};
 use serde::Serialize;
 
 #[test]
@@ -42,4 +44,12 @@ fn test_ron_inline() {
   username: "peter-doe",
   email: Email("peter@doe.invalid"),
 )"###);
+}
+
+#[test]
+fn test_json_inline() {
+    assert_json_snapshot_matches!(vec!["foo", "bar"], @r###"[
+  "foo",
+  "bar"
+]"###);
 }
