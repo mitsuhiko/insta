@@ -11,7 +11,7 @@ This crate exports multiple macros for snapshot testing:
 
 - `assert_snapshot_matches!` for comparing basic string snapshots.
 - `assert_debug_snapshot_matches!` for comparing `Debug` outputs of values.
-- `assert_serialized_snapshot_matches!` for comparing YAML serialized
+- `assert_yaml_snapshot_matches!` for comparing YAML serialized
   output of types implementing `serde::Serialize`.
 - `assert_ron_snapshot_matches!` for comparing RON serialized output of
   types implementing `serde::Serialize`.
@@ -21,6 +21,10 @@ This crate exports multiple macros for snapshot testing:
 Snapshots are stored in the `snapshots` folder right next to the test file
 where this is used.  The name of the file is `<module>__<name>.snap` where
 the `name` of the snapshot has to be provided to the assertion macro.
+
+Additionally snapshots can also be stored inline.  In that case the
+`cargo-insta` tool is necessary.  See [inline snapshots](#inline-snapshots)
+for more information.
 
 For macros that work with `serde::Serialize` this crate also permits
 redacting of partial values.  See [redactions](#redactions) for more
@@ -151,12 +155,36 @@ pub struct User {
     username: String,
 }
 
-assert_serialized_snapshot_matches!("user", &User {
+assert_yaml_snapshot_matches!("user", &User {
     id: Uuid::new_v4(),
     username: "john_doe".to_string(),
 }, {
     ".id" => "[uuid]"
 });
 ```
+
+## Inline Snapshots
+
+Additionally snapshots can also be stored inline.  In that case the format
+for the snapshot macros is `assert_snapshot_matches!(reference_value, @"snapshot")`.
+The leading at sign (`@`) indicates that the following string is the
+reference value.  `cargo-insta` will then update that string with the new
+value on review.
+
+Example:
+
+```rust
+#[derive(Serialize)]
+pub struct User {
+    username: String,
+}
+
+assert_yaml_snapshot_matches!(User {
+    username: "john_doe".to_string(),
+}, @"");
+```
+
+After the initial test failure you can run `cargo insta review` to
+accept the change.  The file will then be updated automatically.
 
 License: Apache-2.0
