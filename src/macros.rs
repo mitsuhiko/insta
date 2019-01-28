@@ -1,3 +1,20 @@
+/// Alias for `assert_yaml_snapshot_matches`.
+#[macro_export]
+macro_rules! assert_serialized_snapshot_matches {
+    ($value:expr, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot_matches!($value, Yaml, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*}, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Yaml, @$snapshot);
+    }};
+    ($name:expr, $value:expr) => {{
+        $crate::_assert_serialized_snapshot_matches!($name, $value, Yaml);
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
+        $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Yaml);
+    }}
+}
+
 /// Assets a `Serialize` snapshot in YAML format.
 ///
 /// The value needs to implement the `serde::Serialize` trait and the snapshot
@@ -10,7 +27,7 @@
 /// Example:
 ///
 /// ```no_run,ignore
-/// assert_serialized_snapshot_matches!("snapshot_name", vec[1, 2, 3]);
+/// assert_yaml_snapshot_matches!("snapshot_name", vec[1, 2, 3]);
 /// ```
 ///
 /// Unlike the `assert_debug_snapshot_matches` macro, this one has a secondary
@@ -23,15 +40,20 @@
 /// Example:
 ///
 /// ```no_run,ignore
-/// assert_serialized_snapshot_matches!("name", value, {
+/// assert_yaml_snapshot_matches!("name", value, {
 ///     ".key.to.redact" => "[replacement value]",
 ///     ".another.key.*.to.redact" => 42
 /// });
 /// ```
 ///
 /// The replacement value can be a string, integer or any other primitive value.
+///
+/// For inline usage the format is `(expression, @reference_value)` where the
+/// reference value must be a string literal.  If you make the initial snapshot
+/// just use an empty string (`@""`).  For more information see
+/// [inline snapshots](index.html#inline-snapshots).
 #[macro_export]
-macro_rules! assert_serialized_snapshot_matches {
+macro_rules! assert_yaml_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot_matches!($value, Yaml, @$snapshot);
     }};

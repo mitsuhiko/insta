@@ -1,6 +1,6 @@
 use insta::{
     assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_ron_snapshot_matches,
-    assert_serialized_snapshot_matches,
+    assert_serialized_snapshot_matches, assert_yaml_snapshot_matches,
 };
 use serde::Serialize;
 
@@ -65,6 +65,26 @@ fn test_serialize_inline_redacted() {
     }
 
     assert_serialized_snapshot_matches!(User {
+        id: 42,
+        username: "peter-pan".into(),
+        email: "peterpan@wonderland.invalid".into()
+    }, {
+        ".id" => "[user-id]"
+    }, @r###"id: "[user-id]"
+username: peter-pan
+email: peterpan@wonderland.invalid"###);
+}
+
+#[test]
+fn test_yaml_inline_redacted() {
+    #[derive(Serialize)]
+    pub struct User {
+        id: u32,
+        username: String,
+        email: String,
+    }
+
+    assert_yaml_snapshot_matches!(User {
         id: 42,
         username: "peter-pan".into(),
         email: "peterpan@wonderland.invalid".into()

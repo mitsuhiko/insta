@@ -61,14 +61,19 @@ impl PendingInlineSnapshot {
     }
 }
 
+/// Snapshot metadata information.
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct MetaData {
+    /// The timestamp of when the snapshot was created.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created: Option<DateTime<Utc>>,
+    /// The creator of the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creator: Option<String>,
+    /// The source file (relative to workspace root).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// Optionally the expression that created the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expression: Option<String>,
 }
