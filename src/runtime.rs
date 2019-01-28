@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
-use chrono::Utc;
+use chrono::{Local, Utc};
 use console::style;
 use difference::{Changeset, Difference};
 use failure::Error;
@@ -266,9 +266,6 @@ pub fn print_snapshot_diff(
             }
         );
     }
-    if let Some(ref value) = new.metadata().created {
-        println!("New: {}", style(value.to_rfc3339()).cyan());
-    }
     let changeset = Changeset::new(
         old_snapshot.as_ref().map_or("", |x| x.contents()),
         &new.contents(),
@@ -276,13 +273,28 @@ pub fn print_snapshot_diff(
     );
     if let Some(old_snapshot) = old_snapshot {
         if let Some(ref value) = old_snapshot.metadata().created {
-            println!("Old: {}", style(value.to_rfc3339()).cyan());
+            println!(
+                "Old: {}",
+                style(value.with_timezone(&Local).to_rfc2822()).cyan()
+            );
+        }
+        if let Some(ref value) = new.metadata().created {
+            println!(
+                "New: {}",
+                style(value.with_timezone(&Local).to_rfc2822()).cyan()
+            );
         }
         println!();
         println!("{}", style("-old snapshot").red());
         println!("{}", style("+new results").green());
     } else {
         println!("Old: {}", style("n.a.").red());
+        if let Some(ref value) = new.metadata().created {
+            println!(
+                "New: {}",
+                style(value.with_timezone(&Local).to_rfc2822()).cyan()
+            );
+        }
         println!();
         println!("{}", style("+new results").green());
     }
