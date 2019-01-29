@@ -274,7 +274,7 @@ impl Package {
     }
 }
 
-fn get_cargo() -> String {
+pub fn get_cargo() -> String {
     env::var("CARGO")
         .ok()
         .unwrap_or_else(|| "cargo".to_string())

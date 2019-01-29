@@ -1,5 +1,6 @@
 use std::env;
 use std::path::{Path, PathBuf};
+use std::process;
 
 use console::{set_colors_enabled, style, Key, Term};
 use failure::{err_msg, Error};
@@ -7,7 +8,7 @@ use insta::{print_snapshot_diff, Snapshot};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
-use crate::cargo::{find_packages, get_package_metadata, Metadata, Operation, Package};
+use crate::cargo::{find_packages, get_cargo, get_package_metadata, Metadata, Operation, Package};
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -41,18 +42,21 @@ pub enum Command {
     /// Accept all snapshots
     #[structopt(name = "accept")]
     Accept(ProcessCommand),
+    /// Run tests and then reviews
+    #[structopt(name = "test")]
+    Test(TestCommand),
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, Clone)]
 #[structopt(rename_all = "kebab-case")]
 pub struct PackageArgs {
-    /// Review all packages
-    #[structopt(long)]
-    pub all: bool,
-
     /// Path to Cargo.toml
     #[structopt(long, value_name = "PATH", parse(from_os_str))]
     pub manifest_path: Option<PathBuf>,
+
+    /// Work on all packages in the workspace
+    #[structopt(long)]
+    pub all: bool,
 }
 
 #[derive(StructOpt, Debug)]
@@ -60,6 +64,34 @@ pub struct PackageArgs {
 pub struct ProcessCommand {
     #[structopt(flatten)]
     pub pkg_args: PackageArgs,
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(rename_all = "kebab-case")]
+pub struct TestCommand {
+    #[structopt(flatten)]
+    pub pkg_args: PackageArgs,
+    /// Package to run tests for
+    #[structopt(short = "p", long)]
+    pub package: Option<String>,
+    /// Disable force-passing of snapshot tests
+    #[structopt(long)]
+    pub no_force_pass: bool,
+    /// Prevent running all tests regardless of failure
+    #[structopt(long)]
+    pub fail_fast: bool,
+    /// Space-separated list of features to activate
+    #[structopt(long, value_name = "FEATURES")]
+    pub features: Option<String>,
+    /// Activate all available features
+    #[structopt(long)]
+    pub all_features: bool,
+    /// Do not activate the `default` feature
+    #[structopt(long)]
+    pub no_default_features: bool,
+    /// Follow up with review.
+    #[structopt(long)]
+    pub review: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -212,6 +244,55 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     Ok(())
 }
 
+fn test_run(cmd: &TestCommand) -> Result<(), Error> {
+    let mut proc = process::Command::new(get_cargo());
+    proc.arg("test");
+    if cmd.pkg_args.all {
+        proc.arg("--all");
+    }
+    if let Some(ref pkg) = cmd.package {
+        proc.arg("--package");
+        proc.arg(pkg);
+    }
+    if let Some(ref manifest_path) = cmd.pkg_args.manifest_path {
+        proc.arg("--manifest-path");
+        proc.arg(manifest_path);
+    }
+    if !cmd.fail_fast {
+        proc.arg("--no-fail-fast");
+    }
+    if !cmd.no_force_pass {
+        proc.env("INSTA_FORCE_PASS", "1");
+    }
+    if let Some(ref features) = cmd.features {
+        proc.arg("--features");
+        proc.arg(features);
+    }
+    if cmd.all_features {
+        proc.arg("--all-features");
+    }
+    if cmd.no_default_features {
+        proc.arg("--no-default-features");
+    }
+    proc.arg("--");
+    proc.arg("-q");
+    let status = proc.status()?;
+    if !status.success() {
+        eprintln!("error: some tests failed");
+    }
+
+    if cmd.review {
+        process_snapshots(
+            &ProcessCommand {
+                pkg_args: cmd.pkg_args.clone(),
+            },
+            None,
+        )?
+    }
+
+    Ok(())
+}
+
 pub fn run() -> Result<(), Error> {
     // chop off cargo
     let mut args = env::args_os();
@@ -223,5 +304,6 @@ pub fn run() -> Result<(), Error> {
         Command::Review(cmd) => process_snapshots(&cmd, None),
         Command::Accept(cmd) => process_snapshots(&cmd, Some(Operation::Accept)),
         Command::Reject(cmd) => process_snapshots(&cmd, Some(Operation::Reject)),
+        Command::Test(cmd) => test_run(&cmd),
     }
 }
