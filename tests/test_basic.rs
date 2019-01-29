@@ -22,5 +22,5 @@ fn test_yaml_vector() {
 
 #[test]
 fn test_json_vector() {
-    assert_json_snapshot_matches!("json_vector", vec![1, 2, 3]);
+    assert_json_snapshot_matches!("json_json", vec![1, 2, 3]);
 }
