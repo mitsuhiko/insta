@@ -126,6 +126,7 @@ fn get_cargo_workspace(manifest_dir: &str) -> &Path {
         let output = std::process::Command::new(get_cargo())
             .arg("metadata")
             .arg("--format-version=1")
+            .arg("--no-deps")
             .current_dir(manifest_dir)
             .output()
             .unwrap();
