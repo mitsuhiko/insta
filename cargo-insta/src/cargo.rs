@@ -258,7 +258,7 @@ impl Package {
                             old_path,
                             SnapshotContainerKind::External,
                         ))
-                    } else if fname.starts_with(".") && fname.ends_with(".pending-snap") {
+                    } else if fname.starts_with('.') && fname.ends_with(".pending-snap") {
                         let mut target_path = e.path().to_path_buf();
                         target_path.set_file_name(&fname[1..fname.len() - 13]);
                         Some(SnapshotContainer::load(

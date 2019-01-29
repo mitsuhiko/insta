@@ -373,7 +373,7 @@ pub fn assert_snapshot(
                     module_name.to_string(),
                     None,
                     MetaData {
-                        created: created,
+                        created,
                         ..MetaData::default()
                     },
                     contents.to_string(),

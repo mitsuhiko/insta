@@ -355,7 +355,7 @@ where
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, E> {
         Ok(SerializeTupleStruct {
-            name: name,
+            name,
             fields: Vec::with_capacity(len),
             error: PhantomData,
         })
@@ -369,9 +369,9 @@ where
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, E> {
         Ok(SerializeTupleVariant {
-            name: name,
-            variant_index: variant_index,
-            variant: variant,
+            name,
+            variant_index,
+            variant,
             fields: Vec::with_capacity(len),
             error: PhantomData,
         })
@@ -387,7 +387,7 @@ where
 
     fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct, E> {
         Ok(SerializeStruct {
-            name: name,
+            name,
             fields: Vec::with_capacity(len),
             error: PhantomData,
         })
@@ -401,9 +401,9 @@ where
         len: usize,
     ) -> Result<Self::SerializeStructVariant, E> {
         Ok(SerializeStructVariant {
-            name: name,
-            variant_index: variant_index,
-            variant: variant,
+            name,
+            variant_index,
+            variant,
             fields: Vec::with_capacity(len),
             error: PhantomData,
         })

@@ -1,5 +1,6 @@
 {
     "editor.formatOnSave": true,
+    "rust.clippy_preference": "on",
     "rust.cfg_test": true,
     "rust.all_features": true
 }

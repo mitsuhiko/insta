@@ -86,7 +86,7 @@ fn query_snapshot(
 
     print_snapshot_diff(workspace_root, new, old, snapshot_file, line);
 
-    println!("");
+    println!();
     println!(
         "  {} accept   {}",
         style("A").green().bold(),
