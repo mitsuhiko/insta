@@ -264,6 +264,9 @@ fn test_run(cmd: &TestCommand) -> Result<(), Error> {
     if !cmd.no_force_pass {
         proc.env("INSTA_FORCE_PASS", "1");
     }
+    if cmd.review {
+        proc.env("INSTA_UPDATE", "new");
+    }
     if let Some(ref features) = cmd.features {
         proc.arg("--features");
         proc.arg(features);
