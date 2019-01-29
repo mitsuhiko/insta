@@ -3,12 +3,17 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use console::{set_colors_enabled, style, Key, Term};
-use failure::{err_msg, Error};
+use failure::{err_msg, Error, Fail};
 use insta::{print_snapshot_diff, Snapshot};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
 use crate::cargo::{find_packages, get_cargo, get_package_metadata, Metadata, Operation, Package};
+
+/// Close without message but exit code.
+#[derive(Fail, Debug)]
+#[fail(display = "exit with {}", _0)]
+pub struct QuietExit(pub i32);
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -280,8 +285,15 @@ fn test_run(cmd: &TestCommand) -> Result<(), Error> {
     proc.arg("--");
     proc.arg("-q");
     let status = proc.status()?;
+
     if !status.success() {
-        eprintln!("error: some tests failed");
+        if cmd.review {
+            eprintln!(
+                "{} non snapshot tests failed, skipping review",
+                style("warning:").bold().yellow()
+            );
+        }
+        return Err(QuietExit(1).into());
     }
 
     if cmd.review {
