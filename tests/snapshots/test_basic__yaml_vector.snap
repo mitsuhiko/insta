@@ -1,11 +1,9 @@
 ---
-created: "2019-01-28T23:41:01.161964Z"
+created: "2019-01-29T00:09:49.830483Z"
 creator: insta@0.6.0
 source: tests/test_basic.rs
 expression: "vec![1 , 2 , 3]"
 ---
-[
-  1,
-  2,
-  3
-]
+- 1
+- 2
+- 3
