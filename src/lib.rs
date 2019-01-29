@@ -122,6 +122,13 @@
 //! $ INSTA_FORCE_PASS=1 cargo test --no-fail-fast
 //! ```
 //!
+//! A better way to do this is to run `cargo insta test --review` which will
+//! run all tests with force pass and then bring up the review tool:
+//!
+//! ```ignore
+//! $ cargo insta test --review
+//! ```
+//!
 //! # Redactions
 //!
 //! For all snapshots created based on `serde::Serialize` output `insta`

@@ -12,4 +12,6 @@ $ cargo install cargo-insta
 $ cargo insta --help
 ```
 
+For more information see [the insta crate documentation](https://docs.rs/insta).
+
 License: Apache-2.0

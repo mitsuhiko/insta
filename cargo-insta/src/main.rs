@@ -9,6 +9,8 @@
 //! $ cargo install cargo-insta
 //! $ cargo insta --help
 //! ```
+//!
+//! For more information see [the insta crate documentation](https://docs.rs/insta).
 mod cargo;
 mod cli;
 mod inline;
