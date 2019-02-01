@@ -1,5 +1,6 @@
 /// Alias for `assert_yaml_snapshot_matches`.
 #[macro_export]
+#[deprecated(since = "0.6.0", note = "Replaced by assert_yaml_snapshot_matches")]
 macro_rules! assert_serialized_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot_matches!($value, Yaml, @$snapshot);
