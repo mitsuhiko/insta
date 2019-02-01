@@ -30,7 +30,7 @@ For macros that work with `serde::Serialize` this crate also permits
 redacting of partial values.  See [redactions](#redactions) for more
 information.
 
-<img src="https://github.com/mitsuhiko/insta/blob/master/assets/insta.gif?raw=true" alt="">
+<img src="https://github.com/mitsuhiko/insta/blob/artwork/screencast.gif?raw=true" alt="">
 
 ## Example
 
@@ -160,13 +160,20 @@ Example usage:
 pub struct User {
     id: Uuid,
     username: String,
+    extra: HashMap<String, String>,
 }
 
 assert_yaml_snapshot_matches!("user", &User {
     id: Uuid::new_v4(),
     username: "john_doe".to_string(),
+    extra: {
+        let mut map = HashMap::new();
+        map.insert("ssn".to_string(), "123-123-123".to_string());
+        map
+    },
 }, {
-    ".id" => "[uuid]"
+    ".id" => "[uuid]",
+    ".extra.ssn" => "[ssn]"
 });
 ```
 
