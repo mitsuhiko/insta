@@ -30,6 +30,7 @@ pub struct User {
     id: Uuid,
     username: String,
     email: Email,
+    extra: String,
 }
 
 #[test]
@@ -38,6 +39,7 @@ fn test_with_random_value() {
         id: Uuid::new_v4(),
         username: "john_doe".to_string(),
         email: Email("john@example.com".to_string()),
+        extra: "".to_string(),
     }, {
         ".id" => "[uuid]"
     });
@@ -49,6 +51,7 @@ fn test_with_random_value_ron() {
         id: Uuid::new_v4(),
         username: "john_ron".to_string(),
         email: Email("john@example.com".to_string()),
+        extra: "".to_string(),
     }, {
         ".id" => "[uuid]"
     });
@@ -60,7 +63,9 @@ fn test_with_random_value_json() {
         id: Uuid::new_v4(),
         username: "jason_doe".to_string(),
         email: Email("jason@example.com".to_string()),
+        extra: "ssn goes here".to_string(),
     }, {
-        ".id" => "[uuid]"
+        ".id" => "[uuid]",
+        ".extra" => "[extra]"
     });
 }
