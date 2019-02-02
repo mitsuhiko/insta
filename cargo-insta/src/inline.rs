@@ -56,7 +56,13 @@ impl FilePatcher {
 
     pub fn add_snapshot_macro(&mut self, line: usize) {
         match self.find_snapshot_macro(line) {
-            Some(snapshot) => self.inline_snapshots.push(snapshot),
+            Some(snapshot) => {
+                assert!(self
+                    .inline_snapshots
+                    .last()
+                    .map_or(true, |x| x.end.0 <= line));
+                self.inline_snapshots.push(snapshot)
+            }
             None => panic!("Could not find snapshot in line {}", line),
         }
     }

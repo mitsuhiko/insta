@@ -116,8 +116,9 @@ impl SnapshotContainer {
                 None
             }
             SnapshotContainerKind::Inline => {
-                let pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
+                let mut pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
                 let mut patcher = FilePatcher::open(&target_path)?;
+                pending_vec.sort_by_key(|pending| pending.line);
                 for (id, pending) in pending_vec.into_iter().enumerate() {
                     snapshots.push(PendingSnapshot {
                         id,
