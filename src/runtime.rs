@@ -49,9 +49,9 @@ fn format_rust_expression(value: &str) -> Cow<'_, str> {
     {
         {
             let stdin = proc.stdin.as_mut().unwrap();
-            stdin.write_all(b"fn _x(){").unwrap();
+            stdin.write_all(b"const x:() = ").unwrap();
             stdin.write_all(value.as_bytes()).unwrap();
-            stdin.write_all(b"}").unwrap();
+            stdin.write_all(b";").unwrap();
         }
         if let Ok(output) = proc.wait_with_output() {
             let mut buf = String::new();
@@ -59,20 +59,16 @@ fn format_rust_expression(value: &str) -> Cow<'_, str> {
             let mut reader = BufReader::new(&output.stdout[..]);
             reader.read_line(&mut buf).unwrap();
 
-            buf.clear();
-            reader.read_line(&mut buf).unwrap();
-
-            let indentation = buf.len() - buf.trim_start().len();
-            rv.push_str(&buf[indentation..]);
+            rv.push_str(&buf[14..]);
             loop {
                 buf.clear();
                 let read = reader.read_line(&mut buf).unwrap();
                 if read == 0 {
                     break;
                 }
-                rv.push_str(buf.get(indentation..).unwrap_or(""));
+                rv.push_str(&buf);
             }
-            rv.truncate(rv.trim_end().len());
+            rv.truncate(rv.trim_end().len() - 1);
             return Cow::Owned(rv);
         }
     }
@@ -151,20 +147,20 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
     for diff in diffs.iter() {
         match *diff {
             Difference::Same(ref x) => {
-                for line in x.lines() {
-                    lines.push((Mode::Same, lineno, line));
+                for line in x.split('\n') {
+                    lines.push((Mode::Same, lineno, line.trim_end()));
                     lineno += 1;
                 }
             }
             Difference::Add(ref x) => {
-                for line in x.lines() {
-                    lines.push((Mode::Add, lineno, line));
+                for line in x.split('\n') {
+                    lines.push((Mode::Add, lineno, line.trim_end()));
                     lineno += 1;
                 }
             }
             Difference::Rem(ref x) => {
-                for line in x.lines() {
-                    lines.push((Mode::Rem, lineno, line));
+                for line in x.split('\n') {
+                    lines.push((Mode::Rem, lineno, line.trim_end()));
                     lineno += 1;
                 }
             }
