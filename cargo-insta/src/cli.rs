@@ -4,7 +4,7 @@ use std::process;
 
 use console::{set_colors_enabled, style, Key, Term};
 use failure::{err_msg, Error, Fail};
-use insta::{get_color_map, print_snapshot_diff, set_color_map, ColorMap, Snapshot};
+use insta::{print_snapshot_diff, ColorMap, Snapshot};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
@@ -117,7 +117,7 @@ fn query_snapshot(
     snapshot_file: Option<&Path>,
 ) -> Result<Operation, Error> {
     term.clear_screen()?;
-    let cs = get_color_map();
+    let cm = ColorMap::current();
     println!(
         "{}{}{} {} ({})",
         style("Reviewing [").bold(),
@@ -132,17 +132,17 @@ fn query_snapshot(
     println!();
     println!(
         "  {} accept   {}",
-        cs.success("A").bold(),
+        cm.success("A").bold(),
         style("keep the new snapshot").dim()
     );
     println!(
         "  {} reject   {}",
-        cs.failure("r").bold(),
+        cm.failure("r").bold(),
         style("keep the old snapshot").dim()
     );
     println!(
         "  {} skip     {}",
-        cs.skip("s").bold(),
+        cm.skip("s").bold(),
         style("keep both for now").dim()
     );
 
@@ -232,23 +232,23 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
         term.clear_screen()?;
     }
 
-    let cs = get_color_map();
+    let cm = ColorMap::current();
 
     println!("{}", style("insta review finished").bold());
     if !accepted.is_empty() {
-        println!("{}:", cs.success("accepted"));
+        println!("{}:", cm.success("accepted"));
         for item in accepted {
             println!("  {}", item);
         }
     }
     if !rejected.is_empty() {
-        println!("{}:", cs.failure("rejected"));
+        println!("{}:", cm.failure("rejected"));
         for item in rejected {
             println!("  {}", item);
         }
     }
     if !skipped.is_empty() {
-        println!("{}:", cs.skip("skipped"));
+        println!("{}:", cm.skip("skipped"));
         for item in skipped {
             println!("  {}", item);
         }
@@ -324,7 +324,7 @@ pub fn run() -> Result<(), Error> {
     let opts = Opts::from_iter(args);
     handle_color(&opts.color)?;
     if opts.dalton {
-        set_color_map(ColorMap::Dalton);
+        ColorMap::set_current(ColorMap::Dalton);
     }
     match opts.command {
         Command::Review(cmd) => process_snapshots(&cmd, None),

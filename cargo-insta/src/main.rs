@@ -15,15 +15,15 @@ mod cargo;
 mod cli;
 mod inline;
 
-use insta::get_color_map;
+use insta::ColorMap;
 
 fn main() {
     if let Err(err) = cli::run() {
         let exit_code = if let Some(ref exit) = err.downcast_ref::<cli::QuietExit>() {
             exit.0
         } else {
-            let cs = get_color_map();
-            println!("{} {}", cs.failure("error:").bold(), err);
+            let cm = ColorMap::current();
+            println!("{} {}", cm.failure("error:").bold(), err);
             1
         };
         std::process::exit(exit_code);

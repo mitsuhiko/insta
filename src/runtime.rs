@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Mutex;
 
 use chrono::{Local, Utc};
-use console::{style, Style, StyledObject};
+use console::{style, StyledObject};
 use difference::{Changeset, Difference};
 use failure::Error;
 use lazy_static::lazy_static;
@@ -35,20 +35,8 @@ lazy_static! {
         AtomicIsize::new(c as isize)
     };
 }
-#[inline]
-pub fn set_color_map(c: ColorMap) {
-    COLOR_MAP.store(c as isize, Ordering::Relaxed);
-}
-#[inline]
-pub fn get_color_map() -> ColorMap {
-    match COLOR_MAP.load(Ordering::Relaxed) {
-        1 => ColorMap::Dalton,
-        _ => ColorMap::Normal,
-    }
-}
 
 #[allow(unused)]
-#[repr(isize)]
 pub enum ColorMap {
     Normal = 0,
     Dalton = 1,
@@ -57,24 +45,36 @@ pub enum ColorMap {
 #[allow(unused)]
 impl ColorMap {
     pub fn success<D>(&self, o: D) -> StyledObject<D> {
-        let o = Style::new().apply_to(o);
+        let o = style(o);
         match self {
             ColorMap::Normal => o.green(),
             ColorMap::Dalton => o.blue().bold(),
         }
     }
     pub fn failure<D>(&self, o: D) -> StyledObject<D> {
-        let o = Style::new().apply_to(o);
+        let o = style(o);
         match self {
             ColorMap::Normal => o.red(),
             ColorMap::Dalton => o.yellow(),
         }
     }
     pub fn skip<D>(&self, o: D) -> StyledObject<D> {
-        let o = Style::new().apply_to(o);
+        let o = style(o);
         match self {
             ColorMap::Normal => o.yellow(),
             ColorMap::Dalton => o.white().bold(),
+        }
+    }
+
+    #[inline]
+    pub fn set_current(c: ColorMap) {
+        COLOR_MAP.store(c as isize, Ordering::Relaxed);
+    }
+    #[inline]
+    pub fn current() -> ColorMap {
+        match COLOR_MAP.load(Ordering::Relaxed) {
+            1 => ColorMap::Dalton,
+            _ => ColorMap::Normal,
         }
     }
 }
@@ -234,20 +234,20 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         "",
         width.saturating_sub(7),
     );
-    let cs = get_color_map();
+    let cm = ColorMap::current();
     for (i, (mode, lineno, line)) in lines.iter().enumerate() {
         match mode {
             Mode::Add => println!(
                 "{:>5} │{}{}",
                 style(lineno).dim().bold(),
-                cs.success("+"),
-                cs.success(line)
+                cm.success("+"),
+                cm.success(line)
             ),
             Mode::Rem => println!(
                 "{:>5} │{}{}",
                 style(lineno).dim().bold(),
-                cs.failure("-"),
-                cs.failure(line)
+                cm.failure("-"),
+                cm.failure(line)
             ),
             Mode::Same => {
                 if lines[i.saturating_sub(5)..(i + 5).min(lines.len())]
@@ -325,7 +325,7 @@ pub fn print_snapshot_diff(
         &new.contents(),
         "\n",
     );
-    let cs = get_color_map();
+    let cm = ColorMap::current();
     if let Some(old_snapshot) = old_snapshot {
         if let Some(ref value) = old_snapshot.metadata().created {
             println!(
@@ -340,10 +340,10 @@ pub fn print_snapshot_diff(
             );
         }
         println!();
-        println!("{}", cs.failure("-old snapshot"));
-        println!("{}", cs.success("+new results"));
+        println!("{}", cm.failure("-old snapshot"));
+        println!("{}", cm.success("+new results"));
     } else {
-        println!("Old: {}", cs.failure("n.a."));
+        println!("Old: {}", cm.failure("n.a."));
         if let Some(ref value) = new.metadata().created {
             println!(
                 "New: {}",
@@ -351,7 +351,7 @@ pub fn print_snapshot_diff(
             );
         }
         println!();
-        println!("{}", cs.success("+new results"));
+        println!("{}", cm.success("+new results"));
     }
     print_changeset(
         &changeset,
@@ -471,21 +471,21 @@ pub fn assert_snapshot(
         hint = style("To update snapshots run `cargo insta review`").dim(),
     );
 
-    let cs = get_color_map();
+    let cm = ColorMap::current();
     match update_snapshot_behavior() {
         UpdateBehavior::InPlace => {
             if let Some(ref snapshot_file) = snapshot_file {
                 new.save(snapshot_file)?;
                 eprintln!(
                     "  {} {}\n",
-                    cs.success("updated snapshot"),
+                    cm.success("updated snapshot"),
                     style(snapshot_file.display()).cyan().underlined(),
                 );
                 return Ok(());
             } else {
                 eprintln!(
                     "  {}",
-                    cs.failure("error: cannot update inline snapshots in-place")
+                    cm.failure("error: cannot update inline snapshots in-place")
                         .bold(),
                 );
             }
@@ -497,7 +497,7 @@ pub fn assert_snapshot(
                 new.save(&new_path)?;
                 eprintln!(
                     "  {} {}\n",
-                    cs.success("stored new snapshot"),
+                    cm.success("stored new snapshot"),
                     style(new_path.display()).cyan().underlined(),
                 );
             } else {
