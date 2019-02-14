@@ -35,10 +35,11 @@ lazy_static! {
         AtomicIsize::new(c as isize)
     };
 }
-
+#[inline]
 pub fn set_color_map(c: ColorMap) {
     COLOR_MAP.store(c as isize, Ordering::Relaxed);
 }
+#[inline]
 pub fn get_color_map() -> ColorMap {
     match COLOR_MAP.load(Ordering::Relaxed) {
         1 => ColorMap::Dalton,
@@ -47,6 +48,7 @@ pub fn get_color_map() -> ColorMap {
 }
 
 #[allow(unused)]
+#[repr(isize)]
 pub enum ColorMap {
     Normal = 0,
     Dalton = 1,
