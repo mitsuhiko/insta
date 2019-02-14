@@ -126,7 +126,15 @@ impl FilePatcher {
 
         impl<'ast> syn::visit::Visit<'ast> for Visitor {
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
-                if i.span().start().line != self.0 || i.path.segments.is_empty() {
+                let start = i.span().start().line;
+                let end = i
+                    .tts
+                    .clone()
+                    .into_iter()
+                    .last()
+                    .map_or(start, |t| t.span().end().line);
+
+                if start > self.0 || end < self.0 || i.path.segments.is_empty() {
                     return;
                 }
 
