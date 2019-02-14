@@ -132,17 +132,17 @@ fn query_snapshot(
     println!();
     println!(
         "  {} accept   {}",
-        cs.success(style("A")).bold(),
+        cs.success("A").bold(),
         style("keep the new snapshot").dim()
     );
     println!(
         "  {} reject   {}",
-        cs.failure(style("r")).bold(),
+        cs.failure("r").bold(),
         style("keep the old snapshot").dim()
     );
     println!(
         "  {} skip     {}",
-        cs.skip(style("s")).bold(),
+        cs.skip("s").bold(),
         style("keep both for now").dim()
     );
 
