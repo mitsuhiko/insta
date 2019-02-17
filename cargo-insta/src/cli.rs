@@ -126,7 +126,7 @@ fn query_snapshot(
     println!();
     println!(
         "  {} accept   {}",
-        style("A").green().bold(),
+        style("a").green().bold(),
         style("keep the new snapshot").dim()
     );
     println!(
