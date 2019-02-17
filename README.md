@@ -34,10 +34,20 @@ information.
 
 ## Example
 
-Install `insta` and `cargo-insta`:
+Install `insta`:
+
+Recommended way if you have `cargo-edit` installed:
 
 ```rust
 $ cargo add --dev insta
+```
+
+Alternatively edit your `Cargo.toml` manually and add `insta` as manual
+dependency.
+
+And for an improved review experience also install `cargo-insta`:
+
+```rust
 $ cargo install cargo-insta
 ```
 
