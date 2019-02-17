@@ -14,6 +14,7 @@ use crate::inline::FilePatcher;
 #[derive(Deserialize, Clone, Debug)]
 pub struct Target {
     src_path: PathBuf,
+    kind: HashSet<String>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -229,6 +230,13 @@ impl Package {
     ) -> impl Iterator<Item = Result<SnapshotContainer, Error>> {
         let mut roots = HashSet::new();
         for target in &self.targets {
+            // We want to skip custom build scripts and not support snapshots
+            // for them.  If we don't skip them here we run into issues where
+            // the existence of a build script causes a snapshot to be picked
+            // up twice since the same path is determined.  (GH-15)
+            if target.kind.contains("custom-build") {
+                continue;
+            }
             let root = target.src_path.parent().unwrap();
             if !roots.contains(root) {
                 roots.insert(root.to_path_buf());
