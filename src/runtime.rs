@@ -45,6 +45,7 @@ fn format_rust_expression(value: &str) -> Cow<'_, str> {
         .arg("--edition=2018")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::null())
         .spawn()
     {
         {
@@ -54,22 +55,24 @@ fn format_rust_expression(value: &str) -> Cow<'_, str> {
             stdin.write_all(b";").unwrap();
         }
         if let Ok(output) = proc.wait_with_output() {
-            let mut buf = String::new();
-            let mut rv = String::new();
-            let mut reader = BufReader::new(&output.stdout[..]);
-            reader.read_line(&mut buf).unwrap();
+            if output.status.success() {
+                let mut buf = String::new();
+                let mut rv = String::new();
+                let mut reader = BufReader::new(&output.stdout[..]);
+                reader.read_line(&mut buf).unwrap();
 
-            rv.push_str(&buf[14..]);
-            loop {
-                buf.clear();
-                let read = reader.read_line(&mut buf).unwrap();
-                if read == 0 {
-                    break;
+                rv.push_str(&buf[14..]);
+                loop {
+                    buf.clear();
+                    let read = reader.read_line(&mut buf).unwrap();
+                    if read == 0 {
+                        break;
+                    }
+                    rv.push_str(&buf);
                 }
-                rv.push_str(&buf);
+                rv.truncate(rv.trim_end().len() - 1);
+                return Cow::Owned(rv);
             }
-            rv.truncate(rv.trim_end().len() - 1);
-            return Cow::Owned(rv);
         }
     }
     Cow::Borrowed(value)
