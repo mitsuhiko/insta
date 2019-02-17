@@ -342,7 +342,10 @@ pub fn find_packages(metadata: &Metadata, all: bool) -> Result<Vec<Package>, Err
             }
         }
         if rv.is_empty() {
-            return Err(err_msg("Unexpectedly did not find Cargo.toml in workspace"));
+            return Err(err_msg(
+                "Cargo.toml appears to be a workspace root but not a package \
+                 by itself.  Enter a package folder explicitly or use --all",
+            ));
         }
     }
     Ok(rv)
