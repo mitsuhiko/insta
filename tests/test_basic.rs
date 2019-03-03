@@ -5,8 +5,8 @@ use insta::{
 };
 
 #[test]
-fn test_vector() {
-    assert_debug_snapshot_matches!("vector", vec![1, 2, 3]);
+fn test_debug_vector() {
+    assert_debug_snapshot_matches!("debug_vector", vec![1, 2, 3]);
 }
 
 #[test]
@@ -16,5 +16,5 @@ fn test_yaml_vector() {
 
 #[test]
 fn test_json_vector() {
-    assert_json_snapshot_matches!("json_json", vec![1, 2, 3]);
+    assert_json_snapshot_matches!("json_vector", vec![1, 2, 3]);
 }
