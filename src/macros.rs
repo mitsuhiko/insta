@@ -203,6 +203,21 @@ macro_rules! assert_debug_snapshot_matches {
     }};
 }
 
+/// Assets a `Display` snapshot.
+///
+/// The value needs to implement the `fmt::Display` trait.
+#[macro_export]
+macro_rules! assert_display_snapshot_matches {
+    ($value:expr, @$snapshot:literal) => {{
+        let value = format!("{}", $value);
+        $crate::assert_snapshot_matches!(value, stringify!($value), @$snapshot);
+    }};
+    ($name:expr, $value:expr) => {{
+        let value = format!("{}", $value);
+        $crate::assert_snapshot_matches!($name, value, stringify!($value));
+    }};
+}
+
 /// Assets a string snapshot.
 ///
 /// This is the most simplistic of all assertion methods.  It just accepts

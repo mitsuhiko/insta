@@ -1,0 +1,7 @@
+---
+created: "2019-03-03T12:38:56.348258Z"
+creator: insta@0.6.3
+source: tests/test_basic.rs
+expression: td
+---
+TestDisplay struct
