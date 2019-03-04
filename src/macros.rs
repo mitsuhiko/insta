@@ -16,7 +16,7 @@ macro_rules! assert_serialized_snapshot_matches {
     }}
 }
 
-/// Assets a `Serialize` snapshot in YAML format.
+/// Asserts a `Serialize` snapshot in YAML format.
 ///
 /// The value needs to implement the `serde::Serialize` trait and the snapshot
 /// will be serialized in YAML format.  This does mean that unlike the debug
@@ -69,7 +69,7 @@ macro_rules! assert_yaml_snapshot_matches {
     }}
 }
 
-/// Assets a `Serialize` snapshot in RON format.
+/// Asserts a `Serialize` snapshot in RON format.
 ///
 /// This works exactly like `assert_serialized_snapshot_matches` but serializes
 /// in [RON](https://github.com/ron-rs/ron/) format instead of YAML which
@@ -100,7 +100,7 @@ macro_rules! assert_ron_snapshot_matches {
     }}
 }
 
-/// Assets a `Serialize` snapshot in JSON format.
+/// Asserts a `Serialize` snapshot in JSON format.
 ///
 /// This works exactly like `assert_serialized_snapshot_matches` but serializes
 /// in JSON format.  This is normally not recommended because it makes diffs
@@ -186,7 +186,7 @@ macro_rules! _assert_serialized_snapshot_matches {
     }}
 }
 
-/// Assets a `Debug` snapshot.
+/// Asserts a `Debug` snapshot.
 ///
 /// The value needs to implement the `fmt::Debug` trait.  This is useful for
 /// simple values that do not implement the `Serialize` trait but does not
@@ -203,7 +203,22 @@ macro_rules! assert_debug_snapshot_matches {
     }};
 }
 
-/// Assets a string snapshot.
+/// Asserts a `Display` snapshot.
+///
+/// The value needs to implement the `fmt::Display` trait.
+#[macro_export]
+macro_rules! assert_display_snapshot_matches {
+    ($value:expr, @$snapshot:literal) => {{
+        let value = format!("{}", $value);
+        $crate::assert_snapshot_matches!(value, stringify!($value), @$snapshot);
+    }};
+    ($name:expr, $value:expr) => {{
+        let value = format!("{}", $value);
+        $crate::assert_snapshot_matches!($name, value, stringify!($value));
+    }};
+}
+
+/// Asserts a string snapshot.
 ///
 /// This is the most simplistic of all assertion methods.  It just accepts
 /// a string to store as snapshot an does not apply any other transformations
