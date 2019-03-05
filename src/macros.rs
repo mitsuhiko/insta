@@ -13,7 +13,7 @@ macro_rules! assert_serialized_snapshot_matches {
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
         $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Yaml);
-    }}
+    }};
 }
 
 /// Asserts a `Serialize` snapshot in YAML format.
@@ -62,11 +62,17 @@ macro_rules! assert_yaml_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Yaml, @$snapshot);
     }};
     ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!($name, $value, Yaml);
+        $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Yaml);
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Yaml);
-    }}
+        $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Yaml);
+    }};
+    ($value:expr) => {{
+        $crate::_assert_serialized_snapshot_matches!(None, $value, Yaml);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*}) => {{
+        $crate::_assert_serialized_snapshot_matches!(None, $value, {$($k => $v),*}, Yaml);
+    }};
 }
 
 /// Asserts a `Serialize` snapshot in RON format.
@@ -93,11 +99,17 @@ macro_rules! assert_ron_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Ron, @$snapshot);
     }};
     ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!($name, $value, Ron);
+        $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Ron);
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Ron);
-    }}
+        $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Ron);
+    }};
+    ($value:expr) => {{
+        $crate::_assert_serialized_snapshot_matches!(None, $value, Ron);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*}) => {{
+        $crate::_assert_serialized_snapshot_matches!(None, $value, {$($k => $v),*}, Ron);
+    }};
 }
 
 /// Asserts a `Serialize` snapshot in JSON format.
@@ -124,11 +136,17 @@ macro_rules! assert_json_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Json, @$snapshot);
     }};
     ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!($name, $value, Json);
+        $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Json);
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!($name, $value, {$($k => $v),*}, Json);
-    }}
+        $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Json);
+    }};
+    ($value:expr) => {{
+        $crate::_assert_serialized_snapshot_matches!(None, $value, Json);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*}) => {{
+        $crate::_assert_serialized_snapshot_matches!(None, $value, {$($k => $v),*}, Json);
+    }};
 }
 
 #[doc(hidden)]
@@ -214,7 +232,11 @@ macro_rules! assert_display_snapshot_matches {
     }};
     ($name:expr, $value:expr) => {{
         let value = format!("{}", $value);
-        $crate::assert_snapshot_matches!($name, value, stringify!($value));
+        $crate::assert_snapshot_matches!(Some($name), value, stringify!($value));
+    }};
+    ($value:expr) => {{
+        let value = format!("{}", $value);
+        $crate::assert_snapshot_matches!(None, value, stringify!($value));
     }};
 }
 
@@ -248,18 +270,10 @@ macro_rules! assert_snapshot_matches {
         )
     };
     ($name:expr, $value:expr) => {
-        $crate::_assert_snapshot_matches!(
-            $crate::_macro_support::ReferenceValue::Named($name),
-            $value,
-            stringify!($value)
-        )
+        $crate::_assert_snapshot_matches!(From::from($name), $value, stringify!($value))
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {
-        $crate::_assert_snapshot_matches!(
-            $crate::_macro_support::ReferenceValue::Named($name),
-            $value,
-            $debug_expr
-        )
+        $crate::_assert_snapshot_matches!(From::from($name), $value, $debug_expr)
     };
 }
 

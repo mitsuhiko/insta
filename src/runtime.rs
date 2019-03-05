@@ -6,6 +6,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
+use std::thread;
 
 use chrono::{Local, Utc};
 use console::style;
@@ -21,6 +22,7 @@ use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot};
 
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
+    static ref TEST_NAME_COUNTERS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
 }
 
 enum UpdateBehavior {
@@ -113,7 +115,7 @@ fn get_cargo() -> String {
 }
 
 fn get_cargo_workspace(manifest_dir: &str) -> &Path {
-    // we really do not care about locking here.
+    // we really do not care about poisoning here.
     let mut workspaces = WORKSPACES.lock().unwrap_or_else(|x| x.into_inner());
     if let Some(rv) = workspaces.get(manifest_dir) {
         rv
@@ -326,9 +328,42 @@ fn print_snapshot_diff_with_title(
     );
 }
 
+impl<'a> From<Option<&'a str>> for ReferenceValue<'a> {
+    fn from(value: Option<&'a str>) -> ReferenceValue<'a> {
+        ReferenceValue::Named(value)
+    }
+}
+
+impl<'a> From<&'a str> for ReferenceValue<'a> {
+    fn from(value: &'a str) -> ReferenceValue<'a> {
+        ReferenceValue::Named(Some(value))
+    }
+}
+
 pub enum ReferenceValue<'a> {
-    Named(&'a str),
+    Named(Option<&'a str>),
     Inline(&'a str),
+}
+
+fn generate_snapshot_name_for_thread(module_path: &str) -> String {
+    let thread = thread::current();
+    let mut name = thread
+        .name()
+        .expect("test thread is unnamed, no snapshot name can be generated");
+    // we really do not care about poisoning here.
+    let key = format!("{}::{}", module_path, name);
+    let mut counters = TEST_NAME_COUNTERS.lock().unwrap_or_else(|x| x.into_inner());
+    let test_idx = counters.get(&key).cloned().unwrap_or(0) + 1;
+    if name.starts_with("test_") {
+        name = &name[5..];
+    }
+    let rv = if test_idx == 1 {
+        name.to_string()
+    } else {
+        format!("{}-{}", name, test_idx)
+    };
+    counters.insert(key, test_idx);
+    rv
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -346,8 +381,11 @@ pub fn assert_snapshot(
 
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
         ReferenceValue::Named(snapshot_name) => {
+            let snapshot_name = snapshot_name
+                .map(Cow::Borrowed)
+                .unwrap_or_else(|| Cow::Owned(generate_snapshot_name_for_thread(module_path)));
             let snapshot_file =
-                get_snapshot_filename(module_name, snapshot_name, &cargo_workspace, file);
+                get_snapshot_filename(module_name, &snapshot_name, &cargo_workspace, file);
             let old = if fs::metadata(&snapshot_file).is_ok() {
                 Some(Snapshot::from_file(&snapshot_file)?)
             } else {
@@ -390,7 +428,7 @@ pub fn assert_snapshot(
 
     let new = Snapshot::from_components(
         module_name.to_string(),
-        snapshot_name.map(|x| x.to_string()),
+        snapshot_name.as_ref().map(|x| x.to_string()),
         MetaData {
             created: Some(Utc::now()),
             creator: Some(format!(
@@ -456,7 +494,7 @@ pub fn assert_snapshot(
         assert!(
             false,
             "snapshot assertion for '{}' failed in line {}",
-            snapshot_name.unwrap_or("inline snapshot"),
+            snapshot_name.unwrap_or(Cow::Borrowed("inline snapshot")),
             line
         );
     }
