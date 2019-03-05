@@ -1,0 +1,7 @@
+---
+created: "2019-03-05T09:04:26.857647Z"
+creator: insta@0.6.3
+source: tests/test_basic.rs
+expression: "\"whatever\""
+---
+whatever
