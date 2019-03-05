@@ -51,6 +51,24 @@ fn test_json_inline() {
 }
 
 #[test]
+fn test_yaml_inline() {
+    #[derive(Serialize)]
+    pub struct User {
+        id: u32,
+        username: String,
+        email: String,
+    }
+
+    assert_yaml_snapshot_matches!(User {
+        id: 42,
+        username: "peter-pan".into(),
+        email: "peterpan@wonderland.invalid".into()
+    }, @r###"id: 42
+username: peter-pan
+email: peterpan@wonderland.invalid"###);
+}
+
+#[test]
 fn test_yaml_inline_redacted() {
     #[derive(Serialize)]
     pub struct User {
