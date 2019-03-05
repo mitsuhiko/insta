@@ -232,6 +232,6 @@ pub mod _macro_support {
     pub use crate::redaction::Selector;
     pub use crate::runtime::{assert_snapshot, ReferenceValue};
     pub use crate::serialization::{
-        serialize_value, serialize_value_redacted, SerializationFormat,
+        serialize_value, serialize_value_redacted, SerializationFormat, SnapshotLocation,
     };
 }
