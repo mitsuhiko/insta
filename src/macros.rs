@@ -217,7 +217,11 @@ macro_rules! assert_debug_snapshot_matches {
     }};
     ($name:expr, $value:expr) => {{
         let value = format!("{:#?}", $value);
-        $crate::assert_snapshot_matches!($name, value, stringify!($value));
+        $crate::assert_snapshot_matches!(Some($name), value, stringify!($value));
+    }};
+    ($value:expr) => {{
+        let value = format!("{:#?}", $value);
+        $crate::assert_snapshot_matches!(None, value, stringify!($value));
     }};
 }
 
