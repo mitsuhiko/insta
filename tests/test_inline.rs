@@ -63,7 +63,8 @@ fn test_yaml_inline() {
         id: 42,
         username: "peter-pan".into(),
         email: "peterpan@wonderland.invalid".into()
-    }, @r###"id: 42
+    }, @r###"---
+id: 42
 username: peter-pan
 email: peterpan@wonderland.invalid"###);
 }
@@ -83,7 +84,8 @@ fn test_yaml_inline_redacted() {
         email: "peterpan@wonderland.invalid".into()
     }, {
         ".id" => "[user-id]"
-    }, @r###"id: "[user-id]"
+    }, @r###"---
+id: "[user-id]"
 username: peter-pan
 email: peterpan@wonderland.invalid"###);
 }
