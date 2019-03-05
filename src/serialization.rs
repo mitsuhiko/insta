@@ -13,9 +13,24 @@ pub enum SerializationFormat {
     Json,
 }
 
-pub fn serialize_value<S: Serialize>(s: &S, format: SerializationFormat) -> String {
+pub enum SnapshotLocation {
+    Inline,
+    File,
+}
+
+pub fn serialize_value<S: Serialize>(
+    s: &S,
+    format: SerializationFormat,
+    location: SnapshotLocation,
+) -> String {
     match format {
-        SerializationFormat::Yaml => serde_yaml::to_string(s).unwrap()[4..].to_string(),
+        SerializationFormat::Yaml => {
+            let serialized = serde_yaml::to_string(s).unwrap();
+            match location {
+                SnapshotLocation::Inline => serialized.to_string(),
+                SnapshotLocation::File => serialized[4..].to_string(),
+            }
+        }
         SerializationFormat::Json => serde_json::to_string_pretty(s).unwrap(),
         SerializationFormat::Ron => {
             let mut serializer = ron::ser::Serializer::new(
@@ -36,11 +51,12 @@ pub fn serialize_value_redacted<S: Serialize>(
     s: &S,
     redactions: &[(Selector, Content)],
     format: SerializationFormat,
+    location: SnapshotLocation,
 ) -> String {
     let serializer = ContentSerializer::<Error>::new();
     let mut value = Serialize::serialize(s, serializer).unwrap();
     for (selector, redaction) in redactions {
         value = selector.redact(value, &redaction);
     }
-    serialize_value(&value, format)
+    serialize_value(&value, format, location)
 }

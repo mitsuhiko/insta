@@ -137,7 +137,8 @@ macro_rules! _assert_serialized_snapshot_matches {
     ($value:expr, $format:ident, @$snapshot:literal) => {{
         let value = $crate::_macro_support::serialize_value(
             &$value,
-            $crate::_macro_support::SerializationFormat::$format
+            $crate::_macro_support::SerializationFormat::$format,
+            $crate::_macro_support::SnapshotLocation::Inline
         );
         $crate::assert_snapshot_matches!(
             value,
@@ -155,14 +156,16 @@ macro_rules! _assert_serialized_snapshot_matches {
         let value = $crate::_macro_support::serialize_value_redacted(
             &$value,
             &vec,
-            $crate::_macro_support::SerializationFormat::$format
+            $crate::_macro_support::SerializationFormat::$format,
+            $crate::_macro_support::SnapshotLocation::Inline
         );
         $crate::assert_snapshot_matches!(value, stringify!($value), @$snapshot);
     }};
     ($name:expr, $value:expr, $format:ident) => {{
         let value = $crate::_macro_support::serialize_value(
             &$value,
-            $crate::_macro_support::SerializationFormat::$format
+            $crate::_macro_support::SerializationFormat::$format,
+            $crate::_macro_support::SnapshotLocation::File
         );
         $crate::assert_snapshot_matches!(
             $name,
@@ -180,7 +183,8 @@ macro_rules! _assert_serialized_snapshot_matches {
         let value = $crate::_macro_support::serialize_value_redacted(
             &$value,
             &vec,
-            $crate::_macro_support::SerializationFormat::$format
+            $crate::_macro_support::SerializationFormat::$format,
+            $crate::_macro_support::SnapshotLocation::File
         );
         $crate::assert_snapshot_matches!($name, value, stringify!($value));
     }}
