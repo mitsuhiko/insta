@@ -1,5 +1,6 @@
 /// Alias for `assert_yaml_snapshot_matches`.
 #[macro_export]
+#[doc(hidden)]
 #[deprecated(since = "0.6.0", note = "Replaced by assert_yaml_snapshot_matches")]
 macro_rules! assert_serialized_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
@@ -53,6 +54,9 @@ macro_rules! assert_serialized_snapshot_matches {
 /// reference value must be a string literal.  If you make the initial snapshot
 /// just use an empty string (`@""`).  For more information see
 /// [inline snapshots](index.html#inline-snapshots).
+///
+/// Additionally the name is optional.  For more information see
+/// [unnamed snapshots](index.html#unnamed-snapshots)
 #[macro_export]
 macro_rules! assert_yaml_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
@@ -90,6 +94,9 @@ macro_rules! assert_yaml_snapshot_matches {
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
 /// about redactions see [redactions](index.html#redactions).
+///
+/// Additionally the name is optional.  For more information see
+/// [unnamed snapshots](index.html#unnamed-snapshots)
 #[macro_export]
 macro_rules! assert_ron_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
@@ -127,6 +134,9 @@ macro_rules! assert_ron_snapshot_matches {
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
 /// about redactions see [redactions](index.html#redactions).
+///
+/// Additionally the name is optional.  For more information see
+/// [unnamed snapshots](index.html#unnamed-snapshots)
 #[macro_export]
 macro_rules! assert_json_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
@@ -213,6 +223,9 @@ macro_rules! _assert_serialized_snapshot_matches {
 /// The value needs to implement the `fmt::Debug` trait.  This is useful for
 /// simple values that do not implement the `Serialize` trait but does not
 /// permit redactions.
+///
+/// Additionally the name is optional.  For more information see
+/// [unnamed snapshots](index.html#unnamed-snapshots)
 #[macro_export]
 macro_rules! assert_debug_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
@@ -232,6 +245,9 @@ macro_rules! assert_debug_snapshot_matches {
 /// Asserts a `Display` snapshot.
 ///
 /// The value needs to implement the `fmt::Display` trait.
+///
+/// Additionally the name is optional.  For more information see
+/// [unnamed snapshots](index.html#unnamed-snapshots)
 #[macro_export]
 macro_rules! assert_display_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
@@ -261,6 +277,9 @@ macro_rules! assert_display_snapshot_matches {
 /// Optionally a third argument can be given as expression which will be
 /// stringified as debug expression.  For more information on this look at the
 /// source of this macro and other assertion macros.
+///
+/// Additionally the name is optional.  For more information see
+/// [unnamed snapshots](index.html#unnamed-snapshots)
 #[macro_export]
 macro_rules! assert_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {
