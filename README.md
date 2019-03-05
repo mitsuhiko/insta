@@ -11,7 +11,6 @@ This crate exports multiple macros for snapshot testing:
 
 - `assert_snapshot_matches!` for comparing basic string snapshots.
 - `assert_debug_snapshot_matches!` for comparing `Debug` outputs of values.
-- `assert_display_snapshot_matches!` for comparing `Display` outputs of values.
 - `assert_yaml_snapshot_matches!` for comparing YAML serialized
   output of types implementing `serde::Serialize`.
 - `assert_ron_snapshot_matches!` for comparing RON serialized output of
@@ -21,7 +20,8 @@ This crate exports multiple macros for snapshot testing:
 
 Snapshots are stored in the `snapshots` folder right next to the test file
 where this is used.  The name of the file is `<module>__<name>.snap` where
-the `name` of the snapshot has to be provided to the assertion macro.
+the `name` of the snapshot has to be provided to the assertion macro.  If
+no name is provided the name is derived from the test name.
 
 Additionally snapshots can also be stored inline.  In that case the
 `cargo-insta` tool is necessary.  See [inline snapshots](#inline-snapshots)
@@ -61,6 +61,9 @@ fn test_snapshots() {
     assert_debug_snapshot_matches!("snapshot_name", value);
 }
 ```
+
+(If you do not want to provide a name for the snapshot read about
+[unnamed snapshots](#unnamed-snapshots).)
 
 The recommended flow is to run the tests once, have them fail and check
 if the result is okay.  By default the new snapshots are stored next
@@ -187,6 +190,29 @@ assert_yaml_snapshot_matches!("user", &User {
     ".extra.ssn" => "[ssn]"
 });
 ```
+
+## Unnamed Snapshots
+
+All snapshot assertion functions let you leave out the snapshot name.  In
+that case the snapshot name is derived from the test name.  This works
+because the rust test runner names the thread by the test name and the
+name is taken from the thread name.  In case your test spawns additional
+threads this will not work and you will need to provide a name explicitly.
+
+Additionally if you have multiple snapshot assertions per test name a
+counter will be appended:
+
+```rust
+#[test]
+fn test_something() {
+    assert_snapshot_matches!("first value");
+    assert_snapshot_matches!("second value");
+}
+```
+
+This will create two snapshots: `something` for the first value and
+`something-2` for the second value.  The leading `test_` prefix is removed
+if the function starts with that name.
 
 ## Inline Snapshots
 
