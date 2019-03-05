@@ -9,6 +9,7 @@
 //!
 //! - `assert_snapshot_matches!` for comparing basic string snapshots.
 //! - `assert_debug_snapshot_matches!` for comparing `Debug` outputs of values.
+//! - `assert_display_snapshot_matches!` for comparing `Display` outputs of values.
 //! - `assert_yaml_snapshot_matches!` for comparing YAML serialized
 //!   output of types implementing `serde::Serialize`.
 //! - `assert_ron_snapshot_matches!` for comparing RON serialized output of

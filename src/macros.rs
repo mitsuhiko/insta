@@ -302,6 +302,9 @@ macro_rules! assert_snapshot_matches {
     ($name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_assert_snapshot_matches!(From::from($name), $value, $debug_expr)
     };
+    ($value:expr) => {
+        $crate::_assert_snapshot_matches!(None, $value, stringify!($value))
+    };
 }
 
 #[doc(hidden)]
