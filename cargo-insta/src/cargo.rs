@@ -216,6 +216,45 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
+pub fn find_snapshots(root: PathBuf) -> impl Iterator<Item = Result<SnapshotContainer, Error>> {
+    WalkDir::new(root.clone())
+        .into_iter()
+        .filter_entry(|e| e.file_type().is_file() || !is_hidden(e))
+        .filter_map(|e| e.ok())
+        .filter_map(move |e| {
+            let fname = e.file_name().to_string_lossy();
+            if fname.ends_with(".snap.new")
+                && e.path()
+                    .strip_prefix(&root)
+                    .unwrap()
+                    .components()
+                    .any(|c| match c {
+                        Component::Normal(dir) => dir.to_str() == Some("snapshots"),
+                        _ => false,
+                    })
+            {
+                let new_path = e.into_path();
+                let mut old_path = new_path.clone();
+                old_path.set_extension("");
+                Some(SnapshotContainer::load(
+                    new_path,
+                    old_path,
+                    SnapshotContainerKind::External,
+                ))
+            } else if fname.starts_with('.') && fname.ends_with(".pending-snap") {
+                let mut target_path = e.path().to_path_buf();
+                target_path.set_file_name(&fname[1..fname.len() - 13]);
+                Some(SnapshotContainer::load(
+                    e.path().to_path_buf(),
+                    target_path,
+                    SnapshotContainerKind::Inline,
+                ))
+            } else {
+                None
+            }
+        })
+}
+
 impl Package {
     pub fn name(&self) -> &str {
         &self.name
@@ -242,44 +281,7 @@ impl Package {
                 roots.insert(root.to_path_buf());
             }
         }
-        roots.into_iter().flat_map(|root| {
-            WalkDir::new(root.clone())
-                .into_iter()
-                .filter_entry(|e| e.file_type().is_file() || !is_hidden(e))
-                .filter_map(|e| e.ok())
-                .filter_map(move |e| {
-                    let fname = e.file_name().to_string_lossy();
-                    if fname.ends_with(".snap.new")
-                        && e.path()
-                            .strip_prefix(&root)
-                            .unwrap()
-                            .components()
-                            .any(|c| match c {
-                                Component::Normal(dir) => dir.to_str() == Some("snapshots"),
-                                _ => false,
-                            })
-                    {
-                        let new_path = e.into_path();
-                        let mut old_path = new_path.clone();
-                        old_path.set_extension("");
-                        Some(SnapshotContainer::load(
-                            new_path,
-                            old_path,
-                            SnapshotContainerKind::External,
-                        ))
-                    } else if fname.starts_with('.') && fname.ends_with(".pending-snap") {
-                        let mut target_path = e.path().to_path_buf();
-                        target_path.set_file_name(&fname[1..fname.len() - 13]);
-                        Some(SnapshotContainer::load(
-                            e.path().to_path_buf(),
-                            target_path,
-                            SnapshotContainerKind::Inline,
-                        ))
-                    } else {
-                        None
-                    }
-                })
-        })
+        roots.into_iter().flat_map(|root| find_snapshots(root))
     }
 }
 
