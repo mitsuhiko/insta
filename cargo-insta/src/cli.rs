@@ -353,8 +353,10 @@ fn test_run(cmd: &TestCommand) -> Result<(), Error> {
 
 pub fn run() -> Result<(), Error> {
     // chop off cargo
-    let mut args = env::args_os();
-    args.next().unwrap();
+    let mut args: Vec<_> = env::args_os().collect();
+    if env::var("CARGO").is_ok() && args.get(1).and_then(|x| x.to_str()) == Some("insta") {
+        args.remove(1);
+    }
 
     let opts = Opts::from_iter(args);
     handle_color(&opts.color)?;
