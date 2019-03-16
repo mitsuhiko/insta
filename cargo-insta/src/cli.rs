@@ -8,7 +8,9 @@ use insta::{print_snapshot_diff, Snapshot};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
-use crate::cargo::{find_packages, get_cargo, get_package_metadata, Metadata, Operation, Package};
+use crate::cargo::{
+    find_packages, find_snapshots, get_cargo, get_package_metadata, Operation, Package,
+};
 
 /// Close without message but exit code.
 #[derive(Fail, Debug)]
@@ -54,11 +56,16 @@ pub enum Command {
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(rename_all = "kebab-case")]
-pub struct PackageArgs {
+pub struct TargetArgs {
     /// Path to Cargo.toml
     #[structopt(long, value_name = "PATH", parse(from_os_str))]
     pub manifest_path: Option<PathBuf>,
-
+    /// Explicit path to the workspace root
+    #[structopt(long, value_name = "PATH", parse(from_os_str))]
+    pub workspace_root: Option<PathBuf>,
+    /// Sets the extensions to consider.  Defaults to `.snap`
+    #[structopt(short = "e", long, value_name = "EXTENSIONS", raw(multiple = "true"))]
+    pub extensions: Vec<String>,
     /// Work on all packages in the workspace
     #[structopt(long)]
     pub all: bool,
@@ -68,14 +75,14 @@ pub struct PackageArgs {
 #[structopt(rename_all = "kebab-case")]
 pub struct ProcessCommand {
     #[structopt(flatten)]
-    pub pkg_args: PackageArgs,
+    pub target_args: TargetArgs,
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "kebab-case")]
 pub struct TestCommand {
     #[structopt(flatten)]
-    pub pkg_args: PackageArgs,
+    pub target_args: TargetArgs,
     /// Package to run tests for
     #[structopt(short = "p", long)]
     pub package: Option<String>,
@@ -105,7 +112,7 @@ fn query_snapshot(
     term: &Term,
     new: &Snapshot,
     old: Option<&Snapshot>,
-    pkg: &Package,
+    pkg: Option<&Package>,
     line: Option<u32>,
     i: usize,
     n: usize,
@@ -113,13 +120,17 @@ fn query_snapshot(
 ) -> Result<Operation, Error> {
     term.clear_screen()?;
     println!(
-        "{}{}{} {} ({})",
+        "{}{}{}",
         style("Reviewing [").bold(),
         style(format!("{}/{}", i, n)).yellow().bold(),
         style("]:").bold(),
-        style(pkg.name()).dim(),
-        pkg.version()
     );
+
+    if let Some(pkg) = pkg {
+        println!(" {} ({})", style(pkg.name()).dim(), pkg.version());
+    } else {
+        println!();
+    }
 
     print_snapshot_diff(workspace_root, new, old, snapshot_file, line);
 
@@ -160,21 +171,53 @@ fn handle_color(color: &Option<String>) -> Result<(), Error> {
     Ok(())
 }
 
-fn handle_pkg_args(pkg_args: &PackageArgs) -> Result<(Metadata, Vec<Package>), Error> {
-    let metadata = get_package_metadata(pkg_args.manifest_path.as_ref().map(|x| x.as_path()))?;
-    let packages = find_packages(&metadata, pkg_args.all)?;
-    Ok((metadata, packages))
+fn handle_target_args(
+    target_args: &TargetArgs,
+) -> Result<(PathBuf, Option<Vec<Package>>, Vec<&str>), Error> {
+    let mut exts: Vec<&str> = target_args
+        .extensions
+        .iter()
+        .map(|x| x.as_str())
+        .collect();
+    if exts.is_empty() {
+        exts.push("snap");
+    }
+    match target_args.workspace_root {
+        Some(ref root) => Ok((root.clone(), None, exts)),
+        None => {
+            let metadata =
+                get_package_metadata(target_args.manifest_path.as_ref().map(|x| x.as_path()))?;
+            let packages = find_packages(&metadata, target_args.all)?;
+            Ok((
+                metadata.workspace_root().to_path_buf(),
+                Some(packages),
+                exts,
+            ))
+        }
+    }
 }
 
 fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), Error> {
     let term = Term::stdout();
-    let (metadata, packages) = handle_pkg_args(&cmd.pkg_args)?;
     let mut snapshot_containers = vec![];
-    for package in &packages {
-        for snapshot_container in package.iter_snapshot_containers() {
-            snapshot_containers.push((snapshot_container?, package));
+
+    let (workspace_root, packages, exts) = handle_target_args(&cmd.target_args)?;
+
+    match packages {
+        Some(ref packages) => {
+            for package in packages.iter() {
+                for snapshot_container in package.iter_snapshot_containers(&exts) {
+                    snapshot_containers.push((snapshot_container?, Some(package)));
+                }
+            }
+        }
+        None => {
+            for snapshot_container in find_snapshots(workspace_root.clone(), &exts) {
+                snapshot_containers.push((snapshot_container?, None));
+            }
         }
     }
+
     let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum();
 
     if snapshot_count == 0 {
@@ -194,11 +237,11 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
             let op = match op {
                 Some(op) => op,
                 None => query_snapshot(
-                    metadata.workspace_root(),
+                    &workspace_root,
                     &term,
                     &snapshot_ref.new,
                     snapshot_ref.old.as_ref(),
-                    package,
+                    *package,
                     snapshot_ref.line,
                     num,
                     snapshot_count,
@@ -252,14 +295,14 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
 fn test_run(cmd: &TestCommand) -> Result<(), Error> {
     let mut proc = process::Command::new(get_cargo());
     proc.arg("test");
-    if cmd.pkg_args.all {
+    if cmd.target_args.all {
         proc.arg("--all");
     }
     if let Some(ref pkg) = cmd.package {
         proc.arg("--package");
         proc.arg(pkg);
     }
-    if let Some(ref manifest_path) = cmd.pkg_args.manifest_path {
+    if let Some(ref manifest_path) = cmd.target_args.manifest_path {
         proc.arg("--manifest-path");
         proc.arg(manifest_path);
     }
@@ -299,7 +342,7 @@ fn test_run(cmd: &TestCommand) -> Result<(), Error> {
     if cmd.review {
         process_snapshots(
             &ProcessCommand {
-                pkg_args: cmd.pkg_args.clone(),
+                target_args: cmd.target_args.clone(),
             },
             None,
         )?
