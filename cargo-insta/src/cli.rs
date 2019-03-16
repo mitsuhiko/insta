@@ -56,15 +56,16 @@ pub enum Command {
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(rename_all = "kebab-case")]
-pub struct PackageArgs {
+pub struct TargetArgs {
     /// Path to Cargo.toml
     #[structopt(long, value_name = "PATH", parse(from_os_str))]
     pub manifest_path: Option<PathBuf>,
-
     /// Explicit path to the workspace root
     #[structopt(long, value_name = "PATH", parse(from_os_str))]
     pub workspace_root: Option<PathBuf>,
-
+    /// Sets the extensions to consider.  Defaults to `.snap`
+    #[structopt(short = "e", long, value_name = "EXTENSIONS", raw(multiple = "true"))]
+    pub extensions: Vec<String>,
     /// Work on all packages in the workspace
     #[structopt(long)]
     pub all: bool,
@@ -74,14 +75,14 @@ pub struct PackageArgs {
 #[structopt(rename_all = "kebab-case")]
 pub struct ProcessCommand {
     #[structopt(flatten)]
-    pub pkg_args: PackageArgs,
+    pub target_args: TargetArgs,
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "kebab-case")]
 pub struct TestCommand {
     #[structopt(flatten)]
-    pub pkg_args: PackageArgs,
+    pub target_args: TargetArgs,
     /// Package to run tests for
     #[structopt(short = "p", long)]
     pub package: Option<String>,
@@ -170,14 +171,28 @@ fn handle_color(color: &Option<String>) -> Result<(), Error> {
     Ok(())
 }
 
-fn handle_pkg_args(pkg_args: &PackageArgs) -> Result<(PathBuf, Option<Vec<Package>>), Error> {
-    match pkg_args.workspace_root {
-        Some(ref root) => Ok((root.clone(), None)),
+fn handle_target_args(
+    target_args: &TargetArgs,
+) -> Result<(PathBuf, Option<Vec<Package>>, Vec<&str>), Error> {
+    let mut exts: Vec<&str> = target_args
+        .extensions
+        .iter()
+        .map(|x| x.as_str())
+        .collect();
+    if exts.is_empty() {
+        exts.push("snap");
+    }
+    match target_args.workspace_root {
+        Some(ref root) => Ok((root.clone(), None, exts)),
         None => {
             let metadata =
-                get_package_metadata(pkg_args.manifest_path.as_ref().map(|x| x.as_path()))?;
-            let packages = find_packages(&metadata, pkg_args.all)?;
-            Ok((metadata.workspace_root().to_path_buf(), Some(packages)))
+                get_package_metadata(target_args.manifest_path.as_ref().map(|x| x.as_path()))?;
+            let packages = find_packages(&metadata, target_args.all)?;
+            Ok((
+                metadata.workspace_root().to_path_buf(),
+                Some(packages),
+                exts,
+            ))
         }
     }
 }
@@ -186,17 +201,18 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     let term = Term::stdout();
     let mut snapshot_containers = vec![];
 
-    let (workspace_root, packages) = handle_pkg_args(&cmd.pkg_args)?;
+    let (workspace_root, packages, exts) = handle_target_args(&cmd.target_args)?;
+
     match packages {
         Some(ref packages) => {
             for package in packages.iter() {
-                for snapshot_container in package.iter_snapshot_containers() {
+                for snapshot_container in package.iter_snapshot_containers(&exts) {
                     snapshot_containers.push((snapshot_container?, Some(package)));
                 }
             }
         }
         None => {
-            for snapshot_container in find_snapshots(workspace_root.clone()) {
+            for snapshot_container in find_snapshots(workspace_root.clone(), &exts) {
                 snapshot_containers.push((snapshot_container?, None));
             }
         }
@@ -279,14 +295,14 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
 fn test_run(cmd: &TestCommand) -> Result<(), Error> {
     let mut proc = process::Command::new(get_cargo());
     proc.arg("test");
-    if cmd.pkg_args.all {
+    if cmd.target_args.all {
         proc.arg("--all");
     }
     if let Some(ref pkg) = cmd.package {
         proc.arg("--package");
         proc.arg(pkg);
     }
-    if let Some(ref manifest_path) = cmd.pkg_args.manifest_path {
+    if let Some(ref manifest_path) = cmd.target_args.manifest_path {
         proc.arg("--manifest-path");
         proc.arg(manifest_path);
     }
@@ -326,7 +342,7 @@ fn test_run(cmd: &TestCommand) -> Result<(), Error> {
     if cmd.review {
         process_snapshots(
             &ProcessCommand {
-                pkg_args: cmd.pkg_args.clone(),
+                target_args: cmd.target_args.clone(),
             },
             None,
         )?
