@@ -346,6 +346,12 @@ impl From<String> for ReferenceValue<'static> {
     }
 }
 
+impl From<Option<String>> for ReferenceValue<'static> {
+    fn from(value: Option<String>) -> ReferenceValue<'static> {
+        ReferenceValue::Named(value.map(Cow::Owned))
+    }
+}
+
 pub enum ReferenceValue<'a> {
     Named(Option<Cow<'a, str>>),
     Inline(&'a str),
