@@ -7,7 +7,7 @@ description = "A snapshot testing library for Rust"
 edition = "2018"
 homepage = "https://github.com/mitsuhiko/insta"
 repository = "https://github.com/mitsuhiko/insta"
-keywords = ["snapshot", "testing", "jest"]
+keywords = ["snapshot", "testing", "jest", "approval"]
 readme = "README.md"
 exclude = [
     "assets/*"
