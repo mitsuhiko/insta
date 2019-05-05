@@ -5,7 +5,18 @@
  <p><strong>insta: a snapshot testing library for Rust</strong></p>
 </div>
 
-## How it Operates
+## What are snapshot tests
+
+Snapshots tests (also sometimes called approval tests) are tests that
+assert values against a reference value (the snapshot).  This is similar
+to how `assert_eq!` lets you compare a value against a reference value but
+unlike simple string assertions snapshot tests let you test against complex
+values and come with comprehensive tools to review changes.
+
+Snapshot tests are particularly useful if your reference values are very
+large or change often.
+
+## How it operates
 
 This crate exports multiple macros for snapshot testing:
 
@@ -100,7 +111,7 @@ source: tests/test_redaction.rs
 ]
 ```
 
-## Snapshot Updating
+## Snapshot updating
 
 During test runs snapshots will be updated according to the `INSTA_UPDATE`
 environment variable.  The default is `auto` which will write all new
@@ -127,7 +138,7 @@ $ cargo insta review
 
 For more information invoke `cargo insta --help`.
 
-## Test Assertions
+## Test assertions
 
 By default the tests will fail when the snapshot assertion fails.  However
 if a test produces more than one snapshot it can be useful to force a test
@@ -192,7 +203,7 @@ assert_yaml_snapshot_matches!("user", &User {
 });
 ```
 
-## Unnamed Snapshots
+## Unnamed snapshots
 
 All snapshot assertion functions let you leave out the snapshot name.  In
 that case the snapshot name is derived from the test name.  This works
