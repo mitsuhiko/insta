@@ -169,9 +169,6 @@ impl FilePatcher {
                 }
 
                 let last = i.path.segments[i.path.segments.len() - 1].ident.to_string();
-                if !last.starts_with("assert_") || !last.ends_with("_snapshot_matches") {
-                    return;
-                }
 
                 let tokens: Vec<_> = i.tts.clone().into_iter().collect();
                 if tokens.len() < 2 {
