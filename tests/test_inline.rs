@@ -35,11 +35,13 @@ fn test_ron_inline() {
         id: 42,
         username: "peter-doe".into(),
         email: Email("peter@doe.invalid".into()),
-    }, @r###"User(
-  id: 42,
-  username: "peter-doe",
-  email: Email("peter@doe.invalid"),
-)"###);
+    }, @r###"
+   ⋮User(
+   ⋮  id: 42,
+   ⋮  username: "peter-doe",
+   ⋮  email: Email("peter@doe.invalid"),
+   ⋮)
+    "###);
 }
 
 #[test]
@@ -63,10 +65,12 @@ fn test_yaml_inline() {
         id: 42,
         username: "peter-pan".into(),
         email: "peterpan@wonderland.invalid".into()
-    }, @r###"---
-id: 42
-username: peter-pan
-email: peterpan@wonderland.invalid"###);
+    }, @r###"
+   ⋮---
+   ⋮id: 42
+   ⋮username: peter-pan
+   ⋮email: peterpan@wonderland.invalid
+    "###);
 }
 
 #[test]
@@ -84,8 +88,10 @@ fn test_yaml_inline_redacted() {
         email: "peterpan@wonderland.invalid".into()
     }, {
         ".id" => "[user-id]"
-    }, @r###"---
-id: "[user-id]"
-username: peter-pan
-email: peterpan@wonderland.invalid"###);
+    }, @r###"
+   ⋮---
+   ⋮id: "[user-id]"
+   ⋮username: peter-pan
+   ⋮email: peterpan@wonderland.invalid
+    "###);
 }

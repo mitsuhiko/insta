@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -11,6 +12,7 @@ use syn::spanned::Spanned;
 pub struct InlineSnapshot {
     start: (usize, usize),
     end: (usize, usize),
+    indentation: usize,
 }
 
 #[derive(Debug)]
@@ -86,10 +88,37 @@ impl FilePatcher {
             .collect();
 
         // replace lines
-        let mut new_lines: Vec<_> = snapshot.lines().collect();
+        let mut new_lines: Vec<_> = snapshot.lines().map(Cow::Borrowed).collect();
         if new_lines.is_empty() {
-            new_lines.push("");
+            new_lines.push(Cow::Borrowed(""));
         }
+
+        // if we have more than one line we want to change into the block
+        // representation mode
+        if new_lines.len() > 1 || snapshot.contains('┇') {
+            new_lines.insert(0, Cow::Borrowed(""));
+            if inline.indentation > 0 {
+                for (idx, line) in new_lines.iter_mut().enumerate() {
+                    if idx == 0 {
+                        continue;
+                    }
+                    *line = Cow::Owned(format!(
+                        "{c: >width$}{line}",
+                        c = "⋮",
+                        width = inline.indentation,
+                        line = line
+                    ));
+                }
+                new_lines.push(Cow::Owned(format!(
+                    "{c: >width$}",
+                    c = " ",
+                    width = inline.indentation
+                )));
+            } else {
+                new_lines.push(Cow::Borrowed(""));
+            }
+        }
+
         let (quote_start, quote_end) =
             if new_lines.len() > 1 || new_lines[0].contains(&['\\', '"'][..]) {
                 ("r###\"", "\"###")
@@ -126,6 +155,7 @@ impl FilePatcher {
 
         impl<'ast> syn::visit::Visit<'ast> for Visitor {
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
+                let indentation = i.span().start().column;
                 let start = i.span().start().line;
                 let end = i
                     .tts
@@ -164,7 +194,11 @@ impl FilePatcher {
                     _ => return,
                 };
 
-                self.1 = Some(InlineSnapshot { start, end });
+                self.1 = Some(InlineSnapshot {
+                    start,
+                    end,
+                    indentation,
+                });
             }
         }
 
