@@ -11,6 +11,7 @@
 //! ```
 //!
 //! For more information see [the insta crate documentation](https://docs.rs/insta).
+#![allow(clippy::redundant_closure)]
 mod cargo;
 mod cli;
 mod inline;

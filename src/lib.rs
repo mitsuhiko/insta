@@ -247,6 +247,7 @@
 //!
 //! After the initial test failure you can run `cargo insta review` to
 //! accept the change.  The file will then be updated automatically.
+#![allow(clippy::redundant_closure)]
 #[macro_use]
 mod macros;
 mod content;
