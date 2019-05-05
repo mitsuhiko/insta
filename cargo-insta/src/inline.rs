@@ -104,7 +104,7 @@ impl FilePatcher {
                     }
                     *line = Cow::Owned(format!(
                         "{c: >width$}{line}",
-                        c = "│",
+                        c = "⋮",
                         width = inline.indentation,
                         line = line
                     ));

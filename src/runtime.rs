@@ -186,13 +186,13 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
     for (i, (mode, lineno, line)) in lines.iter().enumerate() {
         match mode {
             Mode::Add => println!(
-                "{:>5} │{}{}",
+                "{:>5} ⋮{}{}",
                 style(lineno).dim().bold(),
                 style("+").green(),
                 style(line).green()
             ),
             Mode::Rem => println!(
-                "{:>5} │{}{}",
+                "{:>5} ⋮{}{}",
                 style(lineno).dim().bold(),
                 style("-").red(),
                 style(line).red()
@@ -203,7 +203,7 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
                     .any(|x| x.0 != Mode::Same)
                 {
                     println!(
-                        "{:>5} │ {}",
+                        "{:>5} ⋮ {}",
                         style(lineno).dim().bold(),
                         style(line).dim()
                     );
@@ -379,11 +379,11 @@ fn generate_snapshot_name_for_thread(module_path: &str) -> String {
 }
 
 /// Helper function that returns the real inline snapshot value from a given
-/// frozen value string.  If the string starts with the '│' character
+/// frozen value string.  If the string starts with the '⋮' character
 /// (optionally prefixed by whitespace) the alternative serialization format
 /// is picked which has slightly improved indentation semantics.
 fn get_inline_snapshot_value(frozen_value: &str) -> String {
-    if frozen_value.trim_start().starts_with('│') {
+    if frozen_value.trim_start().starts_with('⋮') {
         let mut buf = String::new();
         let mut line_iter = frozen_value.lines();
         let mut indentation = 0;
@@ -394,7 +394,7 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
                 continue;
             }
             indentation = line.len() - line_trimmed.len();
-            // 3 because '│' is three utf-8 bytes long
+            // 3 because '⋮' is three utf-8 bytes long
             buf.push_str(&line_trimmed[3..]);
             buf.push('\n');
             break;
@@ -407,8 +407,8 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
                 }
             }
             if let Some(remainer) = line.get(indentation..) {
-                if remainer.starts_with('│') {
-                    // 3 because '│' is three utf-8 bytes long
+                if remainer.starts_with('⋮') {
+                    // 3 because '⋮' is three utf-8 bytes long
                     buf.push_str(&remainer[3..]);
                     buf.push('\n');
                 } else if remainer.trim().is_empty() {
