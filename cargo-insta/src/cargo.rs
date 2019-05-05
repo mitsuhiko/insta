@@ -270,7 +270,7 @@ impl Package {
 
     pub fn iter_snapshot_containers<'a>(
         &self,
-        extensions: &'a [&'a str]
+        extensions: &'a [&'a str],
     ) -> impl Iterator<Item = Result<SnapshotContainer, Error>> + 'a {
         let mut roots = HashSet::new();
         for target in &self.targets {
@@ -286,7 +286,9 @@ impl Package {
                 roots.insert(root.to_path_buf());
             }
         }
-        roots.into_iter().flat_map(move |root| find_snapshots(root, extensions))
+        roots
+            .into_iter()
+            .flat_map(move |root| find_snapshots(root, extensions))
     }
 }
 

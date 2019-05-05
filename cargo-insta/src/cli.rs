@@ -174,11 +174,7 @@ fn handle_color(color: &Option<String>) -> Result<(), Error> {
 fn handle_target_args(
     target_args: &TargetArgs,
 ) -> Result<(PathBuf, Option<Vec<Package>>, Vec<&str>), Error> {
-    let mut exts: Vec<&str> = target_args
-        .extensions
-        .iter()
-        .map(|x| x.as_str())
-        .collect();
+    let mut exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
     if exts.is_empty() {
         exts.push("snap");
     }
