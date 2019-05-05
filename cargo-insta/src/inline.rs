@@ -168,8 +168,6 @@ impl FilePatcher {
                     return;
                 }
 
-                let last = i.path.segments[i.path.segments.len() - 1].ident.to_string();
-
                 let tokens: Vec<_> = i.tts.clone().into_iter().collect();
                 if tokens.len() < 2 {
                     return;
