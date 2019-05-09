@@ -321,8 +321,7 @@ macro_rules! _assert_snapshot_matches {
                     file!(),
                     line!(),
                     $debug_expr,
-                )
-                .unwrap();
+                );
             }
         }
     };

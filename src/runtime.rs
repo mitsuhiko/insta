@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Write, Cursor};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -11,7 +11,6 @@ use std::thread;
 use chrono::{Local, Utc};
 use console::style;
 use difference::{Changeset, Difference};
-use failure::Error;
 use lazy_static::lazy_static;
 
 use ci_info::is_ci;
@@ -138,7 +137,7 @@ fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     }
 }
 
-fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
+fn write_changeset(w: &mut dyn Write, changeset: &Changeset, expr: Option<&str>) -> io::Result<()> {
     let Changeset { ref diffs, .. } = *changeset;
     #[derive(PartialEq)]
     enum Mode {
@@ -175,47 +174,54 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
     let width = console::Term::stdout().size().1 as usize;
 
     if let Some(expr) = expr {
-        println!("{:─^1$}", "", width,);
-        println!("{}", style(format_rust_expression(expr)).dim());
+        writeln!(w, "{:─^1$}", "", width,)?;
+        writeln!(w, "{}", style(format_rust_expression(expr)).dim())?;
     }
-    println!(
+    writeln!(
+        w,
         "──────┬{:─^1$}",
         "",
         width.saturating_sub(7),
-    );
+    )?;
     for (i, (mode, lineno, line)) in lines.iter().enumerate() {
         match mode {
-            Mode::Add => println!(
+            Mode::Add => writeln!(
+                w,
                 "{:>5} ⋮{}{}",
                 style(lineno).dim().bold(),
                 style("+").green(),
                 style(line).green()
-            ),
-            Mode::Rem => println!(
+            )?,
+            Mode::Rem => writeln!(
+                w,
                 "{:>5} ⋮{}{}",
                 style(lineno).dim().bold(),
                 style("-").red(),
                 style(line).red()
-            ),
+            )?,
             Mode::Same => {
                 if lines[i.saturating_sub(5)..(i + 5).min(lines.len())]
                     .iter()
                     .any(|x| x.0 != Mode::Same)
                 {
-                    println!(
+                    writeln!(
+                        w,
                         "{:>5} ⋮ {}",
                         style(lineno).dim().bold(),
                         style(line).dim()
-                    );
+                    )?;
                 }
             }
         }
     }
-    println!(
+    writeln!(
+        w,
         "──────┴{:─^1$}",
         "",
         width.saturating_sub(7),
-    );
+    )?;
+
+    Ok(())
 }
 
 pub fn get_snapshot_filename(
@@ -239,6 +245,25 @@ pub fn print_snapshot_diff(
     snapshot_file: Option<&Path>,
     line: Option<u32>,
 ) {
+    write_snapshot_diff(
+        &mut io::stdout(),
+        workspace_root,
+        new,
+        old_snapshot,
+        snapshot_file,
+        line,
+    )
+    .expect("stdout");
+}
+
+fn write_snapshot_diff(
+    w: &mut dyn Write,
+    workspace_root: &Path,
+    new: &Snapshot,
+    old_snapshot: Option<&Snapshot>,
+    snapshot_file: Option<&Path>,
+    line: Option<u32>,
+) -> io::Result<()> {
     if let Some(snapshot_file) = snapshot_file {
         let snapshot_file = workspace_root
             .join(snapshot_file)
@@ -246,19 +271,21 @@ pub fn print_snapshot_diff(
             .ok()
             .map(|x| x.to_path_buf())
             .unwrap_or_else(|| snapshot_file.to_path_buf());
-        println!(
+        writeln!(
+            w,
             "Snapshot file: {}",
             style(snapshot_file.display()).cyan().underlined()
-        );
+        )?;
     }
     if let Some(name) = new.snapshot_name() {
-        println!("Snapshot: {}", style(name).yellow());
+        writeln!(w, "Snapshot: {}", style(name).yellow())?;
     } else {
-        println!("Snapshot: {}", style("<inline>").dim());
+        writeln!(w, "Snapshot: {}", style("<inline>").dim())?;
     }
 
     if let Some(ref value) = new.metadata().get_relative_source(workspace_root) {
-        println!(
+        writeln!(
+            w,
             "Source: {}{}",
             style(value.display()).cyan(),
             if let Some(line) = line {
@@ -266,7 +293,7 @@ pub fn print_snapshot_diff(
             } else {
                 "".to_string()
             }
-        );
+        )?;
     }
     let changeset = Changeset::new(
         old_snapshot.as_ref().map_or("", |x| x.contents()),
@@ -275,57 +302,64 @@ pub fn print_snapshot_diff(
     );
     if let Some(old_snapshot) = old_snapshot {
         if let Some(ref value) = old_snapshot.metadata().created {
-            println!(
+            writeln!(
+                w,
                 "Old: {}",
                 style(value.with_timezone(&Local).to_rfc2822()).cyan()
-            );
+            )?;
         }
         if let Some(ref value) = new.metadata().created {
-            println!(
+            writeln!(
+                w,
                 "New: {}",
                 style(value.with_timezone(&Local).to_rfc2822()).cyan()
-            );
+            )?;
         }
-        println!();
-        println!("{}", style("-old snapshot").red());
-        println!("{}", style("+new results").green());
+        writeln!(w)?;
+        writeln!(w, "{}", style("-old snapshot").red())?;
+        writeln!(w, "{}", style("+new results").green())?;
     } else {
-        println!("Old: {}", style("n.a.").red());
+        writeln!(w, "Old: {}", style("n.a.").red())?;
         if let Some(ref value) = new.metadata().created {
-            println!(
+            writeln!(
+                w,
                 "New: {}",
                 style(value.with_timezone(&Local).to_rfc2822()).cyan()
-            );
+            )?;
         }
-        println!();
-        println!("{}", style("+new results").green());
+        writeln!(w)?;
+        writeln!(w, "{}", style("+new results").green())?;
     }
-    print_changeset(
+    write_changeset(
+        w,
         &changeset,
         new.metadata().expression.as_ref().map(|x| x.as_str()),
-    );
+    )
 }
 
-fn print_snapshot_diff_with_title(
+fn write_snapshot_diff_with_title(
+    w: &mut dyn Write,
     workspace_root: &Path,
     new_snapshot: &Snapshot,
     old_snapshot: Option<&Snapshot>,
     line: u32,
     snapshot_file: Option<&Path>,
-) {
+) -> io::Result<()> {
     let width = console::Term::stdout().size().1 as usize;
-    println!(
+    writeln!(
+        w,
         "{title:━^width$}",
         title = style(" Snapshot Differences ").bold(),
         width = width
-    );
-    print_snapshot_diff(
+    )?;
+    write_snapshot_diff(
+        w,
         workspace_root,
         new_snapshot,
         old_snapshot,
         snapshot_file,
         Some(line),
-    );
+    )
 }
 
 impl<'a> From<Option<&'a str>> for ReferenceValue<'a> {
@@ -430,15 +464,17 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn assert_snapshot(
-    refval: ReferenceValue<'_>,
+fn snapshot_matches<'a>(
+    refval: ReferenceValue<'a>,
     new_snapshot: &str,
     manifest_dir: &str,
     module_path: &str,
     file: &str,
     line: u32,
     expr: &str,
-) -> Result<(), Error> {
+) -> Result<(), (Option<Cow<'a, str>>, Vec<u8>)> {
+    let mut s = Cursor::new(vec![]);
+
     let module_name = module_path.rsplit("::").next().unwrap();
     let cargo_workspace = get_cargo_workspace(manifest_dir);
 
@@ -449,7 +485,7 @@ pub fn assert_snapshot(
             let snapshot_file =
                 get_snapshot_filename(module_name, &snapshot_name, &cargo_workspace, file);
             let old = if fs::metadata(&snapshot_file).is_ok() {
-                Some(Snapshot::from_file(&snapshot_file)?)
+                Some(Snapshot::from_file(&snapshot_file).expect("snapshot"))
             } else {
                 None
             };
@@ -457,7 +493,7 @@ pub fn assert_snapshot(
         }
         ReferenceValue::Inline(contents) => {
             let mut filename = cargo_workspace.join(file);
-            let created = fs::metadata(&filename)?.created().ok().map(|x| x.into());
+            let created = fs::metadata(&filename).expect("fs").created().ok().map(|x| x.into());
             filename.set_file_name(format!(
                 ".{}.pending-snap",
                 filename
@@ -504,62 +540,97 @@ pub fn assert_snapshot(
         new_snapshot.to_string(),
     );
 
-    print_snapshot_diff_with_title(
+    write_snapshot_diff_with_title(
+        &mut s,
         cargo_workspace,
         &new,
         old.as_ref(),
         line,
         snapshot_file.as_ref().map(|x| x.as_path()),
-    );
-    println!(
+    )
+    .expect("Cursor write");
+    writeln!(
+        s,
         "{hint}",
         hint = style("To update snapshots run `cargo insta review`").dim(),
-    );
+    )
+    .expect("Cursor write");
 
     match update_snapshot_behavior() {
         UpdateBehavior::InPlace => {
             if let Some(ref snapshot_file) = snapshot_file {
-                new.save(snapshot_file)?;
-                eprintln!(
+                new.save(snapshot_file).expect("save");
+                writeln!(
+                    s,
                     "  {} {}\n",
                     style("updated snapshot").green(),
                     style(snapshot_file.display()).cyan().underlined(),
-                );
+                )
+                .expect("Cursor write");
                 return Ok(());
             } else {
-                eprintln!(
+                writeln!(
+                    s,
                     "  {}",
                     style("error: cannot update inline snapshots in-place")
                         .red()
                         .bold(),
-                );
+                )
+                .expect("Cursor write");
             }
         }
         UpdateBehavior::NewFile => {
             if let Some(ref snapshot_file) = snapshot_file {
                 let mut new_path = snapshot_file.to_path_buf();
                 new_path.set_extension("snap.new");
-                new.save(&new_path)?;
-                eprintln!(
+                new.save(&new_path).expect("save");
+                writeln!(
+                    s,
                     "  {} {}\n",
                     style("stored new snapshot").green(),
                     style(new_path.display()).cyan().underlined(),
-                );
+                )
+                .expect("Cursor write");
             } else {
-                PendingInlineSnapshot::new(new, old, line).save(pending_snapshots.unwrap())?;
+                PendingInlineSnapshot::new(new, old, line).save(pending_snapshots.unwrap()).expect("save");
             }
         }
         UpdateBehavior::NoUpdate => {}
     }
 
-    if should_fail_in_tests() {
-        assert!(
-            false,
-            "snapshot assertion for '{}' failed in line {}",
-            snapshot_name.unwrap_or(Cow::Borrowed("inline snapshot")),
-            line
-        );
-    }
+    Err((snapshot_name, s.into_inner()))
+}
 
-    Ok(())
+#[allow(clippy::too_many_arguments)]
+pub fn assert_snapshot(
+    refval: ReferenceValue<'_>,
+    new_snapshot: &str,
+    manifest_dir: &str,
+    module_path: &str,
+    file: &str,
+    line: u32,
+    expr: &str,
+) {
+    match snapshot_matches(
+        refval,
+        new_snapshot,
+        manifest_dir,
+        module_path,
+        file,
+        line,
+        expr,
+    ) {
+        Ok(()) => (),
+        Err((snapshot_name, err)) => {
+            io::stdout().write_all(&err).expect("stdout"); // already has a trailing newline
+            if should_fail_in_tests() {
+                assert!(
+                    false,
+                    "snapshot assertion for '{}' failed in line {}",
+                    snapshot_name.unwrap_or(Cow::Borrowed("inline snapshot")),
+                    line
+                );
+            }
+        }
+    }
 }
