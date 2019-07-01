@@ -41,13 +41,13 @@ pub struct Opts {
 #[structopt(bin_name = "cargo-insta")]
 pub enum Command {
     /// Interactively review snapshots
-    #[structopt(name = "review")]
+    #[structopt(name = "review", alias = "verify")]
     Review(ProcessCommand),
     /// Rejects all snapshots
     #[structopt(name = "reject")]
     Reject(ProcessCommand),
     /// Accept all snapshots
-    #[structopt(name = "accept")]
+    #[structopt(name = "accept", alias = "approve")]
     Accept(ProcessCommand),
     /// Run tests and then reviews
     #[structopt(name = "test")]
