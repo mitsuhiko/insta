@@ -6,12 +6,14 @@ use serde::Serialize;
 
 #[test]
 fn test_simple() {
-    assert_debug_snapshot_matches!(vec![1, 2, 3, 4], @r###"[
-    1,
-    2,
-    3,
-    4
-]"###);
+    assert_debug_snapshot_matches!(vec![1, 2, 3, 4], @r###"
+   ⋮[
+   ⋮    1,
+   ⋮    2,
+   ⋮    3,
+   ⋮    4,
+   ⋮]
+    "###);
 }
 
 #[test]
