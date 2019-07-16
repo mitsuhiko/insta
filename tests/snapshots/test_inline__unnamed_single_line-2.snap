@@ -1,0 +1,7 @@
+---
+created: "2019-07-16T10:35:19.553505Z"
+creator: insta@0.8.1
+source: tests/test_inline.rs
+expression: "\"Testing-2\""
+---
+Testing-2
