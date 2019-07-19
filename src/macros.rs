@@ -283,21 +283,21 @@ macro_rules! assert_display_snapshot_matches {
 #[macro_export]
 macro_rules! assert_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {
-        assert_snapshot_matches!(
+        $crate::assert_snapshot_matches!(
             $crate::_macro_support::ReferenceValue::Inline($snapshot),
             $value,
             stringify!($value)
         )
     };
     ($value:expr, $debug_expr:expr, @$snapshot:literal) => {
-        assert_snapshot_matches!(
+        $crate::assert_snapshot_matches!(
             $crate::_macro_support::ReferenceValue::Inline($snapshot),
             $value,
             $debug_expr
         )
     };
     ($name:expr, $value:expr) => {
-        assert_snapshot_matches!($name, $value, stringify!($value))
+        $crate::assert_snapshot_matches!($name, $value, stringify!($value))
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_snapshot(
@@ -312,6 +312,6 @@ macro_rules! assert_snapshot_matches {
         .unwrap();
     };
     ($value:expr) => {
-        assert_snapshot_matches!(None::<String>, $value, stringify!($value))
+        $crate::assert_snapshot_matches!(None::<String>, $value, stringify!($value))
     };
 }
