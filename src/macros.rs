@@ -283,47 +283,35 @@ macro_rules! assert_display_snapshot_matches {
 #[macro_export]
 macro_rules! assert_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {
-        $crate::_assert_snapshot_matches!(
+        $crate::assert_snapshot_matches!(
             $crate::_macro_support::ReferenceValue::Inline($snapshot),
             $value,
             stringify!($value)
         )
     };
     ($value:expr, $debug_expr:expr, @$snapshot:literal) => {
-        $crate::_assert_snapshot_matches!(
+        $crate::assert_snapshot_matches!(
             $crate::_macro_support::ReferenceValue::Inline($snapshot),
             $value,
             $debug_expr
         )
     };
     ($name:expr, $value:expr) => {
-        $crate::_assert_snapshot_matches!(From::from($name), $value, stringify!($value))
+        $crate::assert_snapshot_matches!($name, $value, stringify!($value))
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {
-        $crate::_assert_snapshot_matches!(From::from($name), $value, $debug_expr)
+        $crate::_macro_support::assert_snapshot(
+            $name.into(),
+            &$value,
+            env!("CARGO_MANIFEST_DIR"),
+            module_path!(),
+            file!(),
+            line!(),
+            $debug_expr,
+        )
+        .unwrap();
     };
     ($value:expr) => {
-        $crate::_assert_snapshot_matches!(None::<String>, $value, stringify!($value))
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! _assert_snapshot_matches {
-    ($refval:expr, $value:expr, $debug_expr:expr) => {
-        match &$value {
-            value => {
-                $crate::_macro_support::assert_snapshot(
-                    $refval,
-                    value,
-                    env!("CARGO_MANIFEST_DIR"),
-                    module_path!(),
-                    file!(),
-                    line!(),
-                    $debug_expr,
-                )
-                .unwrap();
-            }
-        }
+        $crate::assert_snapshot_matches!(None::<String>, $value, stringify!($value))
     };
 }

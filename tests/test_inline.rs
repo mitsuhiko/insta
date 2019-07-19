@@ -22,6 +22,12 @@ fn test_single_line() {
 }
 
 #[test]
+fn test_unnamed_single_line() {
+    assert_snapshot_matches!("Testing");
+    assert_snapshot_matches!("Testing-2");
+}
+
+#[test]
 fn test_ron_inline() {
     #[derive(Serialize)]
     pub struct Email(String);
