@@ -178,7 +178,11 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         println!("{:─^1$}", "", width,);
         println!("{}", style(format_rust_expression(expr)).dim());
     }
-    println!("──────┬{:─^1$}", "", width.saturating_sub(7),);
+    println!(
+        "──────┬{:─^1$}",
+        "",
+        width.saturating_sub(7),
+    );
     for (i, (mode, lineno, line)) in lines.iter().enumerate() {
         match mode {
             Mode::Add => println!(
@@ -198,12 +202,20 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
                     .iter()
                     .any(|x| x.0 != Mode::Same)
                 {
-                    println!("{:>5} ⋮ {}", style(lineno).dim().bold(), style(line).dim());
+                    println!(
+                        "{:>5} ⋮ {}",
+                        style(lineno).dim().bold(),
+                        style(line).dim()
+                    );
                 }
             }
         }
     }
-    println!("──────┴{:─^1$}", "", width.saturating_sub(7),);
+    println!(
+        "──────┴{:─^1$}",
+        "",
+        width.saturating_sub(7),
+    );
 }
 
 pub fn get_snapshot_filename(
