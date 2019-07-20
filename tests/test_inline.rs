@@ -28,6 +28,12 @@ fn test_unnamed_single_line() {
 }
 
 #[test]
+fn test_newline() {
+    // https://github.com/mitsuhiko/insta/issues/39
+    assert_snapshot_matches!("\n", @"");
+}
+
+#[test]
 fn test_ron_inline() {
     #[derive(Serialize)]
     pub struct Email(String);
@@ -54,10 +60,12 @@ fn test_ron_inline() {
 
 #[test]
 fn test_json_inline() {
-    assert_json_snapshot_matches!(vec!["foo", "bar"], @r###"[
-  "foo",
-  "bar"
-]"###);
+    assert_json_snapshot_matches!(vec!["foo", "bar"], @r###"
+   ⋮[
+   ⋮  "foo",
+   ⋮  "bar"
+   ⋮]
+    "###);
 }
 
 #[test]
