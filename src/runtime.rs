@@ -490,8 +490,13 @@ pub fn assert_snapshot(
     };
 
     // if the snapshot matches we're done.
-    if old.as_ref().map_or(false, |x| x.contents() == new_snapshot) {
-        return Ok(());
+    if let Some(ref x) = old {
+        // https://github.com/mitsuhiko/insta/issues/39
+        let old_trimmed = x.contents().lines().collect::<String>();
+        let new_trimmed = new_snapshot.lines().collect::<String>();
+        if old_trimmed == new_trimmed {
+            return Ok(());
+        }
     }
 
     let new = Snapshot::from_components(
