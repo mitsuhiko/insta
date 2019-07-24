@@ -487,7 +487,6 @@ pub fn assert_snapshot(
 
     // if the snapshot matches we're done.
     if let Some(ref x) = old {
-        // https://github.com/mitsuhiko/insta/issues/39
         if x.contents().trim_end() == new_snapshot.trim_end() {
             return Ok(());
         }
