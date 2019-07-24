@@ -64,7 +64,9 @@ fn format_rust_expression(value: &str) -> Cow<'_, str> {
                 // (currently 14 from the start and 2 before the end, respectively)
                 let start = PREFIX.len() + 1;
                 let end = output.stdout.len() - SUFFIX.len();
-                return String::from_utf8(output.stdout).unwrap()[start..end]
+                use std::str;
+                return str::from_utf8(&output.stdout[start..end])
+                    .unwrap()
                     .to_owned()
                     .into();
             }
@@ -80,6 +82,7 @@ fn test_format_rust_expression() {
     assert_snapshot_matches!(format_rust_expression("vec![1,2,3].iter()"), @"vec![1, 2, 3].iter()");
     assert_snapshot_matches!(format_rust_expression(r#"    "aoeu""#), @r###""aoeu""###);
     assert_snapshot_matches!(format_rust_expression(r#"  "aoe😄""#), @r###""aoe😄""###);
+    assert_snapshot_matches!(format_rust_expression("😄😄😄😄😄"), @"😄😄😄😄😄")
 }
 
 fn update_snapshot_behavior() -> UpdateBehavior {
