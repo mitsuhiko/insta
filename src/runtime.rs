@@ -419,13 +419,9 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
             }
         }
 
-        if buf.ends_with('\n') {
-            buf.truncate(buf.len() - 1);
-        }
-
-        buf
+        buf.trim_end().to_string()
     } else {
-        frozen_value.lines().collect()
+        frozen_value.trim_end().to_string()
     }
 }
 
@@ -492,9 +488,7 @@ pub fn assert_snapshot(
     // if the snapshot matches we're done.
     if let Some(ref x) = old {
         // https://github.com/mitsuhiko/insta/issues/39
-        let old_trimmed = x.contents().lines().collect::<String>();
-        let new_trimmed = new_snapshot.lines().collect::<String>();
-        if old_trimmed == new_trimmed {
+        if x.contents().trim_end() == new_snapshot.trim_end() {
             return Ok(());
         }
     }
