@@ -5,6 +5,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::str;
 use std::sync::Mutex;
 use std::thread;
 
@@ -64,7 +65,6 @@ fn format_rust_expression(value: &str) -> Cow<'_, str> {
                 // (currently 14 from the start and 2 before the end, respectively)
                 let start = PREFIX.len() + 1;
                 let end = output.stdout.len() - SUFFIX.len();
-                use std::str;
                 return str::from_utf8(&output.stdout[start..end])
                     .unwrap()
                     .to_owned()
