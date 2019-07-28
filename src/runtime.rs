@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
+use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -151,27 +152,61 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         Add,
         Rem,
     }
+
+    #[derive(PartialEq)]
+    enum Lineno {
+        NotPresent,
+        Present(usize),
+    }
+
+    impl fmt::Display for Lineno {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match *self {
+                Lineno::NotPresent => f.pad(""),
+                Lineno::Present(lineno) => fmt::Display::fmt(&lineno, f),
+            }
+        }
+    }
+
     let mut lines = vec![];
 
-    let mut lineno = 1;
+    let mut lineno_a = 1;
+    let mut lineno_b = 1;
+
     for diff in diffs.iter() {
         match *diff {
             Difference::Same(ref x) => {
                 for line in x.split('\n') {
-                    lines.push((Mode::Same, lineno, line.trim_end()));
-                    lineno += 1;
+                    lines.push((
+                        Mode::Same,
+                        Lineno::Present(lineno_a),
+                        Lineno::Present(lineno_b),
+                        line.trim_end(),
+                    ));
+                    lineno_a += 1;
+                    lineno_b += 1;
                 }
             }
             Difference::Add(ref x) => {
                 for line in x.split('\n') {
-                    lines.push((Mode::Add, lineno, line.trim_end()));
-                    lineno += 1;
+                    lines.push((
+                        Mode::Add,
+                        Lineno::NotPresent,
+                        Lineno::Present(lineno_b),
+                        line.trim_end(),
+                    ));
+                    lineno_b += 1;
                 }
             }
             Difference::Rem(ref x) => {
                 for line in x.split('\n') {
-                    lines.push((Mode::Rem, lineno, line.trim_end()));
-                    lineno += 1;
+                    lines.push((
+                        Mode::Rem,
+                        Lineno::Present(lineno_a),
+                        Lineno::NotPresent,
+                        line.trim_end(),
+                    ));
+                    lineno_a += 1;
                 }
             }
         }
@@ -184,21 +219,23 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         println!("{}", style(format_rust_expression(expr)).dim());
     }
     println!(
-        "──────┬{:─^1$}",
+        "────────────┬{:─^1$}",
         "",
-        width.saturating_sub(7),
+        width.saturating_sub(13),
     );
-    for (i, (mode, lineno, line)) in lines.iter().enumerate() {
+    for (i, (mode, lineno_a, lineno_b, line)) in lines.iter().enumerate() {
         match mode {
             Mode::Add => println!(
-                "{:>5} ⋮{}{}",
-                style(lineno).dim().bold(),
+                "{:>5} {:>5} │{}{}",
+                style(lineno_a).dim(),
+                style(lineno_b).dim().bold(),
                 style("+").green(),
                 style(line).green()
             ),
             Mode::Rem => println!(
-                "{:>5} ⋮{}{}",
-                style(lineno).dim().bold(),
+                "{:>5} {:>5} │{}{}",
+                style(lineno_a).dim(),
+                style(lineno_b).dim().bold(),
                 style("-").red(),
                 style(line).red()
             ),
@@ -208,8 +245,9 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
                     .any(|x| x.0 != Mode::Same)
                 {
                     println!(
-                        "{:>5} ⋮ {}",
-                        style(lineno).dim().bold(),
+                        "{:>5} {:>5} │ {}",
+                        style(lineno_a).dim(),
+                        style(lineno_b).dim().bold(),
                         style(line).dim()
                     );
                 }
@@ -217,9 +255,9 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         }
     }
     println!(
-        "──────┴{:─^1$}",
+        "────────────┴{:─^1$}",
         "",
-        width.saturating_sub(7),
+        width.saturating_sub(13),
     );
 }
 
