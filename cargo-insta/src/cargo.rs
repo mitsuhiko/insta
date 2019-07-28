@@ -227,7 +227,7 @@ pub fn find_snapshots<'a>(
         .filter_map(move |e| {
             let fname = e.file_name().to_string_lossy();
             if fname.ends_with(".new")
-                && extensions.contains(&fname.rsplit('.').skip(1).next().unwrap_or(""))
+                && extensions.contains(&fname.rsplit('.').nth(1).unwrap_or(""))
                 && e.path()
                     .strip_prefix(&root)
                     .unwrap()

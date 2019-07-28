@@ -419,14 +419,16 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
             }
         }
 
-        if buf.ends_with('\n') {
-            buf.truncate(buf.len() - 1);
-        }
-
-        buf
+        buf.trim_end().to_string()
     } else {
-        frozen_value.to_string()
+        frozen_value.trim_end().to_string()
     }
+}
+
+#[test]
+fn test_inline_snapshot_value_newline() {
+    // https://github.com/mitsuhiko/insta/issues/39
+    assert_eq!(get_inline_snapshot_value("\n"), "");
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -484,8 +486,10 @@ pub fn assert_snapshot(
     };
 
     // if the snapshot matches we're done.
-    if old.as_ref().map_or(false, |x| x.contents() == new_snapshot) {
-        return Ok(());
+    if let Some(ref x) = old {
+        if x.contents().trim_end() == new_snapshot.trim_end() {
+            return Ok(());
+        }
     }
 
     let new = Snapshot::from_components(
