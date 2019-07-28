@@ -2,9 +2,10 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::str;
 use std::sync::Mutex;
 use std::thread;
 
@@ -42,6 +43,8 @@ fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
 }
 
 fn format_rust_expression(value: &str) -> Cow<'_, str> {
+    const PREFIX: &str = "const x:() = ";
+    const SUFFIX: &str = ";\n";
     if let Ok(mut proc) = Command::new("rustfmt")
         .arg("--emit=stdout")
         .arg("--edition=2018")
@@ -52,32 +55,34 @@ fn format_rust_expression(value: &str) -> Cow<'_, str> {
     {
         {
             let stdin = proc.stdin.as_mut().unwrap();
-            stdin.write_all(b"const x:() = ").unwrap();
+            stdin.write_all(PREFIX.as_bytes()).unwrap();
             stdin.write_all(value.as_bytes()).unwrap();
-            stdin.write_all(b";").unwrap();
+            stdin.write_all(SUFFIX.as_bytes()).unwrap();
         }
         if let Ok(output) = proc.wait_with_output() {
             if output.status.success() {
-                let mut buf = String::new();
-                let mut rv = String::new();
-                let mut reader = BufReader::new(&output.stdout[..]);
-                reader.read_line(&mut buf).unwrap();
-
-                rv.push_str(&buf[14..]);
-                loop {
-                    buf.clear();
-                    let read = reader.read_line(&mut buf).unwrap();
-                    if read == 0 {
-                        break;
-                    }
-                    rv.push_str(&buf);
-                }
-                rv.truncate(rv.trim_end().len() - 1);
-                return Cow::Owned(rv);
+                // slice between after the prefix and before the suffix
+                // (currently 14 from the start and 2 before the end, respectively)
+                let start = PREFIX.len() + 1;
+                let end = output.stdout.len() - SUFFIX.len();
+                return str::from_utf8(&output.stdout[start..end])
+                    .unwrap()
+                    .to_owned()
+                    .into();
             }
         }
     }
     Cow::Borrowed(value)
+}
+
+#[test]
+fn test_format_rust_expression() {
+    use crate::assert_snapshot_matches;
+    assert_snapshot_matches!(format_rust_expression("vec![1,2,3]"), @"vec![1, 2, 3]");
+    assert_snapshot_matches!(format_rust_expression("vec![1,2,3].iter()"), @"vec![1, 2, 3].iter()");
+    assert_snapshot_matches!(format_rust_expression(r#"    "aoeu""#), @r###""aoeu""###);
+    assert_snapshot_matches!(format_rust_expression(r#"  "aoe😄""#), @r###""aoe😄""###);
+    assert_snapshot_matches!(format_rust_expression("😄😄😄😄😄"), @"😄😄😄😄😄")
 }
 
 fn update_snapshot_behavior() -> UpdateBehavior {
@@ -557,8 +562,7 @@ pub fn assert_snapshot(
     }
 
     if should_fail_in_tests() {
-        assert!(
-            false,
+        panic!(
             "snapshot assertion for '{}' failed in line {}",
             snapshot_name.unwrap_or(Cow::Borrowed("inline snapshot")),
             line
