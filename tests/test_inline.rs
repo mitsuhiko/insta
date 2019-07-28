@@ -103,3 +103,8 @@ fn test_yaml_inline_redacted() {
    ⋮email: peterpan@wonderland.invalid
     "###);
 }
+
+#[test]
+fn test_non_basic_plane() {
+    assert_snapshot_matches!("a 😀oeu", @"a 😀oeu");
+}
