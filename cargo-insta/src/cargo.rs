@@ -337,14 +337,23 @@ fn get_default_manifest() -> Result<Option<PathBuf>, Error> {
     }
 }
 
-pub fn find_packages(metadata: &Metadata, all: bool) -> Result<Vec<Package>, Error> {
-    let mut rv = vec![];
-    if all {
-        for package in &metadata.packages {
+fn find_all_packages(metadata: &Metadata) -> Vec<Package> {
+    metadata
+        .packages
+        .iter()
+        .filter_map(|package| {
             if metadata.workspace_members.contains(&package.id) {
-                rv.push(package.clone());
+                Some(package.clone())
+            } else {
+                None
             }
-        }
+        })
+        .collect()
+}
+
+pub fn find_packages(metadata: &Metadata, all: bool) -> Result<Vec<Package>, Error> {
+    if all {
+        Ok(find_all_packages(metadata))
     } else {
         let default_manifest = get_default_manifest()?
             .ok_or_else(|| {
@@ -353,17 +362,18 @@ pub fn find_packages(metadata: &Metadata, all: bool) -> Result<Vec<Package>, Err
                 )
             })?
             .canonicalize()?;
+        let mut rv = vec![];
         for package in &metadata.packages {
             if package.manifest_path.canonicalize()? == default_manifest {
                 rv.push(package.clone());
             }
         }
         if rv.is_empty() {
-            return Err(err_msg(
-                "Cargo.toml appears to be a workspace root but not a package \
-                 by itself.  Enter a package folder explicitly or use --all",
-            ));
+            // if we don't find anything we're in a workspace root that has no
+            // root member in which case --all is implied.
+            Ok(find_all_packages(metadata))
+        } else {
+            Ok(rv)
         }
     }
-    Ok(rv)
 }
