@@ -1,0 +1,7 @@
+---
+created: "2019-08-02T12:56:32.092623600Z"
+creator: insta@0.9.0
+source: tests/test_inline.rs
+expression: "\"Testing-thread-2\""
+---
+Testing-thread-2

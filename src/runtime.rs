@@ -405,6 +405,7 @@ fn generate_snapshot_name_for_thread(module_path: &str) -> String {
     let mut name = thread
         .name()
         .expect("test thread is unnamed, no snapshot name can be generated");
+    name = name.rsplit("::").next().unwrap();
     // we really do not care about poisoning here.
     let key = format!("{}::{}", module_path, name);
     let mut counters = TEST_NAME_COUNTERS.lock().unwrap_or_else(|x| x.into_inner());
