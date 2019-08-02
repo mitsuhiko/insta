@@ -30,13 +30,14 @@ fn test_unnamed_single_line() {
 
 #[test]
 fn test_unnamed_thread_single_line() {
-    let builder = thread::Builder::new()
-        .name("foo::lol::something".into());
+    let builder = thread::Builder::new().name("foo::lol::something".into());
 
-    let handler = builder.spawn(|| {
-        assert_snapshot_matches!("Testing-thread");
-        assert_snapshot_matches!("Testing-thread-2");
-    }).unwrap();
+    let handler = builder
+        .spawn(|| {
+            assert_snapshot_matches!("Testing-thread");
+            assert_snapshot_matches!("Testing-thread-2");
+        })
+        .unwrap();
 
     handler.join().unwrap();
 }
