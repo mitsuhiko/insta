@@ -76,6 +76,9 @@ pub struct TargetArgs {
 pub struct ProcessCommand {
     #[structopt(flatten)]
     pub target_args: TargetArgs,
+    /// Do not print to stdout.
+    #[structopt(short = "q", long)]
+    pub quiet: bool,
 }
 
 #[derive(StructOpt, Debug)]
@@ -104,6 +107,9 @@ pub struct TestCommand {
     /// Follow up with review.
     #[structopt(long)]
     pub review: bool,
+    /// Do not reject pending snapshots before run.
+    #[structopt(long)]
+    pub keep_pending: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -217,7 +223,9 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum();
 
     if snapshot_count == 0 {
-        println!("{}: no snapshots to review", style("done").bold());
+        if !cmd.quiet {
+            println!("{}: no snapshots to review", style("done").bold());
+        }
         return Ok(());
     }
 
@@ -265,23 +273,25 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
         term.clear_screen()?;
     }
 
-    println!("{}", style("insta review finished").bold());
-    if !accepted.is_empty() {
-        println!("{}:", style("accepted").green());
-        for item in accepted {
-            println!("  {}", item);
+    if !cmd.quiet {
+        println!("{}", style("insta review finished").bold());
+        if !accepted.is_empty() {
+            println!("{}:", style("accepted").green());
+            for item in accepted {
+                println!("  {}", item);
+            }
         }
-    }
-    if !rejected.is_empty() {
-        println!("{}:", style("rejected").red());
-        for item in rejected {
-            println!("  {}", item);
+        if !rejected.is_empty() {
+            println!("{}:", style("rejected").red());
+            for item in rejected {
+                println!("  {}", item);
+            }
         }
-    }
-    if !skipped.is_empty() {
-        println!("{}:", style("skipped").yellow());
-        for item in skipped {
-            println!("  {}", item);
+        if !skipped.is_empty() {
+            println!("{}:", style("skipped").yellow());
+            for item in skipped {
+                println!("  {}", item);
+            }
         }
     }
 
@@ -323,6 +333,17 @@ fn test_run(cmd: &TestCommand) -> Result<(), Error> {
     }
     proc.arg("--");
     proc.arg("-q");
+
+    if !cmd.keep_pending {
+        process_snapshots(
+            &ProcessCommand {
+                target_args: cmd.target_args.clone(),
+                quiet: true,
+            },
+            Some(Operation::Reject),
+        )?;
+    }
+
     let status = proc.status()?;
 
     if !status.success() {
@@ -339,6 +360,7 @@ fn test_run(cmd: &TestCommand) -> Result<(), Error> {
         process_snapshots(
             &ProcessCommand {
                 target_args: cmd.target_args.clone(),
+                quiet: false,
             },
             None,
         )?
