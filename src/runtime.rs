@@ -1,10 +1,12 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
+use std::fmt;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::str;
 use std::sync::Mutex;
 use std::thread;
 
@@ -42,6 +44,8 @@ fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
 }
 
 fn format_rust_expression(value: &str) -> Cow<'_, str> {
+    const PREFIX: &str = "const x:() = ";
+    const SUFFIX: &str = ";\n";
     if let Ok(mut proc) = Command::new("rustfmt")
         .arg("--emit=stdout")
         .arg("--edition=2018")
@@ -52,32 +56,34 @@ fn format_rust_expression(value: &str) -> Cow<'_, str> {
     {
         {
             let stdin = proc.stdin.as_mut().unwrap();
-            stdin.write_all(b"const x:() = ").unwrap();
+            stdin.write_all(PREFIX.as_bytes()).unwrap();
             stdin.write_all(value.as_bytes()).unwrap();
-            stdin.write_all(b";").unwrap();
+            stdin.write_all(SUFFIX.as_bytes()).unwrap();
         }
         if let Ok(output) = proc.wait_with_output() {
             if output.status.success() {
-                let mut buf = String::new();
-                let mut rv = String::new();
-                let mut reader = BufReader::new(&output.stdout[..]);
-                reader.read_line(&mut buf).unwrap();
-
-                rv.push_str(&buf[14..]);
-                loop {
-                    buf.clear();
-                    let read = reader.read_line(&mut buf).unwrap();
-                    if read == 0 {
-                        break;
-                    }
-                    rv.push_str(&buf);
-                }
-                rv.truncate(rv.trim_end().len() - 1);
-                return Cow::Owned(rv);
+                // slice between after the prefix and before the suffix
+                // (currently 14 from the start and 2 before the end, respectively)
+                let start = PREFIX.len() + 1;
+                let end = output.stdout.len() - SUFFIX.len();
+                return str::from_utf8(&output.stdout[start..end])
+                    .unwrap()
+                    .to_owned()
+                    .into();
             }
         }
     }
     Cow::Borrowed(value)
+}
+
+#[test]
+fn test_format_rust_expression() {
+    use crate::assert_snapshot_matches;
+    assert_snapshot_matches!(format_rust_expression("vec![1,2,3]"), @"vec![1, 2, 3]");
+    assert_snapshot_matches!(format_rust_expression("vec![1,2,3].iter()"), @"vec![1, 2, 3].iter()");
+    assert_snapshot_matches!(format_rust_expression(r#"    "aoeu""#), @r###""aoeu""###);
+    assert_snapshot_matches!(format_rust_expression(r#"  "aoe😄""#), @r###""aoe😄""###);
+    assert_snapshot_matches!(format_rust_expression("😄😄😄😄😄"), @"😄😄😄😄😄")
 }
 
 fn update_snapshot_behavior() -> UpdateBehavior {
@@ -146,27 +152,61 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         Add,
         Rem,
     }
+
+    #[derive(PartialEq)]
+    enum Lineno {
+        NotPresent,
+        Present(usize),
+    }
+
+    impl fmt::Display for Lineno {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match *self {
+                Lineno::NotPresent => f.pad(""),
+                Lineno::Present(lineno) => fmt::Display::fmt(&lineno, f),
+            }
+        }
+    }
+
     let mut lines = vec![];
 
-    let mut lineno = 1;
+    let mut lineno_a = 1;
+    let mut lineno_b = 1;
+
     for diff in diffs.iter() {
         match *diff {
             Difference::Same(ref x) => {
                 for line in x.split('\n') {
-                    lines.push((Mode::Same, lineno, line.trim_end()));
-                    lineno += 1;
+                    lines.push((
+                        Mode::Same,
+                        Lineno::Present(lineno_a),
+                        Lineno::Present(lineno_b),
+                        line.trim_end(),
+                    ));
+                    lineno_a += 1;
+                    lineno_b += 1;
                 }
             }
             Difference::Add(ref x) => {
                 for line in x.split('\n') {
-                    lines.push((Mode::Add, lineno, line.trim_end()));
-                    lineno += 1;
+                    lines.push((
+                        Mode::Add,
+                        Lineno::NotPresent,
+                        Lineno::Present(lineno_b),
+                        line.trim_end(),
+                    ));
+                    lineno_b += 1;
                 }
             }
             Difference::Rem(ref x) => {
                 for line in x.split('\n') {
-                    lines.push((Mode::Rem, lineno, line.trim_end()));
-                    lineno += 1;
+                    lines.push((
+                        Mode::Rem,
+                        Lineno::Present(lineno_a),
+                        Lineno::NotPresent,
+                        line.trim_end(),
+                    ));
+                    lineno_a += 1;
                 }
             }
         }
@@ -179,21 +219,23 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         println!("{}", style(format_rust_expression(expr)).dim());
     }
     println!(
-        "──────┬{:─^1$}",
+        "────────────┬{:─^1$}",
         "",
-        width.saturating_sub(7),
+        width.saturating_sub(13),
     );
-    for (i, (mode, lineno, line)) in lines.iter().enumerate() {
+    for (i, (mode, lineno_a, lineno_b, line)) in lines.iter().enumerate() {
         match mode {
             Mode::Add => println!(
-                "{:>5} ⋮{}{}",
-                style(lineno).dim().bold(),
+                "{:>5} {:>5} │{}{}",
+                style(lineno_a).dim(),
+                style(lineno_b).dim().bold(),
                 style("+").green(),
                 style(line).green()
             ),
             Mode::Rem => println!(
-                "{:>5} ⋮{}{}",
-                style(lineno).dim().bold(),
+                "{:>5} {:>5} │{}{}",
+                style(lineno_a).dim(),
+                style(lineno_b).dim().bold(),
                 style("-").red(),
                 style(line).red()
             ),
@@ -203,8 +245,9 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
                     .any(|x| x.0 != Mode::Same)
                 {
                     println!(
-                        "{:>5} ⋮ {}",
-                        style(lineno).dim().bold(),
+                        "{:>5} {:>5} │ {}",
+                        style(lineno_a).dim(),
+                        style(lineno_b).dim().bold(),
                         style(line).dim()
                     );
                 }
@@ -212,9 +255,9 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         }
     }
     println!(
-        "──────┴{:─^1$}",
+        "────────────┴{:─^1$}",
         "",
-        width.saturating_sub(7),
+        width.saturating_sub(13),
     );
 }
 
@@ -362,6 +405,7 @@ fn generate_snapshot_name_for_thread(module_path: &str) -> String {
     let mut name = thread
         .name()
         .expect("test thread is unnamed, no snapshot name can be generated");
+    name = name.rsplit("::").next().unwrap();
     // we really do not care about poisoning here.
     let key = format!("{}::{}", module_path, name);
     let mut counters = TEST_NAME_COUNTERS.lock().unwrap_or_else(|x| x.into_inner());
@@ -419,14 +463,16 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
             }
         }
 
-        if buf.ends_with('\n') {
-            buf.truncate(buf.len() - 1);
-        }
-
-        buf
+        buf.trim_end().to_string()
     } else {
-        frozen_value.to_string()
+        frozen_value.trim_end().to_string()
     }
+}
+
+#[test]
+fn test_inline_snapshot_value_newline() {
+    // https://github.com/mitsuhiko/insta/issues/39
+    assert_eq!(get_inline_snapshot_value("\n"), "");
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -484,8 +530,10 @@ pub fn assert_snapshot(
     };
 
     // if the snapshot matches we're done.
-    if old.as_ref().map_or(false, |x| x.contents() == new_snapshot) {
-        return Ok(());
+    if let Some(ref x) = old {
+        if x.contents().trim_end() == new_snapshot.trim_end() {
+            return Ok(());
+        }
     }
 
     let new = Snapshot::from_components(
@@ -553,8 +601,7 @@ pub fn assert_snapshot(
     }
 
     if should_fail_in_tests() {
-        assert!(
-            false,
+        panic!(
             "snapshot assertion for '{}' failed in line {}",
             snapshot_name.unwrap_or(Cow::Borrowed("inline snapshot")),
             line

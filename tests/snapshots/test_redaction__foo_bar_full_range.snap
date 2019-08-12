@@ -1,22 +1,22 @@
-Created: 2019-01-20T22:01:30.390816+00:00
-Creator: insta@0.2.2
-Expression: Selector::parse(".foo.bar[]").unwrap()
-Line: 28
-Source: tests/test_redaction.rs
-
+---
+created: "2019-05-29T15:01:31.190888Z"
+creator: insta@0.8.1
+source: tests/test_redaction.rs
+expression: "Selector::parse(\".foo.bar[]\").unwrap()"
+---
 Selector {
     selectors: [
         [
             Key(
-                "foo"
+                "foo",
             ),
             Key(
-                "bar"
+                "bar",
             ),
             Range(
                 None,
-                None
-            )
-        ]
-    ]
+                None,
+            ),
+        ],
+    ],
 }

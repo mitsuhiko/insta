@@ -1,18 +1,18 @@
-Created: 2019-01-20T22:01:30.388778+00:00
-Creator: insta@0.2.2
-Expression: Selector::parse(".foo.bar").unwrap()
-Line: 26
-Source: tests/test_redaction.rs
-
+---
+created: "2019-05-29T14:16:16.625625Z"
+creator: insta@0.8.1
+source: tests/test_redaction.rs
+expression: "Selector::parse(\".foo.bar\").unwrap()"
+---
 Selector {
     selectors: [
         [
             Key(
-                "foo"
+                "foo",
             ),
             Key(
-                "bar"
-            )
-        ]
-    ]
+                "bar",
+            ),
+        ],
+    ],
 }
