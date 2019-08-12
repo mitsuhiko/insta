@@ -532,6 +532,18 @@ pub fn assert_snapshot(
     // if the snapshot matches we're done.
     if let Some(ref x) = old {
         if x.contents().trim_end() == new_snapshot.trim_end() {
+            // let's just make sure there are no more pending files lingering
+            // around.
+            if let Some(mut snapshot_file) = snapshot_file {
+                snapshot_file.set_extension("snap.new");
+                fs::remove_file(snapshot_file).ok();
+            }
+            // and add a null pending snapshot to a pending snapshot file if needed
+            if let Some(pending_snapshots) = pending_snapshots {
+                if fs::metadata(&pending_snapshots).is_ok() {
+                    PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
+                }
+            }
             return Ok(());
         }
     }
@@ -594,7 +606,8 @@ pub fn assert_snapshot(
                     style(new_path.display()).cyan().underlined(),
                 );
             } else {
-                PendingInlineSnapshot::new(new, old, line).save(pending_snapshots.unwrap())?;
+                PendingInlineSnapshot::new(Some(new), old, line)
+                    .save(pending_snapshots.unwrap())?;
             }
         }
         UpdateBehavior::NoUpdate => {}

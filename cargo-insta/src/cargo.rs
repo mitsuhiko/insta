@@ -121,14 +121,16 @@ impl SnapshotContainer {
                 let mut patcher = FilePatcher::open(&target_path)?;
                 pending_vec.sort_by_key(|pending| pending.line);
                 for (id, pending) in pending_vec.into_iter().enumerate() {
-                    snapshots.push(PendingSnapshot {
-                        id,
-                        old: pending.old,
-                        new: pending.new,
-                        op: Operation::Skip,
-                        line: Some(pending.line),
-                    });
-                    patcher.add_snapshot_macro(pending.line as usize);
+                    if let Some(new) = pending.new {
+                        snapshots.push(PendingSnapshot {
+                            id,
+                            old: pending.old,
+                            new,
+                            op: Operation::Skip,
+                            line: Some(pending.line),
+                        });
+                        patcher.add_snapshot_macro(pending.line as usize);
+                    }
                 }
                 Some(patcher)
             }
@@ -173,7 +175,7 @@ impl SnapshotContainer {
                     Operation::Reject => {}
                     Operation::Skip => {
                         new_pending.push(PendingInlineSnapshot::new(
-                            snapshot.new.clone(),
+                            Some(snapshot.new.clone()),
                             snapshot.old.clone(),
                             patcher.get_new_line(idx) as u32,
                         ));
