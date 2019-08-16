@@ -177,6 +177,7 @@ fn handle_color(color: &Option<String>) -> Result<(), Error> {
     Ok(())
 }
 
+#[allow(clippy::type_complexity)]
 fn handle_target_args(
     target_args: &TargetArgs,
 ) -> Result<(PathBuf, Option<Vec<Package>>, Vec<&str>), Error> {
