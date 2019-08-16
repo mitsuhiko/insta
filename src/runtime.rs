@@ -547,6 +547,108 @@ a
     assert_eq!(min_indentation(t), 0);
 }
 
+fn without_indentation(snapshot: &str) -> String {
+    // This also trims the end, which is required given the line is sometimes shorter
+    // than the indentation.
+    // We'd do that anyway prior, but potentially a different design which didn't
+    // mix functions here.
+    let indendation = min_indentation(snapshot);
+    snapshot
+        .trim_end()
+        .lines()
+        .skip_while(|l| l.is_empty())
+        .map(|l| &l[indendation..])
+        .collect::<Vec<&str>>()
+        .join("\n")
+}
+
+#[test]
+fn test_without_indentation() {
+    // here we do exact matching (rather than `assert_snapshot`)
+    // to ensure we're not incorporating the modifications this library makes
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(
+        without_indentation(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(
+        without_indentation(t),
+        r###"
+        1
+2"###[1..]
+    );
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(
+        without_indentation(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(
+        without_indentation(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+        a 
+    "#;
+    assert_eq!(without_indentation(t), "a");
+
+    let t = "";
+    assert_eq!(without_indentation(t), "");
+
+    let t = r#"
+    a 
+    b
+c
+    "#;
+    assert_eq!(
+        without_indentation(t),
+        r###"
+    a 
+    b
+c"###[1..]
+    );
+
+    let t = r#"
+a 
+    "#;
+    assert_eq!(without_indentation(t), "a");
+
+    let t = "
+    a";
+    assert_eq!(without_indentation(t), "a");
+
+    let t = r#"a
+  a"#;
+    assert_eq!(
+        without_indentation(t),
+        r###"
+a
+  a"###[1..]
+    );
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn assert_snapshot(
     refval: ReferenceValue<'_>,
