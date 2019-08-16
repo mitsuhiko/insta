@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
@@ -473,6 +474,77 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
 fn test_inline_snapshot_value_newline() {
     // https://github.com/mitsuhiko/insta/issues/39
     assert_eq!(get_inline_snapshot_value("\n"), "");
+}
+
+fn min_indentation(snapshot: &str) -> usize {
+    let lines = snapshot.trim_end().lines();
+
+    if lines.clone().count() <= 1 {
+        // not a multi-line string
+        return 0;
+    }
+
+    let spaces_count = Regex::new(r"^\s*").unwrap();
+
+    lines
+        .skip_while(|l| l.is_empty())
+        .map(|l| spaces_count.find(&l).map_or(0, |m| m.end() - m.start()))
+        .min()
+        .unwrap_or(0)
+}
+
+#[test]
+fn test_min_indentation() {
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(min_indentation(t), 12);
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+        a 
+    "#;
+    assert_eq!(min_indentation(t), 8);
+
+    let t = "";
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+    a 
+    b
+c
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+a 
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = "
+    a";
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"a
+  a"#;
+    assert_eq!(min_indentation(t), 0);
 }
 
 #[allow(clippy::too_many_arguments)]

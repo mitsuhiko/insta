@@ -37,3 +37,5 @@ pest = "2.1.0"
 pest_derive = "2.1.0"
 ron = "0.4.1"
 uuid = { version = "0.7.1", features = ["serde", "v4"] }
+regex = "1.2.1"
+
