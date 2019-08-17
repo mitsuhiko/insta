@@ -19,7 +19,6 @@ pub struct InlineSnapshot {
 pub struct FilePatcher {
     filename: PathBuf,
     lines: Vec<String>,
-    newline: &'static str,
     source: syn::File,
     inline_snapshots: Vec<InlineSnapshot>,
 }
@@ -29,20 +28,10 @@ impl FilePatcher {
         let filename = p.as_ref().to_path_buf();
         let contents = fs::read_to_string(p)?;
         let source = syn::parse_file(&contents)?;
-        let mut line_iter = contents.lines().peekable();
-        let newline = if let Some(line) = line_iter.peek() {
-            match contents.as_bytes().get(line.len() + 1) {
-                Some(b'\r') => &"\r\n",
-                _ => &"\n",
-            }
-        } else {
-            &"\n"
-        };
-        let lines: Vec<String> = line_iter.map(|x| x.into()).collect();
+        let lines: Vec<String> = contents.lines().map(|x| x.into()).collect();
         Ok(FilePatcher {
             filename,
             source,
-            newline,
             lines,
             inline_snapshots: vec![],
         })
