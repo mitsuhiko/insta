@@ -420,6 +420,7 @@ fn generate_snapshot_name_for_thread(module_path: &str) -> String {
 /// (optionally prefixed by whitespace) the alternative serialization format
 /// is picked which has slightly improved indentation semantics.
 fn get_inline_snapshot_value(frozen_value: &str) -> String {
+    // legacy format - retain so old snapshots still work
     if frozen_value.trim_start().starts_with('⋮') {
         let mut buf = String::new();
         let mut line_iter = frozen_value.lines();
@@ -458,7 +459,7 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
 
         buf.trim_end().to_string()
     } else {
-        frozen_value.trim_end().to_string()
+        normalize_inline_snapshot(frozen_value)
     }
 }
 
@@ -539,11 +540,8 @@ a
     assert_eq!(min_indentation(t), 0);
 }
 
-fn without_indentation(snapshot: &str) -> String {
-    // This also trims the end, which is required given the line is sometimes shorter
-    // than the indentation.
-    // We'd do that anyway prior, but potentially a different design which didn't
-    // mix functions here.
+// Removes excess indentation, removes excess whitespare at start & end
+fn normalize_inline_snapshot(snapshot: &str) -> String {
     let indendation = min_indentation(snapshot);
     snapshot
         .trim_end()
@@ -555,7 +553,7 @@ fn without_indentation(snapshot: &str) -> String {
 }
 
 #[test]
-fn test_without_indentation() {
+fn test_normalize_inline_snapshot() {
     // here we do exact matching (rather than `assert_snapshot`)
     // to ensure we're not incorporating the modifications this library makes
     let t = r#"
@@ -563,7 +561,7 @@ fn test_without_indentation() {
    2
     "#;
     assert_eq!(
-        without_indentation(t),
+        normalize_inline_snapshot(t),
         r###"
 1
 2"###[1..]
@@ -573,7 +571,7 @@ fn test_without_indentation() {
             1
     2"#;
     assert_eq!(
-        without_indentation(t),
+        normalize_inline_snapshot(t),
         r###"
         1
 2"###[1..]
@@ -584,7 +582,7 @@ fn test_without_indentation() {
             2
     "#;
     assert_eq!(
-        without_indentation(t),
+        normalize_inline_snapshot(t),
         r###"
 1
 2"###[1..]
@@ -595,7 +593,7 @@ fn test_without_indentation() {
    2
 "#;
     assert_eq!(
-        without_indentation(t),
+        normalize_inline_snapshot(t),
         r###"
 1
 2"###[1..]
@@ -604,10 +602,10 @@ fn test_without_indentation() {
     let t = r#"
         a 
     "#;
-    assert_eq!(without_indentation(t), "a");
+    assert_eq!(normalize_inline_snapshot(t), "a");
 
     let t = "";
-    assert_eq!(without_indentation(t), "");
+    assert_eq!(normalize_inline_snapshot(t), "");
 
     let t = r#"
     a 
@@ -615,7 +613,7 @@ fn test_without_indentation() {
 c
     "#;
     assert_eq!(
-        without_indentation(t),
+        normalize_inline_snapshot(t),
         r###"
     a 
     b
@@ -625,16 +623,16 @@ c"###[1..]
     let t = r#"
 a 
     "#;
-    assert_eq!(without_indentation(t), "a");
+    assert_eq!(normalize_inline_snapshot(t), "a");
 
     let t = "
     a";
-    assert_eq!(without_indentation(t), "a");
+    assert_eq!(normalize_inline_snapshot(t), "a");
 
     let t = r#"a
   a"#;
     assert_eq!(
-        without_indentation(t),
+        normalize_inline_snapshot(t),
         r###"
 a
   a"###[1..]
