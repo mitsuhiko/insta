@@ -71,7 +71,7 @@ impl FilePatcher {
         // replace lines
         let snapshot_line_contents = vec![
             prefix,
-            denomalize_inline_snapshot(snapshot, inline.indentation),
+            denormalize_inline_snapshot(snapshot, inline.indentation),
             suffix,
         ]
         .join("");
@@ -144,7 +144,7 @@ impl FilePatcher {
 }
 
 // from a snapshot to a string we want to write back
-fn denomalize_inline_snapshot(snapshot: &str, indentation: usize) -> String {
+fn denormalize_inline_snapshot(snapshot: &str, indentation: usize) -> String {
     // could potentially implement as impl From<Snapshot> -> String
 
     let mut out = String::new();
@@ -176,7 +176,7 @@ fn test_denormalize_inline_snapshot() {
 a
 b"[1..];
     assert_eq!(
-        denomalize_inline_snapshot(t, 0),
+        denormalize_inline_snapshot(t, 0),
         "r###\"
 a
 b
@@ -187,7 +187,7 @@ b
 a
 b"[1..];
     assert_eq!(
-        denomalize_inline_snapshot(t, 4),
+        denormalize_inline_snapshot(t, 4),
         "r###\"
     a
     b
@@ -198,7 +198,7 @@ b"[1..];
     a
     b"[1..];
     assert_eq!(
-        denomalize_inline_snapshot(t, 0),
+        denormalize_inline_snapshot(t, 0),
         "r###\"
     a
     b
@@ -206,5 +206,6 @@ b"[1..];
     );
 
     let t = "ab";
-    assert_eq!(denomalize_inline_snapshot(t, 0), r##""ab""##);
+    assert_eq!(denormalize_inline_snapshot(t, 0), r##""ab""##);
+}
 }
