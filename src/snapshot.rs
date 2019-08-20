@@ -1,3 +1,4 @@
+use super::runtime::get_inline_snapshot_value;
 use std::borrow::Cow;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -246,8 +247,6 @@ impl Snapshot {
         Ok(())
     }
 }
-
-use super::runtime::get_inline_snapshot_value;
 
 /// The contents of a Snapshot
 // Could be Cow, but I think limited savings

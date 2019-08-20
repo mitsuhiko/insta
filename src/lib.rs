@@ -263,7 +263,9 @@ pub use crate::snapshot::{MetaData, Snapshot};
 
 // exported for cargo-insta only
 #[doc(hidden)]
-pub use crate::{runtime::print_snapshot_diff, snapshot::PendingInlineSnapshot};
+pub use crate::{
+    runtime::print_snapshot_diff, snapshot::PendingInlineSnapshot, snapshot::SnapshotContents,
+};
 
 // these are here to make the macros work
 #[doc(hidden)]
