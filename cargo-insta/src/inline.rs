@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use insta::SnapshotContents;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -73,74 +73,23 @@ impl FilePatcher {
         self.inline_snapshots[id].start.0 + 1
     }
 
-    pub fn set_new_content(&mut self, id: usize, snapshot: &str) {
+    pub fn set_new_content(&mut self, id: usize, snapshot: &SnapshotContents) {
         let inline = &mut self.inline_snapshots[id];
-        let old_lines = inline.end.0 - inline.start.0 + 1;
 
         // find prefix and suffix
         let prefix = self.lines[inline.start.0][..inline.start.1].to_string();
         let suffix = self.lines[inline.end.0][inline.end.1..].to_string();
 
         // replace lines
-        let mut new_lines: Vec<_> = snapshot.lines().map(Cow::Borrowed).collect();
-        if new_lines.is_empty() {
-            new_lines.push(Cow::Borrowed(""));
-        }
+        let snapshot_line_contents =
+            vec![prefix, snapshot.to_inline(inline.indentation), suffix].join("");
 
-        // if we have more than one line we want to change into the block
-        // representation mode
-        if new_lines.len() > 1 || snapshot.contains('┇') {
-            new_lines.insert(0, Cow::Borrowed(""));
-            if inline.indentation > 0 {
-                for (idx, line) in new_lines.iter_mut().enumerate() {
-                    if idx == 0 {
-                        continue;
-                    }
-                    *line = Cow::Owned(format!(
-                        "{c: >width$}{line}",
-                        c = "⋮",
-                        width = inline.indentation,
-                        line = line
-                    ));
-                }
-                new_lines.push(Cow::Owned(format!(
-                    "{c: >width$}",
-                    c = " ",
-                    width = inline.indentation
-                )));
-            } else {
-                new_lines.push(Cow::Borrowed(""));
-            }
-        }
-
-        let (quote_start, quote_end) =
-            if new_lines.len() > 1 || new_lines[0].contains(&['\\', '"'][..]) {
-                ("r###\"", "\"###")
-            } else {
-                ("\"", "\"")
-            };
-        let line_count_diff = new_lines.len() as i64 - old_lines as i64;
-
-        self.lines.splice(
-            inline.start.0..=inline.end.0,
-            new_lines.iter().enumerate().map(|(idx, line)| {
-                let mut rv = String::new();
-                if idx == 0 {
-                    rv.push_str(&prefix);
-                    rv.push_str(quote_start);
-                }
-                rv.push_str(&line);
-                if idx + 1 == new_lines.len() {
-                    rv.push_str(quote_end);
-                    rv.push_str(&suffix);
-                }
-                rv
-            }),
-        );
-
+        // update other snapshot locations
+        let old_lines_count = inline.end.0 - inline.start.0 + 1;
+        let line_count_diff = snapshot_line_contents.lines().count() - old_lines_count;
         for inl in &mut self.inline_snapshots[id..] {
-            inl.start.0 = (inl.start.0 as i64 + line_count_diff) as usize;
-            inl.end.0 = (inl.end.0 as i64 + line_count_diff) as usize;
+            inl.start.0 += line_count_diff;
+            inl.end.0 += line_count_diff;
         }
     }
 
