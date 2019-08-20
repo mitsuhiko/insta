@@ -218,7 +218,11 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         println!("{:─^1$}", "", width,);
         println!("{}", style(format_rust_expression(expr)).dim());
     }
-    println!("────────────┬{:─^1$}", "", width.saturating_sub(13),);
+    println!(
+        "────────────┬{:─^1$}",
+        "",
+        width.saturating_sub(13),
+    );
     for (i, (mode, lineno_a, lineno_b, line)) in lines.iter().enumerate() {
         match mode {
             Mode::Add => println!(
@@ -250,7 +254,11 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
             }
         }
     }
-    println!("────────────┴{:─^1$}", "", width.saturating_sub(13),);
+    println!(
+        "────────────┴{:─^1$}",
+        "",
+        width.saturating_sub(13),
+    );
 }
 
 pub fn get_snapshot_filename(
