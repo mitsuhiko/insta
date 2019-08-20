@@ -373,30 +373,18 @@ fn print_snapshot_diff_with_title(
 
 impl<'a> From<Option<&'a str>> for ReferenceValue<'a> {
     fn from(value: Option<&'a str>) -> ReferenceValue<'a> {
-        ReferenceValue::Named(value.map(Cow::Borrowed))
+        ReferenceValue::Named(value)
     }
 }
 
 impl<'a> From<&'a str> for ReferenceValue<'a> {
     fn from(value: &'a str) -> ReferenceValue<'a> {
-        ReferenceValue::Named(Some(Cow::Borrowed(value)))
-    }
-}
-
-impl From<String> for ReferenceValue<'static> {
-    fn from(value: String) -> ReferenceValue<'static> {
-        ReferenceValue::Named(Some(Cow::Owned(value)))
-    }
-}
-
-impl From<Option<String>> for ReferenceValue<'static> {
-    fn from(value: Option<String>) -> ReferenceValue<'static> {
-        ReferenceValue::Named(value.map(Cow::Owned))
+        ReferenceValue::Named(Some(value))
     }
 }
 
 pub enum ReferenceValue<'a> {
-    Named(Option<Cow<'a, str>>),
+    Named(Option<&'a str>),
     Inline(&'a str),
 }
 
@@ -490,8 +478,10 @@ pub fn assert_snapshot(
 
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
         ReferenceValue::Named(snapshot_name) => {
-            let snapshot_name = snapshot_name
-                .unwrap_or_else(|| Cow::Owned(generate_snapshot_name_for_thread(module_path)));
+            let snapshot_name: Cow<str> = match snapshot_name {
+                Some(snapshot_name) => snapshot_name.into(),
+                None => (generate_snapshot_name_for_thread(module_path).into()),
+            };
             let snapshot_file =
                 get_snapshot_filename(module_name, &snapshot_name, &cargo_workspace, file);
             let old = if fs::metadata(&snapshot_file).is_ok() {
