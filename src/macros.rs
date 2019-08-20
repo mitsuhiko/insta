@@ -301,6 +301,7 @@ macro_rules! assert_snapshot_matches {
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_snapshot(
+            // Creates a ReferenceValue::Named variant
             $name.into(),
             &$value,
             env!("CARGO_MANIFEST_DIR"),
