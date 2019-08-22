@@ -259,6 +259,8 @@ mod snapshot;
 #[cfg(test)]
 mod test;
 
+type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
+
 pub use crate::snapshot::{MetaData, Snapshot};
 
 // exported for cargo-insta only

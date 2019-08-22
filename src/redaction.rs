@@ -1,14 +1,25 @@
 use std::borrow::Cow;
+use std::fmt;
 
-use failure::Fail;
 use pest::Parser;
 use pest_derive::Parser;
 
 use crate::content::Content;
 
-#[derive(Fail, Debug)]
-#[fail(display = "{}", _0)]
+#[derive(Debug)]
 pub struct SelectorParseError(pest::error::Error<Rule>);
+
+impl std::error::Error for SelectorParseError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+impl fmt::Display for SelectorParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
 
 impl SelectorParseError {
     /// Return the column of where the error ocurred.

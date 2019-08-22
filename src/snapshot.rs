@@ -4,10 +4,11 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use chrono::{DateTime, Utc};
-use failure::Error;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json;
+
+use crate::Error;
 
 lazy_static! {
     static ref RUN_ID: Uuid = Uuid::new_v4();

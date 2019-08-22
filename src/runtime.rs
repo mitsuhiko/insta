@@ -13,7 +13,6 @@ use std::thread;
 use chrono::{Local, Utc};
 use console::style;
 use difference::{Changeset, Difference};
-use failure::Error;
 use lazy_static::lazy_static;
 
 use ci_info::is_ci;
@@ -21,6 +20,7 @@ use serde::Deserialize;
 use serde_json;
 
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot};
+use crate::Error;
 
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
