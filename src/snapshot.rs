@@ -289,6 +289,12 @@ impl PartialEq for SnapshotContents {
     }
 }
 
+#[test]
+fn test_snapshot_contents() {
+    let snapshot_contents = SnapshotContents("testing".to_string());
+    assert_eq!(snapshot_contents.to_inline(0), r#""testing""#);
+}
+
 // from a snapshot to a string we want to write back
 fn denormalize_inline_snapshot(snapshot: &str, indentation: usize) -> String {
     // TODO: add to SnapshotContents struct

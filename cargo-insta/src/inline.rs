@@ -84,7 +84,7 @@ impl FilePatcher {
 
         self.lines.splice(
             inline.start.0..=inline.end.0,
-            snapshot_line_contents.lines().map(|l| l.into()),
+            snapshot_line_contents.lines().map(|l| l.to_string()),
         );
 
         // update other snapshot locations

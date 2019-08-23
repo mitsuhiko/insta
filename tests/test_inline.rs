@@ -1,9 +1,9 @@
-use insta::{
-    assert_debug_snapshot_matches, assert_json_snapshot_matches,
-    assert_snapshot_matches, assert_yaml_snapshot_matches,
-};
 #[cfg(feature = "ron")]
 use insta::assert_ron_snapshot_matches;
+use insta::{
+    assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_snapshot_matches,
+    assert_yaml_snapshot_matches,
+};
 use serde::Serialize;
 use std::thread;
 
