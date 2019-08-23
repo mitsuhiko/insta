@@ -3,7 +3,7 @@
 use insta::_macro_support::Selector;
 use insta::{
     assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_yaml_snapshot_matches,
-    Settings, with_settings
+    with_settings, Settings,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -91,7 +91,6 @@ fn test_with_random_value_json_settings() {
         );
     });
 }
-
 
 #[test]
 fn test_with_random_value_json_settings2() {
