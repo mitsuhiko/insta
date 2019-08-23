@@ -66,7 +66,7 @@ macro_rules! assert_yaml_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Yaml, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, {$($k => $v),*}, Yaml);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, {$($k => $v),*}, Yaml);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Yaml);
@@ -75,7 +75,7 @@ macro_rules! assert_yaml_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Yaml);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, Yaml);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, Yaml);
     }};
 }
 
@@ -106,7 +106,7 @@ macro_rules! assert_ron_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Ron, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, {$($k => $v),*}, Ron);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, {$($k => $v),*}, Ron);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Ron);
@@ -115,7 +115,7 @@ macro_rules! assert_ron_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Ron);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, Ron);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, Ron);
     }};
 }
 
@@ -146,7 +146,7 @@ macro_rules! assert_json_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Json, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, {$($k => $v),*}, Json);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, {$($k => $v),*}, Json);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Json);
@@ -155,7 +155,7 @@ macro_rules! assert_json_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Json);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, Json);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, Json);
     }};
 }
 
@@ -238,7 +238,7 @@ macro_rules! assert_debug_snapshot_matches {
     }};
     ($value:expr) => {{
         let value = format!("{:#?}", $value);
-        $crate::assert_snapshot_matches!(None::<String>, value, stringify!($value));
+        $crate::assert_snapshot_matches!(None::<&str>, value, stringify!($value));
     }};
 }
 
@@ -260,7 +260,7 @@ macro_rules! assert_display_snapshot_matches {
     }};
     ($value:expr) => {{
         let value = format!("{}", $value);
-        $crate::assert_snapshot_matches!(None::<String>, value, stringify!($value));
+        $crate::assert_snapshot_matches!(None::<&str>, value, stringify!($value));
     }};
 }
 
@@ -301,6 +301,7 @@ macro_rules! assert_snapshot_matches {
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_snapshot(
+            // Creates a ReferenceValue::Named variant
             $name.into(),
             &$value,
             env!("CARGO_MANIFEST_DIR"),
@@ -312,6 +313,6 @@ macro_rules! assert_snapshot_matches {
         .unwrap();
     };
     ($value:expr) => {
-        $crate::assert_snapshot_matches!(None::<String>, $value, stringify!($value))
+        $crate::assert_snapshot_matches!(None::<&str>, $value, stringify!($value))
     };
 }
