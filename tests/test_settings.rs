@@ -1,4 +1,4 @@
-use insta::{Settings, assert_yaml_snapshot_matches};
+use insta::{assert_yaml_snapshot_matches, Settings};
 use std::collections::HashMap;
 
 #[test]

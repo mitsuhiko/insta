@@ -1,4 +1,3 @@
-
 use insta::{
     assert_debug_snapshot_matches, assert_display_snapshot_matches, assert_json_snapshot_matches,
     assert_yaml_snapshot_matches,

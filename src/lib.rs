@@ -273,8 +273,8 @@ mod redaction;
 #[cfg(test)]
 mod test;
 
-pub use crate::snapshot::{MetaData, Snapshot};
 pub use crate::settings::Settings;
+pub use crate::snapshot::{MetaData, Snapshot};
 
 // exported for cargo-insta only
 #[doc(hidden)]
