@@ -100,7 +100,7 @@
 //! created: "2019-01-21T22:03:13.792906+00:00"
 //! creator: insta@0.3.0
 //! expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
-//! source: tests/test_redaction.rs
+//! source: tests/test_user.rs
 //! ---
 //! [
 //!     1,
@@ -157,10 +157,13 @@
 //!
 //! # Redactions
 //!
+//! **Feature**: `redactions`
+//!
 //! For all snapshots created based on `serde::Serialize` output `insta`
 //! supports redactions.  This permits replacing values with hardcoded other
 //! values to make snapshots stable when otherwise random or otherwise changing
-//! values are involved.
+//! values are involved.  Redactions became an optional feature in insta
+//! 0.11 and can be enabled with the `redactions` feature.
 //!
 //! Redactions can be defined as the third argument to those macros with
 //! the syntax `{ selector => replacement_value }`.
@@ -251,11 +254,13 @@
 #[macro_use]
 mod macros;
 mod content;
-mod redaction;
 mod runtime;
 mod serialization;
 mod snapshot;
 mod utils;
+
+#[cfg(feature = "redactions")]
+mod redaction;
 
 #[cfg(test)]
 mod test;
@@ -272,9 +277,9 @@ pub use crate::{
 #[doc(hidden)]
 pub mod _macro_support {
     pub use crate::content::Content;
-    pub use crate::redaction::Selector;
     pub use crate::runtime::{assert_snapshot, ReferenceValue};
-    pub use crate::serialization::{
-        serialize_value, serialize_value_redacted, SerializationFormat, SnapshotLocation,
-    };
+    pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
+
+    #[cfg(feature = "redactions")]
+    pub use crate::{redaction::Selector, serialization::serialize_value_redacted};
 }

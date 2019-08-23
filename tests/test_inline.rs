@@ -102,6 +102,7 @@ fn test_yaml_inline() {
     "###);
 }
 
+#[cfg(feature = "redactions")]
 #[test]
 fn test_yaml_inline_redacted() {
     #[derive(Serialize)]
