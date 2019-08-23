@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use std::cell::RefCell;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[cfg(feature = "redactions")]
@@ -8,6 +9,7 @@ use crate::{content::Content, redaction::Selector};
 lazy_static! {
     static ref DEFAULT_SETTINGS: Arc<ActualSettings> = Arc::new(ActualSettings {
         sort_maps: false,
+        snapshot_path: "snapshots".into(),
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
     });
@@ -35,6 +37,7 @@ impl<'a> From<Vec<(&'a str, Content)>> for Redactions {
 #[doc(hidden)]
 pub struct ActualSettings {
     pub sort_maps: bool,
+    pub snapshot_path: PathBuf,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
 }
@@ -91,6 +94,8 @@ impl Settings {
     ///
     /// Note that this only applies to snapshots that undergo serialization
     /// (eg: does not work for `assert_debug_snapshot_matches!`.)
+    ///
+    /// The default value is `false`.
     pub fn set_sort_maps(&mut self, value: bool) {
         self._private_inner_mut().sort_maps = value;
     }
@@ -116,6 +121,8 @@ impl Settings {
     }
 
     /// Replaces the currently set redactions.
+    ///
+    /// The default set is empty.
     #[cfg(feature = "redactions")]
     pub fn set_redactions<R: Into<Redactions>>(&mut self, redactions: R) {
         self._private_inner_mut().redactions = redactions.into();
@@ -131,6 +138,20 @@ impl Settings {
     #[cfg(feature = "redactions")]
     pub fn iter_redactions(&self) -> impl Iterator<Item = (&Selector, &Content)> {
         self.inner.redactions.0.iter().map(|&(ref a, ref b)| (a, b))
+    }
+
+    /// Sets the snapshot path.
+    ///
+    /// If not absolute it's relative to where the test is in.
+    ///
+    /// Defaults to `snapshots`.
+    pub fn set_snapshot_path<P: AsRef<Path>>(&mut self, path: P) {
+        self._private_inner_mut().snapshot_path = path.as_ref().to_path_buf();
+    }
+
+    /// Returns the snapshot path.
+    pub fn snapshot_path(&self) -> &Path {
+        &self.inner.snapshot_path
     }
 
     /// Runs a function with the current settings bound to the thread.

@@ -60,3 +60,10 @@ fn test_settings_macro() {
         "###);
     });
 }
+
+#[test]
+fn test_snapshot_path() {
+    with_settings!({snapshot_path => "snapshots2"}, {
+        assert_yaml_snapshot_matches!(vec![1, 2, 3]);
+    });
+}

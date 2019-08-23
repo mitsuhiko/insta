@@ -332,8 +332,10 @@ macro_rules! assert_snapshot_matches {
 
 /// Settings configuration macro.
 ///
-/// This macro lets you bind some settings temporarily.  Currently
-/// only `sort_maps` is supported:
+/// This macro lets you bind some settings temporarily.  The first argument
+/// takes key value pairs that should be set, the second is the block to
+/// execute.  All settings can be set (`sort_maps => value` maps roughly
+/// to `set_sort_maps(value)`).
 ///
 /// ```rust,ignore
 /// insta::with_settings!({sort_maps => true}, {

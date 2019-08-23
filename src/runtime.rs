@@ -19,6 +19,7 @@ use lazy_static::lazy_static;
 use serde::Deserialize;
 use serde_json;
 
+use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
 use crate::utils::is_ci;
 
@@ -269,9 +270,11 @@ pub fn get_snapshot_filename(
 ) -> PathBuf {
     let root = Path::new(cargo_workspace);
     let base = Path::new(base);
-    root.join(base.parent().unwrap())
-        .join("snapshots")
-        .join(format!("{}__{}.snap", module_name, snapshot_name))
+    Settings::with(|settings| {
+        root.join(base.parent().unwrap())
+            .join(settings.snapshot_path())
+            .join(format!("{}__{}.snap", module_name, snapshot_name))
+    })
 }
 
 /// Prints a diff against an old snapshot.

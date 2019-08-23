@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::env;
 use std::error::Error;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::process;
 
 use insta::{PendingInlineSnapshot, Snapshot};
@@ -229,14 +229,6 @@ pub fn find_snapshots<'a>(
             let fname = e.file_name().to_string_lossy();
             if fname.ends_with(".new")
                 && extensions.contains(&fname.rsplit('.').nth(1).unwrap_or(""))
-                && e.path()
-                    .strip_prefix(&root)
-                    .unwrap()
-                    .components()
-                    .any(|c| match c {
-                        Component::Normal(dir) => dir.to_str() == Some("snapshots"),
-                        _ => false,
-                    })
             {
                 let new_path = e.into_path();
                 let mut old_path = new_path.clone();
