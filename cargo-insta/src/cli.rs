@@ -103,6 +103,9 @@ pub struct TestCommand {
     /// Follow up with review.
     #[structopt(long)]
     pub review: bool,
+    /// Accept all snapshots after test.
+    #[structopt(long, conflicts_with = "review")]
+    pub accept: bool,
     /// Do not reject pending snapshots before run.
     #[structopt(long)]
     pub keep_pending: bool,
@@ -352,13 +355,17 @@ fn test_run(cmd: &TestCommand) -> Result<(), Box<dyn Error>> {
         return Err(QuietExit(1).into());
     }
 
-    if cmd.review {
+    if cmd.review || cmd.accept {
         process_snapshots(
             &ProcessCommand {
                 target_args: cmd.target_args.clone(),
                 quiet: false,
             },
-            None,
+            if cmd.accept {
+                Some(Operation::Accept)
+            } else {
+                None
+            },
         )?
     }
 

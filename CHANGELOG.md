@@ -7,3 +7,4 @@
 * added support for sorting maps before serialization.
 * added settings support.
 * added support for overriding the snapshot path.
+* added an `--accept` command to `cargo insta test`
