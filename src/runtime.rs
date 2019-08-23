@@ -16,11 +16,11 @@ use console::style;
 use difference::{Changeset, Difference};
 use lazy_static::lazy_static;
 
-use ci_info::is_ci;
 use serde::Deserialize;
 use serde_json;
 
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
+use crate::utils::is_ci;
 
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
