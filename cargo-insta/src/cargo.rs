@@ -121,6 +121,7 @@ impl SnapshotContainer {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
                 let mut patcher = FilePatcher::open(&target_path)?;
                 pending_vec.sort_by_key(|pending| pending.line);
+                let mut have_new = false;
                 for (id, pending) in pending_vec.into_iter().enumerate() {
                     if let Some(new) = pending.new {
                         snapshots.push(PendingSnapshot {
@@ -131,8 +132,18 @@ impl SnapshotContainer {
                             line: Some(pending.line),
                         });
                         patcher.add_snapshot_macro(pending.line as usize);
+                        have_new = true;
                     }
                 }
+
+                // if we don't actually have any new pending we better delete the file.
+                // this can happen if the test code left a stale snapshot behind.
+                // The runtime code will issue something like this:
+                //   PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
+                if !have_new {
+                    fs::remove_file(&snapshot_path)?;
+                }
+
                 Some(patcher)
             }
         };
