@@ -3,6 +3,7 @@
 use insta::_macro_support::Selector;
 use insta::{
     assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_yaml_snapshot_matches,
+    with_settings, Settings,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -70,5 +71,40 @@ fn test_with_random_value_json() {
     }, {
         ".id" => "[uuid]",
         ".extra" => "[extra]"
+    });
+}
+
+#[test]
+fn test_with_random_value_json_settings() {
+    let mut settings = Settings::new();
+    settings.add_redaction(".id", "[uuid]");
+    settings.add_redaction(".extra", "[extra]");
+    settings.bind(|| {
+        assert_json_snapshot_matches!(
+            "user_json_settings",
+            &User {
+                id: Uuid::new_v4(),
+                username: "jason_doe".to_string(),
+                email: Email("jason@example.com".to_string()),
+                extra: "ssn goes here".to_string(),
+            }
+        );
+    });
+}
+
+#[test]
+fn test_with_random_value_json_settings2() {
+    with_settings!({redactions => vec![
+        (".id", "[uuid]".into()),
+        (".extra", "[extra]".into()),
+    ]}, {
+        assert_json_snapshot_matches!(
+            &User {
+                id: Uuid::new_v4(),
+                username: "jason_doe".to_string(),
+                email: Email("jason@example.com".to_string()),
+                extra: "ssn goes here".to_string(),
+            }
+        );
     });
 }
