@@ -1,3 +1,5 @@
+#![cfg(feature = "redactions")]
+
 use insta::_macro_support::Selector;
 use insta::{
     assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_ron_snapshot_matches,

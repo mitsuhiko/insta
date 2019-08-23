@@ -11,7 +11,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-insta = { version = "0.10.1", path = ".." }
+insta = { version = "0.10.1", path = "..", features = ["redactions"] }
 console = "0.7.5"
 clap = "2.32.0"
 difference = "2.0.0"

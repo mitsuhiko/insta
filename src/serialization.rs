@@ -1,11 +1,7 @@
 use ron;
-use serde::de::value::Error;
 use serde::Serialize;
 use serde_json;
 use serde_yaml;
-
-use crate::content::{Content, ContentSerializer};
-use crate::redaction::Selector;
 
 pub enum SerializationFormat {
     Ron,
@@ -47,13 +43,14 @@ pub fn serialize_value<S: Serialize>(
     }
 }
 
+#[cfg(feature = "redactions")]
 pub fn serialize_value_redacted<S: Serialize>(
     s: &S,
-    redactions: &[(Selector, Content)],
+    redactions: &[(crate::redaction::Selector, crate::content::Content)],
     format: SerializationFormat,
     location: SnapshotLocation,
 ) -> String {
-    let serializer = ContentSerializer::<Error>::new();
+    let serializer = crate::content::ContentSerializer::<serde::de::value::Error>::new();
     let mut value = Serialize::serialize(s, serializer).unwrap();
     for (selector, redaction) in redactions {
         value = selector.redact(value, &redaction);

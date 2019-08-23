@@ -175,18 +175,7 @@ macro_rules! _assert_serialized_snapshot_matches {
         );
     }};
     ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, @$snapshot:literal) => {{
-        let vec = vec![
-            $((
-                $crate::_macro_support::Selector::parse($k).unwrap(),
-                $crate::_macro_support::Content::from($v)
-            ),)*
-        ];
-        let value = $crate::_macro_support::serialize_value_redacted(
-            &$value,
-            &vec,
-            $crate::_macro_support::SerializationFormat::$format,
-            $crate::_macro_support::SnapshotLocation::Inline
-        );
+        let (vec, value) = $crate::_prepare_snapshot_for_redaction!($value, {$($k => $v),*}, $format, Inline);
         $crate::assert_snapshot_matches!(value, stringify!($value), @$snapshot);
     }};
     ($name:expr, $value:expr, $format:ident) => {{
@@ -202,20 +191,41 @@ macro_rules! _assert_serialized_snapshot_matches {
         );
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}, $format:ident) => {{
-        let vec = vec![
-            $((
-                $crate::_macro_support::Selector::parse($k).unwrap(),
-                $crate::_macro_support::Content::from($v)
-            ),)*
-        ];
-        let value = $crate::_macro_support::serialize_value_redacted(
-            &$value,
-            &vec,
-            $crate::_macro_support::SerializationFormat::$format,
-            $crate::_macro_support::SnapshotLocation::File
-        );
+        let (vec, value) = $crate::_prepare_snapshot_for_redaction!($value, {$($k => $v),*}, $format, File);
         $crate::assert_snapshot_matches!($name, value, stringify!($value));
     }}
+}
+
+#[cfg(feature = "redactions")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _prepare_snapshot_for_redaction {
+    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
+        {
+            let vec = vec![
+                $((
+                    $crate::_macro_support::Selector::parse($k).unwrap(),
+                    $crate::_macro_support::Content::from($v)
+                ),)*
+            ];
+            let value = $crate::_macro_support::serialize_value_redacted(
+                &$value,
+                &vec,
+                $crate::_macro_support::SerializationFormat::$format,
+                $crate::_macro_support::SnapshotLocation::$location
+            );
+            (vec, value)
+        }
+    }
+}
+
+#[cfg(not(feature = "redactions"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _prepare_snapshot_for_redaction {
+    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
+        compile_error!("insta was compiled without redaction support.");
+    };
 }
 
 /// Asserts a `Debug` snapshot.
