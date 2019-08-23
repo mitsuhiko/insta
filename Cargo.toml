@@ -26,7 +26,6 @@ serialization = []
 [dependencies]
 difference = "2.0.0"
 serde = { version = "1.0.85", features = ["derive"] }
-failure = "0.1.5"
 serde_yaml = "0.8.8"
 console = "0.7.5"
 chrono = { version = "0.4.6", features = ["serde"] }

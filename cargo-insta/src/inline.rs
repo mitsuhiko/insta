@@ -1,9 +1,10 @@
 use std::borrow::Cow;
+use std::error::Error;
+use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use failure::Error;
 use proc_macro2::TokenTree;
 use syn;
 use syn::spanned::Spanned;
@@ -15,40 +16,37 @@ pub struct InlineSnapshot {
     indentation: usize,
 }
 
-#[derive(Debug)]
 pub struct FilePatcher {
     filename: PathBuf,
     lines: Vec<String>,
-    newline: &'static str,
     source: syn::File,
     inline_snapshots: Vec<InlineSnapshot>,
 }
 
+impl fmt::Debug for FilePatcher {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FilePatcher")
+            .field("filename", &self.filename)
+            .field("inline_snapshots", &self.inline_snapshots)
+            .finish()
+    }
+}
+
 impl FilePatcher {
-    pub fn open<P: AsRef<Path>>(p: P) -> Result<FilePatcher, Error> {
+    pub fn open<P: AsRef<Path>>(p: P) -> Result<FilePatcher, Box<dyn Error>> {
         let filename = p.as_ref().to_path_buf();
         let contents = fs::read_to_string(p)?;
         let source = syn::parse_file(&contents)?;
-        let mut line_iter = contents.lines().peekable();
-        let newline = if let Some(line) = line_iter.peek() {
-            match contents.as_bytes().get(line.len() + 1) {
-                Some(b'\r') => &"\r\n",
-                _ => &"\n",
-            }
-        } else {
-            &"\n"
-        };
-        let lines: Vec<String> = line_iter.map(|x| x.into()).collect();
+        let lines: Vec<String> = contents.lines().map(|x| x.into()).collect();
         Ok(FilePatcher {
             filename,
             source,
-            newline,
             lines,
             inline_snapshots: vec![],
         })
     }
 
-    pub fn save(&self) -> Result<(), Error> {
+    pub fn save(&self) -> Result<(), Box<dyn Error>> {
         let mut f = fs::File::create(&self.filename)?;
         for line in &self.lines {
             writeln!(&mut f, "{}", line)?;

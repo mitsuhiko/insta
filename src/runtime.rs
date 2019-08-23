@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
+use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::io::Write;
@@ -13,7 +14,6 @@ use std::thread;
 use chrono::{Local, Utc};
 use console::style;
 use difference::{Changeset, Difference};
-use failure::Error;
 use lazy_static::lazy_static;
 
 use ci_info::is_ci;
@@ -484,7 +484,7 @@ pub fn assert_snapshot(
     file: &str,
     line: u32,
     expr: &str,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn Error>> {
     let module_name = module_path.rsplit("::").next().unwrap();
     let cargo_workspace = get_cargo_workspace(manifest_dir);
 

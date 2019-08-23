@@ -1,13 +1,11 @@
 use std::borrow::Cow;
 
-use failure::Fail;
 use pest::Parser;
 use pest_derive::Parser;
 
 use crate::content::Content;
 
-#[derive(Fail, Debug)]
-#[fail(display = "{}", _0)]
+#[derive(Debug)]
 pub struct SelectorParseError(pest::error::Error<Rule>);
 
 impl SelectorParseError {
