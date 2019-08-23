@@ -1,9 +1,8 @@
-use ron;
 use serde::Serialize;
 use serde_json;
-use serde_yaml;
 
 pub enum SerializationFormat {
+    #[cfg(feature = "ron")]
     Ron,
     Yaml,
     Json,
@@ -28,6 +27,7 @@ pub fn serialize_value<S: Serialize>(
             }
         }
         SerializationFormat::Json => serde_json::to_string_pretty(s).unwrap(),
+        #[cfg(feature = "ron")]
         SerializationFormat::Ron => {
             let mut serializer = ron::ser::Serializer::new(
                 Some(ron::ser::PrettyConfig {

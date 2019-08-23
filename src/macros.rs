@@ -81,6 +81,8 @@ macro_rules! assert_yaml_snapshot_matches {
 
 /// Asserts a `Serialize` snapshot in RON format.
 ///
+/// **Feature:** `ron` (disabled by default)
+///
 /// This works exactly like `assert_serialized_snapshot_matches` but serializes
 /// in [RON](https://github.com/ron-rs/ron/) format instead of YAML which
 /// retains some type information for more accurate comparisions.
@@ -97,6 +99,7 @@ macro_rules! assert_yaml_snapshot_matches {
 ///
 /// Additionally the name is optional.  For more information see
 /// [unnamed snapshots](index.html#unnamed-snapshots)
+#[cfg(feature = "ron")]
 #[macro_export]
 macro_rules! assert_ron_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{

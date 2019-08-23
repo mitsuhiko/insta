@@ -24,7 +24,7 @@
 //! - `assert_yaml_snapshot_matches!` for comparing YAML serialized
 //!   output of types implementing `serde::Serialize`.
 //! - `assert_ron_snapshot_matches!` for comparing RON serialized output of
-//!   types implementing `serde::Serialize`.
+//!   types implementing `serde::Serialize`. (requires the `ron` feature)
 //! - `assert_json_snapshot_matches!` for comparing JSON serialized output of
 //!   types implementing `serde::Serialize`.
 //!
@@ -157,13 +157,13 @@
 //!
 //! # Redactions
 //!
-//! **Feature**: `redactions`
+//! **Feature:** `redactions`
 //!
 //! For all snapshots created based on `serde::Serialize` output `insta`
 //! supports redactions.  This permits replacing values with hardcoded other
 //! values to make snapshots stable when otherwise random or otherwise changing
 //! values are involved.  Redactions became an optional feature in insta
-//! 0.11 and can be enabled with the `redactions` feature.
+//! 0.11 and can be enabled with the `redactions` feature./
 //!
 //! Redactions can be defined as the third argument to those macros with
 //! the syntax `{ selector => replacement_value }`.
@@ -250,6 +250,13 @@
 //!
 //! After the initial test failure you can run `cargo insta review` to
 //! accept the change.  The file will then be updated automatically.
+//!
+//! # Features
+//!
+//! The following features exist:
+//!
+//! * `ron`: enables RON support (`assert_ron_snapshot_matches!`)
+//! * `redactions`: enables support for redactions
 #![allow(clippy::redundant_closure)]
 #[macro_use]
 mod macros;
