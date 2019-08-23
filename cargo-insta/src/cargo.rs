@@ -1,15 +1,16 @@
 use std::collections::HashSet;
 use std::env;
+use std::error::Error;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process;
 
-use failure::{err_msg, Error};
 use insta::{PendingInlineSnapshot, Snapshot};
 use serde::Deserialize;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::inline::FilePatcher;
+use crate::utils::err_msg;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Target {
@@ -97,7 +98,7 @@ impl SnapshotContainer {
         snapshot_path: PathBuf,
         target_path: PathBuf,
         kind: SnapshotContainerKind,
-    ) -> Result<SnapshotContainer, Error> {
+    ) -> Result<SnapshotContainer, Box<dyn Error>> {
         let mut snapshots = Vec::new();
         let patcher = match kind {
             SnapshotContainerKind::External => {
@@ -158,7 +159,7 @@ impl SnapshotContainer {
         self.snapshots.iter_mut()
     }
 
-    pub fn commit(&mut self) -> Result<(), Error> {
+    pub fn commit(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(ref mut patcher) = self.patcher {
             let mut new_pending = vec![];
             let mut did_accept = false;
@@ -219,7 +220,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 pub fn find_snapshots<'a>(
     root: PathBuf,
     extensions: &'a [&'a str],
-) -> impl Iterator<Item = Result<SnapshotContainer, Error>> + 'a {
+) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
     WalkDir::new(root.clone())
         .into_iter()
         .filter_entry(|e| e.file_type().is_file() || !is_hidden(e))
@@ -271,7 +272,7 @@ impl Package {
     pub fn iter_snapshot_containers<'a>(
         &self,
         extensions: &'a [&'a str],
-    ) -> impl Iterator<Item = Result<SnapshotContainer, Error>> + 'a {
+    ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
         let mut roots = HashSet::new();
         for target in &self.targets {
             // We want to skip custom build scripts and not support snapshots
@@ -298,7 +299,7 @@ pub fn get_cargo() -> String {
         .unwrap_or_else(|| "cargo".to_string())
 }
 
-pub fn get_package_metadata(manifest_path: Option<&Path>) -> Result<Metadata, Error> {
+pub fn get_package_metadata(manifest_path: Option<&Path>) -> Result<Metadata, Box<dyn Error>> {
     let mut cmd = process::Command::new(get_cargo());
     cmd.arg("metadata")
         .arg("--no-deps")
@@ -325,7 +326,7 @@ pub fn get_package_metadata(manifest_path: Option<&Path>) -> Result<Metadata, Er
     Ok(serde_json::from_slice(&output.stdout)?)
 }
 
-fn get_default_manifest() -> Result<Option<PathBuf>, Error> {
+fn get_default_manifest() -> Result<Option<PathBuf>, Box<dyn Error>> {
     let output = process::Command::new(get_cargo())
         .arg("locate-project")
         .output()?;
@@ -351,7 +352,7 @@ fn find_all_packages(metadata: &Metadata) -> Vec<Package> {
         .collect()
 }
 
-pub fn find_packages(metadata: &Metadata, all: bool) -> Result<Vec<Package>, Error> {
+pub fn find_packages(metadata: &Metadata, all: bool) -> Result<Vec<Package>, Box<dyn Error>> {
     if all {
         Ok(find_all_packages(metadata))
     } else {

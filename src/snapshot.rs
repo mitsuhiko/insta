@@ -1,15 +1,16 @@
-use super::runtime::get_inline_snapshot_value;
 use std::borrow::Cow;
+use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use chrono::{DateTime, Utc};
-use failure::Error;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json;
+
+use super::runtime::get_inline_snapshot_value;
 
 lazy_static! {
     static ref RUN_ID: Uuid = Uuid::new_v4();
@@ -33,7 +34,7 @@ impl PendingInlineSnapshot {
         }
     }
 
-    pub fn load_batch<P: AsRef<Path>>(p: P) -> Result<Vec<PendingInlineSnapshot>, Error> {
+    pub fn load_batch<P: AsRef<Path>>(p: P) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
         let f = BufReader::new(fs::File::open(p)?);
         let iter = serde_json::Deserializer::from_reader(f).into_iter::<PendingInlineSnapshot>();
         let mut rv = iter.collect::<Result<Vec<PendingInlineSnapshot>, _>>()?;
@@ -46,7 +47,10 @@ impl PendingInlineSnapshot {
         Ok(rv)
     }
 
-    pub fn save_batch<P: AsRef<Path>>(p: P, batch: &[PendingInlineSnapshot]) -> Result<(), Error> {
+    pub fn save_batch<P: AsRef<Path>>(
+        p: P,
+        batch: &[PendingInlineSnapshot],
+    ) -> Result<(), Box<dyn Error>> {
         fs::remove_file(&p).ok();
         for snap in batch {
             snap.save(&p)?;
@@ -54,7 +58,7 @@ impl PendingInlineSnapshot {
         Ok(())
     }
 
-    pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Error> {
+    pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Box<dyn Error>> {
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
         let mut s = serde_json::to_string(self)?;
         s.push('\n');
@@ -104,7 +108,7 @@ pub struct Snapshot {
 
 impl Snapshot {
     /// Loads a snapshot from a file.
-    pub fn from_file<P: AsRef<Path>>(p: P) -> Result<Snapshot, Error> {
+    pub fn from_file<P: AsRef<Path>>(p: P) -> Result<Snapshot, Box<dyn Error>> {
         let mut f = BufReader::new(fs::File::open(p.as_ref())?);
         let mut buf = String::new();
 
@@ -234,7 +238,7 @@ impl Snapshot {
         &self.snapshot.contents
     }
 
-    pub(crate) fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+    pub(crate) fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
         let path = path.as_ref();
         if let Some(folder) = path.parent() {
             fs::create_dir_all(&folder)?;
