@@ -19,12 +19,12 @@ lazy_static! {
 pub struct PendingInlineSnapshot {
     pub run_id: Uuid,
     pub line: u32,
-    pub new: Snapshot,
+    pub new: Option<Snapshot>,
     pub old: Option<Snapshot>,
 }
 
 impl PendingInlineSnapshot {
-    pub fn new(new: Snapshot, old: Option<Snapshot>, line: u32) -> PendingInlineSnapshot {
+    pub fn new(new: Option<Snapshot>, old: Option<Snapshot>, line: u32) -> PendingInlineSnapshot {
         PendingInlineSnapshot {
             new,
             old,
