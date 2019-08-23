@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -8,6 +9,8 @@ use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json;
+
+use super::runtime::get_inline_snapshot_value;
 
 lazy_static! {
     static ref RUN_ID: Uuid = Uuid::new_v4();
@@ -100,7 +103,7 @@ pub struct Snapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     snapshot_name: Option<String>,
     metadata: MetaData,
-    snapshot: String,
+    snapshot: SnapshotContents,
 }
 
 impl Snapshot {
@@ -191,7 +194,7 @@ impl Snapshot {
             module_name,
             snapshot_name,
             metadata,
-            buf,
+            buf.into(),
         ))
     }
 
@@ -200,7 +203,7 @@ impl Snapshot {
         module_name: String,
         snapshot_name: Option<String>,
         metadata: MetaData,
-        snapshot: String,
+        snapshot: SnapshotContents,
     ) -> Snapshot {
         Snapshot {
             module_name,
@@ -226,8 +229,13 @@ impl Snapshot {
     }
 
     /// The snapshot contents
-    pub fn contents(&self) -> &str {
+    pub fn contents(&self) -> &SnapshotContents {
         &self.snapshot
+    }
+
+    /// The snapshot contents as a &str
+    pub fn contents_str(&self) -> &str {
+        &self.snapshot.contents
     }
 
     pub(crate) fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
@@ -238,8 +246,94 @@ impl Snapshot {
         let mut f = fs::File::create(&path)?;
         serde_yaml::to_writer(&mut f, &self.metadata)?;
         f.write_all(b"\n---\n")?;
-        f.write_all(self.snapshot.as_bytes())?;
+        f.write_all(self.contents_str().as_bytes())?;
         f.write_all(b"\n")?;
         Ok(())
     }
+}
+
+/// The contents of a Snapshot
+// Could be Cow, but I think limited savings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotContents {
+    pub contents: String,
+}
+
+impl SnapshotContents {
+    pub fn from_inline(value: &str) -> SnapshotContents {
+        SnapshotContents {
+            contents: get_inline_snapshot_value(value),
+        }
+    }
+    pub fn to_inline(&self, indentation: usize) -> String {
+        denormalize_inline_snapshot(&self.contents, indentation)
+    }
+}
+
+impl From<&str> for SnapshotContents {
+    fn from(value: &str) -> SnapshotContents {
+        SnapshotContents {
+            contents: value.to_string(),
+        }
+    }
+}
+
+impl From<String> for SnapshotContents {
+    fn from(value: String) -> SnapshotContents {
+        SnapshotContents { contents: value }
+    }
+}
+
+impl From<SnapshotContents> for String {
+    fn from(value: SnapshotContents) -> String {
+        value.contents
+    }
+}
+
+impl PartialEq for SnapshotContents {
+    fn eq(&self, other: &Self) -> bool {
+        self.contents.trim_end() == other.contents.trim_end()
+    }
+}
+
+// from a snapshot to a string we want to write back
+fn denormalize_inline_snapshot(snapshot: &str, indentation: usize) -> String {
+    let mut out = String::new();
+    let is_escape = snapshot.lines().count() > 1 || snapshot.contains(&['\\', '"'][..]);
+
+    out.push_str(if is_escape { "r###\"" } else { "\"" });
+    let mut new_lines: Vec<_> = snapshot.lines().map(Cow::Borrowed).collect();
+    if new_lines.is_empty() {
+        new_lines.push(Cow::Borrowed(""));
+    }
+
+    // if we have more than one line we want to change into the block
+    // representation mode
+    if new_lines.len() > 1 || snapshot.contains('┇') {
+        new_lines.insert(0, Cow::Borrowed(""));
+        if indentation > 0 {
+            for (idx, line) in new_lines.iter_mut().enumerate() {
+                if idx == 0 {
+                    continue;
+                }
+                *line = Cow::Owned(format!(
+                    "{c: >width$}{line}",
+                    c = "⋮",
+                    width = indentation,
+                    line = line
+                ));
+            }
+            new_lines.push(Cow::Owned(format!(
+                "{c: >width$}",
+                c = " ",
+                width = indentation
+            )));
+        } else {
+            new_lines.push(Cow::Borrowed(""));
+        }
+    }
+
+    out.push_str(if is_escape { "\"###" } else { "\"" });
+
+    out
 }
