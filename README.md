@@ -26,7 +26,7 @@ This crate exports multiple macros for snapshot testing:
 - `assert_yaml_snapshot_matches!` for comparing YAML serialized
   output of types implementing `serde::Serialize`.
 - `assert_ron_snapshot_matches!` for comparing RON serialized output of
-  types implementing `serde::Serialize`.
+  types implementing `serde::Serialize`. (requires the `ron` feature)
 - `assert_json_snapshot_matches!` for comparing JSON serialized output of
   types implementing `serde::Serialize`.
 
@@ -102,7 +102,7 @@ that can make debugging easier and the snapshot:
 created: "2019-01-21T22:03:13.792906+00:00"
 creator: insta@0.3.0
 expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
-source: tests/test_redaction.rs
+source: tests/test_user.rs
 ---
 [
     1,
@@ -159,10 +159,13 @@ $ cargo insta test --review
 
 ## Redactions
 
+**Feature:** `redactions`
+
 For all snapshots created based on `serde::Serialize` output `insta`
 supports redactions.  This permits replacing values with hardcoded other
 values to make snapshots stable when otherwise random or otherwise changing
-values are involved.
+values are involved.  Redactions became an optional feature in insta
+0.11 and can be enabled with the `redactions` feature./
 
 Redactions can be defined as the third argument to those macros with
 the syntax `{ selector => replacement_value }`.
@@ -249,5 +252,17 @@ assert_yaml_snapshot_matches!(User {
 
 After the initial test failure you can run `cargo insta review` to
 accept the change.  The file will then be updated automatically.
+
+## Features
+
+The following features exist:
+
+* `ron`: enables RON support (`assert_ron_snapshot_matches!`)
+* `redactions`: enables support for redactions
+
+## Settings
+
+There are some settings that can be changed on a per-thread (and thus
+per-test) basis.  For more information see [settings](struct.Settings.html).
 
 License: Apache-2.0

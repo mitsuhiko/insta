@@ -11,15 +11,14 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-insta = { version = "0.10.1", path = ".." }
+insta = { version = "0.10.1", path = "..", features = ["redactions"] }
 console = "0.7.5"
 clap = "2.32.0"
 difference = "2.0.0"
 structopt = "0.2.14"
 serde = { version = "1.0.85", features = ["derive"] }
 serde_json = "1.0.36"
-failure = "0.1.5"
 glob = "0.2.11"
 walkdir = "2.2.7"
 proc-macro2 = { version = "0.4.27", features = ["span-locations"] }
-syn = { version = "0.15.26", features = ["full"] }
+syn = { version = "0.15.26", features = ["full", "visit"] }

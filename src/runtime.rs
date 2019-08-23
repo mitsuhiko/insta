@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
+use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::io::Write;
@@ -13,14 +14,13 @@ use std::thread;
 use chrono::{Local, Utc};
 use console::style;
 use difference::{Changeset, Difference};
-use failure::Error;
 use lazy_static::lazy_static;
 
-use ci_info::is_ci;
 use serde::Deserialize;
 use serde_json;
 
-use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot};
+use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
+use crate::utils::is_ci;
 
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
@@ -312,8 +312,8 @@ pub fn print_snapshot_diff(
         );
     }
     let changeset = Changeset::new(
-        old_snapshot.as_ref().map_or("", |x| x.contents()),
-        &new.contents(),
+        old_snapshot.as_ref().map_or("", |x| x.contents_str()),
+        &new.contents_str(),
         "\n",
     );
     if let Some(old_snapshot) = old_snapshot {
@@ -373,30 +373,18 @@ fn print_snapshot_diff_with_title(
 
 impl<'a> From<Option<&'a str>> for ReferenceValue<'a> {
     fn from(value: Option<&'a str>) -> ReferenceValue<'a> {
-        ReferenceValue::Named(value.map(Cow::Borrowed))
+        ReferenceValue::Named(value)
     }
 }
 
 impl<'a> From<&'a str> for ReferenceValue<'a> {
     fn from(value: &'a str) -> ReferenceValue<'a> {
-        ReferenceValue::Named(Some(Cow::Borrowed(value)))
-    }
-}
-
-impl From<String> for ReferenceValue<'static> {
-    fn from(value: String) -> ReferenceValue<'static> {
-        ReferenceValue::Named(Some(Cow::Owned(value)))
-    }
-}
-
-impl From<Option<String>> for ReferenceValue<'static> {
-    fn from(value: Option<String>) -> ReferenceValue<'static> {
-        ReferenceValue::Named(value.map(Cow::Owned))
+        ReferenceValue::Named(Some(value))
     }
 }
 
 pub enum ReferenceValue<'a> {
-    Named(Option<Cow<'a, str>>),
+    Named(Option<&'a str>),
     Inline(&'a str),
 }
 
@@ -426,7 +414,10 @@ fn generate_snapshot_name_for_thread(module_path: &str) -> String {
 /// frozen value string.  If the string starts with the '⋮' character
 /// (optionally prefixed by whitespace) the alternative serialization format
 /// is picked which has slightly improved indentation semantics.
-fn get_inline_snapshot_value(frozen_value: &str) -> String {
+pub(super) fn get_inline_snapshot_value(frozen_value: &str) -> String {
+    // TODO: could move this into the SnapshotContents `from_inline` method
+    // (the only call site)
+
     if frozen_value.trim_start().starts_with('⋮') {
         let mut buf = String::new();
         let mut line_iter = frozen_value.lines();
@@ -484,14 +475,16 @@ pub fn assert_snapshot(
     file: &str,
     line: u32,
     expr: &str,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn Error>> {
     let module_name = module_path.rsplit("::").next().unwrap();
     let cargo_workspace = get_cargo_workspace(manifest_dir);
 
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
         ReferenceValue::Named(snapshot_name) => {
-            let snapshot_name = snapshot_name
-                .unwrap_or_else(|| Cow::Owned(generate_snapshot_name_for_thread(module_path)));
+            let snapshot_name: Cow<str> = match snapshot_name {
+                Some(snapshot_name) => snapshot_name.into(),
+                None => (generate_snapshot_name_for_thread(module_path).into()),
+            };
             let snapshot_file =
                 get_snapshot_filename(module_name, &snapshot_name, &cargo_workspace, file);
             let old = if fs::metadata(&snapshot_file).is_ok() {
@@ -522,16 +515,18 @@ pub fn assert_snapshot(
                         created,
                         ..MetaData::default()
                     },
-                    get_inline_snapshot_value(contents),
+                    SnapshotContents::from_inline(contents),
                 )),
                 Some(filename),
             )
         }
     };
 
+    let new_snapshot_contents: SnapshotContents = new_snapshot.into();
+
     // if the snapshot matches we're done.
-    if let Some(ref x) = old {
-        if x.contents().trim_end() == new_snapshot.trim_end() {
+    if let Some(ref old_snapshot) = old {
+        if old_snapshot.contents() == &new_snapshot_contents {
             // let's just make sure there are no more pending files lingering
             // around.
             if let Some(mut snapshot_file) = snapshot_file {
@@ -544,6 +539,7 @@ pub fn assert_snapshot(
                     PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
                 }
             }
+
             return Ok(());
         }
     }
@@ -561,7 +557,7 @@ pub fn assert_snapshot(
             source: Some(path_to_storage(file)),
             expression: Some(expr.to_string()),
         },
-        new_snapshot.to_string(),
+        new_snapshot_contents,
     );
 
     print_snapshot_diff_with_title(

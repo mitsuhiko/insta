@@ -2,6 +2,10 @@
 use serde::ser::{self, Serialize, Serializer};
 use std::marker::PhantomData;
 
+/// Represents variable typed content.
+///
+/// This is used internally for the serialization system to
+/// represent values before the actual snapshots are written.
 #[derive(Debug, Clone)]
 pub enum Content {
     Bool(bool),
@@ -23,27 +27,58 @@ pub enum Content {
     String(String),
     Bytes(Vec<u8>),
 
+    #[doc(hidden)]
     None,
+    #[doc(hidden)]
     Some(Box<Content>),
 
+    #[doc(hidden)]
     Unit,
+    #[doc(hidden)]
     UnitStruct(&'static str),
+    #[doc(hidden)]
     UnitVariant(&'static str, u32, &'static str),
+    #[doc(hidden)]
     NewtypeStruct(&'static str, Box<Content>),
+    #[doc(hidden)]
     NewtypeVariant(&'static str, u32, &'static str, Box<Content>),
 
     Seq(Vec<Content>),
+    #[doc(hidden)]
     Tuple(Vec<Content>),
+    #[doc(hidden)]
     TupleStruct(&'static str, Vec<Content>),
+    #[doc(hidden)]
     TupleVariant(&'static str, u32, &'static str, Vec<Content>),
     Map(Vec<(Content, Content)>),
+    #[doc(hidden)]
     Struct(&'static str, Vec<(&'static str, Content)>),
+    #[doc(hidden)]
     StructVariant(
         &'static str,
         u32,
         &'static str,
         Vec<(&'static str, Content)>,
     ),
+}
+
+#[derive(PartialEq, PartialOrd, Debug)]
+pub enum Key<'a> {
+    Bool(bool),
+    U64(u64),
+    I64(i64),
+    F64(f64),
+    Str(&'a str),
+    Bytes(&'a [u8]),
+    Other,
+}
+
+impl<'a> Eq for Key<'a> {}
+
+impl<'a> Ord for Key<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Less)
+    }
 }
 
 macro_rules! impl_from {
@@ -90,6 +125,7 @@ impl<'a> From<&'a [u8]> for Content {
 }
 
 impl Content {
+    /// Returns the value as string
     pub fn as_str(&self) -> Option<&str> {
         match *self {
             Content::String(ref s) => Some(s.as_str()),
@@ -97,6 +133,26 @@ impl Content {
         }
     }
 
+    pub(crate) fn as_key(&self) -> Key<'_> {
+        match *self {
+            Content::Bool(val) => Key::Bool(val),
+            Content::Char(val) => Key::U64(val as u64),
+            Content::U16(val) => Key::U64(val.into()),
+            Content::U32(val) => Key::U64(val.into()),
+            Content::U64(val) => Key::U64(val),
+            Content::I16(val) => Key::I64(val.into()),
+            Content::I32(val) => Key::I64(val.into()),
+            Content::I64(val) => Key::I64(val),
+            Content::F32(val) => Key::F64(val.into()),
+            Content::F64(val) => Key::F64(val),
+            Content::String(ref val) => Key::Str(&val.as_str()),
+            Content::Bytes(ref val) => Key::Bytes(&val[..]),
+            Content::Some(ref val) => val.as_key(),
+            _ => Key::Other,
+        }
+    }
+
+    /// Returns the value as u64
     pub fn as_u64(&self) -> Option<u64> {
         match *self {
             Content::U8(v) => Some(u64::from(v)),
@@ -108,6 +164,57 @@ impl Content {
             Content::I32(v) if v >= 0 => Some(v as u64),
             Content::I64(v) if v >= 0 => Some(v as u64),
             _ => None,
+        }
+    }
+
+    pub(crate) fn sort_maps(&mut self) {
+        self.walk(|content| {
+            if let Content::Map(ref mut items) = content {
+                items.sort_by(|a, b| a.0.as_key().cmp(&b.0.as_key()));
+            }
+            true
+        })
+    }
+
+    /// Recursively walks the content structure mutably.
+    ///
+    /// The callback is invoked for every content in the tree.
+    pub fn walk<F: FnMut(&mut Content) -> bool>(&mut self, mut visit: F) {
+        if !visit(self) {
+            return;
+        }
+        match *self {
+            Content::Some(ref mut inner) => {
+                visit(&mut *inner);
+            }
+            Content::NewtypeStruct(_, ref mut inner) => {
+                visit(&mut *inner);
+            }
+            Content::NewtypeVariant(_, _, _, ref mut inner) => {
+                visit(&mut *inner);
+            }
+            Content::Seq(ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    visit(inner);
+                }
+            }
+            Content::Map(ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    visit(&mut inner.0);
+                    visit(&mut inner.1);
+                }
+            }
+            Content::Struct(_, ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    visit(&mut inner.1);
+                }
+            }
+            Content::StructVariant(_, _, _, ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    visit(&mut inner.1);
+                }
+            }
+            _ => {}
         }
     }
 }

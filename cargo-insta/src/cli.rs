@@ -1,9 +1,9 @@
 use std::env;
+use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::process;
 
 use console::{set_colors_enabled, style, Key, Term};
-use failure::{err_msg, Error, Fail};
 use insta::{print_snapshot_diff, Snapshot};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
@@ -11,11 +11,7 @@ use structopt::StructOpt;
 use crate::cargo::{
     find_packages, find_snapshots, get_cargo, get_package_metadata, Operation, Package,
 };
-
-/// Close without message but exit code.
-#[derive(Fail, Debug)]
-#[fail(display = "exit with {}", _0)]
-pub struct QuietExit(pub i32);
+use crate::utils::{err_msg, QuietExit};
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -41,13 +37,13 @@ pub struct Opts {
 #[structopt(bin_name = "cargo-insta")]
 pub enum Command {
     /// Interactively review snapshots
-    #[structopt(name = "review")]
+    #[structopt(name = "review", alias = "verify")]
     Review(ProcessCommand),
     /// Rejects all snapshots
     #[structopt(name = "reject")]
     Reject(ProcessCommand),
     /// Accept all snapshots
-    #[structopt(name = "accept")]
+    #[structopt(name = "accept", alias = "approve")]
     Accept(ProcessCommand),
     /// Run tests and then reviews
     #[structopt(name = "test")]
@@ -123,7 +119,7 @@ fn query_snapshot(
     i: usize,
     n: usize,
     snapshot_file: Option<&Path>,
-) -> Result<Operation, Error> {
+) -> Result<Operation, Box<dyn Error>> {
     term.clear_screen()?;
     println!(
         "{}{}{}",
@@ -167,7 +163,7 @@ fn query_snapshot(
     }
 }
 
-fn handle_color(color: &Option<String>) -> Result<(), Error> {
+fn handle_color(color: &Option<String>) -> Result<(), Box<dyn Error>> {
     match color.as_ref().map(|x| x.as_str()).unwrap_or("auto") {
         "always" => set_colors_enabled(true),
         "auto" => {}
@@ -179,7 +175,7 @@ fn handle_color(color: &Option<String>) -> Result<(), Error> {
 
 fn handle_target_args(
     target_args: &TargetArgs,
-) -> Result<(PathBuf, Option<Vec<Package>>, Vec<&str>), Error> {
+) -> Result<(PathBuf, Option<Vec<Package>>, Vec<&str>), Box<dyn Error>> {
     let mut exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
     if exts.is_empty() {
         exts.push("snap");
@@ -199,7 +195,7 @@ fn handle_target_args(
     }
 }
 
-fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), Error> {
+fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), Box<dyn Error>> {
     let term = Term::stdout();
     let mut snapshot_containers = vec![];
 
@@ -298,7 +294,7 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     Ok(())
 }
 
-fn test_run(cmd: &TestCommand) -> Result<(), Error> {
+fn test_run(cmd: &TestCommand) -> Result<(), Box<dyn Error>> {
     let mut proc = process::Command::new(get_cargo());
     proc.arg("test");
     if cmd.target_args.all {
@@ -369,7 +365,7 @@ fn test_run(cmd: &TestCommand) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn run() -> Result<(), Error> {
+pub fn run() -> Result<(), Box<dyn Error>> {
     // chop off cargo
     let mut args: Vec<_> = env::args_os().collect();
     if env::var("CARGO").is_ok() && args.get(1).and_then(|x| x.to_str()) == Some("insta") {

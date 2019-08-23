@@ -66,7 +66,7 @@ macro_rules! assert_yaml_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Yaml, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, {$($k => $v),*}, Yaml);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, {$($k => $v),*}, Yaml);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Yaml);
@@ -75,11 +75,13 @@ macro_rules! assert_yaml_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Yaml);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, Yaml);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, Yaml);
     }};
 }
 
 /// Asserts a `Serialize` snapshot in RON format.
+///
+/// **Feature:** `ron` (disabled by default)
 ///
 /// This works exactly like `assert_serialized_snapshot_matches` but serializes
 /// in [RON](https://github.com/ron-rs/ron/) format instead of YAML which
@@ -97,6 +99,7 @@ macro_rules! assert_yaml_snapshot_matches {
 ///
 /// Additionally the name is optional.  For more information see
 /// [unnamed snapshots](index.html#unnamed-snapshots)
+#[cfg(feature = "ron")]
 #[macro_export]
 macro_rules! assert_ron_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
@@ -106,7 +109,7 @@ macro_rules! assert_ron_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Ron, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, {$($k => $v),*}, Ron);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, {$($k => $v),*}, Ron);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Ron);
@@ -115,7 +118,7 @@ macro_rules! assert_ron_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Ron);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, Ron);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, Ron);
     }};
 }
 
@@ -146,7 +149,7 @@ macro_rules! assert_json_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!($value, {$($k => $v),*}, Json, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, {$($k => $v),*}, Json);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, {$($k => $v),*}, Json);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, Json);
@@ -155,7 +158,7 @@ macro_rules! assert_json_snapshot_matches {
         $crate::_assert_serialized_snapshot_matches!(Some($name), $value, {$($k => $v),*}, Json);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot_matches!(None::<String>, $value, Json);
+        $crate::_assert_serialized_snapshot_matches!(None::<&str>, $value, Json);
     }};
 }
 
@@ -175,18 +178,7 @@ macro_rules! _assert_serialized_snapshot_matches {
         );
     }};
     ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, @$snapshot:literal) => {{
-        let vec = vec![
-            $((
-                $crate::_macro_support::Selector::parse($k).unwrap(),
-                $crate::_macro_support::Content::from($v)
-            ),)*
-        ];
-        let value = $crate::_macro_support::serialize_value_redacted(
-            &$value,
-            &vec,
-            $crate::_macro_support::SerializationFormat::$format,
-            $crate::_macro_support::SnapshotLocation::Inline
-        );
+        let (vec, value) = $crate::_prepare_snapshot_for_redaction!($value, {$($k => $v),*}, $format, Inline);
         $crate::assert_snapshot_matches!(value, stringify!($value), @$snapshot);
     }};
     ($name:expr, $value:expr, $format:ident) => {{
@@ -202,20 +194,41 @@ macro_rules! _assert_serialized_snapshot_matches {
         );
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*}, $format:ident) => {{
-        let vec = vec![
-            $((
-                $crate::_macro_support::Selector::parse($k).unwrap(),
-                $crate::_macro_support::Content::from($v)
-            ),)*
-        ];
-        let value = $crate::_macro_support::serialize_value_redacted(
-            &$value,
-            &vec,
-            $crate::_macro_support::SerializationFormat::$format,
-            $crate::_macro_support::SnapshotLocation::File
-        );
+        let (vec, value) = $crate::_prepare_snapshot_for_redaction!($value, {$($k => $v),*}, $format, File);
         $crate::assert_snapshot_matches!($name, value, stringify!($value));
     }}
+}
+
+#[cfg(feature = "redactions")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _prepare_snapshot_for_redaction {
+    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
+        {
+            let vec = vec![
+                $((
+                    $crate::_macro_support::Selector::parse($k).unwrap(),
+                    $crate::_macro_support::Content::from($v)
+                ),)*
+            ];
+            let value = $crate::_macro_support::serialize_value_redacted(
+                &$value,
+                &vec,
+                $crate::_macro_support::SerializationFormat::$format,
+                $crate::_macro_support::SnapshotLocation::$location
+            );
+            (vec, value)
+        }
+    }
+}
+
+#[cfg(not(feature = "redactions"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _prepare_snapshot_for_redaction {
+    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
+        compile_error!("insta was compiled without redaction support.");
+    };
 }
 
 /// Asserts a `Debug` snapshot.
@@ -238,7 +251,7 @@ macro_rules! assert_debug_snapshot_matches {
     }};
     ($value:expr) => {{
         let value = format!("{:#?}", $value);
-        $crate::assert_snapshot_matches!(None::<String>, value, stringify!($value));
+        $crate::assert_snapshot_matches!(None::<&str>, value, stringify!($value));
     }};
 }
 
@@ -260,7 +273,7 @@ macro_rules! assert_display_snapshot_matches {
     }};
     ($value:expr) => {{
         let value = format!("{}", $value);
-        $crate::assert_snapshot_matches!(None::<String>, value, stringify!($value));
+        $crate::assert_snapshot_matches!(None::<&str>, value, stringify!($value));
     }};
 }
 
@@ -301,6 +314,7 @@ macro_rules! assert_snapshot_matches {
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_snapshot(
+            // Creates a ReferenceValue::Named variant
             $name.into(),
             &$value,
             env!("CARGO_MANIFEST_DIR"),
@@ -312,6 +326,27 @@ macro_rules! assert_snapshot_matches {
         .unwrap();
     };
     ($value:expr) => {
-        $crate::assert_snapshot_matches!(None::<String>, $value, stringify!($value))
+        $crate::assert_snapshot_matches!(None::<&str>, $value, stringify!($value))
     };
+}
+
+/// Settings configuration macro.
+///
+/// This macro lets you bind some settings temporarily.  Currently
+/// only `sort_maps` is supported:
+///
+/// ```rust,ignore
+/// insta::with_settings!({sort_maps => true}, {
+///     // run snapshot test here
+/// });
+/// ```
+#[macro_export]
+macro_rules! with_settings {
+    ({$($k:ident => $v:expr),*}, $body:block) => {{
+        let mut settings = crate::Settings::new();
+        $(
+            settings._private_inner_mut().$k = $v.into();
+        )*
+        settings.bind(|| $body)
+    }}
 }

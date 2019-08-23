@@ -1,13 +1,15 @@
+use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use chrono::{DateTime, Utc};
-use failure::Error;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json;
+
+use super::runtime::get_inline_snapshot_value;
 
 lazy_static! {
     static ref RUN_ID: Uuid = Uuid::new_v4();
@@ -31,7 +33,7 @@ impl PendingInlineSnapshot {
         }
     }
 
-    pub fn load_batch<P: AsRef<Path>>(p: P) -> Result<Vec<PendingInlineSnapshot>, Error> {
+    pub fn load_batch<P: AsRef<Path>>(p: P) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
         let f = BufReader::new(fs::File::open(p)?);
         let iter = serde_json::Deserializer::from_reader(f).into_iter::<PendingInlineSnapshot>();
         let mut rv = iter.collect::<Result<Vec<PendingInlineSnapshot>, _>>()?;
@@ -44,7 +46,10 @@ impl PendingInlineSnapshot {
         Ok(rv)
     }
 
-    pub fn save_batch<P: AsRef<Path>>(p: P, batch: &[PendingInlineSnapshot]) -> Result<(), Error> {
+    pub fn save_batch<P: AsRef<Path>>(
+        p: P,
+        batch: &[PendingInlineSnapshot],
+    ) -> Result<(), Box<dyn Error>> {
         fs::remove_file(&p).ok();
         for snap in batch {
             snap.save(&p)?;
@@ -52,7 +57,7 @@ impl PendingInlineSnapshot {
         Ok(())
     }
 
-    pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Error> {
+    pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Box<dyn Error>> {
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
         let mut s = serde_json::to_string(self)?;
         s.push('\n');
@@ -97,12 +102,12 @@ pub struct Snapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     snapshot_name: Option<String>,
     metadata: MetaData,
-    snapshot: String,
+    snapshot: SnapshotContents,
 }
 
 impl Snapshot {
     /// Loads a snapshot from a file.
-    pub fn from_file<P: AsRef<Path>>(p: P) -> Result<Snapshot, Error> {
+    pub fn from_file<P: AsRef<Path>>(p: P) -> Result<Snapshot, Box<dyn Error>> {
         let mut f = BufReader::new(fs::File::open(p.as_ref())?);
         let mut buf = String::new();
 
@@ -188,7 +193,7 @@ impl Snapshot {
             module_name,
             snapshot_name,
             metadata,
-            buf,
+            buf.into(),
         ))
     }
 
@@ -197,7 +202,7 @@ impl Snapshot {
         module_name: String,
         snapshot_name: Option<String>,
         metadata: MetaData,
-        snapshot: String,
+        snapshot: SnapshotContents,
     ) -> Snapshot {
         Snapshot {
             module_name,
@@ -223,11 +228,16 @@ impl Snapshot {
     }
 
     /// The snapshot contents
-    pub fn contents(&self) -> &str {
+    pub fn contents(&self) -> &SnapshotContents {
         &self.snapshot
     }
 
-    pub(crate) fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+    /// The snapshot contents as a &str
+    pub fn contents_str(&self) -> &str {
+        &self.snapshot.0
+    }
+
+    pub(crate) fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
         let path = path.as_ref();
         if let Some(folder) = path.parent() {
             fs::create_dir_all(&folder)?;
@@ -235,8 +245,116 @@ impl Snapshot {
         let mut f = fs::File::create(&path)?;
         serde_yaml::to_writer(&mut f, &self.metadata)?;
         f.write_all(b"\n---\n")?;
-        f.write_all(self.snapshot.as_bytes())?;
+        f.write_all(self.contents_str().as_bytes())?;
         f.write_all(b"\n")?;
         Ok(())
     }
+}
+
+/// The contents of a Snapshot
+// Could be Cow, but I think limited savings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotContents(String);
+
+impl SnapshotContents {
+    pub fn from_inline(value: &str) -> SnapshotContents {
+        SnapshotContents(get_inline_snapshot_value(value))
+    }
+    pub fn to_inline(&self, indentation: usize) -> String {
+        denormalize_inline_snapshot(&self.0, indentation)
+    }
+}
+
+impl From<&str> for SnapshotContents {
+    fn from(value: &str) -> SnapshotContents {
+        SnapshotContents(value.to_string())
+    }
+}
+
+impl From<String> for SnapshotContents {
+    fn from(value: String) -> SnapshotContents {
+        SnapshotContents(value)
+    }
+}
+
+impl From<SnapshotContents> for String {
+    fn from(value: SnapshotContents) -> String {
+        value.0
+    }
+}
+
+impl PartialEq for SnapshotContents {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.trim_end() == other.0.trim_end()
+    }
+}
+
+#[test]
+fn test_snapshot_contents() {
+    let snapshot_contents = SnapshotContents("testing".to_string());
+    assert_eq!(snapshot_contents.to_inline(0), r#""testing""#);
+}
+
+// from a snapshot to a string we want to write back
+fn denormalize_inline_snapshot(snapshot: &str, indentation: usize) -> String {
+    let mut out = String::new();
+    let is_escape = snapshot.lines().count() > 1 || snapshot.contains(&['\\', '"'][..]);
+
+    out.push_str(if is_escape { "r###\"" } else { "\"" });
+    // if we have more than one line we want to change into the block
+    // representation mode
+    if snapshot.lines().count() > 1 {
+        out.push_str("\n");
+        out.extend(
+            snapshot
+                .lines()
+                .map(|l| format!("{c: >width$}{l}\n", c = "⋮", width = indentation, l = l)),
+        );
+        out.push_str(&format!("{c: >width$}", c = " ", width = indentation));
+    } else {
+        out.push_str(snapshot);
+    }
+
+    out.push_str(if is_escape { "\"###" } else { "\"" });
+
+    out
+}
+
+#[test]
+fn test_denormalize_inline_snapshot() {
+    let t = &"
+a
+b"[1..];
+    assert_eq!(
+        denormalize_inline_snapshot(t, 0),
+        "r###\"
+⋮a
+⋮b
+ \"###"
+    );
+
+    let t = &"
+a
+b"[1..];
+    assert_eq!(
+        denormalize_inline_snapshot(t, 4),
+        "r###\"
+   ⋮a
+   ⋮b
+    \"###"
+    );
+
+    let t = &"
+    a
+    b"[1..];
+    assert_eq!(
+        denormalize_inline_snapshot(t, 0),
+        "r###\"
+⋮    a
+⋮    b
+ \"###"
+    );
+
+    let t = "ab";
+    assert_eq!(denormalize_inline_snapshot(t, 0), r##""ab""##);
 }
