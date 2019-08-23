@@ -335,15 +335,15 @@ macro_rules! assert_snapshot_matches {
 /// This macro lets you bind some settings temporarily.  Currently
 /// only `sort_maps` is supported:
 ///
-/// ```rust
-/// with_settings!({sort_maps => true}, {
+/// ```rust,ignore
+/// insta::with_settings!({sort_maps => true}, {
 ///     // run snapshot test here
 /// });
 /// ```
 #[macro_export]
 macro_rules! with_settings {
     ({$($k:ident => $v:expr),*}, $body:block) => {{
-        let mut settings = Settings::new();
+        let mut settings = crate::Settings::new();
         $(
             settings._private_inner_mut().$k = $v.into();
         )*
