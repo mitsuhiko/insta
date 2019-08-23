@@ -46,6 +46,25 @@ pub enum Content {
     ),
 }
 
+#[derive(PartialEq, PartialOrd, Debug)]
+pub enum Key<'a> {
+    Bool(bool),
+    U64(u64),
+    I64(i64),
+    F64(f64),
+    Str(&'a str),
+    Bytes(&'a [u8]),
+    Other,
+}
+
+impl<'a> Eq for Key<'a> {}
+
+impl<'a> Ord for Key<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Less)
+    }
+}
+
 macro_rules! impl_from {
     ($ty:ty, $newty:ident) => {
         impl From<$ty> for Content {
@@ -97,6 +116,25 @@ impl Content {
         }
     }
 
+    pub fn as_key(&self) -> Key<'_> {
+        match *self {
+            Content::Bool(val) => Key::Bool(val),
+            Content::Char(val) => Key::U64(val as u64),
+            Content::U16(val) => Key::U64(val.into()),
+            Content::U32(val) => Key::U64(val.into()),
+            Content::U64(val) => Key::U64(val),
+            Content::I16(val) => Key::I64(val.into()),
+            Content::I32(val) => Key::I64(val.into()),
+            Content::I64(val) => Key::I64(val),
+            Content::F32(val) => Key::F64(val.into()),
+            Content::F64(val) => Key::F64(val),
+            Content::String(ref val) => Key::Str(&val.as_str()),
+            Content::Bytes(ref val) => Key::Bytes(&val[..]),
+            Content::Some(ref val) => val.as_key(),
+            _ => Key::Other,
+        }
+    }
+
     pub fn as_u64(&self) -> Option<u64> {
         match *self {
             Content::U8(v) => Some(u64::from(v)),
@@ -108,6 +146,45 @@ impl Content {
             Content::I32(v) if v >= 0 => Some(v as u64),
             Content::I64(v) if v >= 0 => Some(v as u64),
             _ => None,
+        }
+    }
+
+    pub fn sort_maps(&mut self) {
+        self.walk(|content| {
+            if let Content::Map(ref mut items) = content {
+                items.sort_by(|a, b| a.0.as_key().cmp(&b.0.as_key()));
+            }
+        })
+    }
+
+    pub fn walk<F: FnMut(&mut Content)>(&mut self, mut visit: F) {
+        visit(self);
+        match *self {
+            Content::Some(ref mut inner) => visit(&mut *inner),
+            Content::NewtypeStruct(_, ref mut inner) => visit(&mut *inner),
+            Content::NewtypeVariant(_, _, _, ref mut inner) => visit(&mut *inner),
+            Content::Seq(ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    visit(inner);
+                }
+            }
+            Content::Map(ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    visit(&mut inner.0);
+                    visit(&mut inner.1);
+                }
+            }
+            Content::Struct(_, ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    visit(&mut inner.1);
+                }
+            }
+            Content::StructVariant(_, _, _, ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    visit(&mut inner.1);
+                }
+            }
+            _ => {}
         }
     }
 }

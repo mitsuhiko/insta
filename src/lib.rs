@@ -263,6 +263,7 @@ mod macros;
 mod content;
 mod runtime;
 mod serialization;
+mod settings;
 mod snapshot;
 mod utils;
 
@@ -273,6 +274,7 @@ mod redaction;
 mod test;
 
 pub use crate::snapshot::{MetaData, Snapshot};
+pub use crate::settings::Settings;
 
 // exported for cargo-insta only
 #[doc(hidden)]

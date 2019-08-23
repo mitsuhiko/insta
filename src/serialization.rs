@@ -1,5 +1,9 @@
+use serde::de::value::Error as ValueError;
 use serde::Serialize;
 use serde_json;
+
+use crate::content::{Content, ContentSerializer};
+use crate::settings::Settings;
 
 pub enum SerializationFormat {
     #[cfg(feature = "ron")]
@@ -13,20 +17,26 @@ pub enum SnapshotLocation {
     File,
 }
 
-pub fn serialize_value<S: Serialize>(
-    s: &S,
+pub fn serialize_content(
+    mut content: Content,
     format: SerializationFormat,
     location: SnapshotLocation,
 ) -> String {
+    Settings::with(|settings| {
+        if settings.sort_maps() {
+            content.sort_maps();
+        }
+    });
+
     match format {
         SerializationFormat::Yaml => {
-            let serialized = serde_yaml::to_string(s).unwrap();
+            let serialized = serde_yaml::to_string(&content).unwrap();
             match location {
                 SnapshotLocation::Inline => serialized.to_string(),
                 SnapshotLocation::File => serialized[4..].to_string(),
             }
         }
-        SerializationFormat::Json => serde_json::to_string_pretty(s).unwrap(),
+        SerializationFormat::Json => serde_json::to_string_pretty(&content).unwrap(),
         #[cfg(feature = "ron")]
         SerializationFormat::Ron => {
             let mut serializer = ron::ser::Serializer::new(
@@ -37,10 +47,20 @@ pub fn serialize_value<S: Serialize>(
                 }),
                 true,
             );
-            s.serialize(&mut serializer).unwrap();
+            content.serialize(&mut serializer).unwrap();
             serializer.into_output_string()
         }
     }
+}
+
+pub fn serialize_value<S: Serialize>(
+    s: &S,
+    format: SerializationFormat,
+    location: SnapshotLocation,
+) -> String {
+    let serializer = ContentSerializer::<ValueError>::new();
+    let content = Serialize::serialize(s, serializer).unwrap();
+    serialize_content(content, format, location)
 }
 
 #[cfg(feature = "redactions")]
@@ -50,10 +70,10 @@ pub fn serialize_value_redacted<S: Serialize>(
     format: SerializationFormat,
     location: SnapshotLocation,
 ) -> String {
-    let serializer = crate::content::ContentSerializer::<serde::de::value::Error>::new();
-    let mut value = Serialize::serialize(s, serializer).unwrap();
+    let serializer = ContentSerializer::<ValueError>::new();
+    let mut content = Serialize::serialize(s, serializer).unwrap();
     for (selector, redaction) in redactions {
-        value = selector.redact(value, &redaction);
+        content = selector.redact(content, &redaction);
     }
-    serialize_value(&value, format, location)
+    serialize_content(content, format, location)
 }

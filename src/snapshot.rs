@@ -235,7 +235,7 @@ impl Snapshot {
 
     /// The snapshot contents as a &str
     pub fn contents_str(&self) -> &str {
-        &self.snapshot.contents
+        &self.snapshot.0
     }
 
     pub(crate) fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
@@ -255,44 +255,38 @@ impl Snapshot {
 /// The contents of a Snapshot
 // Could be Cow, but I think limited savings
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SnapshotContents {
-    pub contents: String,
-}
+pub struct SnapshotContents(String);
 
 impl SnapshotContents {
     pub fn from_inline(value: &str) -> SnapshotContents {
-        SnapshotContents {
-            contents: get_inline_snapshot_value(value),
-        }
+        SnapshotContents(get_inline_snapshot_value(value))
     }
     pub fn to_inline(&self, indentation: usize) -> String {
-        denormalize_inline_snapshot(&self.contents, indentation)
+        denormalize_inline_snapshot(&self.0, indentation)
     }
 }
 
 impl From<&str> for SnapshotContents {
     fn from(value: &str) -> SnapshotContents {
-        SnapshotContents {
-            contents: value.to_string(),
-        }
+        SnapshotContents(value.to_string())
     }
 }
 
 impl From<String> for SnapshotContents {
     fn from(value: String) -> SnapshotContents {
-        SnapshotContents { contents: value }
+        SnapshotContents(value)
     }
 }
 
 impl From<SnapshotContents> for String {
     fn from(value: SnapshotContents) -> String {
-        value.contents
+        value.0
     }
 }
 
 impl PartialEq for SnapshotContents {
     fn eq(&self, other: &Self) -> bool {
-        self.contents.trim_end() == other.contents.trim_end()
+        self.0.trim_end() == other.0.trim_end()
     }
 }
 
