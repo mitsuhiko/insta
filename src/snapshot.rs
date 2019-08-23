@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -290,44 +289,72 @@ impl PartialEq for SnapshotContents {
     }
 }
 
+#[test]
+fn test_snapshot_contents() {
+    let snapshot_contents = SnapshotContents("testing".to_string());
+    assert_eq!(snapshot_contents.to_inline(0), r#""testing""#);
+}
+
 // from a snapshot to a string we want to write back
 fn denormalize_inline_snapshot(snapshot: &str, indentation: usize) -> String {
     let mut out = String::new();
     let is_escape = snapshot.lines().count() > 1 || snapshot.contains(&['\\', '"'][..]);
 
     out.push_str(if is_escape { "r###\"" } else { "\"" });
-    let mut new_lines: Vec<_> = snapshot.lines().map(Cow::Borrowed).collect();
-    if new_lines.is_empty() {
-        new_lines.push(Cow::Borrowed(""));
-    }
-
     // if we have more than one line we want to change into the block
     // representation mode
-    if new_lines.len() > 1 || snapshot.contains('┇') {
-        new_lines.insert(0, Cow::Borrowed(""));
-        if indentation > 0 {
-            for (idx, line) in new_lines.iter_mut().enumerate() {
-                if idx == 0 {
-                    continue;
-                }
-                *line = Cow::Owned(format!(
-                    "{c: >width$}{line}",
-                    c = "⋮",
-                    width = indentation,
-                    line = line
-                ));
-            }
-            new_lines.push(Cow::Owned(format!(
-                "{c: >width$}",
-                c = " ",
-                width = indentation
-            )));
-        } else {
-            new_lines.push(Cow::Borrowed(""));
-        }
+    if snapshot.lines().count() > 1 {
+        out.push_str("\n");
+        out.extend(
+            snapshot
+                .lines()
+                .map(|l| format!("{c: >width$}{l}\n", c = "⋮", width = indentation, l = l)),
+        );
+        out.push_str(&format!("{c: >width$}", c = " ", width = indentation));
+    } else {
+        out.push_str(snapshot);
     }
 
     out.push_str(if is_escape { "\"###" } else { "\"" });
 
     out
+}
+
+#[test]
+fn test_denormalize_inline_snapshot() {
+    let t = &"
+a
+b"[1..];
+    assert_eq!(
+        denormalize_inline_snapshot(t, 0),
+        "r###\"
+⋮a
+⋮b
+ \"###"
+    );
+
+    let t = &"
+a
+b"[1..];
+    assert_eq!(
+        denormalize_inline_snapshot(t, 4),
+        "r###\"
+   ⋮a
+   ⋮b
+    \"###"
+    );
+
+    let t = &"
+    a
+    b"[1..];
+    assert_eq!(
+        denormalize_inline_snapshot(t, 0),
+        "r###\"
+⋮    a
+⋮    b
+ \"###"
+    );
+
+    let t = "ab";
+    assert_eq!(denormalize_inline_snapshot(t, 0), r##""ab""##);
 }
