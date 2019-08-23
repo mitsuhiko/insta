@@ -11,6 +11,7 @@ test: cargotest
 cargotest:
 	@cargo test
 	@cargo test --no-default-features
+	@cd cargo-insta; cargo test
 
 format:
 	@rustup component add rustfmt 2> /dev/null
