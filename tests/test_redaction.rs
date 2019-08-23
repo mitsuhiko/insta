@@ -1,7 +1,8 @@
+#![cfg(feature = "redactions")]
+
 use insta::_macro_support::Selector;
 use insta::{
-    assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_ron_snapshot_matches,
-    assert_yaml_snapshot_matches,
+    assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_yaml_snapshot_matches,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -45,8 +46,10 @@ fn test_with_random_value() {
     });
 }
 
+#[cfg(feature = "ron")]
 #[test]
 fn test_with_random_value_ron() {
+    use insta::assert_ron_snapshot_matches;
     assert_ron_snapshot_matches!("user_ron", &User {
         id: Uuid::new_v4(),
         username: "john_ron".to_string(),

@@ -1,8 +1,10 @@
+use std::error::Error;
+use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use failure::Error;
+use insta::SnapshotContents;
 use proc_macro2::TokenTree;
 use syn;
 use syn::spanned::Spanned;
@@ -14,7 +16,6 @@ pub struct InlineSnapshot {
     indentation: usize,
 }
 
-#[derive(Debug)]
 pub struct FilePatcher {
     filename: PathBuf,
     lines: Vec<String>,
@@ -22,8 +23,17 @@ pub struct FilePatcher {
     inline_snapshots: Vec<InlineSnapshot>,
 }
 
+impl fmt::Debug for FilePatcher {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FilePatcher")
+            .field("filename", &self.filename)
+            .field("inline_snapshots", &self.inline_snapshots)
+            .finish()
+    }
+}
+
 impl FilePatcher {
-    pub fn open<P: AsRef<Path>>(p: P) -> Result<FilePatcher, Error> {
+    pub fn open<P: AsRef<Path>>(p: P) -> Result<FilePatcher, Box<dyn Error>> {
         let filename = p.as_ref().to_path_buf();
         let contents = fs::read_to_string(p)?;
         let source = syn::parse_file(&contents)?;
@@ -36,7 +46,7 @@ impl FilePatcher {
         })
     }
 
-    pub fn save(&self) -> Result<(), Error> {
+    pub fn save(&self) -> Result<(), Box<dyn Error>> {
         let mut f = fs::File::create(&self.filename)?;
         for line in &self.lines {
             writeln!(&mut f, "{}", line)?;
@@ -61,7 +71,7 @@ impl FilePatcher {
         self.inline_snapshots[id].start.0 + 1
     }
 
-    pub fn set_new_content(&mut self, id: usize, snapshot: &str) {
+    pub fn set_new_content(&mut self, id: usize, snapshot: &SnapshotContents) {
         let inline = &mut self.inline_snapshots[id];
 
         // find prefix and suffix on the first and last lines
@@ -69,12 +79,8 @@ impl FilePatcher {
         let suffix = self.lines[inline.end.0][inline.end.1..].to_string();
 
         // replace lines
-        let snapshot_line_contents = vec![
-            prefix,
-            denormalize_inline_snapshot(snapshot, inline.indentation),
-            suffix,
-        ]
-        .join("");
+        let snapshot_line_contents =
+            vec![prefix, snapshot.to_inline(inline.indentation), suffix].join("");
 
         self.lines.splice(
             inline.start.0..=inline.end.0,
@@ -141,71 +147,4 @@ impl FilePatcher {
         syn::visit::visit_file(&mut visitor, &self.source);
         visitor.1
     }
-}
-
-// from a snapshot to a string we want to write back
-fn denormalize_inline_snapshot(snapshot: &str, indentation: usize) -> String {
-    // could potentially implement as impl From<Snapshot> -> String
-
-    let mut out = String::new();
-    let is_escape = snapshot.lines().count() > 1 || snapshot.contains(&['\\', '"'][..]);
-
-    out.push_str(if is_escape { "r###\"" } else { "\"" });
-    // if we have more than one line we want to change into the block
-    // representation mode
-    if snapshot.lines().count() > 1 {
-        out.push_str("\n");
-        out.extend(
-            snapshot
-                .lines()
-                .map(|l| format!("{c: >width$}{l}\n", c = "", width = indentation, l = l)),
-        );
-        out.push_str(&format!("{c: >width$}", c = "", width = indentation));
-    } else {
-        out.push_str(snapshot);
-    }
-
-    out.push_str(if is_escape { "\"###" } else { "\"" });
-
-    out
-}
-
-#[test]
-fn test_denormalize_inline_snapshot() {
-    let t = &"
-a
-b"[1..];
-    assert_eq!(
-        denormalize_inline_snapshot(t, 0),
-        "r###\"
-a
-b
-\"###"
-    );
-
-    let t = &"
-a
-b"[1..];
-    assert_eq!(
-        denormalize_inline_snapshot(t, 4),
-        "r###\"
-    a
-    b
-    \"###"
-    );
-
-    let t = &"
-    a
-    b"[1..];
-    assert_eq!(
-        denormalize_inline_snapshot(t, 0),
-        "r###\"
-    a
-    b
-\"###"
-    );
-
-    let t = "ab";
-    assert_eq!(denormalize_inline_snapshot(t, 0), r##""ab""##);
-}
 }

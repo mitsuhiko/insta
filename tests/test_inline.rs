@@ -1,7 +1,9 @@
 use insta::{
-    assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_ron_snapshot_matches,
+    assert_debug_snapshot_matches, assert_json_snapshot_matches,
     assert_snapshot_matches, assert_yaml_snapshot_matches,
 };
+#[cfg(feature = "ron")]
+use insta::assert_ron_snapshot_matches;
 use serde::Serialize;
 use std::thread;
 
@@ -48,6 +50,7 @@ fn test_newline() {
     assert_snapshot_matches!("\n", @"");
 }
 
+#[cfg(feature = "ron")]
 #[test]
 fn test_ron_inline() {
     #[derive(Serialize)]
@@ -102,6 +105,7 @@ fn test_yaml_inline() {
     "###);
 }
 
+#[cfg(feature = "redactions")]
 #[test]
 fn test_yaml_inline_redacted() {
     #[derive(Serialize)]
