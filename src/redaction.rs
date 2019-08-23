@@ -70,7 +70,7 @@ impl PathItem {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Segment<'a> {
     Wildcard,
     Key(Cow<'a, str>),
@@ -78,7 +78,7 @@ pub enum Segment<'a> {
     Range(Option<i64>, Option<i64>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Selector<'a> {
     selectors: Vec<Vec<Segment<'a>>>,
 }
@@ -155,6 +155,26 @@ impl<'a> Selector<'a> {
         }
 
         Ok(Selector { selectors: rv })
+    }
+
+    pub fn make_static(self) -> Selector<'static> {
+        Selector {
+            selectors: self
+                .selectors
+                .into_iter()
+                .map(|parts| {
+                    parts
+                        .into_iter()
+                        .map(|x| match x {
+                            Segment::Key(x) => Segment::Key(Cow::Owned(x.into_owned())),
+                            Segment::Index(x) => Segment::Index(x),
+                            Segment::Wildcard => Segment::Wildcard,
+                            Segment::Range(a, b) => Segment::Range(a, b),
+                        })
+                        .collect()
+                })
+                .collect(),
+        }
     }
 
     pub fn is_match(&self, path: &[PathItem]) -> bool {

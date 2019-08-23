@@ -257,6 +257,11 @@
 //!
 //! * `ron`: enables RON support (`assert_ron_snapshot_matches!`)
 //! * `redactions`: enables support for redactions
+//!
+//! # Settings
+//!
+//! There are some settings that can be changed on a per-thread (and thus
+//! per-test) basis.  For more information see [settings](struct.Settings.html).
 #![allow(clippy::redundant_closure)]
 #[macro_use]
 mod macros;
@@ -273,8 +278,19 @@ mod redaction;
 #[cfg(test)]
 mod test;
 
-pub use crate::snapshot::{MetaData, Snapshot};
 pub use crate::settings::Settings;
+pub use crate::snapshot::Snapshot;
+
+/// Exposes some library internals.
+///
+/// You're unlikely to want to work with these objects but they
+/// are exposed for documentation primarily.
+pub mod internals {
+    pub use crate::content::Content;
+    #[cfg(feature = "redactions")]
+    pub use crate::settings::Redactions;
+    pub use crate::snapshot::{MetaData, SnapshotContents};
+}
 
 // exported for cargo-insta only
 #[doc(hidden)]

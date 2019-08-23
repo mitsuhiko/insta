@@ -22,10 +22,17 @@ pub fn serialize_content(
     format: SerializationFormat,
     location: SnapshotLocation,
 ) -> String {
-    Settings::with(|settings| {
+    content = Settings::with(|settings| {
         if settings.sort_maps() {
             content.sort_maps();
         }
+        #[cfg(feature = "redactions")]
+        {
+            for (selector, redaction) in settings.iter_redactions() {
+                content = selector.redact(content, redaction);
+            }
+        }
+        content
     });
 
     match format {
