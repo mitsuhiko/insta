@@ -100,13 +100,12 @@ impl FilePatcher {
         struct Visitor(usize, Option<InlineSnapshot>);
 
         impl Visitor {
-            pub fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
+            pub fn scan_nested_macros(&mut self, tokens: &[TokenTree], indentation: usize) {
                 for idx in 0..tokens.len() {
                     if let Some(TokenTree::Ident(ref ident)) = tokens.get(idx) {
                         if let Some(TokenTree::Punct(ref punct)) = tokens.get(idx + 1) {
                             if punct.as_char() == '!' {
                                 if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
-                                    let indentation = ident.span().start().column;
                                     let tokens: Vec<_> = group.stream().into_iter().collect();
                                     self.try_extract_snapshot(&tokens, indentation);
                                 }
@@ -119,7 +118,7 @@ impl FilePatcher {
                     // recurse into groups
                     if let TokenTree::Group(group) = token {
                         let tokens: Vec<_> = group.stream().into_iter().collect();
-                        self.scan_nested_macros(&tokens);
+                        self.scan_nested_macros(&tokens, indentation);
                     }
                 }
             }
@@ -170,8 +169,9 @@ impl FilePatcher {
                     return;
                 }
 
+                let indentation = i.span().start().column;
                 let tokens: Vec<_> = i.tts.clone().into_iter().collect();
-                self.scan_nested_macros(&tokens);
+                self.scan_nested_macros(&tokens, indentation);
             }
 
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
@@ -198,7 +198,7 @@ impl FilePatcher {
                     // if we can't extract a snapshot here we want to scan for nested
                     // macros.  These are just represented as unparsed tokens in a
                     // token stream.
-                    self.scan_nested_macros(&tokens);
+                    self.scan_nested_macros(&tokens, indentation);
                 }
             }
         }
