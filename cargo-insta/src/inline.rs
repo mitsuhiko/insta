@@ -155,6 +155,23 @@ impl FilePatcher {
         }
 
         impl<'ast> syn::visit::Visit<'ast> for Visitor {
+            fn visit_attribute(&mut self, i: &'ast syn::Attribute) {
+                let start = i.span().start().line;
+                let end = i
+                    .tts
+                    .clone()
+                    .into_iter()
+                    .last()
+                    .map_or(start, |t| t.span().end().line);
+
+                if start > self.0 || end < self.0 || i.path.segments.is_empty() {
+                    return;
+                }
+
+                let tokens: Vec<_> = i.tts.clone().into_iter().collect();
+                self.scan_nested_macros(&tokens);
+            }
+
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
                 let indentation = i.span().start().column;
                 let start = i.span().start().line;
