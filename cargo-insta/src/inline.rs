@@ -101,13 +101,15 @@ impl FilePatcher {
 
         impl Visitor {
             pub fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
-                if let Some(TokenTree::Ident(ref ident)) = tokens.get(0) {
-                    if let Some(TokenTree::Punct(ref punct)) = tokens.get(1) {
-                        if punct.as_char() == '!' {
-                            if let Some(TokenTree::Group(ref group)) = tokens.get(2) {
-                                let indentation = ident.span().start().column;
-                                let tokens: Vec<_> = group.stream().into_iter().collect();
-                                self.try_extract_snapshot(&tokens, indentation);
+                for idx in 0..tokens.len() {
+                    if let Some(TokenTree::Ident(ref ident)) = tokens.get(idx) {
+                        if let Some(TokenTree::Punct(ref punct)) = tokens.get(idx + 1) {
+                            if punct.as_char() == '!' {
+                                if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
+                                    let indentation = ident.span().start().column;
+                                    let tokens: Vec<_> = group.stream().into_iter().collect();
+                                    self.try_extract_snapshot(&tokens, indentation);
+                                }
                             }
                         }
                     }
