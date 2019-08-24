@@ -89,24 +89,45 @@ impl FilePatcher {
 
         // update other snapshot locations
         let old_lines_count = inline.end.0 - inline.start.0 + 1;
-        let line_count_diff = snapshot_line_contents.lines().count() - old_lines_count;
+        let line_count_diff = (snapshot_line_contents.lines().count() as isize) - (old_lines_count as isize);
         for inl in &mut self.inline_snapshots[id..] {
-            inl.start.0 += line_count_diff;
-            inl.end.0 += line_count_diff;
+            inl.start.0 = ((inl.start.0 as isize) + line_count_diff) as usize;
+            inl.end.0 = ((inl.end.0 as isize) + line_count_diff) as usize;
         }
     }
 
     fn find_snapshot_macro(&self, line: usize) -> Option<InlineSnapshot> {
         struct Visitor(usize, Option<InlineSnapshot>);
 
+        fn scan_for_path_start(tokens: &[TokenTree], pos: usize) -> usize {
+            let mut rev_tokens = tokens[..=pos].iter().rev();
+            let mut start = rev_tokens.next().unwrap();
+            loop {
+                if let Some(TokenTree::Punct(ref punct)) = rev_tokens.next() {
+                    if punct.as_char() == ':' {
+                        if let Some(TokenTree::Punct(ref punct)) = rev_tokens.next() {
+                            if punct.as_char() == ':' {
+                                if let Some(ident @ TokenTree::Ident(_)) = rev_tokens.next() {
+                                    start = ident;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+            start.span().start().column
+        }
+
         impl Visitor {
             pub fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
                 for idx in 0..tokens.len() {
-                    if let Some(TokenTree::Ident(ref ident)) = tokens.get(idx) {
+                    if let Some(TokenTree::Ident(_)) = tokens.get(idx) {
                         if let Some(TokenTree::Punct(ref punct)) = tokens.get(idx + 1) {
                             if punct.as_char() == '!' {
                                 if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
-                                    let indentation = ident.span().start().column;
+                                    let indentation = scan_for_path_start(tokens, idx);
                                     let tokens: Vec<_> = group.stream().into_iter().collect();
                                     self.try_extract_snapshot(&tokens, indentation);
                                 }
