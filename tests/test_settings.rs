@@ -13,11 +13,11 @@ fn test_simple() {
     settings.set_sort_maps(true);
     settings.bind(|| {
         assert_yaml_snapshot_matches!(&map, @r###"
-       ⋮---
-       ⋮a: first value
-       ⋮b: second value
-       ⋮c: third value
-       ⋮d: fourth value
+        ---
+        a: first value
+        b: second value
+        c: third value
+        d: fourth value
         "###);
     });
 }
@@ -34,11 +34,11 @@ fn test_bound_to_thread() {
     settings.set_sort_maps(true);
     settings.bind_to_thread();
     assert_yaml_snapshot_matches!(&map, @r###"
-    ⋮---
-    ⋮a: first value
-    ⋮b: second value
-    ⋮c: third value
-    ⋮d: fourth value
+     ---
+     a: first value
+     b: second value
+     c: third value
+     d: fourth value
     "###);
 }
 
@@ -52,11 +52,11 @@ fn test_settings_macro() {
 
     with_settings!({sort_maps => true}, {
         assert_yaml_snapshot_matches!(&map, @r###"
-       ⋮---
-       ⋮a: first value
-       ⋮b: second value
-       ⋮c: third value
-       ⋮d: fourth value
+        ---
+        a: first value
+        b: second value
+        c: third value
+        d: fourth value
         "###);
     });
 }
