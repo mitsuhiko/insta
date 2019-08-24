@@ -49,6 +49,7 @@ fn test_settings_macro() {
     map.insert("b", "second value");
     map.insert("c", "third value");
     map.insert("d", "fourth value");
+    map.insert("z", "lame value");
 
     with_settings!({sort_maps => true}, {
         assert_yaml_snapshot_matches!(&map, @r###"
@@ -57,6 +58,7 @@ fn test_settings_macro() {
        ⋮b: second value
        ⋮c: third value
        ⋮d: fourth value
+       ⋮z: lame value
         "###);
     });
 }

@@ -8,3 +8,4 @@
 * added settings support.
 * added support for overriding the snapshot path.
 * added an `--accept` command to `cargo insta test`
+* correctly handle nested macros that might contain inline snapshots.
