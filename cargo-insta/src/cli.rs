@@ -176,24 +176,32 @@ fn handle_color(color: &Option<String>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn handle_target_args(
-    target_args: &TargetArgs,
-) -> Result<(PathBuf, Option<Vec<Package>>, Vec<&str>), Box<dyn Error>> {
+struct LocationInfo<'a> {
+    workspace_root: PathBuf,
+    packages: Option<Vec<Package>>,
+    exts: Vec<&'a str>,
+}
+
+fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<dyn Error>> {
     let mut exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
     if exts.is_empty() {
         exts.push("snap");
     }
     match target_args.workspace_root {
-        Some(ref root) => Ok((root.clone(), None, exts)),
+        Some(ref root) => Ok(LocationInfo {
+            workspace_root: root.clone(),
+            packages: None,
+            exts,
+        }),
         None => {
             let metadata =
                 get_package_metadata(target_args.manifest_path.as_ref().map(|x| x.as_path()))?;
             let packages = find_packages(&metadata, target_args.all)?;
-            Ok((
-                metadata.workspace_root().to_path_buf(),
-                Some(packages),
+            Ok(LocationInfo {
+                workspace_root: metadata.workspace_root().to_path_buf(),
+                packages: Some(packages),
                 exts,
-            ))
+            })
         }
     }
 }
@@ -202,7 +210,11 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     let term = Term::stdout();
     let mut snapshot_containers = vec![];
 
-    let (workspace_root, packages, exts) = handle_target_args(&cmd.target_args)?;
+    let LocationInfo {
+        workspace_root,
+        packages,
+        exts,
+    } = handle_target_args(&cmd.target_args)?;
 
     match packages {
         Some(ref packages) => {
