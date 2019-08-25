@@ -89,7 +89,8 @@ impl FilePatcher {
 
         // update other snapshot locations
         let old_lines_count = inline.end.0 - inline.start.0 + 1;
-        let line_count_diff = (snapshot_line_contents.lines().count() as isize) - (old_lines_count as isize);
+        let line_count_diff =
+            (snapshot_line_contents.lines().count() as isize) - (old_lines_count as isize);
         for inl in &mut self.inline_snapshots[id..] {
             inl.start.0 = ((inl.start.0 as isize) + line_count_diff) as usize;
             inl.end.0 = ((inl.end.0 as isize) + line_count_diff) as usize;

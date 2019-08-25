@@ -616,8 +616,7 @@ pub fn assert_snapshot(
     if should_fail_in_tests() {
         panic!(
             "snapshot assertion for '{}' failed in line {}",
-            snapshot_name,
-            line
+            snapshot_name, line
         );
     }
 
