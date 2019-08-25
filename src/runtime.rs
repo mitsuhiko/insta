@@ -495,9 +495,10 @@ pub fn assert_snapshot(
             } else {
                 None
             };
-            (Some(snapshot_name), Some(snapshot_file), old, None)
+            (snapshot_name, Some(snapshot_file), old, None)
         }
         ReferenceValue::Inline(contents) => {
+            let snapshot_name = generate_snapshot_name_for_thread(module_path);
             let mut filename = cargo_workspace.join(file);
             let created = fs::metadata(&filename)?.created().ok().map(|x| x.into());
             filename.set_file_name(format!(
@@ -509,7 +510,7 @@ pub fn assert_snapshot(
                     .expect("non unicode filename")
             ));
             (
-                None,
+                Cow::Owned(snapshot_name),
                 None,
                 Some(Snapshot::from_components(
                     module_name.to_string(),
@@ -549,7 +550,7 @@ pub fn assert_snapshot(
 
     let new = Snapshot::from_components(
         module_name.to_string(),
-        snapshot_name.as_ref().map(|x| x.to_string()),
+        Some(snapshot_name.to_string()),
         MetaData {
             created: Some(Utc::now()),
             creator: Some(format!(
@@ -615,7 +616,7 @@ pub fn assert_snapshot(
     if should_fail_in_tests() {
         panic!(
             "snapshot assertion for '{}' failed in line {}",
-            snapshot_name.unwrap_or(Cow::Borrowed("inline snapshot")),
+            snapshot_name,
             line
         );
     }
