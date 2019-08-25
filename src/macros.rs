@@ -337,7 +337,7 @@ macro_rules! assert_snapshot_matches {
 /// execute.  All settings can be set (`sort_maps => value` maps roughly
 /// to `set_sort_maps(value)`).
 ///
-/// ```rust,ignore
+/// ```rust
 /// insta::with_settings!({sort_maps => true}, {
 ///     // run snapshot test here
 /// });
@@ -345,7 +345,7 @@ macro_rules! assert_snapshot_matches {
 #[macro_export]
 macro_rules! with_settings {
     ({$($k:ident => $v:expr),*}, $body:block) => {{
-        let mut settings = crate::Settings::new();
+        let mut settings = $crate::Settings::new();
         $(
             settings._private_inner_mut().$k = $v.into();
         )*
