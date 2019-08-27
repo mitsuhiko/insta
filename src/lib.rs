@@ -97,8 +97,6 @@
 //!
 //! ```ignore
 //! ---
-//! created: "2019-01-21T22:03:13.792906+00:00"
-//! creator: insta@0.3.0
 //! expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
 //! source: tests/test_user.rs
 //! ---
