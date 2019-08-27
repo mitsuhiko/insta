@@ -20,6 +20,7 @@ use lazy_static::lazy_static;
 use serde::Deserialize;
 use serde_json;
 
+use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
 use crate::utils::is_ci;
 
@@ -270,9 +271,11 @@ pub fn get_snapshot_filename(
 ) -> PathBuf {
     let root = Path::new(cargo_workspace);
     let base = Path::new(base);
-    root.join(base.parent().unwrap())
-        .join("snapshots")
-        .join(format!("{}__{}.snap", module_name, snapshot_name))
+    Settings::with(|settings| {
+        root.join(base.parent().unwrap())
+            .join(settings.snapshot_path())
+            .join(format!("{}__{}.snap", module_name, snapshot_name))
+    })
 }
 
 /// Prints a diff against an old snapshot.
@@ -664,9 +667,10 @@ pub fn assert_snapshot(
             } else {
                 None
             };
-            (Some(snapshot_name), Some(snapshot_file), old, None)
+            (snapshot_name, Some(snapshot_file), old, None)
         }
         ReferenceValue::Inline(contents) => {
+            let snapshot_name = generate_snapshot_name_for_thread(module_path);
             let mut filename = cargo_workspace.join(file);
             let created = fs::metadata(&filename)?.created().ok().map(|x| x.into());
             filename.set_file_name(format!(
@@ -678,7 +682,7 @@ pub fn assert_snapshot(
                     .expect("non unicode filename")
             ));
             (
-                None,
+                Cow::Owned(snapshot_name),
                 None,
                 Some(Snapshot::from_components(
                     module_name.to_string(),
@@ -699,13 +703,26 @@ pub fn assert_snapshot(
     // if the snapshot matches we're done.
     if let Some(ref old_snapshot) = old {
         if old_snapshot.contents() == &new_snapshot_contents {
+            // let's just make sure there are no more pending files lingering
+            // around.
+            if let Some(mut snapshot_file) = snapshot_file {
+                snapshot_file.set_extension("snap.new");
+                fs::remove_file(snapshot_file).ok();
+            }
+            // and add a null pending snapshot to a pending snapshot file if needed
+            if let Some(pending_snapshots) = pending_snapshots {
+                if fs::metadata(&pending_snapshots).is_ok() {
+                    PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
+                }
+            }
+
             return Ok(());
         }
     }
 
     let new = Snapshot::from_components(
         module_name.to_string(),
-        snapshot_name.as_ref().map(|x| x.to_string()),
+        Some(snapshot_name.to_string()),
         MetaData {
             created: Some(Utc::now()),
             creator: Some(format!(
@@ -761,7 +778,8 @@ pub fn assert_snapshot(
                     style(new_path.display()).cyan().underlined(),
                 );
             } else {
-                PendingInlineSnapshot::new(new, old, line).save(pending_snapshots.unwrap())?;
+                PendingInlineSnapshot::new(Some(new), old, line)
+                    .save(pending_snapshots.unwrap())?;
             }
         }
         UpdateBehavior::NoUpdate => {}
@@ -770,8 +788,7 @@ pub fn assert_snapshot(
     if should_fail_in_tests() {
         panic!(
             "snapshot assertion for '{}' failed in line {}",
-            snapshot_name.unwrap_or(Cow::Borrowed("inline snapshot")),
-            line
+            snapshot_name, line
         );
     }
 

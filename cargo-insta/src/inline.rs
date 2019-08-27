@@ -89,17 +89,113 @@ impl FilePatcher {
 
         // update other snapshot locations
         let old_lines_count = inline.end.0 - inline.start.0 + 1;
-        let line_count_diff = snapshot_line_contents.lines().count() - old_lines_count;
+        let line_count_diff =
+            (snapshot_line_contents.lines().count() as isize) - (old_lines_count as isize);
         for inl in &mut self.inline_snapshots[id..] {
-            inl.start.0 += line_count_diff;
-            inl.end.0 += line_count_diff;
+            inl.start.0 = ((inl.start.0 as isize) + line_count_diff) as usize;
+            inl.end.0 = ((inl.end.0 as isize) + line_count_diff) as usize;
         }
     }
 
     fn find_snapshot_macro(&self, line: usize) -> Option<InlineSnapshot> {
         struct Visitor(usize, Option<InlineSnapshot>);
 
+        fn scan_for_path_start(tokens: &[TokenTree], pos: usize) -> usize {
+            let mut rev_tokens = tokens[..=pos].iter().rev();
+            let mut start = rev_tokens.next().unwrap();
+            loop {
+                if let Some(TokenTree::Punct(ref punct)) = rev_tokens.next() {
+                    if punct.as_char() == ':' {
+                        if let Some(TokenTree::Punct(ref punct)) = rev_tokens.next() {
+                            if punct.as_char() == ':' {
+                                if let Some(ident @ TokenTree::Ident(_)) = rev_tokens.next() {
+                                    start = ident;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+            start.span().start().column
+        }
+
+        impl Visitor {
+            pub fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
+                for idx in 0..tokens.len() {
+                    if let Some(TokenTree::Ident(_)) = tokens.get(idx) {
+                        if let Some(TokenTree::Punct(ref punct)) = tokens.get(idx + 1) {
+                            if punct.as_char() == '!' {
+                                if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
+                                    let indentation = scan_for_path_start(tokens, idx);
+                                    let tokens: Vec<_> = group.stream().into_iter().collect();
+                                    self.try_extract_snapshot(&tokens, indentation);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for token in tokens {
+                    // recurse into groups
+                    if let TokenTree::Group(group) = token {
+                        let tokens: Vec<_> = group.stream().into_iter().collect();
+                        self.scan_nested_macros(&tokens);
+                    }
+                }
+            }
+
+            pub fn try_extract_snapshot(
+                &mut self,
+                tokens: &[TokenTree],
+                indentation: usize,
+            ) -> bool {
+                match &tokens[tokens.len() - 2] {
+                    TokenTree::Punct(ref punct) if punct.as_char() == '@' => {}
+                    _ => {
+                        return false;
+                    }
+                }
+
+                let (start, end) = match &tokens[tokens.len() - 1] {
+                    TokenTree::Literal(lit) => {
+                        let span = lit.span();
+                        (
+                            (span.start().line - 1, span.start().column),
+                            (span.end().line - 1, span.end().column),
+                        )
+                    }
+                    _ => return false,
+                };
+
+                self.1 = Some(InlineSnapshot {
+                    start,
+                    end,
+                    indentation,
+                });
+                true
+            }
+        }
+
         impl<'ast> syn::visit::Visit<'ast> for Visitor {
+            fn visit_attribute(&mut self, i: &'ast syn::Attribute) {
+                let start = i.span().start().line;
+                let end = i
+                    .tts
+                    .clone()
+                    .into_iter()
+                    .last()
+                    .map_or(start, |t| t.span().end().line);
+
+                if start > self.0 || end < self.0 || i.path.segments.is_empty() {
+                    return;
+                }
+
+                let tokens: Vec<_> = i.tts.clone().into_iter().collect();
+                self.scan_nested_macros(&tokens);
+            }
+
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
                 let indentation = i.span().start().column;
                 let start = i.span().start().line;
@@ -114,32 +210,18 @@ impl FilePatcher {
                     return;
                 }
 
+                // if we have under two tokens there is not much else we need to do
                 let tokens: Vec<_> = i.tts.clone().into_iter().collect();
                 if tokens.len() < 2 {
                     return;
                 }
 
-                match &tokens[tokens.len() - 2] {
-                    TokenTree::Punct(ref punct) if punct.as_char() == '@' => {}
-                    _ => return,
+                if !self.try_extract_snapshot(&tokens, indentation) {
+                    // if we can't extract a snapshot here we want to scan for nested
+                    // macros.  These are just represented as unparsed tokens in a
+                    // token stream.
+                    self.scan_nested_macros(&tokens);
                 }
-
-                let (start, end) = match &tokens[tokens.len() - 1] {
-                    TokenTree::Literal(lit) => {
-                        let span = lit.span();
-                        (
-                            (span.start().line - 1, span.start().column),
-                            (span.end().line - 1, span.end().column),
-                        )
-                    }
-                    _ => return,
-                };
-
-                self.1 = Some(InlineSnapshot {
-                    start,
-                    end,
-                    indentation,
-                });
             }
         }
 

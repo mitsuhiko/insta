@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::env;
 use std::error::Error;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::process;
 
 use insta::{PendingInlineSnapshot, Snapshot};
@@ -121,16 +121,29 @@ impl SnapshotContainer {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
                 let mut patcher = FilePatcher::open(&target_path)?;
                 pending_vec.sort_by_key(|pending| pending.line);
+                let mut have_new = false;
                 for (id, pending) in pending_vec.into_iter().enumerate() {
-                    snapshots.push(PendingSnapshot {
-                        id,
-                        old: pending.old,
-                        new: pending.new,
-                        op: Operation::Skip,
-                        line: Some(pending.line),
-                    });
-                    patcher.add_snapshot_macro(pending.line as usize);
+                    if let Some(new) = pending.new {
+                        snapshots.push(PendingSnapshot {
+                            id,
+                            old: pending.old,
+                            new,
+                            op: Operation::Skip,
+                            line: Some(pending.line),
+                        });
+                        patcher.add_snapshot_macro(pending.line as usize);
+                        have_new = true;
+                    }
                 }
+
+                // if we don't actually have any new pending we better delete the file.
+                // this can happen if the test code left a stale snapshot behind.
+                // The runtime code will issue something like this:
+                //   PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
+                if !have_new {
+                    fs::remove_file(&snapshot_path)?;
+                }
+
                 Some(patcher)
             }
         };
@@ -174,7 +187,7 @@ impl SnapshotContainer {
                     Operation::Reject => {}
                     Operation::Skip => {
                         new_pending.push(PendingInlineSnapshot::new(
-                            snapshot.new.clone(),
+                            Some(snapshot.new.clone()),
                             snapshot.old.clone(),
                             patcher.get_new_line(idx) as u32,
                         ));
@@ -229,14 +242,6 @@ pub fn find_snapshots<'a>(
             let fname = e.file_name().to_string_lossy();
             if fname.ends_with(".new")
                 && extensions.contains(&fname.rsplit('.').nth(1).unwrap_or(""))
-                && e.path()
-                    .strip_prefix(&root)
-                    .unwrap()
-                    .components()
-                    .any(|c| match c {
-                        Component::Normal(dir) => dir.to_str() == Some("snapshots"),
-                        _ => false,
-                    })
             {
                 let new_path = e.into_path();
                 let mut old_path = new_path.clone();

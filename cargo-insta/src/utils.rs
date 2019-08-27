@@ -25,5 +25,5 @@ impl fmt::Display for ErrMsg {
 }
 
 pub fn err_msg<S: Into<String>>(s: S) -> Box<dyn Error> {
-    return Box::new(ErrMsg(s.into()));
+    Box::new(ErrMsg(s.into()))
 }

@@ -51,12 +51,19 @@ fn test_settings_macro() {
     map.insert("d", "fourth value");
 
     with_settings!({sort_maps => true}, {
-        assert_yaml_snapshot_matches!(&map, @r###"
+        insta::assert_yaml_snapshot_matches!(&map, @r###"
         ---
         a: first value
         b: second value
         c: third value
         d: fourth value
         "###);
+    });
+}
+
+#[test]
+fn test_snapshot_path() {
+    with_settings!({snapshot_path => "snapshots2"}, {
+        assert_yaml_snapshot_matches!(vec![1, 2, 3]);
     });
 }

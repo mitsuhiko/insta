@@ -21,4 +21,4 @@ serde_json = "1.0.36"
 glob = "0.2.11"
 walkdir = "2.2.7"
 proc-macro2 = { version = "0.4.27", features = ["span-locations"] }
-syn = { version = "0.15.26", features = ["full", "visit"] }
+syn = { version = "0.15.26", features = ["full", "visit", "extra-traits"] }
