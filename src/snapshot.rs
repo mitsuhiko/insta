@@ -4,7 +4,6 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -69,12 +68,6 @@ impl PendingInlineSnapshot {
 /// Snapshot metadata information.
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct MetaData {
-    /// The timestamp of when the snapshot was created.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub created: Option<DateTime<Utc>>,
-    /// The creator of the snapshot.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub creator: Option<String>,
     /// The source file (relative to workspace root).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
@@ -141,11 +134,6 @@ impl Snapshot {
                     if let Some(value) = iter.next() {
                         let value = value.trim();
                         match key.to_lowercase().as_str() {
-                            "created" => {
-                                rv.created =
-                                    Some(DateTime::parse_from_rfc3339(value)?.with_timezone(&Utc))
-                            }
-                            "creator" => rv.creator = Some(value.to_string()),
                             "expression" => rv.expression = Some(value.to_string()),
                             "source" => rv.source = Some(value.into()),
                             _ => {}

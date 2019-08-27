@@ -11,7 +11,6 @@ use std::str;
 use std::sync::Mutex;
 use std::thread;
 
-use chrono::{Local, Utc};
 use console::style;
 use difference::{Changeset, Difference};
 use lazy_static::lazy_static;
@@ -159,14 +158,14 @@ fn get_cargo_workspace(manifest_dir: &str) -> &Path {
 
 fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
     let Changeset { ref diffs, .. } = *changeset;
-    #[derive(PartialEq)]
+    #[derive(PartialEq, Debug)]
     enum Mode {
         Same,
         Add,
         Rem,
     }
 
-    #[derive(PartialEq)]
+    #[derive(PartialEq, Debug)]
     enum Lineno {
         NotPresent,
         Present(usize),
@@ -229,29 +228,36 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
 
     if let Some(expr) = expr {
         println!("{:─^1$}", "", width,);
-        println!("{}", style(format_rust_expression(expr)).dim());
+        println!("{}", style(format_rust_expression(expr)));
     }
     println!(
         "────────────┬{:─^1$}",
         "",
         width.saturating_sub(13),
     );
+    let mut has_changes = false;
     for (i, (mode, lineno_a, lineno_b, line)) in lines.iter().enumerate() {
         match mode {
-            Mode::Add => println!(
-                "{:>5} {:>5} │{}{}",
-                style(lineno_a).dim(),
-                style(lineno_b).dim().bold(),
-                style("+").green(),
-                style(line).green()
-            ),
-            Mode::Rem => println!(
-                "{:>5} {:>5} │{}{}",
-                style(lineno_a).dim(),
-                style(lineno_b).dim().bold(),
-                style("-").red(),
-                style(line).red()
-            ),
+            Mode::Add => {
+                has_changes = true;
+                println!(
+                    "{:>5} {:>5} │{}{}",
+                    style(lineno_a).dim(),
+                    style(lineno_b).dim().bold(),
+                    style("+").green(),
+                    style(line).green()
+                );
+            }
+            Mode::Rem => {
+                has_changes = true;
+                println!(
+                    "{:>5} {:>5} │{}{}",
+                    style(lineno_a).dim(),
+                    style(lineno_b).dim().bold(),
+                    style("-").red(),
+                    style(line).red()
+                );
+            }
             Mode::Same => {
                 if lines[i.saturating_sub(5)..(i + 5).min(lines.len())]
                     .iter()
@@ -267,6 +273,16 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
             }
         }
     }
+
+    if !has_changes {
+        println!(
+            "{:>5} {:>5} │{}",
+            "",
+            style("-").dim(),
+            style(" snapshots are matching").cyan(),
+        );
+    }
+
     println!(
         "────────────┴{:─^1$}",
         "",
@@ -331,31 +347,10 @@ pub fn print_snapshot_diff(
         &new.contents_str(),
         "\n",
     );
-    if let Some(old_snapshot) = old_snapshot {
-        if let Some(ref value) = old_snapshot.metadata().created {
-            println!(
-                "Old: {}",
-                style(value.with_timezone(&Local).to_rfc2822()).cyan()
-            );
-        }
-        if let Some(ref value) = new.metadata().created {
-            println!(
-                "New: {}",
-                style(value.with_timezone(&Local).to_rfc2822()).cyan()
-            );
-        }
-        println!();
+    if let Some(_) = old_snapshot {
         println!("{}", style("-old snapshot").red());
         println!("{}", style("+new results").green());
     } else {
-        println!("Old: {}", style("n.a.").red());
-        if let Some(ref value) = new.metadata().created {
-            println!(
-                "New: {}",
-                style(value.with_timezone(&Local).to_rfc2822()).cyan()
-            );
-        }
-        println!();
         println!("{}", style("+new results").green());
     }
     print_changeset(
@@ -732,7 +727,6 @@ pub fn assert_snapshot(
         ReferenceValue::Inline(contents) => {
             let snapshot_name = generate_snapshot_name_for_thread(module_path);
             let mut filename = cargo_workspace.join(file);
-            let created = fs::metadata(&filename)?.created().ok().map(|x| x.into());
             filename.set_file_name(format!(
                 ".{}.pending-snap",
                 filename
@@ -747,10 +741,7 @@ pub fn assert_snapshot(
                 Some(Snapshot::from_components(
                     module_name.to_string(),
                     None,
-                    MetaData {
-                        created,
-                        ..MetaData::default()
-                    },
+                    MetaData::default(),
                     SnapshotContents::from_inline(contents),
                 )),
                 Some(filename),
@@ -763,12 +754,6 @@ pub fn assert_snapshot(
         module_name.to_string(),
         Some(snapshot_name.to_string()),
         MetaData {
-            created: Some(Utc::now()),
-            creator: Some(format!(
-                "{}@{}",
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION")
-            )),
             source: Some(path_to_storage(file)),
             expression: Some(expr.to_string()),
         },

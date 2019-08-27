@@ -2,7 +2,6 @@ use std::env;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::process;
-
 use console::{set_colors_enabled, style, Key, Term};
 use insta::{print_snapshot_diff, Snapshot};
 use structopt::clap::AppSettings;
@@ -135,7 +134,7 @@ fn query_snapshot(
     );
 
     if let Some(pkg) = pkg {
-        println!(" {} ({})", style(pkg.name()).dim(), pkg.version());
+        println!("Package: {} ({})", style(pkg.name()).dim(), pkg.version());
     } else {
         println!();
     }
