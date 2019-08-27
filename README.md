@@ -240,18 +240,34 @@ value on review.
 Example:
 
 ```rust
+use insta::assert_yaml_snapshot_matches;
+use serde::Serialize
+
 #[derive(Serialize)]
 pub struct User {
     username: String,
 }
-
-assert_yaml_snapshot_matches!(User {
+let u = User {
     username: "john_doe".to_string(),
-}, @"");
+};
+
+assert_yaml_snapshot_matches!(u, @"");
 ```
 
 After the initial test failure you can run `cargo insta review` to
-accept the change.  The file will then be updated automatically.
+accept the change.  The file will then be updated automatically, with
+the expressing changing to:
+
+```rust
+assert_yaml_snapshot_matches!(u, @r###"
+---
+username: john_doe
+"###);
+```
+
+The reference value is indented to match the surrounding text.
+When compared to the generated value, the largest possible rectangle 
+of white space is removed.
 
 ## Features
 

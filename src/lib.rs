@@ -279,7 +279,7 @@ mod redaction;
 mod test;
 
 pub use crate::settings::Settings;
-pub use crate::snapshot::Snapshot;
+pub use crate::snapshot::{MetaData, Snapshot};
 
 /// Exposes some library internals.
 ///

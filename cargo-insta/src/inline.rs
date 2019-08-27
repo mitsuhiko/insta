@@ -74,7 +74,7 @@ impl FilePatcher {
     pub fn set_new_content(&mut self, id: usize, snapshot: &SnapshotContents) {
         let inline = &mut self.inline_snapshots[id];
 
-        // find prefix and suffix
+        // find prefix and suffix on the first and last lines
         let prefix = self.lines[inline.start.0][..inline.start.1].to_string();
         let suffix = self.lines[inline.end.0][inline.end.1..].to_string();
 

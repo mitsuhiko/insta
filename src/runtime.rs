@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
@@ -422,6 +423,7 @@ pub(super) fn get_inline_snapshot_value(frozen_value: &str) -> String {
     // (the only call site)
 
     if frozen_value.trim_start().starts_with('⋮') {
+        // legacy format - retain so old snapshots still work
         let mut buf = String::new();
         let mut line_iter = frozen_value.lines();
         let mut indentation = 0;
@@ -459,7 +461,7 @@ pub(super) fn get_inline_snapshot_value(frozen_value: &str) -> String {
 
         buf.trim_end().to_string()
     } else {
-        frozen_value.trim_end().to_string()
+        normalize_inline_snapshot(frozen_value)
     }
 }
 
@@ -467,6 +469,176 @@ pub(super) fn get_inline_snapshot_value(frozen_value: &str) -> String {
 fn test_inline_snapshot_value_newline() {
     // https://github.com/mitsuhiko/insta/issues/39
     assert_eq!(get_inline_snapshot_value("\n"), "");
+}
+
+fn min_indentation(snapshot: &str) -> usize {
+    let lines = snapshot.trim_end().lines();
+
+    if lines.clone().count() <= 1 {
+        // not a multi-line string
+        return 0;
+    }
+
+    let spaces_count = Regex::new(r"^\s*").unwrap();
+
+    lines
+        .skip_while(|l| l.is_empty())
+        .map(|l| spaces_count.find(&l).map_or(0, |m| m.end() - m.start()))
+        .min()
+        .unwrap_or(0)
+}
+
+#[test]
+fn test_min_indentation() {
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(min_indentation(t), 12);
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+        a 
+    "#;
+    assert_eq!(min_indentation(t), 8);
+
+    let t = "";
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+    a 
+    b
+c
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+a 
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = "
+    a";
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"a
+  a"#;
+    assert_eq!(min_indentation(t), 0);
+}
+
+// Removes excess indentation, removes excess whitespare at start & end
+fn normalize_inline_snapshot(snapshot: &str) -> String {
+    let indendation = min_indentation(snapshot);
+    snapshot
+        .trim_end()
+        .lines()
+        .skip_while(|l| l.is_empty())
+        .map(|l| &l[indendation..])
+        .collect::<Vec<&str>>()
+        .join("\n")
+}
+
+#[test]
+fn test_normalize_inline_snapshot() {
+    // here we do exact matching (rather than `assert_snapshot`)
+    // to ensure we're not incorporating the modifications this library makes
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+        1
+2"###[1..]
+    );
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+        a 
+    "#;
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = "";
+    assert_eq!(normalize_inline_snapshot(t), "");
+
+    let t = r#"
+    a 
+    b
+c
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+    a 
+    b
+c"###[1..]
+    );
+
+    let t = r#"
+a 
+    "#;
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = "
+    a";
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = r#"a
+  a"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+a
+  a"###[1..]
+    );
 }
 
 #[allow(clippy::too_many_arguments)]

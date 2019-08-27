@@ -10,12 +10,12 @@ use std::thread;
 #[test]
 fn test_simple() {
     assert_debug_snapshot_matches!(vec![1, 2, 3, 4], @r###"
-   ⋮[
-   ⋮    1,
-   ⋮    2,
-   ⋮    3,
-   ⋮    4,
-   ⋮]
+    [
+        1,
+        2,
+        3,
+        4,
+    ]
     "###);
 }
 
@@ -68,11 +68,11 @@ fn test_ron_inline() {
         username: "peter-doe".into(),
         email: Email("peter@doe.invalid".into()),
     }, @r###"
-   ⋮User(
-   ⋮  id: 42,
-   ⋮  username: "peter-doe",
-   ⋮  email: Email("peter@doe.invalid"),
-   ⋮)
+    User(
+      id: 42,
+      username: "peter-doe",
+      email: Email("peter@doe.invalid"),
+    )
     "###);
 }
 
@@ -98,10 +98,10 @@ fn test_yaml_inline() {
         username: "peter-pan".into(),
         email: "peterpan@wonderland.invalid".into()
     }, @r###"
-   ⋮---
-   ⋮id: 42
-   ⋮username: peter-pan
-   ⋮email: peterpan@wonderland.invalid
+    ---
+    id: 42
+    username: peter-pan
+    email: peterpan@wonderland.invalid
     "###);
 }
 
@@ -122,10 +122,10 @@ fn test_yaml_inline_redacted() {
     }, {
         ".id" => "[user-id]"
     }, @r###"
-   ⋮---
-   ⋮id: "[user-id]"
-   ⋮username: peter-pan
-   ⋮email: peterpan@wonderland.invalid
+    ---
+    id: "[user-id]"
+    username: peter-pan
+    email: peterpan@wonderland.invalid
     "###);
 }
 
