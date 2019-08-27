@@ -18,14 +18,14 @@
 //!
 //! This crate exports multiple macros for snapshot testing:
 //!
-//! - `assert_snapshot_matches!` for comparing basic string snapshots.
-//! - `assert_debug_snapshot_matches!` for comparing `Debug` outputs of values.
-//! - `assert_display_snapshot_matches!` for comparing `Display` outputs of values.
-//! - `assert_yaml_snapshot_matches!` for comparing YAML serialized
+//! - `assert_snapshot!` for comparing basic string snapshots.
+//! - `assert_debug_snapshot!` for comparing `Debug` outputs of values.
+//! - `assert_display_snapshot!` for comparing `Display` outputs of values.
+//! - `assert_yaml_snapshot!` for comparing YAML serialized
 //!   output of types implementing `serde::Serialize`.
-//! - `assert_ron_snapshot_matches!` for comparing RON serialized output of
+//! - `assert_ron_snapshot!` for comparing RON serialized output of
 //!   types implementing `serde::Serialize`. (requires the `ron` feature)
-//! - `assert_json_snapshot_matches!` for comparing JSON serialized output of
+//! - `assert_json_snapshot!` for comparing JSON serialized output of
 //!   types implementing `serde::Serialize`.
 //!
 //! Snapshots are stored in the `snapshots` folder right next to the test file
@@ -63,12 +63,12 @@
 //! ```
 //!
 //! ```rust,ignore
-//! use insta::assert_debug_snapshot_matches;
+//! use insta::assert_debug_snapshot;
 //!
 //! #[test]
 //! fn test_snapshots() {
 //!     let value = vec![1, 2, 3];
-//!     assert_debug_snapshot_matches!("snapshot_name", value);
+//!     assert_debug_snapshot!("snapshot_name", value);
 //! }
 //! ```
 //!
@@ -190,7 +190,7 @@
 //!     extra: HashMap<String, String>,
 //! }
 //!
-//! assert_yaml_snapshot_matches!("user", &User {
+//! assert_yaml_snapshot!("user", &User {
 //!     id: Uuid::new_v4(),
 //!     username: "john_doe".to_string(),
 //!     extra: {
@@ -218,8 +218,8 @@
 //! ```rust,ignore
 //! #[test]
 //! fn test_something() {
-//!     assert_snapshot_matches!("first value");
-//!     assert_snapshot_matches!("second value");
+//!     assert_snapshot!("first value");
+//!     assert_snapshot!("second value");
 //! }
 //! ```
 //!
@@ -230,7 +230,7 @@
 //! # Inline Snapshots
 //!
 //! Additionally snapshots can also be stored inline.  In that case the format
-//! for the snapshot macros is `assert_snapshot_matches!(reference_value, @"snapshot")`.
+//! for the snapshot macros is `assert_snapshot!(reference_value, @"snapshot")`.
 //! The leading at sign (`@`) indicates that the following string is the
 //! reference value.  `cargo-insta` will then update that string with the new
 //! value on review.
@@ -243,7 +243,7 @@
 //!     username: String,
 //! }
 //!
-//! assert_yaml_snapshot_matches!(User {
+//! assert_yaml_snapshot!(User {
 //!     username: "john_doe".to_string(),
 //! }, @"");
 //! ```
@@ -255,7 +255,7 @@
 //!
 //! The following features exist:
 //!
-//! * `ron`: enables RON support (`assert_ron_snapshot_matches!`)
+//! * `ron`: enables RON support (`assert_ron_snapshot!`)
 //! * `redactions`: enables support for redactions
 //!
 //! # Settings
@@ -271,6 +271,9 @@ mod serialization;
 mod settings;
 mod snapshot;
 mod utils;
+
+#[macro_use]
+mod legacy_macros;
 
 #[cfg(feature = "redactions")]
 mod redaction;

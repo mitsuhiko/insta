@@ -1,15 +1,15 @@
 #[cfg(feature = "ron")]
-use insta::assert_ron_snapshot_matches;
+use insta::assert_ron_snapshot;
 use insta::{
-    assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_snapshot_matches,
-    assert_yaml_snapshot_matches,
+    assert_debug_snapshot, assert_json_snapshot, assert_snapshot,
+    assert_yaml_snapshot,
 };
 use serde::Serialize;
 use std::thread;
 
 #[test]
 fn test_simple() {
-    assert_debug_snapshot_matches!(vec![1, 2, 3, 4], @r###"
+    assert_debug_snapshot!(vec![1, 2, 3, 4], @r###"
     [
         1,
         2,
@@ -21,13 +21,13 @@ fn test_simple() {
 
 #[test]
 fn test_single_line() {
-    assert_snapshot_matches!("Testing", @"Testing");
+    assert_snapshot!("Testing", @"Testing");
 }
 
 #[test]
 fn test_unnamed_single_line() {
-    assert_snapshot_matches!("Testing");
-    assert_snapshot_matches!("Testing-2");
+    assert_snapshot!("Testing");
+    assert_snapshot!("Testing-2");
 }
 
 #[test]
@@ -36,8 +36,8 @@ fn test_unnamed_thread_single_line() {
 
     let handler = builder
         .spawn(|| {
-            assert_snapshot_matches!("Testing-thread");
-            assert_snapshot_matches!("Testing-thread-2");
+            assert_snapshot!("Testing-thread");
+            assert_snapshot!("Testing-thread-2");
         })
         .unwrap();
 
@@ -47,7 +47,7 @@ fn test_unnamed_thread_single_line() {
 #[test]
 fn test_newline() {
     // https://github.com/mitsuhiko/insta/issues/39
-    assert_snapshot_matches!("\n", @"");
+    assert_snapshot!("\n", @"");
 }
 
 #[cfg(feature = "ron")]
@@ -63,7 +63,7 @@ fn test_ron_inline() {
         email: Email,
     }
 
-    assert_ron_snapshot_matches!(User {
+    assert_ron_snapshot!(User {
         id: 42,
         username: "peter-doe".into(),
         email: Email("peter@doe.invalid".into()),
@@ -78,7 +78,7 @@ fn test_ron_inline() {
 
 #[test]
 fn test_json_inline() {
-    assert_json_snapshot_matches!(vec!["foo", "bar"], @r###"[
+    assert_json_snapshot!(vec!["foo", "bar"], @r###"[
   "foo",
   "bar"
 ]"###);
@@ -93,7 +93,7 @@ fn test_yaml_inline() {
         email: String,
     }
 
-    assert_yaml_snapshot_matches!(User {
+    assert_yaml_snapshot!(User {
         id: 42,
         username: "peter-pan".into(),
         email: "peterpan@wonderland.invalid".into()
@@ -115,7 +115,7 @@ fn test_yaml_inline_redacted() {
         email: String,
     }
 
-    assert_yaml_snapshot_matches!(User {
+    assert_yaml_snapshot!(User {
         id: 42,
         username: "peter-pan".into(),
         email: "peterpan@wonderland.invalid".into()
@@ -131,5 +131,5 @@ fn test_yaml_inline_redacted() {
 
 #[test]
 fn test_non_basic_plane() {
-    assert_snapshot_matches!("a 😀oeu", @"a 😀oeu");
+    assert_snapshot!("a 😀oeu", @"a 😀oeu");
 }

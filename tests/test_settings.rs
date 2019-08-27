@@ -1,4 +1,4 @@
-use insta::{assert_yaml_snapshot_matches, with_settings, Settings};
+use insta::{assert_yaml_snapshot, with_settings, Settings};
 use std::collections::HashMap;
 
 #[test]
@@ -12,7 +12,7 @@ fn test_simple() {
     let mut settings = Settings::new();
     settings.set_sort_maps(true);
     settings.bind(|| {
-        assert_yaml_snapshot_matches!(&map, @r###"
+        assert_yaml_snapshot!(&map, @r###"
         ---
         a: first value
         b: second value
@@ -33,7 +33,7 @@ fn test_bound_to_thread() {
     let mut settings = Settings::new();
     settings.set_sort_maps(true);
     settings.bind_to_thread();
-    assert_yaml_snapshot_matches!(&map, @r###"
+    assert_yaml_snapshot!(&map, @r###"
      ---
      a: first value
      b: second value
@@ -51,7 +51,7 @@ fn test_settings_macro() {
     map.insert("d", "fourth value");
 
     with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot_matches!(&map, @r###"
+        insta::assert_yaml_snapshot!(&map, @r###"
         ---
         a: first value
         b: second value
@@ -64,6 +64,6 @@ fn test_settings_macro() {
 #[test]
 fn test_snapshot_path() {
     with_settings!({snapshot_path => "snapshots2"}, {
-        assert_yaml_snapshot_matches!(vec![1, 2, 3]);
+        assert_yaml_snapshot!(vec![1, 2, 3]);
     });
 }

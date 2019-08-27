@@ -13,3 +13,4 @@
 * use thread name as snapshot name for inline snapshots.
 * use leading whitespace normalization for inline snapshots.
 * removed `creator` and `created` field from snapshot metadata.
+* removed the `_matches` suffix from all macros.

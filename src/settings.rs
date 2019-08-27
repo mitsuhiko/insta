@@ -62,7 +62,7 @@ pub struct ActualSettings {
 /// let mut settings = insta::Settings::new();
 /// settings.set_sort_maps(true);
 /// settings.bind(|| {
-///     insta::assert_snapshot_matches!(...);
+///     insta::assert_snapshot!(...);
 /// });
 /// ```
 #[derive(Clone)]
@@ -93,7 +93,7 @@ impl Settings {
     /// Enables forceful sorting of maps before serialization.
     ///
     /// Note that this only applies to snapshots that undergo serialization
-    /// (eg: does not work for `assert_debug_snapshot_matches!`.)
+    /// (eg: does not work for `assert_debug_snapshot!`.)
     ///
     /// The default value is `false`.
     pub fn set_sort_maps(&mut self, value: bool) {
@@ -111,7 +111,7 @@ impl Settings {
     /// snapshots.
     ///
     /// Note that this only applies to snapshots that undergo serialization
-    /// (eg: does not work for `assert_debug_snapshot_matches!`.)
+    /// (eg: does not work for `assert_debug_snapshot!`.)
     #[cfg(feature = "redactions")]
     pub fn add_redaction<I: Into<Content>>(&mut self, selector: &str, replacement: I) {
         self._private_inner_mut().redactions.0.push((

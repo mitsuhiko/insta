@@ -2,7 +2,7 @@
 
 use insta::_macro_support::Selector;
 use insta::{
-    assert_debug_snapshot_matches, assert_json_snapshot_matches, assert_yaml_snapshot_matches,
+    assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot,
     with_settings, Settings,
 };
 use serde::Serialize;
@@ -12,7 +12,7 @@ use uuid::Uuid;
 fn test_selector_parser() {
     macro_rules! assert_selector {
         ($short:expr, $sel:expr) => {
-            assert_debug_snapshot_matches!($short, Selector::parse($sel).unwrap());
+            assert_debug_snapshot!($short, Selector::parse($sel).unwrap());
         };
     }
 
@@ -37,7 +37,7 @@ pub struct User {
 
 #[test]
 fn test_with_random_value() {
-    assert_yaml_snapshot_matches!("user", &User {
+    assert_yaml_snapshot!("user", &User {
         id: Uuid::new_v4(),
         username: "john_doe".to_string(),
         email: Email("john@example.com".to_string()),
@@ -50,8 +50,8 @@ fn test_with_random_value() {
 #[cfg(feature = "ron")]
 #[test]
 fn test_with_random_value_ron() {
-    use insta::assert_ron_snapshot_matches;
-    assert_ron_snapshot_matches!("user_ron", &User {
+    use insta::assert_ron_snapshot;
+    assert_ron_snapshot!("user_ron", &User {
         id: Uuid::new_v4(),
         username: "john_ron".to_string(),
         email: Email("john@example.com".to_string()),
@@ -63,7 +63,7 @@ fn test_with_random_value_ron() {
 
 #[test]
 fn test_with_random_value_json() {
-    assert_json_snapshot_matches!("user_json", &User {
+    assert_json_snapshot!("user_json", &User {
         id: Uuid::new_v4(),
         username: "jason_doe".to_string(),
         email: Email("jason@example.com".to_string()),
@@ -80,7 +80,7 @@ fn test_with_random_value_json_settings() {
     settings.add_redaction(".id", "[uuid]");
     settings.add_redaction(".extra", "[extra]");
     settings.bind(|| {
-        assert_json_snapshot_matches!(
+        assert_json_snapshot!(
             "user_json_settings",
             &User {
                 id: Uuid::new_v4(),
@@ -98,7 +98,7 @@ fn test_with_random_value_json_settings2() {
         (".id", "[uuid]".into()),
         (".extra", "[extra]".into()),
     ]}, {
-        assert_json_snapshot_matches!(
+        assert_json_snapshot!(
             &User {
                 id: Uuid::new_v4(),
                 username: "jason_doe".to_string(),
