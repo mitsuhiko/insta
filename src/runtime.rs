@@ -103,6 +103,18 @@ fn update_snapshot_behavior() -> UpdateBehavior {
     }
 }
 
+fn force_update_snapshots() -> bool {
+    match env::var("INSTA_FORCE_UPDATE_SNAPSHOTS")
+        .ok()
+        .as_ref()
+        .map(|x| x.as_str())
+    {
+        None | Some("") | Some("0") => false,
+        Some("1") => true,
+        _ => panic!("invalid value for INSTA_FORCE_UPDATE_SNAPSHOTS"),
+    }
+}
+
 fn should_fail_in_tests() -> bool {
     match env::var("INSTA_FORCE_PASS")
         .ok()
@@ -642,6 +654,53 @@ a
     );
 }
 
+fn update_snapshots(
+    snapshot_file: Option<&Path>,
+    new: Snapshot,
+    old: Option<Snapshot>,
+    line: u32,
+    pending_snapshots: Option<PathBuf>,
+) -> Result<(), Box<dyn Error>> {
+    match update_snapshot_behavior() {
+        UpdateBehavior::InPlace => {
+            if let Some(ref snapshot_file) = snapshot_file {
+                new.save(snapshot_file)?;
+                eprintln!(
+                    "  {} {}\n",
+                    style("updated snapshot").green(),
+                    style(snapshot_file.display()).cyan().underlined(),
+                );
+                return Ok(());
+            } else {
+                eprintln!(
+                    "  {}",
+                    style("error: cannot update inline snapshots in-place")
+                        .red()
+                        .bold(),
+                );
+            }
+        }
+        UpdateBehavior::NewFile => {
+            if let Some(ref snapshot_file) = snapshot_file {
+                let mut new_path = snapshot_file.to_path_buf();
+                new_path.set_extension("snap.new");
+                new.save(&new_path)?;
+                eprintln!(
+                    "  {} {}\n",
+                    style("stored new snapshot").green(),
+                    style(new_path.display()).cyan().underlined(),
+                );
+            } else {
+                PendingInlineSnapshot::new(Some(new), old, line)
+                    .save(pending_snapshots.unwrap())?;
+            }
+        }
+        UpdateBehavior::NoUpdate => {}
+    }
+
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn assert_snapshot(
     refval: ReferenceValue<'_>,
@@ -700,27 +759,6 @@ pub fn assert_snapshot(
     };
 
     let new_snapshot_contents: SnapshotContents = new_snapshot.into();
-
-    // if the snapshot matches we're done.
-    if let Some(ref old_snapshot) = old {
-        if old_snapshot.contents() == &new_snapshot_contents {
-            // let's just make sure there are no more pending files lingering
-            // around.
-            if let Some(mut snapshot_file) = snapshot_file {
-                snapshot_file.set_extension("snap.new");
-                fs::remove_file(snapshot_file).ok();
-            }
-            // and add a null pending snapshot to a pending snapshot file if needed
-            if let Some(pending_snapshots) = pending_snapshots {
-                if fs::metadata(&pending_snapshots).is_ok() {
-                    PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
-                }
-            }
-
-            return Ok(());
-        }
-    }
-
     let new = Snapshot::from_components(
         module_name.to_string(),
         Some(snapshot_name.to_string()),
@@ -737,6 +775,37 @@ pub fn assert_snapshot(
         new_snapshot_contents,
     );
 
+    // if the snapshot matches we're done.
+    if let Some(ref old_snapshot) = old {
+        if old_snapshot.contents() == new.contents() {
+            // let's just make sure there are no more pending files lingering
+            // around.
+            if let Some(ref snapshot_file) = snapshot_file {
+                let mut snapshot_file = snapshot_file.clone();
+                snapshot_file.set_extension("snap.new");
+                fs::remove_file(snapshot_file).ok();
+            }
+            // and add a null pending snapshot to a pending snapshot file if needed
+            if let Some(ref pending_snapshots) = pending_snapshots {
+                if fs::metadata(pending_snapshots).is_ok() {
+                    PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
+                }
+            }
+
+            if force_update_snapshots() {
+                update_snapshots(
+                    snapshot_file.as_ref().map(|x| x.as_path()),
+                    new,
+                    old,
+                    line,
+                    pending_snapshots,
+                )?;
+            }
+
+            return Ok(());
+        }
+    }
+
     print_snapshot_diff_with_title(
         cargo_workspace,
         &new,
@@ -749,42 +818,13 @@ pub fn assert_snapshot(
         hint = style("To update snapshots run `cargo insta review`").dim(),
     );
 
-    match update_snapshot_behavior() {
-        UpdateBehavior::InPlace => {
-            if let Some(ref snapshot_file) = snapshot_file {
-                new.save(snapshot_file)?;
-                eprintln!(
-                    "  {} {}\n",
-                    style("updated snapshot").green(),
-                    style(snapshot_file.display()).cyan().underlined(),
-                );
-                return Ok(());
-            } else {
-                eprintln!(
-                    "  {}",
-                    style("error: cannot update inline snapshots in-place")
-                        .red()
-                        .bold(),
-                );
-            }
-        }
-        UpdateBehavior::NewFile => {
-            if let Some(ref snapshot_file) = snapshot_file {
-                let mut new_path = snapshot_file.to_path_buf();
-                new_path.set_extension("snap.new");
-                new.save(&new_path)?;
-                eprintln!(
-                    "  {} {}\n",
-                    style("stored new snapshot").green(),
-                    style(new_path.display()).cyan().underlined(),
-                );
-            } else {
-                PendingInlineSnapshot::new(Some(new), old, line)
-                    .save(pending_snapshots.unwrap())?;
-            }
-        }
-        UpdateBehavior::NoUpdate => {}
-    }
+    update_snapshots(
+        snapshot_file.as_ref().map(|x| x.as_path()),
+        new,
+        old,
+        line,
+        pending_snapshots,
+    )?;
 
     if should_fail_in_tests() {
         panic!(

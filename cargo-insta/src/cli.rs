@@ -109,6 +109,9 @@ pub struct TestCommand {
     /// Do not reject pending snapshots before run.
     #[structopt(long)]
     pub keep_pending: bool,
+    /// Update all snapshots even if they are still matching.
+    #[structopt(long)]
+    pub force_update_snapshots: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -331,6 +334,9 @@ fn test_run(cmd: &TestCommand) -> Result<(), Box<dyn Error>> {
     }
     if cmd.review {
         proc.env("INSTA_UPDATE", "new");
+    }
+    if cmd.force_update_snapshots {
+        proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
     }
     if let Some(ref features) = cmd.features {
         proc.arg("--features");
