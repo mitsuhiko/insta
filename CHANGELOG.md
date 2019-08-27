@@ -7,6 +7,9 @@
 * added support for sorting maps before serialization.
 * added settings support.
 * added support for overriding the snapshot path.
-* added an `--accept` command to `cargo insta test`
+* added an `--accept` option to `cargo insta test`
+* added `--force-update-snapshots` option to `cargo insta test`
 * correctly handle nested macros that might contain inline snapshots.
 * use thread name as snapshot name for inline snapshots.
+* use leading whitespace normalization for inline snapshots.
+* removed `creator` and `created` field from snapshot metadata.
