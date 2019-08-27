@@ -1,4 +1,3 @@
-use regex::Regex;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
@@ -471,6 +470,10 @@ fn test_inline_snapshot_value_newline() {
     assert_eq!(get_inline_snapshot_value("\n"), "");
 }
 
+fn count_leading_spaces(value: &str) -> usize {
+    value.chars().take_while(|x| x.is_whitespace()).count()
+}
+
 fn min_indentation(snapshot: &str) -> usize {
     let lines = snapshot.trim_end().lines();
 
@@ -479,11 +482,9 @@ fn min_indentation(snapshot: &str) -> usize {
         return 0;
     }
 
-    let spaces_count = Regex::new(r"^\s*").unwrap();
-
     lines
         .skip_while(|l| l.is_empty())
-        .map(|l| spaces_count.find(&l).map_or(0, |m| m.end() - m.start()))
+        .map(count_leading_spaces)
         .min()
         .unwrap_or(0)
 }
