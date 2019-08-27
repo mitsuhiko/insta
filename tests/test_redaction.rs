@@ -2,8 +2,7 @@
 
 use insta::_macro_support::Selector;
 use insta::{
-    assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot,
-    with_settings, Settings,
+    assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot, with_settings, Settings,
 };
 use serde::Serialize;
 use uuid::Uuid;

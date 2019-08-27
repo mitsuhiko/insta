@@ -10,11 +10,11 @@
 /// Example:
 ///
 /// ```no_run,ignore
-/// assert_yaml_snapshot!("snapshot_name", vec[1, 2, 3]);
+/// assert_yaml_snapshot!(vec[1, 2, 3]);
 /// ```
 ///
-/// Unlike the `assert_debug_snapshot` macro, this one has a secondary
-/// mode where redactions can be defined.
+/// Unlike the [`assert_debug_snapshot`](macros.assert_debug_snapshot.html)
+/// macro, this one has a secondary mode where redactions can be defined.
 ///
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
@@ -23,7 +23,7 @@
 /// Example:
 ///
 /// ```no_run,ignore
-/// assert_yaml_snapshot!("name", value, {
+/// assert_yaml_snapshot!(value, {
 ///     ".key.to.redact" => "[replacement value]",
 ///     ".another.key.*.to.redact" => 42
 /// });
@@ -36,8 +36,8 @@
 /// just use an empty string (`@""`).  For more information see
 /// [inline snapshots](index.html#inline-snapshots).
 ///
-/// Additionally the name is optional.  For more information see
-/// [unnamed snapshots](index.html#unnamed-snapshots)
+/// The snapshot name is optional but can be provided as first argument.
+/// For more information see [named snapshots](index.html#named-snapshots)
 #[macro_export]
 macro_rules! assert_yaml_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -64,22 +64,22 @@ macro_rules! assert_yaml_snapshot {
 ///
 /// **Feature:** `ron` (disabled by default)
 ///
-/// This works exactly like `assert_serialized_snapshot` but serializes
-/// in [RON](https://github.com/ron-rs/ron/) format instead of YAML which
-/// retains some type information for more accurate comparisions.
+/// This works exactly like [`assert_yaml_snapshot`](macro.assert_yaml_snapshot.html)
+/// but serializes in [RON](https://github.com/ron-rs/ron/) format instead of
+/// YAML which retains some type information for more accurate comparisions.
 ///
 /// Example:
 ///
 /// ```no_run,ignore
-/// assert_ron_snapshot!("snapshot_name", vec[1, 2, 3]);
+/// assert_ron_snapshot!(vec[1, 2, 3]);
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
 /// about redactions see [redactions](index.html#redactions).
 ///
-/// Additionally the name is optional.  For more information see
-/// [unnamed snapshots](index.html#unnamed-snapshots)
+/// The snapshot name is optional but can be provided as first argument.
+/// For more information see [named snapshots](index.html#named-snapshots)
 #[cfg(feature = "ron")]
 #[macro_export]
 macro_rules! assert_ron_snapshot {
@@ -105,22 +105,22 @@ macro_rules! assert_ron_snapshot {
 
 /// Asserts a `Serialize` snapshot in JSON format.
 ///
-/// This works exactly like `assert_serialized_snapshot` but serializes
-/// in JSON format.  This is normally not recommended because it makes diffs
-/// less reliable, but it can be useful for certain specialized situations.
+/// This works exactly like [`assert_yaml_snapshot`](macro.assert_yaml_snapshot.html)
+/// but serializes in JSON format.  This is normally not recommended because it
+/// makes diffs less reliable, but it can be useful for certain specialized situations.
 ///
 /// Example:
 ///
 /// ```no_run,ignore
-/// assert_json_snapshot!("snapshot_name", vec[1, 2, 3]);
+/// assert_json_snapshot!(vec[1, 2, 3]);
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
 /// about redactions see [redactions](index.html#redactions).
 ///
-/// Additionally the name is optional.  For more information see
-/// [unnamed snapshots](index.html#unnamed-snapshots)
+/// The snapshot name is optional but can be provided as first argument.
+/// For more information see [named snapshots](index.html#named-snapshots)
 #[macro_export]
 macro_rules! assert_json_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -265,7 +265,7 @@ macro_rules! assert_display_snapshot {
 /// on it.  This is useful to build ones own primitives.
 ///
 /// ```no_run,ignore
-/// assert_snapshot!("snapshot_name", "reference value to snapshot");
+/// assert_snapshot!("reference value to snapshot");
 /// ```
 ///
 /// Optionally a third argument can be given as expression which will be

@@ -20,24 +20,24 @@ large or change often.
 
 This crate exports multiple macros for snapshot testing:
 
-- `assert_snapshot_matches!` for comparing basic string snapshots.
-- `assert_debug_snapshot_matches!` for comparing `Debug` outputs of values.
-- `assert_display_snapshot_matches!` for comparing `Display` outputs of values.
-- `assert_yaml_snapshot_matches!` for comparing YAML serialized
+- `assert_snapshot!` for comparing basic string snapshots.
+- `assert_debug_snapshot!` for comparing `Debug` outputs of values.
+- `assert_display_snapshot!` for comparing `Display` outputs of values.
+- `assert_yaml_snapshot!` for comparing YAML serialized
   output of types implementing `serde::Serialize`.
-- `assert_ron_snapshot_matches!` for comparing RON serialized output of
+- `assert_ron_snapshot!` for comparing RON serialized output of
   types implementing `serde::Serialize`. (requires the `ron` feature)
-- `assert_json_snapshot_matches!` for comparing JSON serialized output of
+- `assert_json_snapshot!` for comparing JSON serialized output of
   types implementing `serde::Serialize`.
 
 Snapshots are stored in the `snapshots` folder right next to the test file
 where this is used.  The name of the file is `<module>__<name>.snap` where
-the `name` of the snapshot has to be provided to the assertion macro.  If
-no name is provided the name is derived from the test name.
+the `name` of the snapshot.  Snapshots can either be explicitly named or the
+name is derived from the test name.
 
 Additionally snapshots can also be stored inline.  In that case the
-`cargo-insta` tool is necessary.  See [inline snapshots](#inline-snapshots)
-for more information.
+[`cargo-insta`](https://crates.io/crates/cargo-insta) tool is necessary.
+See [inline snapshots](#inline-snapshots) for more information.
 
 For macros that work with `serde::Serialize` this crate also permits
 redacting of partial values.  See [redactions](#redactions) for more
@@ -65,23 +65,20 @@ $ cargo install cargo-insta
 ```
 
 ```rust
-use insta::assert_debug_snapshot_matches;
+use insta::assert_debug_snapshot;
 
 #[test]
 fn test_snapshots() {
     let value = vec![1, 2, 3];
-    assert_debug_snapshot_matches!("snapshot_name", value);
+    assert_debug_snapshot!(value);
 }
 ```
-
-(If you do not want to provide a name for the snapshot read about
-[unnamed snapshots](#unnamed-snapshots).)
 
 The recommended flow is to run the tests once, have them fail and check
 if the result is okay.  By default the new snapshots are stored next
 to the old ones with the extra `.new` extension.  Once you are satisifed
-move the new files over.  You can also use `cargo insta review` which
-will let you interactively review them:
+move the new files over.  To simplify this workflow you can use
+`cargo insta review` which will let you interactively review them:
 
 ```rust
 $ cargo test
@@ -99,8 +96,6 @@ that can make debugging easier and the snapshot:
 
 ```rust
 ---
-created: "2019-01-21T22:03:13.792906+00:00"
-creator: insta@0.3.0
 expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
 source: tests/test_user.rs
 ---
@@ -157,6 +152,35 @@ run all tests with force pass and then bring up the review tool:
 $ cargo insta test --review
 ```
 
+## Named snapshots
+
+All snapshot assertion functions let you leave out the snapshot name in
+which case the snapshot name is derived from the test name (with an optional
+leading `test_` prefix removed.
+
+This works because the rust test runner names the thread by the test name
+and the name is taken from the thread name.  In case your test spawns additional
+threads this will not work and you will need to provide a name explicitly.
+
+Explicit snapshot naming can also otherwise be useful to be more explicit
+when multiple snapshots are tested within one function as the default
+behavior would be to just count up the snapshot names.
+
+To provide an explicit name provide the name of the snapshot as first
+argument to the macro:
+
+```rust
+#[test]
+fn test_something() {
+    assert_snapshot!("first_snapshot", "first value");
+    assert_snapshot!("second_snapshot", "second value");
+}
+```
+
+This will create two snapshots: `first_snapshot` for the first value and
+`second_snapshot` for the second value.  Without explicit naming the
+snapshots would be called `something` and `something-2`.
+
 ## Redactions
 
 **Feature:** `redactions`
@@ -192,7 +216,7 @@ pub struct User {
     extra: HashMap<String, String>,
 }
 
-assert_yaml_snapshot_matches!("user", &User {
+assert_yaml_snapshot!(&User {
     id: Uuid::new_v4(),
     username: "john_doe".to_string(),
     extra: {
@@ -206,33 +230,10 @@ assert_yaml_snapshot_matches!("user", &User {
 });
 ```
 
-## Unnamed snapshots
-
-All snapshot assertion functions let you leave out the snapshot name.  In
-that case the snapshot name is derived from the test name.  This works
-because the rust test runner names the thread by the test name and the
-name is taken from the thread name.  In case your test spawns additional
-threads this will not work and you will need to provide a name explicitly.
-
-Additionally if you have multiple snapshot assertions per test name a
-counter will be appended:
-
-```rust
-#[test]
-fn test_something() {
-    assert_snapshot_matches!("first value");
-    assert_snapshot_matches!("second value");
-}
-```
-
-This will create two snapshots: `something` for the first value and
-`something-2` for the second value.  The leading `test_` prefix is removed
-if the function starts with that name.
-
 ## Inline Snapshots
 
 Additionally snapshots can also be stored inline.  In that case the format
-for the snapshot macros is `assert_snapshot_matches!(reference_value, @"snapshot")`.
+for the snapshot macros is `assert_snapshot!(reference_value, @"snapshot")`.
 The leading at sign (`@`) indicates that the following string is the
 reference value.  `cargo-insta` will then update that string with the new
 value on review.
@@ -240,40 +241,24 @@ value on review.
 Example:
 
 ```rust
-use insta::assert_yaml_snapshot_matches;
-use serde::Serialize
-
 #[derive(Serialize)]
 pub struct User {
     username: String,
 }
-let u = User {
-    username: "john_doe".to_string(),
-};
 
-assert_yaml_snapshot_matches!(u, @"");
+assert_yaml_snapshot!(User {
+    username: "john_doe".to_string(),
+}, @"");
 ```
 
 After the initial test failure you can run `cargo insta review` to
-accept the change.  The file will then be updated automatically, with
-the expressing changing to:
-
-```rust
-assert_yaml_snapshot_matches!(u, @r###"
----
-username: john_doe
-"###);
-```
-
-The reference value is indented to match the surrounding text.
-When compared to the generated value, the largest possible rectangle 
-of white space is removed.
+accept the change.  The file will then be updated automatically.
 
 ## Features
 
 The following features exist:
 
-* `ron`: enables RON support (`assert_ron_snapshot_matches!`)
+* `ron`: enables RON support (`assert_ron_snapshot!`)
 * `redactions`: enables support for redactions
 
 ## Settings

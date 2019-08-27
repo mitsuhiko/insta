@@ -1,6 +1,5 @@
 use insta::{
-    assert_debug_snapshot, assert_display_snapshot, assert_json_snapshot,
-    assert_yaml_snapshot,
+    assert_debug_snapshot, assert_display_snapshot, assert_json_snapshot, assert_yaml_snapshot,
 };
 use std::fmt;
 

@@ -1,5 +1,6 @@
 /// Legacy alias for `assert_yaml_snapshot`.
 #[macro_export]
+#[doc(hidden)]
 #[deprecated(since = "0.6.0", note = "Replaced by assert_yaml_snapshot")]
 macro_rules! assert_serialized_snapshot {
     ($value:expr, @$snapshot:literal) => {{

@@ -1,9 +1,6 @@
 #[cfg(feature = "ron")]
 use insta::assert_ron_snapshot;
-use insta::{
-    assert_debug_snapshot, assert_json_snapshot, assert_snapshot,
-    assert_yaml_snapshot,
-};
+use insta::{assert_debug_snapshot, assert_json_snapshot, assert_snapshot, assert_yaml_snapshot};
 use serde::Serialize;
 use std::thread;
 
