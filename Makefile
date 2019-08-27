@@ -9,6 +9,7 @@ doc:
 test: cargotest
 
 cargotest:
+	@rustup component add rustfmt 2> /dev/null
 	@cargo test
 	@cargo test --no-default-features
 	@cd cargo-insta; cargo test
