@@ -43,7 +43,11 @@ For macros that work with `serde::Serialize` this crate also permits
 redacting of partial values.  See [redactions](#redactions) for more
 information.
 
-<img src="https://github.com/mitsuhiko/insta/blob/master/assets/review.png?raw=true" alt="">
+## What it looks like:
+
+There is a short screencast that shows the workflow:
+
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/7mIDiKK4eyo" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## Example
 
