@@ -14,3 +14,4 @@
 * use leading whitespace normalization for inline snapshots.
 * removed `creator` and `created` field from snapshot metadata.
 * removed the `_matches` suffix from all macros.
+* added `--jobs` and `--release` argument to `cargo insta test`.

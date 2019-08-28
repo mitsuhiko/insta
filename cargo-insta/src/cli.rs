@@ -93,6 +93,12 @@ pub struct TestCommand {
     /// Space-separated list of features to activate
     #[structopt(long, value_name = "FEATURES")]
     pub features: Option<String>,
+    /// Number of parallel jobs, defaults to # of CPUs
+    #[structopt(short = "j", long)]
+    pub jobs: Option<usize>,
+    /// Build artifacts in release mode, with optimizations
+    #[structopt(long)]
+    pub release: bool,
     /// Activate all available features
     #[structopt(long)]
     pub all_features: bool,
@@ -168,8 +174,8 @@ fn query_snapshot(
     }
 }
 
-fn handle_color(color: &Option<String>) -> Result<(), Box<dyn Error>> {
-    match color.as_ref().map(|x| x.as_str()).unwrap_or("auto") {
+fn handle_color(color: &str) -> Result<(), Box<dyn Error>> {
+    match color {
         "always" => set_colors_enabled(true),
         "auto" => {}
         "never" => set_colors_enabled(false),
@@ -311,7 +317,7 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     Ok(())
 }
 
-fn test_run(cmd: &TestCommand) -> Result<(), Box<dyn Error>> {
+fn test_run(cmd: &TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     let mut proc = process::Command::new(get_cargo());
     proc.arg("test");
     if cmd.target_args.all {
@@ -337,6 +343,12 @@ fn test_run(cmd: &TestCommand) -> Result<(), Box<dyn Error>> {
     if cmd.force_update_snapshots {
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
     }
+    if cmd.release {
+        proc.arg("--release");
+    }
+    if let Some(n) = cmd.jobs {
+        proc.arg(format!("--jobs={}", n));
+    }
     if let Some(ref features) = cmd.features {
         proc.arg("--features");
         proc.arg(features);
@@ -347,6 +359,8 @@ fn test_run(cmd: &TestCommand) -> Result<(), Box<dyn Error>> {
     if cmd.no_default_features {
         proc.arg("--no-default-features");
     }
+    proc.arg("--color");
+    proc.arg(color);
     proc.arg("--");
     proc.arg("-q");
 
@@ -397,11 +411,12 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     }
 
     let opts = Opts::from_iter(args);
-    handle_color(&opts.color)?;
+    let color = opts.color.as_ref().map(|x| x.as_str()).unwrap_or("auto");
+    handle_color(color)?;
     match opts.command {
         Command::Review(cmd) => process_snapshots(&cmd, None),
         Command::Accept(cmd) => process_snapshots(&cmd, Some(Operation::Accept)),
         Command::Reject(cmd) => process_snapshots(&cmd, Some(Operation::Reject)),
-        Command::Test(cmd) => test_run(&cmd),
+        Command::Test(cmd) => test_run(&cmd, color),
     }
 }
