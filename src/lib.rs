@@ -263,6 +263,17 @@
 //!
 //! There are some settings that can be changed on a per-thread (and thus
 //! per-test) basis.  For more information see [settings](struct.Settings.html).
+//!
+//! # Legacy Snapshot Formats
+//!
+//! With insta 0.11 the snapshot format was improved for inline snapshots.  The
+//! old snapshot format will continue to be available but if you want to upgrade
+//! them make sure the tests pass first and then run the following command
+//! to force a rewrite of them all:
+//!
+//! ```text,ignore
+//! $ cargo insta test --accept --force-update-snapshots
+//! ```
 #![allow(clippy::redundant_closure)]
 #[macro_use]
 mod macros;
