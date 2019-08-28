@@ -41,7 +41,7 @@
 //! redacting of partial values.  See [redactions](#redactions) for more
 //! information.
 //!
-//! <img src="https://github.com/mitsuhiko/insta/blob/artwork/screencast.gif?raw=true" alt="">
+//! <img src="https://github.com/mitsuhiko/insta/blob/artwork/review.png?raw=true" alt="">
 //!
 //! # Example
 //!
