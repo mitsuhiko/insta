@@ -291,6 +291,7 @@ pub use crate::snapshot::{MetaData, Snapshot};
 /// are exposed for documentation primarily.
 pub mod internals {
     pub use crate::content::Content;
+    pub use crate::runtime::AutoName;
     #[cfg(feature = "redactions")]
     pub use crate::settings::Redactions;
     pub use crate::snapshot::{MetaData, SnapshotContents};
@@ -306,7 +307,7 @@ pub use crate::{
 #[doc(hidden)]
 pub mod _macro_support {
     pub use crate::content::Content;
-    pub use crate::runtime::{assert_snapshot, ReferenceValue};
+    pub use crate::runtime::{assert_snapshot, AutoName, ReferenceValue};
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
 
     #[cfg(feature = "redactions")]

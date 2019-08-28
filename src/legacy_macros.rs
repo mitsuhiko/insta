@@ -22,7 +22,7 @@ macro_rules! assert_serialized_snapshot {
 #[deprecated(since = "0.11.0", note = "Replaced by assert_yaml_snapshot")]
 macro_rules! assert_yaml_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
-        $crate::assert_yaml_snapshot($value, @$snapshot);
+        $crate::assert_yaml_snapshot!($value, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}, @$snapshot:literal) => {{
         $crate::assert_yaml_snapshot!($value, {$($k => $v),*}, @$snapshot);
@@ -47,7 +47,7 @@ macro_rules! assert_yaml_snapshot_matches {
 #[deprecated(since = "0.11.0", note = "Replaced by assert_ron_snapshot")]
 macro_rules! assert_ron_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
-        $crate::assert_ron_snapshot($value, @$snapshot);
+        $crate::assert_ron_snapshot!($value, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}, @$snapshot:literal) => {{
         $crate::assert_ron_snapshot!($value, {$($k => $v),*}, @$snapshot);
@@ -66,12 +66,50 @@ macro_rules! assert_ron_snapshot_matches {
     }};
 }
 
+/// Legacy alias for `assert_ron_snapshot`.
+#[macro_export]
+#[cfg(not(feature = "ron"))]
+#[doc(hidden)]
+#[deprecated(since = "0.11.0", note = "Replaced by assert_ron_snapshot")]
+macro_rules! assert_ron_snapshot_matches {
+    ($value:expr, @$snapshot:literal) => {{
+        compile_error!(
+            "insta was compiled without ron support. Enable the ron feature to reactivate it."
+        );
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*}, @$snapshot:literal) => {{
+        compile_error!(
+            "insta was compiled without ron support. Enable the ron feature to reactivate it."
+        );
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*}) => {{
+        compile_error!(
+            "insta was compiled without ron support. Enable the ron feature to reactivate it."
+        );
+    }};
+    ($name:expr, $value:expr) => {{
+        compile_error!(
+            "insta was compiled without ron support. Enable the ron feature to reactivate it."
+        );
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*}) => {{
+        compile_error!(
+            "insta was compiled without ron support. Enable the ron feature to reactivate it."
+        );
+    }};
+    ($value:expr) => {{
+        compile_error!(
+            "insta was compiled without ron support. Enable the ron feature to reactivate it."
+        );
+    }};
+}
+
 /// Legacy alias for `assert_json_snapshot`.
 #[macro_export]
 #[deprecated(since = "0.11.0", note = "Replaced by assert_json_snapshot")]
 macro_rules! assert_json_snapshot_matches {
     ($value:expr, @$snapshot:literal) => {{
-        $crate::assert_json_snapshot($value, @$snapshot);
+        $crate::assert_json_snapshot!($value, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}, @$snapshot:literal) => {{
         $crate::assert_json_snapshot!($value, {$($k => $v),*}, @$snapshot);

@@ -381,20 +381,46 @@ fn print_snapshot_diff_with_title(
     );
 }
 
+/// Special marker to use an automatic name.
+///
+/// This can be passed as a snapshot name in a macro to explicitly tell
+/// insta to use the automatic name.  This is useful in ambiguous syntax
+/// situations.
+#[derive(Debug)]
+pub struct AutoName;
+
+impl From<AutoName> for ReferenceValue<'static> {
+    fn from(_value: AutoName) -> ReferenceValue<'static> {
+        ReferenceValue::Named(None)
+    }
+}
+
+impl From<Option<String>> for ReferenceValue<'static> {
+    fn from(value: Option<String>) -> ReferenceValue<'static> {
+        ReferenceValue::Named(value.map(Cow::Owned))
+    }
+}
+
+impl From<String> for ReferenceValue<'static> {
+    fn from(value: String) -> ReferenceValue<'static> {
+        ReferenceValue::Named(Some(Cow::Owned(value)))
+    }
+}
+
 impl<'a> From<Option<&'a str>> for ReferenceValue<'a> {
     fn from(value: Option<&'a str>) -> ReferenceValue<'a> {
-        ReferenceValue::Named(value)
+        ReferenceValue::Named(value.map(Cow::Borrowed))
     }
 }
 
 impl<'a> From<&'a str> for ReferenceValue<'a> {
     fn from(value: &'a str) -> ReferenceValue<'a> {
-        ReferenceValue::Named(Some(value))
+        ReferenceValue::Named(Some(Cow::Borrowed(value)))
     }
 }
 
 pub enum ReferenceValue<'a> {
-    Named(Option<&'a str>),
+    Named(Option<Cow<'a, str>>),
     Inline(&'a str),
 }
 

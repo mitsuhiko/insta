@@ -47,7 +47,7 @@ macro_rules! assert_yaml_snapshot {
         $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Yaml, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot!(None::<&str>, $value, {$($k => $v),*}, Yaml);
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Yaml);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, Yaml);
@@ -56,7 +56,7 @@ macro_rules! assert_yaml_snapshot {
         $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Yaml);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!(None::<&str>, $value, Yaml);
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Yaml);
     }};
 }
 
@@ -90,7 +90,7 @@ macro_rules! assert_ron_snapshot {
         $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Ron, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot!(None::<&str>, $value, {$($k => $v),*}, Ron);
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Ron);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, Ron);
@@ -99,7 +99,7 @@ macro_rules! assert_ron_snapshot {
         $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Ron);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!(None::<&str>, $value, Ron);
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Ron);
     }};
 }
 
@@ -130,7 +130,7 @@ macro_rules! assert_json_snapshot {
         $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Json, @$snapshot);
     }};
     ($value:expr, {$($k:expr => $v:expr),*}) => {{
-        $crate::_assert_serialized_snapshot!(None::<&str>, $value, {$($k => $v),*}, Json);
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Json);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, Json);
@@ -139,7 +139,7 @@ macro_rules! assert_json_snapshot {
         $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Json);
     }};
     ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!(None::<&str>, $value, Json);
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Json);
     }};
 }
 
@@ -232,7 +232,7 @@ macro_rules! assert_debug_snapshot {
     }};
     ($value:expr) => {{
         let value = format!("{:#?}", $value);
-        $crate::assert_snapshot!(None::<&str>, value, stringify!($value));
+        $crate::assert_snapshot!($crate::_macro_support::AutoName, value, stringify!($value));
     }};
 }
 
@@ -254,7 +254,7 @@ macro_rules! assert_display_snapshot {
     }};
     ($value:expr) => {{
         let value = format!("{}", $value);
-        $crate::assert_snapshot!(None::<&str>, value, stringify!($value));
+        $crate::assert_snapshot!($crate::_macro_support::AutoName, value, stringify!($value));
     }};
 }
 
@@ -307,7 +307,7 @@ macro_rules! assert_snapshot {
         .unwrap();
     };
     ($value:expr) => {
-        $crate::assert_snapshot!(None::<&str>, $value, stringify!($value))
+        $crate::assert_snapshot!($crate::_macro_support::AutoName, $value, stringify!($value))
     };
 }
 
