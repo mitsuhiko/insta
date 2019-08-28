@@ -1,0 +1,5 @@
+---
+source: tests/test_legacy.rs
+expression: "\"whatever\""
+---
+whatever
