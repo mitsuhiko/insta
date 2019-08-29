@@ -10,7 +10,6 @@ pub struct SelectorParseError(pest::error::Error<Rule>);
 
 impl SelectorParseError {
     /// Return the column of where the error ocurred.
-    #[allow(unused)]
     pub fn column(&self) -> usize {
         match self.0.line_col {
             pest::error::LineColLocation::Pos((_, col)) => col,

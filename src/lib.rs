@@ -274,7 +274,6 @@
 //! ```text,ignore
 //! $ cargo insta test --accept --force-update-snapshots
 //! ```
-#![allow(clippy::redundant_closure)]
 #[macro_use]
 mod macros;
 mod content;
