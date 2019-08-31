@@ -41,7 +41,14 @@
 //! redacting of partial values.  See [redactions](#redactions) for more
 //! information.
 //!
-//! <img src="https://github.com/mitsuhiko/insta/blob/artwork/screencast.gif?raw=true" alt="">
+//! # What it looks like:
+//!
+//! This is what the cargo insta review UI looks like:
+//!
+//! <img src="https://github.com/mitsuhiko/insta/blob/master/assets/review.png?raw=true" alt="">
+//!
+//! There is also a screencast that shows the entire workflow: [watch the insta
+//! introduction screencast](https://www.youtube.com/watch?v=7mIDiKK4eyo&feature=youtu.be)
 //!
 //! # Example
 //!
