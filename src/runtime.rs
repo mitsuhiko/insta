@@ -347,7 +347,7 @@ pub fn print_snapshot_diff(
         &new.contents_str(),
         "\n",
     );
-    if let Some(_) = old_snapshot {
+    if old_snapshot.is_some() {
         println!("{}", style("-old snapshot").red());
         println!("{}", style("+new results").green());
     } else {
@@ -738,7 +738,7 @@ pub fn assert_snapshot(
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
         ReferenceValue::Named(snapshot_name) => {
             let snapshot_name: Cow<str> = match snapshot_name {
-                Some(snapshot_name) => snapshot_name.into(),
+                Some(snapshot_name) => snapshot_name,
                 None => (generate_snapshot_name_for_thread(module_path).into()),
             };
             let snapshot_file =
