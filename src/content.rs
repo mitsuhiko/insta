@@ -168,7 +168,7 @@ impl Content {
     }
 
     pub(crate) fn sort_maps(&mut self) {
-        self.walk(|content| {
+        self.walk(&mut |content| {
             if let Content::Map(ref mut items) = content {
                 items.sort_by(|a, b| a.0.as_key().cmp(&b.0.as_key()));
             }
@@ -179,39 +179,55 @@ impl Content {
     /// Recursively walks the content structure mutably.
     ///
     /// The callback is invoked for every content in the tree.
-    pub fn walk<F: FnMut(&mut Content) -> bool>(&mut self, mut visit: F) {
+    pub fn walk<F: FnMut(&mut Content) -> bool>(&mut self, visit: &mut F) {
         if !visit(self) {
             return;
         }
+
         match *self {
             Content::Some(ref mut inner) => {
-                visit(&mut *inner);
+                Self::walk(&mut *inner, visit);
             }
             Content::NewtypeStruct(_, ref mut inner) => {
-                visit(&mut *inner);
+                Self::walk(&mut *inner, visit);
             }
             Content::NewtypeVariant(_, _, _, ref mut inner) => {
-                visit(&mut *inner);
+                Self::walk(&mut *inner, visit);
             }
             Content::Seq(ref mut vec) => {
                 for inner in vec.iter_mut() {
-                    visit(inner);
+                    Self::walk(inner, visit);
                 }
             }
             Content::Map(ref mut vec) => {
                 for inner in vec.iter_mut() {
-                    visit(&mut inner.0);
-                    visit(&mut inner.1);
+                    Self::walk(&mut inner.0, visit);
+                    Self::walk(&mut inner.1, visit);
                 }
             }
             Content::Struct(_, ref mut vec) => {
                 for inner in vec.iter_mut() {
-                    visit(&mut inner.1);
+                    Self::walk(&mut inner.1, visit);
                 }
             }
             Content::StructVariant(_, _, _, ref mut vec) => {
                 for inner in vec.iter_mut() {
-                    visit(&mut inner.1);
+                    Self::walk(&mut inner.1, visit);
+                }
+            }
+            Content::Tuple(ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    Self::walk(inner, visit);
+                }
+            }
+            Content::TupleStruct(_, ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    Self::walk(inner, visit);
+                }
+            }
+            Content::TupleVariant(_, _, _, ref mut vec) => {
+                for inner in vec.iter_mut() {
+                    Self::walk(inner, visit);
                 }
             }
             _ => {}
