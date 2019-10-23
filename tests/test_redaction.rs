@@ -104,6 +104,39 @@ fn test_with_random_value_json_settings() {
 }
 
 #[test]
+fn test_with_callbacks() {
+    let mut settings = Settings::new();
+    settings.add_dynamic_redaction(".id", |value, path| {
+        assert_eq!(path.to_string(), ".id");
+        assert_eq!(
+            value
+                .as_str()
+                .unwrap()
+                .chars()
+                .filter(|&c| c == '-')
+                .count(),
+            4
+        );
+        "[uuid]"
+    });
+    settings.add_assertion(".extra", |value, path| {
+        assert_eq!(path.to_string(), ".extra");
+        assert_eq!(value.as_str(), Some("extra here"));
+    });
+    settings.bind(|| {
+        assert_json_snapshot!(
+            "user_json_settings_callback",
+            &User {
+                id: Uuid::new_v4(),
+                username: "jason_doe".to_string(),
+                email: Email("jason@example.com".to_string()),
+                extra: "extra here".to_string(),
+            }
+        );
+    });
+}
+
+#[test]
 fn test_with_random_value_json_settings2() {
     with_settings!({redactions => vec![
         (".id", "[uuid]".into()),

@@ -310,7 +310,7 @@ pub mod internals {
     pub use crate::content::Content;
     pub use crate::runtime::AutoName;
     #[cfg(feature = "redactions")]
-    pub use crate::settings::Redactions;
+    pub use crate::{settings::Redactions, redaction::ContentPath};
     pub use crate::snapshot::{MetaData, SnapshotContents};
 }
 
@@ -328,5 +328,7 @@ pub mod _macro_support {
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
 
     #[cfg(feature = "redactions")]
-    pub use crate::{redaction::Selector, serialization::serialize_value_redacted};
+    pub use crate::{
+        redaction::Redaction, redaction::Selector, serialization::serialize_value_redacted,
+    };
 }

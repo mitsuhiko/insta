@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use std::sync::Arc;
+use std::fmt;
 
 use pest::Parser;
 use pest_derive::Parser;
@@ -14,6 +16,67 @@ impl SelectorParseError {
         match self.0.line_col {
             pest::error::LineColLocation::Pos((_, col)) => col,
             pest::error::LineColLocation::Span((_, col), _) => col,
+        }
+    }
+}
+
+/// Represents a path for a callback function.
+#[derive(Clone, Debug)]
+pub struct ContentPath<'a>(&'a [PathItem]);
+
+impl<'a> fmt::Display for ContentPath<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for item in self.0.iter() {
+            write!(f, ".")?;
+            match *item {
+                PathItem::Content(ref ctx) => {
+                    if let Some(s) = ctx.as_str() {
+                        write!(f, "{}", s)?;
+                    } else {
+                        write!(f, "<content>")?;
+                    }
+                }
+                PathItem::Field(name) => write!(f, "{}", name)?,
+                PathItem::Index(idx, _) => write!(f, "{}", idx)?,
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Asserts a value at a certain path.
+type AssertionFunc = dyn Fn(&Content, ContentPath<'_>) + Sync + Send;
+
+/// Replaces a value with another one.
+type ReplacementFunc = dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send;
+
+/// Types of redactions
+#[derive(Clone)]
+pub enum Redaction {
+    /// Static redaction with new content.
+    Static(Content),
+    /// non-redaction but running an assertion function
+    Assertion(Arc<Box<AssertionFunc>>),
+    /// Redaction with new content.
+    Replacement(Arc<Box<ReplacementFunc>>),
+}
+
+impl<T: Into<Content>> From<T> for Redaction {
+    fn from(value: T) -> Redaction {
+        Redaction::Static(value.into())
+    }
+}
+
+impl Redaction {
+    /// Performs the redaction of the value at the given path.
+    fn redact(&self, value: Content, path: &[PathItem]) -> Content {
+        match *self {
+            Redaction::Static(ref new_val) => new_val.clone(),
+            Redaction::Assertion(ref callback) => {
+                callback(&value, ContentPath(path));
+                value
+            }
+            Redaction::Replacement(ref callback) => callback(value, ContentPath(path)),
         }
     }
 }
@@ -196,14 +259,14 @@ impl<'a> Selector<'a> {
         true
     }
 
-    pub fn redact(&self, value: Content, redaction: &Content) -> Content {
+    pub fn redact(&self, value: Content, redaction: &Redaction) -> Content {
         self.redact_impl(value, redaction, &mut vec![])
     }
 
     fn redact_seq(
         &self,
         seq: Vec<Content>,
-        redaction: &Content,
+        redaction: &Redaction,
         path: &mut Vec<PathItem>,
     ) -> Vec<Content> {
         let len = seq.len();
@@ -221,7 +284,7 @@ impl<'a> Selector<'a> {
     fn redact_struct(
         &self,
         seq: Vec<(&'static str, Content)>,
-        redaction: &Content,
+        redaction: &Redaction,
         path: &mut Vec<PathItem>,
     ) -> Vec<(&'static str, Content)> {
         seq.into_iter()
@@ -237,11 +300,11 @@ impl<'a> Selector<'a> {
     fn redact_impl(
         &self,
         value: Content,
-        redaction: &Content,
+        redaction: &Redaction,
         path: &mut Vec<PathItem>,
     ) -> Content {
         if self.is_match(&path) {
-            redaction.clone()
+            redaction.redact(value, path)
         } else {
             match value {
                 Content::Map(map) => Content::Map(
@@ -276,9 +339,10 @@ impl<'a> Selector<'a> {
                         self.redact_struct(seq, redaction, path),
                     )
                 }
-                Content::NewtypeStruct(name, inner) => {
-                    Content::NewtypeStruct(name, Box::new(self.redact_impl(*inner, redaction, path)))
-                }
+                Content::NewtypeStruct(name, inner) => Content::NewtypeStruct(
+                    name,
+                    Box::new(self.redact_impl(*inner, redaction, path)),
+                ),
                 other => other,
             }
         }

@@ -73,7 +73,7 @@ pub fn serialize_value<S: Serialize>(
 #[cfg(feature = "redactions")]
 pub fn serialize_value_redacted<S: Serialize>(
     s: &S,
-    redactions: &[(crate::redaction::Selector, crate::content::Content)],
+    redactions: &[(crate::redaction::Selector, crate::redaction::Redaction)],
     format: SerializationFormat,
     location: SnapshotLocation,
 ) -> String {

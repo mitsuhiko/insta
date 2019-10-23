@@ -4,7 +4,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[cfg(feature = "redactions")]
-use crate::{content::Content, redaction::Selector};
+use crate::{
+    content::Content,
+    redaction::{ContentPath, Redaction, Selector},
+};
 
 lazy_static! {
     static ref DEFAULT_SETTINGS: Arc<ActualSettings> = Arc::new(ActualSettings {
@@ -19,7 +22,7 @@ thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings
 /// Represents stored redactions.
 #[cfg(feature = "redactions")]
 #[derive(Clone, Default)]
-pub struct Redactions(Vec<(Selector<'static>, Content)>);
+pub struct Redactions(Vec<(Selector<'static>, Redaction)>);
 
 #[cfg(feature = "redactions")]
 impl<'a> From<Vec<(&'a str, Content)>> for Redactions {
@@ -27,7 +30,12 @@ impl<'a> From<Vec<(&'a str, Content)>> for Redactions {
         Redactions(
             value
                 .into_iter()
-                .map(|x| (Selector::parse(x.0).unwrap().make_static(), x.1))
+                .map(|x| {
+                    (
+                        Selector::parse(x.0).unwrap().make_static(),
+                        Redaction::Static(x.1),
+                    )
+                })
                 .collect(),
         )
     }
@@ -116,7 +124,79 @@ impl Settings {
     pub fn add_redaction<I: Into<Content>>(&mut self, selector: &str, replacement: I) {
         self._private_inner_mut().redactions.0.push((
             Selector::parse(selector).unwrap().make_static(),
-            replacement.into(),
+            Redaction::Static(replacement.into()),
+        ));
+    }
+
+    /// Registers a replacement callback.
+    ///
+    /// This works similar to a redaction but instead of changing the value it
+    /// asserts the value at a certain place.  This function is internally
+    /// supposed to call things like `assert_eq!`.
+    ///
+    /// Example:
+    ///
+    /// ```rust
+    /// # use insta::Settings;
+    /// # let mut settings = Settings::new();
+    /// settings.add_dynamic_redaction(".id", |value, path| {
+    ///     assert_eq!(path.to_string(), ".id");
+    ///     assert_eq!(
+    ///         value
+    ///             .as_str()
+    ///             .unwrap()
+    ///             .chars()
+    ///             .filter(|&c| c == '-')
+    ///             .count(),
+    ///         4
+    ///     );
+    ///     "[uuid]"
+    /// });
+    /// ```
+    #[cfg(feature = "redactions")]
+    pub fn add_dynamic_redaction<I, F>(&mut self, selector: &str, func: F)
+    where
+        I: Into<Content>,
+        F: Fn(Content, ContentPath<'_>) -> I + Send + Sync + 'static,
+    {
+        self._private_inner_mut().redactions.0.push((
+            Selector::parse(selector).unwrap().make_static(),
+            Redaction::Replacement(Arc::new(Box::new(move |c, p| func(c, p).into()))),
+        ));
+    }
+
+    /// Registers an assertion callback.
+    ///
+    /// This works similar to a redaction but instead of changing the value it
+    /// asserts the value at a certain place.  This function is internally
+    /// supposed to call things like `assert_eq!`.
+    ///
+    /// Example:
+    ///
+    /// ```rust
+    /// # use insta::Settings;
+    /// # let mut settings = Settings::new();
+    /// settings.add_assertion(".id", |value, path| {
+    ///     assert_eq!(path.to_string(), ".id");
+    ///     assert_eq!(
+    ///         value
+    ///             .as_str()
+    ///             .unwrap()
+    ///             .chars()
+    ///             .filter(|&c| c == '-')
+    ///             .count(),
+    ///         4
+    ///     );
+    /// });
+    /// ```
+    #[cfg(feature = "redactions")]
+    pub fn add_assertion<F>(&mut self, selector: &str, func: F)
+    where
+        F: Fn(&Content, ContentPath<'_>) + Send + Sync + 'static,
+    {
+        self._private_inner_mut().redactions.0.push((
+            Selector::parse(selector).unwrap().make_static(),
+            Redaction::Assertion(Arc::new(Box::new(func))),
         ));
     }
 
@@ -136,7 +216,7 @@ impl Settings {
 
     /// Iterate over the redactions.
     #[cfg(feature = "redactions")]
-    pub fn iter_redactions(&self) -> impl Iterator<Item = (&Selector, &Content)> {
+    pub(crate) fn iter_redactions(&self) -> impl Iterator<Item = (&Selector, &Redaction)> {
         self.inner.redactions.0.iter().map(|&(ref a, ref b)| (a, b))
     }
 

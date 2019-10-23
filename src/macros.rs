@@ -189,7 +189,7 @@ macro_rules! _prepare_snapshot_for_redaction {
             let vec = vec![
                 $((
                     $crate::_macro_support::Selector::parse($k).unwrap(),
-                    $crate::_macro_support::Content::from($v)
+                    $crate::_macro_support::Redaction::from($v)
                 ),)*
             ];
             let value = $crate::_macro_support::serialize_value_redacted(
