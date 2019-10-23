@@ -230,11 +230,7 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         println!("{:─^1$}", "", width,);
         println!("{}", style(format_rust_expression(expr)));
     }
-    println!(
-        "────────────┬{:─^1$}",
-        "",
-        width.saturating_sub(13),
-    );
+    println!("────────────┬{:─^1$}", "", width.saturating_sub(13),);
     let mut has_changes = false;
     for (i, (mode, lineno_a, lineno_b, line)) in lines.iter().enumerate() {
         match mode {
@@ -283,11 +279,7 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
         );
     }
 
-    println!(
-        "────────────┴{:─^1$}",
-        "",
-        width.saturating_sub(13),
-    );
+    println!("────────────┴{:─^1$}", "", width.saturating_sub(13),);
 }
 
 pub fn get_snapshot_filename(
