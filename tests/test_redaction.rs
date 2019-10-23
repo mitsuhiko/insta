@@ -54,7 +54,7 @@ fn test_with_random_value_inline_callback() {
         email: Email("john@example.com".to_string()),
         extra: "".to_string(),
     }, {
-        ".id" => |value: insta::internals::Content, path: insta::internals::ContentPath| {
+        ".id" => insta::dynamic_redaction(|value, path| {
             assert_eq!(path.to_string(), ".id");
             assert_eq!(
                 value
@@ -66,7 +66,7 @@ fn test_with_random_value_inline_callback() {
                 4
             );
             "[uuid]"
-        }
+        }),
     });
 }
 
@@ -142,10 +142,6 @@ fn test_with_callbacks() {
             4
         );
         "[uuid]"
-    });
-    settings.add_assertion(".extra", |value, path| {
-        assert_eq!(path.to_string(), ".extra");
-        assert_eq!(value.as_str(), Some("extra here"));
     });
     settings.bind(|| {
         assert_json_snapshot!(

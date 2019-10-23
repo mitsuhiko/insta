@@ -235,9 +235,26 @@
 //! });
 //! ```
 //!
-//! Through settings dynamic redactions can also be defined which are callback based
-//! which can also be used for assertions.  For more information see
-//! [settings](struct.Settings.html).
+//! It's also possible to execute a callback that can produce a new value
+//! instead of hardcoding a replacement value by using the
+//! [`dynamic_redaction`](fn.dynamic_redaction.html) function:
+//!
+//! ```rust,ignore
+//! # #[derive(Serialize)]
+//! # pub struct User {
+//! #     id: Uuid,
+//! #     username: String,
+//! # }
+//! assert_yaml_snapshot!(&User {
+//!     id: Uuid::new_v4(),
+//!     username: "john_doe".to_string(),
+//! }, {
+//!     ".id" => dynamic_redaction(|value, _| {
+//!         // assert that the value looks like a uuid here
+//!         "[uuid]"
+//!     }),
+//! });
+//! ```
 //!
 //! # Inline Snapshots
 //!
@@ -315,7 +332,10 @@ pub mod internals {
     pub use crate::runtime::AutoName;
     pub use crate::snapshot::{MetaData, SnapshotContents};
     #[cfg(feature = "redactions")]
-    pub use crate::{redaction::ContentPath, settings::Redactions};
+    pub use crate::{
+        redaction::{ContentPath, Redaction},
+        settings::Redactions,
+    };
 }
 
 // exported for cargo-insta only
@@ -323,6 +343,10 @@ pub mod internals {
 pub use crate::{
     runtime::print_snapshot_diff, snapshot::PendingInlineSnapshot, snapshot::SnapshotContents,
 };
+
+// useful for redactions
+#[cfg(feature = "redactions")]
+pub use crate::redaction::dynamic_redaction;
 
 // these are here to make the macros work
 #[doc(hidden)]

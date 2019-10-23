@@ -1,9 +1,7 @@
-use std::borrow::Cow;
-use std::fmt;
-use std::sync::Arc;
-
 use pest::Parser;
 use pest_derive::Parser;
+use std::borrow::Cow;
+use std::fmt;
 
 use crate::content::Content;
 
@@ -21,6 +19,9 @@ impl SelectorParseError {
 }
 
 /// Represents a path for a callback function.
+///
+/// This can be converted into a string with `to_string` to see a stringified
+/// path that the selector matched.
 #[derive(Clone, Debug)]
 pub struct ContentPath<'a>(&'a [PathItem]);
 
@@ -44,21 +45,14 @@ impl<'a> fmt::Display for ContentPath<'a> {
     }
 }
 
-/// Asserts a value at a certain path.
-type AssertionFunc = dyn Fn(&Content, ContentPath<'_>) + Sync + Send;
-
 /// Replaces a value with another one.
-type ReplacementFunc = dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send;
 
-/// Types of redactions
-#[derive(Clone)]
+/// Represents a redaction.
 pub enum Redaction {
     /// Static redaction with new content.
     Static(Content),
-    /// non-redaction but running an assertion function
-    Assertion(Arc<Box<AssertionFunc>>),
     /// Redaction with new content.
-    Replacement(Arc<Box<ReplacementFunc>>),
+    Replacement(Box<dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send>),
 }
 
 macro_rules! impl_from {
@@ -99,16 +93,40 @@ impl<'a> From<&'a [u8]> for Redaction {
     }
 }
 
-impl<I, F> From<F> for Redaction
+/// Creates a dynamic redaction.
+///
+/// This can be used to redact a value with a different value but instead of
+/// statically declaring it a dynamic value can be computed.  This can also
+/// be used to perform assertions before replacing the value.
+///
+/// The closure is passed two arguments: the value as [`Content`](internals/enum.Content.html)
+/// and the path that was selected (as [`ContentPath`](internals/struct.ContentPath.html)).
+///
+/// Example:
+///
+/// ```rust
+/// # use insta::{Settings, dynamic_redaction};
+/// # let mut settings = Settings::new();
+/// settings.add_redaction(".id", dynamic_redaction(|value, path| {
+///     assert_eq!(path.to_string(), ".id");
+///     assert_eq!(
+///         value
+///             .as_str()
+///             .unwrap()
+///             .chars()
+///             .filter(|&c| c == '-')
+///             .count(),
+///         4
+///     );
+///     "[uuid]"
+/// }));
+/// ```
+pub fn dynamic_redaction<I, F>(func: F) -> Redaction
 where
     I: Into<Content>,
     F: Fn(Content, ContentPath<'_>) -> I + Send + Sync + 'static,
 {
-    fn from(func: F) -> Redaction {
-        Redaction::Replacement(Arc::new(Box::new(move |value, path| {
-            func(value, path).into()
-        })))
-    }
+    Redaction::Replacement(Box::new(move |c, p| func(c, p).into()))
 }
 
 impl Redaction {
@@ -116,10 +134,6 @@ impl Redaction {
     fn redact(&self, value: Content, path: &[PathItem]) -> Content {
         match *self {
             Redaction::Static(ref new_val) => new_val.clone(),
-            Redaction::Assertion(ref callback) => {
-                callback(&value, ContentPath(path));
-                value
-            }
             Redaction::Replacement(ref callback) => callback(value, ContentPath(path)),
         }
     }
