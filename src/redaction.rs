@@ -52,7 +52,7 @@ pub enum Redaction {
     /// Static redaction with new content.
     Static(Content),
     /// Redaction with new content.
-    Replacement(Box<dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send>),
+    Dynamic(Box<dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send>),
 }
 
 macro_rules! impl_from {
@@ -126,7 +126,7 @@ where
     I: Into<Content>,
     F: Fn(Content, ContentPath<'_>) -> I + Send + Sync + 'static,
 {
-    Redaction::Replacement(Box::new(move |c, p| func(c, p).into()))
+    Redaction::Dynamic(Box::new(move |c, p| func(c, p).into()))
 }
 
 impl Redaction {
@@ -134,7 +134,7 @@ impl Redaction {
     fn redact(&self, value: Content, path: &[PathItem]) -> Content {
         match *self {
             Redaction::Static(ref new_val) => new_val.clone(),
-            Redaction::Replacement(ref callback) => callback(value, ContentPath(path)),
+            Redaction::Dynamic(ref callback) => callback(value, ContentPath(path)),
         }
     }
 }
