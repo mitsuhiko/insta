@@ -237,6 +237,22 @@ assert_yaml_snapshot!(&User {
 });
 ```
 
+It's also possible to execute a callback that can produce a new value
+instead of hardcoding a replacement value by using the
+[`dynamic_redaction`](fn.dynamic_redaction.html) function:
+
+```rust
+assert_yaml_snapshot!(&User {
+    id: Uuid::new_v4(),
+    username: "john_doe".to_string(),
+}, {
+    ".id" => dynamic_redaction(|value, _| {
+        // assert that the value looks like a uuid here
+        "[uuid]"
+    }),
+});
+```
+
 ## Inline Snapshots
 
 Additionally snapshots can also be stored inline.  In that case the format
