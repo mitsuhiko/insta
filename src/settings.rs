@@ -25,17 +25,12 @@ thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings
 pub struct Redactions(Vec<(Selector<'static>, Arc<Redaction>)>);
 
 #[cfg(feature = "redactions")]
-impl<'a> From<Vec<(&'a str, Content)>> for Redactions {
-    fn from(value: Vec<(&'a str, Content)>) -> Redactions {
+impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
+    fn from(value: Vec<(&'a str, Redaction)>) -> Redactions {
         Redactions(
             value
                 .into_iter()
-                .map(|x| {
-                    (
-                        Selector::parse(x.0).unwrap().make_static(),
-                        Arc::new(Redaction::Static(x.1)),
-                    )
-                })
+                .map(|x| (Selector::parse(x.0).unwrap().make_static(), Arc::new(x.1)))
                 .collect(),
         )
     }
