@@ -276,6 +276,9 @@ impl<'a> Selector<'a> {
                         self.redact_struct(seq, redaction, path),
                     )
                 }
+                Content::NewtypeStruct(name, inner) => {
+                    Content::NewtypeStruct(name, Box::new(self.redact_impl(*inner, redaction, path)))
+                }
                 other => other,
             }
         }

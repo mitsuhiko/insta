@@ -119,3 +119,41 @@ fn test_with_random_value_json_settings2() {
         );
     });
 }
+
+#[test]
+fn test_redact_newtype() {
+    #[derive(Serialize, Clone)]
+    pub struct User {
+        id: String,
+        name: String,
+    }
+
+    #[derive(Serialize)]
+    pub struct UserWrapper(User);
+
+    let user = User {
+        id: "my-id".into(),
+        name: "my-name".into(),
+    };
+    let wrapper = UserWrapper(user.clone());
+
+    // This works as expected
+    assert_json_snapshot!(user, {
+        r#".id"# => "[id]"
+    }, @r###"
+    {
+      "id": "[id]",
+      "name": "my-name"
+    }
+    "###);
+
+    // This fails - 'id' is not redacted
+    assert_json_snapshot!(wrapper, {
+        r#".id"# => "[id]"
+    }, @r###"
+    {
+      "id": "[id]",
+      "name": "my-name"
+    }
+    "###);
+}
