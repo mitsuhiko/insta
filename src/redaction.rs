@@ -111,15 +111,6 @@ where
     }
 }
 
-impl<F> From<F> for Redaction
-where
-    F: Fn(&Content, ContentPath<'_>) + Send + Sync + 'static,
-{
-    fn from(func: F) -> Redaction {
-        Redaction::Assertion(Arc::new(Box::new(func)))
-    }
-}
-
 impl Redaction {
     /// Performs the redaction of the value at the given path.
     fn redact(&self, value: Content, path: &[PathItem]) -> Content {
