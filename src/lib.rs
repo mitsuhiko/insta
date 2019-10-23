@@ -235,6 +235,10 @@
 //! });
 //! ```
 //!
+//! Through settings dynamic redactions can also be defined which are callback based
+//! which can also be used for assertions.  For more information see
+//! [settings](struct.Settings.html).
+//!
 //! # Inline Snapshots
 //!
 //! Additionally snapshots can also be stored inline.  In that case the format
@@ -309,9 +313,9 @@ pub use crate::snapshot::{MetaData, Snapshot};
 pub mod internals {
     pub use crate::content::Content;
     pub use crate::runtime::AutoName;
-    #[cfg(feature = "redactions")]
-    pub use crate::{settings::Redactions, redaction::ContentPath};
     pub use crate::snapshot::{MetaData, SnapshotContents};
+    #[cfg(feature = "redactions")]
+    pub use crate::{redaction::ContentPath, settings::Redactions};
 }
 
 // exported for cargo-insta only

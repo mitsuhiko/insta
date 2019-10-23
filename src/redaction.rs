@@ -1,6 +1,6 @@
 use std::borrow::Cow;
-use std::sync::Arc;
 use std::fmt;
+use std::sync::Arc;
 
 use pest::Parser;
 use pest_derive::Parser;
