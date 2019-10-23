@@ -46,6 +46,18 @@ fn test_with_random_value() {
     });
 }
 
+#[test]
+fn test_with_random_value_and_trailing_comma() {
+    assert_yaml_snapshot!("user", &User {
+        id: Uuid::new_v4(),
+        username: "john_doe".to_string(),
+        email: Email("john@example.com".to_string()),
+        extra: "".to_string(),
+    }, {
+        ".id" => "[uuid]",
+    });
+}
+
 #[cfg(feature = "ron")]
 #[test]
 fn test_with_random_value_ron() {
