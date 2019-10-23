@@ -16,16 +16,15 @@ use crate::utils::{err_msg, QuietExit};
 #[derive(StructOpt, Debug)]
 #[structopt(
     bin_name = "cargo-insta",
-    raw(
-        setting = "AppSettings::ArgRequiredElseHelp",
-        global_setting = "AppSettings::UnifiedHelpMessage",
-        global_setting = "AppSettings::DeriveDisplayOrder",
-        global_setting = "AppSettings::DontCollapseArgsInUsage"
-    )
+    setting = AppSettings::ArgRequiredElseHelp,
+    global_setting = AppSettings::ColorNever,
+    global_setting = AppSettings::UnifiedHelpMessage,
+    global_setting = AppSettings::DeriveDisplayOrder,
+    global_setting = AppSettings::DontCollapseArgsInUsage
 )]
 pub struct Opts {
     /// Coloring: auto, always, never
-    #[structopt(long, raw(global = "true"), value_name = "WHEN")]
+    #[structopt(long, global = true, value_name = "WHEN")]
     pub color: Option<String>,
 
     #[structopt(subcommand)]
@@ -59,7 +58,7 @@ pub struct TargetArgs {
     #[structopt(long, value_name = "PATH", parse(from_os_str))]
     pub workspace_root: Option<PathBuf>,
     /// Sets the extensions to consider.  Defaults to `.snap`
-    #[structopt(short = "e", long, value_name = "EXTENSIONS", raw(multiple = "true"))]
+    #[structopt(short = "e", long, value_name = "EXTENSIONS", multiple = true)]
     pub extensions: Vec<String>,
     /// Work on all packages in the workspace
     #[structopt(long)]

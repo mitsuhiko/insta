@@ -182,7 +182,7 @@ impl FilePatcher {
             fn visit_attribute(&mut self, i: &'ast syn::Attribute) {
                 let start = i.span().start().line;
                 let end = i
-                    .tts
+                    .tokens
                     .clone()
                     .into_iter()
                     .last()
@@ -192,7 +192,7 @@ impl FilePatcher {
                     return;
                 }
 
-                let tokens: Vec<_> = i.tts.clone().into_iter().collect();
+                let tokens: Vec<_> = i.tokens.clone().into_iter().collect();
                 self.scan_nested_macros(&tokens);
             }
 
@@ -200,7 +200,7 @@ impl FilePatcher {
                 let indentation = i.span().start().column;
                 let start = i.span().start().line;
                 let end = i
-                    .tts
+                    .tokens
                     .clone()
                     .into_iter()
                     .last()
@@ -211,7 +211,7 @@ impl FilePatcher {
                 }
 
                 // if we have under two tokens there is not much else we need to do
-                let tokens: Vec<_> = i.tts.clone().into_iter().collect();
+                let tokens: Vec<_> = i.tokens.clone().into_iter().collect();
                 if tokens.len() < 2 {
                     return;
                 }
