@@ -47,6 +47,30 @@ fn test_with_random_value() {
 }
 
 #[test]
+fn test_with_random_value_inline_callback() {
+    assert_yaml_snapshot!("user", &User {
+        id: Uuid::new_v4(),
+        username: "john_doe".to_string(),
+        email: Email("john@example.com".to_string()),
+        extra: "".to_string(),
+    }, {
+        ".id" => |value: insta::internals::Content, path: insta::internals::ContentPath| {
+            assert_eq!(path.to_string(), ".id");
+            assert_eq!(
+                value
+                    .as_str()
+                    .unwrap()
+                    .chars()
+                    .filter(|&c| c == '-')
+                    .count(),
+                4
+            );
+            "[uuid]"
+        }
+    });
+}
+
+#[test]
 fn test_with_random_value_and_trailing_comma() {
     assert_yaml_snapshot!("user", &User {
         id: Uuid::new_v4(),

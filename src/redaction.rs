@@ -61,9 +61,62 @@ pub enum Redaction {
     Replacement(Arc<Box<ReplacementFunc>>),
 }
 
-impl<T: Into<Content>> From<T> for Redaction {
-    fn from(value: T) -> Redaction {
-        Redaction::Static(value.into())
+macro_rules! impl_from {
+    ($ty:ty) => {
+        impl From<$ty> for Redaction {
+            fn from(value: $ty) -> Redaction {
+                Redaction::Static(Content::from(value))
+            }
+        }
+    };
+}
+
+impl_from!(());
+impl_from!(bool);
+impl_from!(u8);
+impl_from!(u16);
+impl_from!(u32);
+impl_from!(u64);
+impl_from!(i8);
+impl_from!(i16);
+impl_from!(i32);
+impl_from!(i64);
+impl_from!(f32);
+impl_from!(f64);
+impl_from!(char);
+impl_from!(String);
+impl_from!(Vec<u8>);
+
+impl<'a> From<&'a str> for Redaction {
+    fn from(value: &'a str) -> Redaction {
+        Redaction::Static(Content::from(value))
+    }
+}
+
+impl<'a> From<&'a [u8]> for Redaction {
+    fn from(value: &'a [u8]) -> Redaction {
+        Redaction::Static(Content::from(value))
+    }
+}
+
+impl<I, F> From<F> for Redaction
+where
+    I: Into<Content>,
+    F: Fn(Content, ContentPath<'_>) -> I + Send + Sync + 'static,
+{
+    fn from(func: F) -> Redaction {
+        Redaction::Replacement(Arc::new(Box::new(move |value, path| {
+            func(value, path).into()
+        })))
+    }
+}
+
+impl<F> From<F> for Redaction
+where
+    F: Fn(&Content, ContentPath<'_>) + Send + Sync + 'static,
+{
+    fn from(func: F) -> Redaction {
+        Redaction::Assertion(Arc::new(Box::new(func)))
     }
 }
 
