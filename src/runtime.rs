@@ -35,7 +35,7 @@ enum UpdateBehavior {
 
 #[cfg(windows)]
 fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
-    path.as_ref().to_str().unwrap().replace('\\', "/").into()
+    path.as_ref().to_str().unwrap().replace('\\', "/")
 }
 
 #[cfg(not(windows))]
@@ -470,12 +470,12 @@ pub(super) fn get_inline_snapshot_value(frozen_value: &str) -> String {
                     return "".to_string();
                 }
             }
-            if let Some(remainer) = line.get(indentation..) {
-                if remainer.starts_with('⋮') {
+            if let Some(remainder) = line.get(indentation..) {
+                if remainder.starts_with('⋮') {
                     // 3 because '⋮' is three utf-8 bytes long
-                    buf.push_str(&remainer[3..]);
+                    buf.push_str(&remainder[3..]);
                     buf.push('\n');
-                } else if remainer.trim().is_empty() {
+                } else if remainder.trim().is_empty() {
                     continue;
                 } else {
                     return "".to_string();
@@ -568,14 +568,14 @@ a
     assert_eq!(min_indentation(t), 0);
 }
 
-// Removes excess indentation, removes excess whitespare at start & end
+// Removes excess indentation, removes excess whitespace at start & end
 fn normalize_inline_snapshot(snapshot: &str) -> String {
-    let indendation = min_indentation(snapshot);
+    let indentation = min_indentation(snapshot);
     snapshot
         .trim_end()
         .lines()
         .skip_while(|l| l.is_empty())
-        .map(|l| &l[indendation..])
+        .map(|l| &l[indentation..])
         .collect::<Vec<&str>>()
         .join("\n")
 }
