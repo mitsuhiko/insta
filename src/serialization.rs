@@ -39,7 +39,7 @@ pub fn serialize_content(
         SerializationFormat::Yaml => {
             let serialized = serde_yaml::to_string(&content).unwrap();
             match location {
-                SnapshotLocation::Inline => serialized.to_string(),
+                SnapshotLocation::Inline => serialized,
                 SnapshotLocation::File => serialized[4..].to_string(),
             }
         }
