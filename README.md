@@ -58,7 +58,7 @@ Install `insta`:
 
 Recommended way if you have `cargo-edit` installed:
 
-```bash
+```rust
 $ cargo add --dev insta
 ```
 
@@ -67,7 +67,7 @@ dependency.
 
 And for an improved review experience also install `cargo-insta`:
 
-```bash
+```rust
 $ cargo install cargo-insta
 ```
 
@@ -87,7 +87,7 @@ to the old ones with the extra `.new` extension.  Once you are satisifed
 move the new files over.  To simplify this workflow you can use
 `cargo insta review` which will let you interactively review them:
 
-```bash
+```rust
 $ cargo test
 $ cargo insta review
 ```
@@ -101,7 +101,7 @@ For more information on updating see [Snapshot Updating].
 The committed snapshot files will have a header with some meta information
 that can make debugging easier and the snapshot:
 
-```
+```rust
 ---
 expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
 source: tests/test_user.rs
@@ -129,7 +129,7 @@ snapshots into `.snap.new` files if no CI is detected.
 When `new` is used as mode the `cargo-insta` command can be used to review
 the snapshots conveniently:
 
-```bash
+```rust
 $ cargo install cargo-insta
 $ cargo test
 $ cargo insta review
@@ -148,14 +148,14 @@ to pass so that all new snapshots are created in one go.
 
 This can be enabled by setting `INSTA_FORCE_PASS` to `1`:
 
-```bash
+```rust
 $ INSTA_FORCE_PASS=1 cargo test --no-fail-fast
 ```
 
 A better way to do this is to run `cargo insta test --review` which will
 run all tests with force pass and then bring up the review tool:
 
-```bash
+```rust
 $ cargo insta test --review
 ```
 
