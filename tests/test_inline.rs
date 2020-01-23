@@ -44,7 +44,8 @@ fn test_unnamed_thread_single_line() {
 #[test]
 fn test_newline() {
     // https://github.com/mitsuhiko/insta/issues/39
-    assert_snapshot!("\n", @"");
+    assert_snapshot!("\n", @"
+");
 }
 
 #[cfg(feature = "ron")]
@@ -75,10 +76,12 @@ fn test_ron_inline() {
 
 #[test]
 fn test_json_inline() {
-    assert_json_snapshot!(vec!["foo", "bar"], @r###"[
-  "foo",
-  "bar"
-]"###);
+    assert_json_snapshot!(vec!["foo", "bar"], @r###"
+    [
+      "foo",
+      "bar"
+    ]
+    "###);
 }
 
 #[test]

@@ -260,11 +260,18 @@ impl SnapshotContents {
             out.extend(
                 contents
                     .lines()
-                    // `lines` removes the final line ending - add back
-                    .chain("\n".lines())
                     // newline needs to be at the start, since we don't want the end
                     // finishing with a newline - the closing suffix should be on the same line
-                    .map(|l| format!("\n{:width$}{l}", "", width = indentation, l = l)),
+                    .map(|l| {
+                        format!(
+                            "\n{:width$}{l}",
+                            "",
+                            width = if l.is_empty() { 0 } else { indentation },
+                            l = l
+                        )
+                    })
+                    // `lines` removes the final line ending - add back
+                    .chain(Some(format!("\n{:width$}", "", width = indentation)).into_iter()),
             );
         } else {
             out.push_str(contents);
@@ -334,6 +341,19 @@ b"[1..];
         SnapshotContents(t.to_string()).to_inline(0),
         "r###\"
     a
+    b
+\"###"
+    );
+
+    let t = &"
+    a
+
+    b"[1..];
+    assert_eq!(
+        SnapshotContents(t.to_string()).to_inline(0),
+        "r###\"
+    a
+
     b
 \"###"
     );

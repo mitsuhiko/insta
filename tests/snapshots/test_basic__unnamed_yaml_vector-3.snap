@@ -1,8 +1,6 @@
 ---
-created: "2019-03-05T09:03:05.376897Z"
-creator: insta@0.6.3
 source: tests/test_basic.rs
-expression: "vec![1 , 2 , 3 , 4 , 5]"
+expression: "vec![1, 2, 3, 4, 5]"
 ---
 - 1
 - 2

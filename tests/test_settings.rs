@@ -34,11 +34,11 @@ fn test_bound_to_thread() {
     settings.set_sort_maps(true);
     settings.bind_to_thread();
     assert_yaml_snapshot!(&map, @r###"
-     ---
-     a: first value
-     b: second value
-     c: third value
-     d: fourth value
+    ---
+    a: first value
+    b: second value
+    c: third value
+    d: fourth value
     "###);
 }
 
