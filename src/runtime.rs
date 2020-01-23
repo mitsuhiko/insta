@@ -283,7 +283,7 @@ fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
 }
 
 pub fn get_snapshot_filename(
-    module_name: &str,
+    module_path: &str,
     snapshot_name: &str,
     cargo_workspace: &Path,
     base: &str,
@@ -293,7 +293,7 @@ pub fn get_snapshot_filename(
     Settings::with(|settings| {
         root.join(base.parent().unwrap())
             .join(settings.snapshot_path())
-            .join(format!("{}__{}.snap", module_name, snapshot_name))
+            .join(format!("{}__{}.snap", module_path, snapshot_name))
     })
 }
 
@@ -724,17 +724,17 @@ pub fn assert_snapshot(
     line: u32,
     expr: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let module_name = module_path.rsplit("::").next().unwrap();
+    let module_path = module_path.replace("::", "__");
     let cargo_workspace = get_cargo_workspace(manifest_dir);
 
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
         ReferenceValue::Named(snapshot_name) => {
             let snapshot_name: Cow<str> = match snapshot_name {
                 Some(snapshot_name) => snapshot_name,
-                None => (generate_snapshot_name_for_thread(module_path).into()),
+                None => (generate_snapshot_name_for_thread(&module_path).into()),
             };
             let snapshot_file =
-                get_snapshot_filename(module_name, &snapshot_name, &cargo_workspace, file);
+                get_snapshot_filename(&module_path, &snapshot_name, &cargo_workspace, file);
             let old = if fs::metadata(&snapshot_file).is_ok() {
                 Some(Snapshot::from_file(&snapshot_file)?)
             } else {
@@ -743,7 +743,7 @@ pub fn assert_snapshot(
             (snapshot_name, Some(snapshot_file), old, None)
         }
         ReferenceValue::Inline(contents) => {
-            let snapshot_name = generate_snapshot_name_for_thread(module_path);
+            let snapshot_name = generate_snapshot_name_for_thread(&module_path);
             let mut filename = cargo_workspace.join(file);
             filename.set_file_name(format!(
                 ".{}.pending-snap",
@@ -757,7 +757,7 @@ pub fn assert_snapshot(
                 Cow::Owned(snapshot_name),
                 None,
                 Some(Snapshot::from_components(
-                    module_name.to_string(),
+                    module_path.to_string(),
                     None,
                     MetaData::default(),
                     SnapshotContents::from_inline(contents),
@@ -769,7 +769,7 @@ pub fn assert_snapshot(
 
     let new_snapshot_contents: SnapshotContents = new_snapshot.into();
     let new = Snapshot::from_components(
-        module_name.to_string(),
+        module_path.to_string(),
         Some(snapshot_name.to_string()),
         MetaData {
             source: Some(path_to_storage(file)),

@@ -1,0 +1,5 @@
+---
+source: tests/test_basic.rs
+expression: "\"aoeu\""
+---
+aoeu

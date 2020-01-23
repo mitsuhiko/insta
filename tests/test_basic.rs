@@ -39,6 +39,14 @@ fn test_unnamed_json_vector() {
     assert_json_snapshot!(vec![1, 2, 3, 4, 5]);
 }
 
+mod nested {
+    #[test]
+    fn test_nested_module() {
+        use insta::assert_snapshot;
+        assert_snapshot!("aoeu");
+    }
+}
+
 struct TestDisplay;
 
 impl fmt::Display for TestDisplay {
