@@ -1,6 +1,4 @@
 ---
-created: "2019-08-23T21:11:06.365815Z"
-creator: insta@0.10.1
 source: tests/test_redaction.rs
 expression: "&User{id: Uuid::new_v4(),\n      username: \"jason_doe\".to_string(),\n      email: Email(\"jason@example.com\".to_string()),\n      extra: \"ssn goes here\".to_string(),}"
 ---
