@@ -5,7 +5,6 @@ use insta::{
     assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot, with_settings, Settings,
 };
 use serde::Serialize;
-use uuid::Uuid;
 
 #[test]
 fn test_selector_parser() {
@@ -29,7 +28,7 @@ pub struct Email(String);
 
 #[derive(Serialize)]
 pub struct User {
-    id: Uuid,
+    id: u32,
     username: String,
     email: Email,
     extra: String,
@@ -38,7 +37,7 @@ pub struct User {
 #[test]
 fn test_with_random_value() {
     assert_yaml_snapshot!("user", &User {
-        id: Uuid::new_v4(),
+        id: 42,
         username: "john_doe".to_string(),
         email: Email("john@example.com".to_string()),
         extra: "".to_string(),
@@ -50,7 +49,7 @@ fn test_with_random_value() {
 #[test]
 fn test_with_random_value_inline_callback() {
     assert_yaml_snapshot!("user", &User {
-        id: Uuid::new_v4(),
+        id: 23,
         username: "john_doe".to_string(),
         email: Email("john@example.com".to_string()),
         extra: "".to_string(),
@@ -74,7 +73,7 @@ fn test_with_random_value_inline_callback() {
 #[test]
 fn test_with_random_value_and_trailing_comma() {
     assert_yaml_snapshot!("user", &User {
-        id: Uuid::new_v4(),
+        id: 11,
         username: "john_doe".to_string(),
         email: Email("john@example.com".to_string()),
         extra: "".to_string(),
@@ -88,7 +87,7 @@ fn test_with_random_value_and_trailing_comma() {
 fn test_with_random_value_ron() {
     use insta::assert_ron_snapshot;
     assert_ron_snapshot!("user_ron", &User {
-        id: Uuid::new_v4(),
+        id: 53,
         username: "john_ron".to_string(),
         email: Email("john@example.com".to_string()),
         extra: "".to_string(),
@@ -100,7 +99,7 @@ fn test_with_random_value_ron() {
 #[test]
 fn test_with_random_value_json() {
     assert_json_snapshot!("user_json", &User {
-        id: Uuid::new_v4(),
+        id: 9999,
         username: "jason_doe".to_string(),
         email: Email("jason@example.com".to_string()),
         extra: "ssn goes here".to_string(),
@@ -119,7 +118,7 @@ fn test_with_random_value_json_settings() {
         assert_json_snapshot!(
             "user_json_settings",
             &User {
-                id: Uuid::new_v4(),
+                id: 122,
                 username: "jason_doe".to_string(),
                 email: Email("jason@example.com".to_string()),
                 extra: "ssn goes here".to_string(),
@@ -148,7 +147,7 @@ fn test_with_callbacks() {
         assert_json_snapshot!(
             "user_json_settings_callback",
             &User {
-                id: Uuid::new_v4(),
+                id: 1234,
                 username: "jason_doe".to_string(),
                 email: Email("jason@example.com".to_string()),
                 extra: "extra here".to_string(),
@@ -165,7 +164,7 @@ fn test_with_random_value_json_settings2() {
     ]}, {
         assert_json_snapshot!(
             &User {
-                id: Uuid::new_v4(),
+                id: 975,
                 username: "jason_doe".to_string(),
                 email: Email("jason@example.com".to_string()),
                 extra: "ssn goes here".to_string(),

@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use uuid::Uuid;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
@@ -11,12 +11,15 @@ use serde_json;
 use super::runtime::get_inline_snapshot_value;
 
 lazy_static! {
-    static ref RUN_ID: Uuid = Uuid::new_v4();
+    static ref RUN_ID: String = {
+        let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        format!("{}-{}", d.as_secs(), d.subsec_nanos())
+    };
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PendingInlineSnapshot {
-    pub run_id: Uuid,
+    pub run_id: String,
     pub line: u32,
     pub new: Option<Snapshot>,
     pub old: Option<Snapshot>,
@@ -28,7 +31,7 @@ impl PendingInlineSnapshot {
             new,
             old,
             line,
-            run_id: *RUN_ID,
+            run_id: RUN_ID.clone(),
         }
     }
 
@@ -38,7 +41,7 @@ impl PendingInlineSnapshot {
         let mut rv = iter.collect::<Result<Vec<PendingInlineSnapshot>, _>>()?;
 
         // remove all but the last run
-        if let Some(last_run_id) = rv.last().map(|x| x.run_id) {
+        if let Some(last_run_id) = rv.last().map(|x| x.run_id.clone()) {
             rv.retain(|x| x.run_id == last_run_id);
         }
 
