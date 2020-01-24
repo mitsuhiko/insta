@@ -21,6 +21,7 @@ fn test_selector_parser() {
     assert_selector!("foo_bar_range_to", ".foo.bar[:10]");
     assert_selector!("foo_bar_range_from", ".foo.bar[10:]");
     assert_selector!("foo_bar_range", ".foo.bar[10:20]");
+    assert_selector!("foo_bar_deep", ".foo.bar.**");
 }
 
 #[derive(Serialize)]
@@ -207,6 +208,32 @@ fn test_redact_newtype() {
     {
       "id": "[id]",
       "name": "my-name"
+    }
+    "###);
+}
+
+#[test]
+fn test_redact_recursive() {
+    #[derive(Serialize)]
+    pub struct Node {
+        id: u64,
+        next: Option<Box<Node>>,
+    }
+
+    let root = Node {
+        id: 0,
+        next: Some(Box::new(Node { id: 1, next: None })),
+    };
+
+    assert_json_snapshot!(root, {
+        ".**.id" => "[id]",
+    }, @r###"
+    {
+      "id": "[id]",
+      "next": {
+        "id": "[id]",
+        "next": null
+      }
     }
     "###);
 }

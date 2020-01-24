@@ -190,8 +190,9 @@ impl PathItem {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Segment<'a> {
+    DeepWildcard,
     Wildcard,
     Key(Cow<'a, str>),
     Index(u64),
@@ -217,10 +218,23 @@ impl<'a> Selector<'a> {
                 other => assert_eq!(other, Rule::selector),
             }
             let mut segments = vec![];
+            let mut have_deep_wildcard = false;
             for segment_pair in selector_pair.into_inner() {
                 segments.push(match segment_pair.as_rule() {
                     Rule::identity => continue,
                     Rule::wildcard => Segment::Wildcard,
+                    Rule::deep_wildcard => {
+                        if have_deep_wildcard {
+                            return Err(SelectorParseError(pest::error::Error::new_from_span(
+                                pest::error::ErrorVariant::CustomError {
+                                    message: "deep wildcard used twice".into(),
+                                },
+                                segment_pair.as_span(),
+                            )));
+                        }
+                        have_deep_wildcard = true;
+                        Segment::DeepWildcard
+                    }
                     Rule::key => Segment::Key(Cow::Borrowed(&segment_pair.as_str()[1..])),
                     Rule::subscript => {
                         let subscript_rule = segment_pair.into_inner().next().unwrap();
@@ -289,6 +303,7 @@ impl<'a> Selector<'a> {
                             Segment::Key(x) => Segment::Key(Cow::Owned(x.into_owned())),
                             Segment::Index(x) => Segment::Index(x),
                             Segment::Wildcard => Segment::Wildcard,
+                            Segment::DeepWildcard => Segment::DeepWildcard,
                             Segment::Range(a, b) => Segment::Range(a, b),
                         })
                         .collect()
@@ -297,24 +312,58 @@ impl<'a> Selector<'a> {
         }
     }
 
-    pub fn is_match(&self, path: &[PathItem]) -> bool {
-        for selector in &self.selectors {
+    fn segment_is_match(&self, segment: &Segment, element: &PathItem) -> bool {
+        match *segment {
+            Segment::Wildcard => true,
+            Segment::DeepWildcard => true,
+            Segment::Key(ref k) => element.as_str() == Some(&k),
+            Segment::Index(i) => element.as_u64() == Some(i),
+            Segment::Range(start, end) => element.range_check(start, end),
+        }
+    }
+
+    fn selector_is_match(&self, selector: &[Segment], path: &[PathItem]) -> bool {
+        if let Some(idx) = selector.iter().position(|x| *x == Segment::DeepWildcard) {
+            let forward_sel = &selector[..idx];
+            let backward_sel = &selector[idx + 1..];
+
+            if path.len() <= idx {
+                return false;
+            }
+
+            for (segment, element) in forward_sel.iter().zip(path.iter()) {
+                if !self.segment_is_match(segment, element) {
+                    return false;
+                }
+            }
+
+            for (segment, element) in backward_sel.iter().rev().zip(path.iter().rev()) {
+                if !self.segment_is_match(segment, element) {
+                    return false;
+                }
+            }
+
+            true
+        } else {
             if selector.len() != path.len() {
                 return false;
             }
             for (segment, element) in selector.iter().zip(path.iter()) {
-                let is_match = match *segment {
-                    Segment::Wildcard => true,
-                    Segment::Key(ref k) => element.as_str() == Some(&k),
-                    Segment::Index(i) => element.as_u64() == Some(i),
-                    Segment::Range(start, end) => element.range_check(start, end),
-                };
-                if !is_match {
+                if !self.segment_is_match(segment, element) {
                     return false;
                 }
             }
+            true
         }
-        true
+    }
+
+    pub fn is_match(&self, path: &[PathItem]) -> bool {
+        for selector in &self.selectors {
+            if self.selector_is_match(&selector, path) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn redact(&self, value: Content, redaction: &Redaction) -> Content {
@@ -401,6 +450,9 @@ impl<'a> Selector<'a> {
                     name,
                     Box::new(self.redact_impl(*inner, redaction, path)),
                 ),
+                Content::Some(contents) => {
+                    Content::Some(Box::new(self.redact_impl(*contents, redaction, path)))
+                }
                 other => other,
             }
         }

@@ -1,6 +1,7 @@
 WHITESPACE = _{ WHITE_SPACE }
 
 ident = @{ XID_START ~ XID_CONTINUE* }
+deep_wildcard = { "." ~ "**" }
 wildcard = { "." ~ "*" }
 key = @{ "." ~ ident }
 int = { "-"? ~ NUMBER+ }
@@ -12,7 +13,7 @@ range = { "[" ~ int ~ ":" ~ int ~ "]" }
 range_to = { "[" ~ ":" ~ int ~ "]" }
 range_from = { "[" ~ int ~ ":]" }
 
-segment = _{ wildcard | key | subscript | full_range | range | range_to | range_from }
+segment = _{ deep_wildcard | wildcard | key | subscript | full_range | range | range_to | range_from }
 identity = { "." }
 
 selector = { (segment+ | identity) }
