@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13
+
+* Add support for deep wildcard matches (#92)
+* Use module paths for test names (#87) 
+* Do not emit useless indentations for empty lines (#88)
+
+## 0.12
+
+* Improve redactions support (#81)
+* Deprecated macros are now hidden
+* Reduce number of dependencies further.
+* Added support for newtype struct redactions.
+* Fixed bugs with recursive content operations (#80)
+
 ## 0.11
 
 * redactions are now an optional feature that must be turned on to be used (`redactions`).
