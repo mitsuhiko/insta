@@ -212,6 +212,7 @@ The following selectors exist:
 - `[start:end]`: selects all items from `start` to `end` (end excluding,
   supports negative indexing).
 - `.*`: selects all keys on that depth
+- `.**`: performs a deep match (zero or more items).  Can only be used once.
 
 Example usage:
 
