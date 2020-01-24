@@ -198,7 +198,7 @@ macro_rules! _prepare_snapshot_for_redaction {
                 $crate::_macro_support::SerializationFormat::$format,
                 $crate::_macro_support::SnapshotLocation::$location
             );
-            (vec, dbg!(value))
+            (vec, value)
         }
     }
 }
