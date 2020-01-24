@@ -119,22 +119,28 @@ impl SnapshotContainer {
             }
             SnapshotContainerKind::Inline => {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
-                let mut patcher = FilePatcher::open(&target_path)?;
-                pending_vec.sort_by_key(|pending| pending.line);
                 let mut have_new = false;
-                for (id, pending) in pending_vec.into_iter().enumerate() {
-                    if let Some(new) = pending.new {
-                        snapshots.push(PendingSnapshot {
-                            id,
-                            old: pending.old,
-                            new,
-                            op: Operation::Skip,
-                            line: Some(pending.line),
-                        });
-                        patcher.add_snapshot_macro(pending.line as usize);
-                        have_new = true;
+
+                let rv = if fs::metadata(&target_path).is_ok() {
+                    let mut patcher = FilePatcher::open(&target_path)?;
+                    pending_vec.sort_by_key(|pending| pending.line);
+                    for (id, pending) in pending_vec.into_iter().enumerate() {
+                        if let Some(new) = pending.new {
+                            snapshots.push(PendingSnapshot {
+                                id,
+                                old: pending.old,
+                                new,
+                                op: Operation::Skip,
+                                line: Some(pending.line),
+                            });
+                            patcher.add_snapshot_macro(pending.line as usize);
+                            have_new = true;
+                        }
                     }
-                }
+                    Some(patcher)
+                } else {
+                    None
+                };
 
                 // if we don't actually have any new pending we better delete the file.
                 // this can happen if the test code left a stale snapshot behind.
@@ -144,7 +150,7 @@ impl SnapshotContainer {
                     fs::remove_file(&snapshot_path)?;
                 }
 
-                Some(patcher)
+                rv
             }
         };
 
