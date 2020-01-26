@@ -1,8 +1,10 @@
 # Changelog
 
-## 0.14
+## 0.13.1
 
 * Added support for `INSTA_UPDATE=unseen` to write out unseen snapshots without review (#96)
+* Added the `backtrace` feature which adds support for test name (and thus snapshot name)
+  recovery from the backtrace if rust-test is not used in concurrent mode (#94, #98)
 
 ## 0.13
 
