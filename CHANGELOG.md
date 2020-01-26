@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14
+
+* Added support for `INSTA_UPDATE=unseen` to write out unseen snapshots without review (#95)
+
 ## 0.13
 
 * Add support for deep wildcard matches (#92)
