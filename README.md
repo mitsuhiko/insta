@@ -8,7 +8,7 @@
 ## What are snapshot tests
 
 Snapshots tests (also sometimes called approval tests) are tests that
-assert values against a reference value (the snapshot). This is similar
+assert values against a reference value (the snapshot).  This is similar
 to how `assert_eq!` lets you compare a value against a reference value but
 unlike simple string assertions snapshot tests let you test against complex
 values and come with comprehensive tools to review changes.
@@ -31,16 +31,16 @@ This crate exports multiple macros for snapshot testing:
   types implementing `serde::Serialize`.
 
 Snapshots are stored in the `snapshots` folder right next to the test file
-where this is used. The name of the file is `<module>__<name>.snap` where
-the `name` of the snapshot. Snapshots can either be explicitly named or the
+where this is used.  The name of the file is `<module>__<name>.snap` where
+the `name` of the snapshot.  Snapshots can either be explicitly named or the
 name is derived from the test name.
 
-Additionally snapshots can also be stored inline. In that case the
+Additionally snapshots can also be stored inline.  In that case the
 [`cargo-insta`](https://crates.io/crates/cargo-insta) tool is necessary.
 See [inline snapshots](#inline-snapshots) for more information.
 
 For macros that work with `serde::Serialize` this crate also permits
-redacting of partial values. See [redactions](#redactions) for more
+redacting of partial values.  See [redactions](#redactions) for more
 information.
 
 ## What it looks like:
@@ -82,9 +82,9 @@ fn test_snapshots() {
 ```
 
 The recommended flow is to run the tests once, have them fail and check
-if the result is okay. By default the new snapshots are stored next
-to the old ones with the extra `.new` extension. Once you are satisifed
-move the new files over. To simplify this workflow you can use
+if the result is okay.  By default the new snapshots are stored next
+to the old ones with the extra `.new` extension.  Once you are satisifed
+move the new files over.  To simplify this workflow you can use
 `cargo insta review` which will let you interactively review them:
 
 ```rust
@@ -94,7 +94,7 @@ $ cargo insta review
 
 For more information on updating see [Snapshot Updating].
 
-[snapshot updating]: #snapshot-updating
+[Snapshot Updating]: #snapshot-updating
 
 ## Snapshot files
 
@@ -116,7 +116,7 @@ source: tests/test_user.rs
 ## Snapshot updating
 
 During test runs snapshots will be updated according to the `INSTA_UPDATE`
-environment variable. The default is `auto` which will write all new
+environment variable.  The default is `auto` which will write all new
 snapshots into `.snap.new` files if no CI is detected.
 
 `INSTA_UPDATE` modes:
@@ -143,7 +143,7 @@ For more information invoke `cargo insta --help`.
 
 ## Test assertions
 
-By default the tests will fail when the snapshot assertion fails. However
+By default the tests will fail when the snapshot assertion fails.  However
 if a test produces more than one snapshot it can be useful to force a test
 to pass so that all new snapshots are created in one go.
 
@@ -167,8 +167,12 @@ which case the snapshot name is derived from the test name (with an optional
 leading `test_` prefix removed.
 
 This works because the rust test runner names the thread by the test name
-and the name is taken from the thread name. In case your test spawns additional
+and the name is taken from the thread name.  In case your test spawns additional
 threads this will not work and you will need to provide a name explicitly.
+There are some situations in which rust test does not name or use threads.
+In these cases insta will panic with an error.  The `backtrace` feature can
+be enabled in which case insta will attempt to recover the test name from
+the backtrace.
 
 Explicit snapshot naming can also otherwise be useful to be more explicit
 when multiple snapshots are tested within one function as the default
@@ -186,7 +190,7 @@ fn test_something() {
 ```
 
 This will create two snapshots: `first_snapshot` for the first value and
-`second_snapshot` for the second value. Without explicit naming the
+`second_snapshot` for the second value.  Without explicit naming the
 snapshots would be called `something` and `something-2`.
 
 ## Redactions
@@ -194,10 +198,10 @@ snapshots would be called `something` and `something-2`.
 **Feature:** `redactions`
 
 For all snapshots created based on `serde::Serialize` output `insta`
-supports redactions. This permits replacing values with hardcoded other
+supports redactions.  This permits replacing values with hardcoded other
 values to make snapshots stable when otherwise random or otherwise changing
-values are involved. Redactions became an optional feature in insta
-0.11 and can be enabled with the `redactions` feature./
+values are involved.  Redactions became an optional feature in insta
+0.11 and can be enabled with the `redactions` feature.
 
 Redactions can be defined as the third argument to those macros with
 the syntax `{ selector => replacement_value }`.
@@ -213,7 +217,7 @@ The following selectors exist:
 - `[start:end]`: selects all items from `start` to `end` (end excluding,
   supports negative indexing).
 - `.*`: selects all keys on that depth
-- `.**`: performs a deep match (zero or more items). Can only be used once.
+- `.**`: performs a deep match (zero or more items).  Can only be used once.
 
 Example usage:
 
@@ -257,10 +261,10 @@ assert_yaml_snapshot!(&User {
 
 ## Inline Snapshots
 
-Additionally snapshots can also be stored inline. In that case the format
+Additionally snapshots can also be stored inline.  In that case the format
 for the snapshot macros is `assert_snapshot!(reference_value, @"snapshot")`.
 The leading at sign (`@`) indicates that the following string is the
-reference value. `cargo-insta` will then update that string with the new
+reference value.  `cargo-insta` will then update that string with the new
 value on review.
 
 Example:
@@ -277,23 +281,23 @@ assert_yaml_snapshot!(User {
 ```
 
 After the initial test failure you can run `cargo insta review` to
-accept the change. The file will then be updated automatically.
+accept the change.  The file will then be updated automatically.
 
 ## Features
 
 The following features exist:
 
-- `ron`: enables RON support (`assert_ron_snapshot!`)
-- `redactions`: enables support for redactions
+* `ron`: enables RON support (`assert_ron_snapshot!`)
+* `redactions`: enables support for redactions
 
 ## Settings
 
 There are some settings that can be changed on a per-thread (and thus
-per-test) basis. For more information see [settings](struct.Settings.html).
+per-test) basis.  For more information see [settings](struct.Settings.html).
 
 ## Legacy Snapshot Formats
 
-With insta 0.11 the snapshot format was improved for inline snapshots. The
+With insta 0.11 the snapshot format was improved for inline snapshots.  The
 old snapshot format will continue to be available but if you want to upgrade
 them make sure the tests pass first and then run the following command
 to force a rewrite of them all:
