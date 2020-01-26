@@ -42,7 +42,7 @@ fn test_with_random_value() {
         email: Email("john@example.com".to_string()),
         extra: "".to_string(),
     }, {
-        ".id" => "[uuid]"
+        ".id" => "[id]"
     });
 }
 
@@ -56,16 +56,8 @@ fn test_with_random_value_inline_callback() {
     }, {
         ".id" => insta::dynamic_redaction(|value, path| {
             assert_eq!(path.to_string(), ".id");
-            assert_eq!(
-                value
-                    .as_str()
-                    .unwrap()
-                    .chars()
-                    .filter(|&c| c == '-')
-                    .count(),
-                4
-            );
-            "[uuid]"
+            assert_eq!(value.as_u64().unwrap(), 23);
+            "[id]"
         }),
     });
 }
@@ -78,7 +70,7 @@ fn test_with_random_value_and_trailing_comma() {
         email: Email("john@example.com".to_string()),
         extra: "".to_string(),
     }, {
-        ".id" => "[uuid]",
+        ".id" => "[id]",
     });
 }
 
@@ -92,7 +84,7 @@ fn test_with_random_value_ron() {
         email: Email("john@example.com".to_string()),
         extra: "".to_string(),
     }, {
-        ".id" => "[uuid]"
+        ".id" => "[id]"
     });
 }
 
@@ -104,7 +96,7 @@ fn test_with_random_value_json() {
         email: Email("jason@example.com".to_string()),
         extra: "ssn goes here".to_string(),
     }, {
-        ".id" => "[uuid]",
+        ".id" => "[id]",
         ".extra" => "[extra]"
     });
 }
@@ -112,7 +104,7 @@ fn test_with_random_value_json() {
 #[test]
 fn test_with_random_value_json_settings() {
     let mut settings = Settings::new();
-    settings.add_redaction(".id", "[uuid]");
+    settings.add_redaction(".id", "[id]");
     settings.add_redaction(".extra", "[extra]");
     settings.bind(|| {
         assert_json_snapshot!(
@@ -132,16 +124,8 @@ fn test_with_callbacks() {
     let mut settings = Settings::new();
     settings.add_dynamic_redaction(".id", |value, path| {
         assert_eq!(path.to_string(), ".id");
-        assert_eq!(
-            value
-                .as_str()
-                .unwrap()
-                .chars()
-                .filter(|&c| c == '-')
-                .count(),
-            4
-        );
-        "[uuid]"
+        assert_eq!(value.as_u64().unwrap(), 1234);
+        "[id]"
     });
     settings.bind(|| {
         assert_json_snapshot!(
@@ -159,7 +143,7 @@ fn test_with_callbacks() {
 #[test]
 fn test_with_random_value_json_settings2() {
     with_settings!({redactions => vec![
-        (".id", "[uuid]".into()),
+        (".id", "[id]".into()),
         (".extra", "[extra]".into()),
     ]}, {
         assert_json_snapshot!(
