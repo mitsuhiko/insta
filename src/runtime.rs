@@ -423,14 +423,62 @@ pub enum ReferenceValue<'a> {
     Inline(&'a str),
 }
 
-fn generate_snapshot_name_for_thread(module_path: &str) -> String {
+#[cfg(feature = "backtrace")]
+fn test_name_from_backtrace(module_path: &str) -> String {
+    let backtrace = backtrace::Backtrace::new();
+    let frames = backtrace.frames();
+    let mut state = 0;
+
+    for (symbol, mangled_symbol) in frames
+        .iter()
+        .rev()
+        .flat_map(|x| x.symbols())
+        .filter_map(|x| x.name())
+        .filter_map(|x| x.as_str().map(|n| (x, n.trim_start_matches('_'))))
+    {
+        println!("{} [{}] -- {}", symbol, state, module_path);
+        if state == 0 && mangled_symbol.starts_with("ZN4test8run_test") {
+            state = 1;
+        } else if state == 1 && mangled_symbol == "rust_maybe_catch_panic" {
+            state = 2;
+        } else if state == 2 {
+            let demangled = format!("{}", symbol);
+            if demangled.starts_with(module_path) {
+                let mut rv = &demangled[..demangled.len() - 19];
+                if rv.ends_with("::{{closure}}") {
+                    rv = &rv[..rv.len() - 13];
+                }
+                return rv.to_string();
+            }
+        }
+    }
+
+    panic!("cannot determine test name from backtrace");
+}
+
+fn generate_snapshot_name_for_thread(module_name: &str, module_path: &str) -> String {
     let thread = thread::current();
-    let mut name = thread
-        .name()
-        .expect("test thread is unnamed, no snapshot name can be generated");
-    name = name.rsplit("::").next().unwrap();
+    let mut name = Cow::Borrowed(
+        thread
+            .name()
+            .expect("test thread is unnamed, no snapshot name can be generated"),
+    );
+    if name == "main" {
+        #[cfg(feature = "backtrace")]
+        {
+            name = Cow::Owned(test_name_from_backtrace(module_path));
+        }
+        #[cfg(not(feature = "backtrace"))]
+        {
+            panic!(
+                "tests run with disabled concurrency, automatic snapshot \
+                 name generation is not supported"
+            );
+        }
+    }
+    let mut name = name.rsplit("::").next().unwrap();
     // we really do not care about poisoning here.
-    let key = format!("{}::{}", module_path, name);
+    let key = format!("{}::{}", module_name, name);
     let mut counters = TEST_NAME_COUNTERS.lock().unwrap_or_else(|x| x.into_inner());
     let test_idx = counters.get(&key).cloned().unwrap_or(0) + 1;
     if name.starts_with("test_") {
@@ -736,17 +784,17 @@ pub fn assert_snapshot(
     line: u32,
     expr: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let module_path = module_path.replace("::", "__");
+    let module_name = module_path.replace("::", "__");
     let cargo_workspace = get_cargo_workspace(manifest_dir);
 
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
         ReferenceValue::Named(snapshot_name) => {
             let snapshot_name: Cow<str> = match snapshot_name {
                 Some(snapshot_name) => snapshot_name,
-                None => (generate_snapshot_name_for_thread(&module_path).into()),
+                None => (generate_snapshot_name_for_thread(&module_name, module_path).into()),
             };
             let snapshot_file =
-                get_snapshot_filename(&module_path, &snapshot_name, &cargo_workspace, file);
+                get_snapshot_filename(&module_name, &snapshot_name, &cargo_workspace, file);
             let old = if fs::metadata(&snapshot_file).is_ok() {
                 Some(Snapshot::from_file(&snapshot_file)?)
             } else {
@@ -755,7 +803,7 @@ pub fn assert_snapshot(
             (snapshot_name, Some(snapshot_file), old, None)
         }
         ReferenceValue::Inline(contents) => {
-            let snapshot_name = generate_snapshot_name_for_thread(&module_path);
+            let snapshot_name = generate_snapshot_name_for_thread(&module_name, module_path);
             let mut filename = cargo_workspace.join(file);
             filename.set_file_name(format!(
                 ".{}.pending-snap",
@@ -769,7 +817,7 @@ pub fn assert_snapshot(
                 Cow::Owned(snapshot_name),
                 None,
                 Some(Snapshot::from_components(
-                    module_path.to_string(),
+                    module_name.to_string(),
                     None,
                     MetaData::default(),
                     SnapshotContents::from_inline(contents),
@@ -781,7 +829,7 @@ pub fn assert_snapshot(
 
     let new_snapshot_contents: SnapshotContents = new_snapshot.into();
     let new = Snapshot::from_components(
-        module_path.to_string(),
+        module_name.to_string(),
         Some(snapshot_name.to_string()),
         MetaData {
             source: Some(path_to_storage(file)),
