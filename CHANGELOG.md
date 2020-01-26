@@ -2,7 +2,7 @@
 
 ## 0.14
 
-* Added support for `INSTA_UPDATE=unseen` to write out unseen snapshots without review (#95)
+* Added support for `INSTA_UPDATE=unseen` to write out unseen snapshots without review (#96)
 
 ## 0.13
 
