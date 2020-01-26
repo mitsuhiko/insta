@@ -86,7 +86,7 @@ fn test_format_rust_expression() {
     assert_snapshot!(format_rust_expression("😄😄😄😄😄"), @"😄😄😄😄😄")
 }
 
-fn update_snapshot_behavior() -> UpdateBehavior {
+fn update_snapshot_behavior(unseen: bool) -> UpdateBehavior {
     match env::var("INSTA_UPDATE").ok().as_ref().map(|x| x.as_str()) {
         None | Some("") | Some("auto") => {
             if is_ci() {
@@ -97,6 +97,13 @@ fn update_snapshot_behavior() -> UpdateBehavior {
         }
         Some("always") | Some("1") => UpdateBehavior::InPlace,
         Some("new") => UpdateBehavior::NewFile,
+        Some("unseen") => {
+            if unseen {
+                UpdateBehavior::NewFile
+            } else {
+                UpdateBehavior::InPlace
+            }
+        }
         Some("no") => UpdateBehavior::NoUpdate,
         _ => panic!("invalid value for INSTA_UPDATE"),
     }
@@ -674,13 +681,18 @@ fn update_snapshots(
     line: u32,
     pending_snapshots: Option<PathBuf>,
 ) -> Result<(), Box<dyn Error>> {
-    match update_snapshot_behavior() {
+    let unseen = snapshot_file.map_or(false, |x| fs::metadata(x).is_ok());
+    match update_snapshot_behavior(unseen) {
         UpdateBehavior::InPlace => {
             if let Some(ref snapshot_file) = snapshot_file {
                 new.save(snapshot_file)?;
                 eprintln!(
                     "  {} {}\n",
-                    style("updated snapshot").green(),
+                    if unseen {
+                        style("created previously unseen snapshot").green()
+                    } else {
+                        style("updated snapshot").green()
+                    },
                     style(snapshot_file.display()).cyan().underlined(),
                 );
                 return Ok(());

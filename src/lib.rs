@@ -121,7 +121,8 @@
 //!
 //! - `auto`: the default. `no` for CI environments or `new` otherwise
 //! - `always`: overwrites old snapshot files with new ones unasked
-//! - `new`: write new snapshots into `.snap.new` files.
+//! - `unseen`: behaves like `always` for new snapshots and `new` for others
+//! - `new`: write new snapshots into `.snap.new` files
 //! - `no`: does not update snapshot files at all (just runs tests)
 //!
 //! When `new` is used as mode the `cargo-insta` command can be used to review
