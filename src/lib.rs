@@ -167,6 +167,10 @@
 //! This works because the rust test runner names the thread by the test name
 //! and the name is taken from the thread name.  In case your test spawns additional
 //! threads this will not work and you will need to provide a name explicitly.
+//! There are some situations in which rust test does not name or use threads.
+//! In these cases insta will panic with an error.  The `backtrace` feature can
+//! be enabled in which case insta will attempt to recover the test name from
+//! the backtrace.
 //!
 //! Explicit snapshot naming can also otherwise be useful to be more explicit
 //! when multiple snapshots are tested within one function as the default
@@ -195,7 +199,7 @@
 //! supports redactions.  This permits replacing values with hardcoded other
 //! values to make snapshots stable when otherwise random or otherwise changing
 //! values are involved.  Redactions became an optional feature in insta
-//! 0.11 and can be enabled with the `redactions` feature./
+//! 0.11 and can be enabled with the `redactions` feature.
 //!
 //! Redactions can be defined as the third argument to those macros with
 //! the syntax `{ selector => replacement_value }`.

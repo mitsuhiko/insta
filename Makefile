@@ -13,6 +13,7 @@ cargotest:
 	@cargo test
 	@cargo test --all-features
 	@cargo test --no-default-features
+	@cargo test --features redactions,backtrace -- --test-threads 1
 	@cd cargo-insta; cargo test
 
 format:
