@@ -27,10 +27,19 @@ lazy_static! {
     static ref TEST_NAME_COUNTERS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum UpdateBehavior {
     InPlace,
     NewFile,
     NoUpdate,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OutputBehavior {
+    Diff,
+    Summary,
+    Minimal,
+    Nothing,
 }
 
 #[cfg(windows)]
@@ -106,6 +115,16 @@ fn update_snapshot_behavior(unseen: bool) -> UpdateBehavior {
         }
         Some("no") => UpdateBehavior::NoUpdate,
         _ => panic!("invalid value for INSTA_UPDATE"),
+    }
+}
+
+fn output_snapshot_behavior() -> OutputBehavior {
+    match env::var("INSTA_OUTPUT").ok().as_ref().map(|x| x.as_str()) {
+        None | Some("") | Some("diff") => OutputBehavior::Diff,
+        Some("summary") => OutputBehavior::Summary,
+        Some("minimal") => OutputBehavior::Minimal,
+        Some("none") => OutputBehavior::Nothing,
+        _ => panic!("invalid value for INSTA_OUTPUT"),
     }
 }
 
@@ -308,11 +327,10 @@ pub fn get_snapshot_filename(
     })
 }
 
-/// Prints a diff against an old snapshot.
-pub fn print_snapshot_diff(
+/// Prints the summary of a snapshot
+pub fn print_snapshot_summary(
     workspace_root: &Path,
-    new: &Snapshot,
-    old_snapshot: Option<&Snapshot>,
+    snapshot: &Snapshot,
     snapshot_file: Option<&Path>,
     line: Option<u32>,
 ) {
@@ -328,13 +346,13 @@ pub fn print_snapshot_diff(
             style(snapshot_file.display()).cyan().underlined()
         );
     }
-    if let Some(name) = new.snapshot_name() {
+    if let Some(name) = snapshot.snapshot_name() {
         println!("Snapshot: {}", style(name).yellow());
     } else {
         println!("Snapshot: {}", style("<inline>").dim());
     }
 
-    if let Some(ref value) = new.metadata().get_relative_source(workspace_root) {
+    if let Some(ref value) = snapshot.metadata().get_relative_source(workspace_root) {
         println!(
             "Source: {}{}",
             style(value.display()).cyan(),
@@ -345,6 +363,17 @@ pub fn print_snapshot_diff(
             }
         );
     }
+}
+
+/// Prints a diff against an old snapshot.
+pub fn print_snapshot_diff(
+    workspace_root: &Path,
+    new: &Snapshot,
+    old_snapshot: Option<&Snapshot>,
+    snapshot_file: Option<&Path>,
+    line: Option<u32>,
+) {
+    print_snapshot_summary(workspace_root, new, snapshot_file, line);
     let changeset = Changeset::new(
         old_snapshot.as_ref().map_or("", |x| x.contents_str()),
         &new.contents_str(),
@@ -382,6 +411,24 @@ fn print_snapshot_diff_with_title(
         snapshot_file,
         Some(line),
     );
+}
+
+fn print_snapshot_summary_with_title(
+    workspace_root: &Path,
+    new_snapshot: &Snapshot,
+    old_snapshot: Option<&Snapshot>,
+    line: u32,
+    snapshot_file: Option<&Path>,
+) {
+    let _old_snapshot = old_snapshot;
+    let width = console::Term::stdout().size().1 as usize;
+    println!(
+        "{title:━^width$}",
+        title = style(" Snapshot Summary ").bold(),
+        width = width
+    );
+    print_snapshot_summary(workspace_root, new_snapshot, snapshot_file, Some(line));
+    println!("{title:━^width$}", title = "", width = width);
 }
 
 /// Special marker to use an automatic name.
@@ -731,25 +778,30 @@ fn update_snapshots(
     old: Option<Snapshot>,
     line: u32,
     pending_snapshots: Option<PathBuf>,
+    output_behavior: OutputBehavior,
 ) -> Result<(), Box<dyn Error>> {
     let unseen = snapshot_file.map_or(false, |x| fs::metadata(x).is_ok());
+    let should_print = output_behavior != OutputBehavior::Nothing;
+
     match update_snapshot_behavior(unseen) {
         UpdateBehavior::InPlace => {
             if let Some(ref snapshot_file) = snapshot_file {
                 new.save(snapshot_file)?;
-                eprintln!(
-                    "  {} {}\n",
-                    if unseen {
-                        style("created previously unseen snapshot").green()
-                    } else {
-                        style("updated snapshot").green()
-                    },
-                    style(snapshot_file.display()).cyan().underlined(),
-                );
+                if should_print {
+                    eprintln!(
+                        "{} {}",
+                        if unseen {
+                            style("created previously unseen snapshot").green()
+                        } else {
+                            style("updated snapshot").green()
+                        },
+                        style(snapshot_file.display()).cyan().underlined(),
+                    );
+                }
                 return Ok(());
-            } else {
+            } else if should_print {
                 eprintln!(
-                    "  {}",
+                    "{}",
                     style("error: cannot update inline snapshots in-place")
                         .red()
                         .bold(),
@@ -761,11 +813,13 @@ fn update_snapshots(
                 let mut new_path = snapshot_file.to_path_buf();
                 new_path.set_extension("snap.new");
                 new.save(&new_path)?;
-                eprintln!(
-                    "  {} {}\n",
-                    style("stored new snapshot").green(),
-                    style(new_path.display()).cyan().underlined(),
-                );
+                if should_print {
+                    eprintln!(
+                        "{} {}",
+                        style("stored new snapshot").green(),
+                        style(new_path.display()).cyan().underlined(),
+                    );
+                }
             } else {
                 PendingInlineSnapshot::new(Some(new), old, line)
                     .save(pending_snapshots.unwrap())?;
@@ -788,6 +842,7 @@ pub fn assert_snapshot(
     expr: &str,
 ) -> Result<(), Box<dyn Error>> {
     let cargo_workspace = get_cargo_workspace(manifest_dir);
+    let output_behavior = output_snapshot_behavior();
 
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
         ReferenceValue::Named(snapshot_name) => {
@@ -864,6 +919,7 @@ pub fn assert_snapshot(
                     old,
                     line,
                     pending_snapshots,
+                    output_behavior,
                 )?;
             }
 
@@ -871,17 +927,27 @@ pub fn assert_snapshot(
         }
     }
 
-    print_snapshot_diff_with_title(
-        cargo_workspace,
-        &new,
-        old.as_ref(),
-        line,
-        snapshot_file.as_ref().map(|x| x.as_path()),
-    );
-    println!(
-        "{hint}",
-        hint = style("To update snapshots run `cargo insta review`").dim(),
-    );
+    match output_behavior {
+        OutputBehavior::Summary => {
+            print_snapshot_summary_with_title(
+                cargo_workspace,
+                &new,
+                old.as_ref(),
+                line,
+                snapshot_file.as_ref().map(|x| x.as_path()),
+            );
+        }
+        OutputBehavior::Diff => {
+            print_snapshot_diff_with_title(
+                cargo_workspace,
+                &new,
+                old.as_ref(),
+                line,
+                snapshot_file.as_ref().map(|x| x.as_path()),
+            );
+        }
+        _ => {}
+    }
 
     update_snapshots(
         snapshot_file.as_ref().map(|x| x.as_path()),
@@ -889,7 +955,15 @@ pub fn assert_snapshot(
         old,
         line,
         pending_snapshots,
+        output_behavior,
     )?;
+
+    if output_behavior != OutputBehavior::Nothing {
+        println!(
+            "{hint}",
+            hint = style("To update snapshots run `cargo insta review`").dim(),
+        );
+    }
 
     if should_fail_in_tests() {
         panic!(

@@ -191,6 +191,17 @@
 //! `second_snapshot` for the second value.  Without explicit naming the
 //! snapshots would be called `something` and `something-2`.
 //!
+//! # Test Output Control
+//!
+//! Insta by default will output quite a lot of information as tests run.  For
+//! instance it will print out all the diffs.  This can be controlled by setting
+//! the `INSTA_OUTPUT` environment variable.  The following values are possible:
+//!
+//! * `diff` (default): prints the diffs
+//! * `summary`: prints only summaries (name of snapshot files etc.)
+//! * `mimimal`: like `summary` but more minimal
+//! * `none`: insta will not output any extra information
+//!
 //! # Redactions
 //!
 //! **Feature:** `redactions`
