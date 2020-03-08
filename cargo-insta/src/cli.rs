@@ -15,7 +15,7 @@ use crate::utils::{err_msg, QuietExit};
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
 #[structopt(
-    bin_name = "cargo-insta",
+    bin_name = "cargo insta",
     setting = AppSettings::ArgRequiredElseHelp,
     global_setting = AppSettings::ColorNever,
     global_setting = AppSettings::UnifiedHelpMessage,
@@ -32,7 +32,7 @@ pub struct Opts {
 }
 
 #[derive(StructOpt, Debug)]
-#[structopt(bin_name = "cargo-insta")]
+#[structopt(bin_name = "cargo insta")]
 pub enum Command {
     /// Interactively review snapshots
     #[structopt(name = "review", alias = "verify")]
