@@ -201,7 +201,7 @@ the `INSTA_OUTPUT` environment variable.  The following values are possible:
 
 * `diff` (default): prints the diffs
 * `summary`: prints only summaries (name of snapshot files etc.)
-* `mimimal`: like `summary` but more minimal
+* `minimal`: like `summary` but more minimal
 * `none`: insta will not output any extra information
 
 ## Redactions
