@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0
+
+* Added test output control (`INSTA_OUTPUT` envvar). (#103)
+
+## 0.14.0
+
+* Dependency bump for `console` (lowers total dependency count)
+* Change binary name to `cargo insta` in help pages.
+
 ## 0.13.1
 
 * Added support for `INSTA_UPDATE=unseen` to write out unseen snapshots without review (#96)
