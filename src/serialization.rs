@@ -1,6 +1,5 @@
 use serde::de::value::Error as ValueError;
 use serde::Serialize;
-use serde_json;
 
 use crate::content::{Content, ContentSerializer};
 use crate::settings::Settings;

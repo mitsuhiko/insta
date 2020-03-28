@@ -6,7 +6,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 use super::runtime::get_inline_snapshot_value;
 
@@ -210,7 +209,7 @@ impl Snapshot {
 
     /// Returns the snapshot name.
     pub fn snapshot_name(&self) -> Option<&str> {
-        self.snapshot_name.as_ref().map(|x| x.as_str())
+        self.snapshot_name.as_deref()
     }
 
     /// The metadata in the snapshot.

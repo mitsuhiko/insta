@@ -16,7 +16,6 @@ use difference::{Changeset, Difference};
 use lazy_static::lazy_static;
 
 use serde::Deserialize;
-use serde_json;
 
 use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
@@ -96,7 +95,7 @@ fn test_format_rust_expression() {
 }
 
 fn update_snapshot_behavior(unseen: bool) -> UpdateBehavior {
-    match env::var("INSTA_UPDATE").ok().as_ref().map(|x| x.as_str()) {
+    match env::var("INSTA_UPDATE").ok().as_deref() {
         None | Some("") | Some("auto") => {
             if is_ci() {
                 UpdateBehavior::NoUpdate
@@ -119,7 +118,7 @@ fn update_snapshot_behavior(unseen: bool) -> UpdateBehavior {
 }
 
 fn output_snapshot_behavior() -> OutputBehavior {
-    match env::var("INSTA_OUTPUT").ok().as_ref().map(|x| x.as_str()) {
+    match env::var("INSTA_OUTPUT").ok().as_deref() {
         None | Some("") | Some("diff") => OutputBehavior::Diff,
         Some("summary") => OutputBehavior::Summary,
         Some("minimal") => OutputBehavior::Minimal,
@@ -129,11 +128,7 @@ fn output_snapshot_behavior() -> OutputBehavior {
 }
 
 fn force_update_snapshots() -> bool {
-    match env::var("INSTA_FORCE_UPDATE_SNAPSHOTS")
-        .ok()
-        .as_ref()
-        .map(|x| x.as_str())
-    {
+    match env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").ok().as_deref() {
         None | Some("") | Some("0") => false,
         Some("1") => true,
         _ => panic!("invalid value for INSTA_FORCE_UPDATE_SNAPSHOTS"),
@@ -141,11 +136,7 @@ fn force_update_snapshots() -> bool {
 }
 
 fn should_fail_in_tests() -> bool {
-    match env::var("INSTA_FORCE_PASS")
-        .ok()
-        .as_ref()
-        .map(|x| x.as_str())
-    {
+    match env::var("INSTA_FORCE_PASS").ok().as_deref() {
         None | Some("") | Some("0") => true,
         Some("1") => false,
         _ => panic!("invalid value for INSTA_FORCE_PASS"),
@@ -385,10 +376,7 @@ pub fn print_snapshot_diff(
     } else {
         println!("{}", style("+new results").green());
     }
-    print_changeset(
-        &changeset,
-        new.metadata().expression.as_ref().map(|x| x.as_str()),
-    );
+    print_changeset(&changeset, new.metadata().expression.as_deref());
 }
 
 fn print_snapshot_diff_with_title(
@@ -919,7 +907,7 @@ pub fn assert_snapshot(
 
             if force_update_snapshots() {
                 update_snapshots(
-                    snapshot_file.as_ref().map(|x| x.as_path()),
+                    snapshot_file.as_deref(),
                     new,
                     old,
                     line,
@@ -939,7 +927,7 @@ pub fn assert_snapshot(
                 &new,
                 old.as_ref(),
                 line,
-                snapshot_file.as_ref().map(|x| x.as_path()),
+                snapshot_file.as_deref(),
             );
         }
         OutputBehavior::Diff => {
@@ -948,14 +936,14 @@ pub fn assert_snapshot(
                 &new,
                 old.as_ref(),
                 line,
-                snapshot_file.as_ref().map(|x| x.as_path()),
+                snapshot_file.as_deref(),
             );
         }
         _ => {}
     }
 
     update_snapshots(
-        snapshot_file.as_ref().map(|x| x.as_path()),
+        snapshot_file.as_deref(),
         new,
         old,
         line,
