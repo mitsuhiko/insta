@@ -17,7 +17,7 @@ use lazy_static::lazy_static;
 
 use serde::Deserialize;
 
-use crate::settings::Settings;
+use crate::settings::{OutputBehavior, Settings};
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
 use crate::utils::is_ci;
 
@@ -31,14 +31,6 @@ enum UpdateBehavior {
     InPlace,
     NewFile,
     NoUpdate,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum OutputBehavior {
-    Diff,
-    Summary,
-    Minimal,
-    Nothing,
 }
 
 #[cfg(windows)]
@@ -118,8 +110,12 @@ fn update_snapshot_behavior(unseen: bool) -> UpdateBehavior {
 }
 
 fn output_snapshot_behavior() -> OutputBehavior {
+    let ob = Settings::with(|settings| {
+        settings.output_behavior()
+    });
     match env::var("INSTA_OUTPUT").ok().as_deref() {
-        None | Some("") | Some("diff") => OutputBehavior::Diff,
+        None | Some("") => ob,
+        Some("diff") => OutputBehavior::Diff,
         Some("summary") => OutputBehavior::Summary,
         Some("minimal") => OutputBehavior::Minimal,
         Some("none") => OutputBehavior::Nothing,

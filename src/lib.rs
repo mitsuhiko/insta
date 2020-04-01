@@ -337,7 +337,7 @@ mod redaction;
 #[cfg(test)]
 mod test;
 
-pub use crate::settings::Settings;
+pub use crate::settings::{OutputBehavior, Settings};
 pub use crate::snapshot::{MetaData, Snapshot};
 
 /// Exposes some library internals.

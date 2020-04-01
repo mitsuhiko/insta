@@ -13,11 +13,21 @@ lazy_static! {
     static ref DEFAULT_SETTINGS: Arc<ActualSettings> = Arc::new(ActualSettings {
         sort_maps: false,
         snapshot_path: "snapshots".into(),
+        output_behavior: OutputBehavior::Diff,
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
     });
 }
 thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings::new()));
+
+/// Represents the desired output behavior.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutputBehavior {
+    Diff,
+    Summary,
+    Minimal,
+    Nothing,
+}
 
 /// Represents stored redactions.
 #[cfg(feature = "redactions")]
@@ -41,6 +51,7 @@ impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
 pub struct ActualSettings {
     pub sort_maps: bool,
     pub snapshot_path: PathBuf,
+    pub output_behavior: OutputBehavior,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
 }
@@ -161,6 +172,20 @@ impl Settings {
             .0
             .iter()
             .map(|&(ref a, ref b)| (a, &**b))
+    }
+
+    /// Sets the output behavior.
+    ///
+    /// It will be overridden by setting the `INSTA_OUTPUT` environment variable.
+    ///
+    /// Defaults to `diff`.
+    pub fn set_output_behavior<P: AsRef<Path>>(&mut self, output_behavior: OutputBehavior) {
+        self._private_inner_mut().output_behavior = output_behavior;
+    }
+
+    /// Returns the snapshot path.
+    pub fn output_behavior(&self) -> OutputBehavior {
+        self.inner.output_behavior
     }
 
     /// Sets the snapshot path.
