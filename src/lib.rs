@@ -56,7 +56,7 @@
 //!
 //! Recommended way if you have `cargo-edit` installed:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo add --dev insta
 //! ```
 //!
@@ -65,11 +65,11 @@
 //!
 //! And for an improved review experience also install `cargo-insta`:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo install cargo-insta
 //! ```
 //!
-//! ```rust,ignore
+//! ```no_run
 //! use insta::assert_debug_snapshot;
 //!
 //! #[test]
@@ -85,7 +85,7 @@
 //! move the new files over.  To simplify this workflow you can use
 //! `cargo insta review` which will let you interactively review them:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo test
 //! $ cargo insta review
 //! ```
@@ -99,7 +99,7 @@
 //! The committed snapshot files will have a header with some meta information
 //! that can make debugging easier and the snapshot:
 //!
-//! ```ignore
+//! ```text
 //! ---
 //! expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
 //! source: tests/test_user.rs
@@ -128,7 +128,7 @@
 //! When `new` is used as mode the `cargo-insta` command can be used to review
 //! the snapshots conveniently:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo install cargo-insta
 //! $ cargo test
 //! $ cargo insta review
@@ -147,14 +147,14 @@
 //!
 //! This can be enabled by setting `INSTA_FORCE_PASS` to `1`:
 //!
-//! ```ignore
+//! ```text
 //! $ INSTA_FORCE_PASS=1 cargo test --no-fail-fast
 //! ```
 //!
 //! A better way to do this is to run `cargo insta test --review` which will
 //! run all tests with force pass and then bring up the review tool:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo insta test --review
 //! ```
 //!
@@ -179,7 +179,7 @@
 //! To provide an explicit name provide the name of the snapshot as first
 //! argument to the macro:
 //!
-//! ```rust,ignore
+//! ```no_run
 //! #[test]
 //! fn test_something() {
 //!     assert_snapshot!("first_snapshot", "first value");
@@ -230,7 +230,9 @@
 //!
 //! Example usage:
 //!
-//! ```rust,ignore
+//! ```no_run
+//! # use insta::*; use serde::Serialize; use std::collections::HashMap;
+//! # #[derive(Serialize)] struct Uuid; impl Uuid { fn new_v4() -> Self { Uuid } }
 //! #[derive(Serialize)]
 //! pub struct User {
 //!     id: Uuid,
@@ -256,7 +258,9 @@
 //! instead of hardcoding a replacement value by using the
 //! [`dynamic_redaction`](fn.dynamic_redaction.html) function:
 //!
-//! ```rust,ignore
+//! ```no_run
+//! # use insta::*; use serde::Serialize;
+//! # #[derive(Serialize)] struct Uuid; impl Uuid { fn new_v4() -> Self { Uuid } }
 //! # #[derive(Serialize)]
 //! # pub struct User {
 //! #     id: Uuid,
@@ -283,7 +287,8 @@
 //!
 //! Example:
 //!
-//! ```rust,ignore
+//! ```no_run
+//! # use insta::*; use serde::Serialize;
 //! #[derive(Serialize)]
 //! pub struct User {
 //!     username: String,
@@ -316,7 +321,7 @@
 //! them make sure the tests pass first and then run the following command
 //! to force a rewrite of them all:
 //!
-//! ```text,ignore
+//! ```text
 //! $ cargo insta test --accept --force-update-snapshots
 //! ```
 #[macro_use]
