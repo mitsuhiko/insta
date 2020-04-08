@@ -76,6 +76,9 @@ pub struct MetaData {
     /// Optionally the expression that created the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expression: Option<String>,
+    /// The input file (relative to workspace root) for glob parameterized tests.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input: Option<String>,
 }
 
 impl MetaData {

@@ -296,13 +296,14 @@ macro_rules! assert_snapshot {
     ($name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::test_snapshot(
             // Creates a ReferenceValue::Named variant
-            $name.into(),
-            &$value,
-            env!("CARGO_MANIFEST_DIR"),
-            module_path!(),
-            file!(),
-            line!(),
-            $debug_expr,
+            $name.into(),               // refval
+            &$value,                    // new_snapshot
+            env!("CARGO_MANIFEST_DIR"), // manifest_dir
+            module_path!(),             // module_path
+            None,                       // input_path
+            file!(),                    // file
+            line!(),                    // line
+            $debug_expr,                // expr
         )
         .unwrap()
         .assert();
@@ -325,14 +326,14 @@ macro_rules! assert_glob_snapshot {
     };
     ($name:expr, $glob:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_glob_snapshot(
-            $name.into(),
-            $glob,
-            $value,
-            env!("CARGO_MANIFEST_DIR"),
-            module_path!(),
-            file!(),
-            line!(),
-            $debug_expr,
+            $name.into(),               // basename
+            $glob,                      // glob
+            $value,                     // f
+            env!("CARGO_MANIFEST_DIR"), // manifest_dir
+            module_path!(),             // module_path
+            file!(),                    // file
+            line!(),                    // line
+            $debug_expr,                // expr
         )
         .unwrap();
     };

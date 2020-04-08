@@ -1,6 +1,7 @@
 ---
 source: tests/test_glob.rs
 expression: "std::convert::identity"
+input: "test_data/example copy.txt"
 ---
 This is an example test input file.
 The point of glob tests is to discover multiple files.

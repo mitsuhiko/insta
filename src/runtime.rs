@@ -887,6 +887,7 @@ pub fn test_snapshot<'a>(
     new_snapshot: &str,
     manifest_dir: &str,
     module_path: &str,
+    input_path: Option<String>,
     file: &str,
     line: u32,
     expr: &str,
@@ -945,6 +946,7 @@ pub fn test_snapshot<'a>(
         MetaData {
             source: Some(path_to_storage(file)),
             expression: Some(expr.to_string()),
+            input: input_path,
         },
         new_snapshot_contents,
     );
@@ -1048,14 +1050,14 @@ where
     let mut ok = true;
     for path in paths {
         let path = path?;
+        let path_str = path.to_string_lossy();
         let result = f(std::fs::read_to_string(&path)?);
         ok = test_snapshot(
-            ReferenceValue::Named(Some(
-                format!("{}/{}", basename, path.to_string_lossy()).into(),
-            )),
+            ReferenceValue::Named(Some(format!("{}/{}", basename, path_str).into())),
             &result,
             manifest_dir,
             module_path,
+            Some(path_str.into()),
             file,
             line,
             expr,
