@@ -820,16 +820,70 @@ fn update_snapshots(
     Ok(())
 }
 
+pub enum SnapshotTestResult<'a> {
+    Pass,
+    Fail {
+        snapshot_name: Option<Cow<'a, str>>,
+        line: u32,
+    },
+}
+
+impl SnapshotTestResult<'_> {
+    /// Assert that the snapshot test passed.
+    pub fn assert(self) {
+        match self {
+            SnapshotTestResult::Pass => (),
+            SnapshotTestResult::Fail {
+                snapshot_name,
+                line,
+            } => {
+                if should_fail_in_tests() {
+                    panic!(
+                        "snapshot assertion for '{}' failed in line {}",
+                        snapshot_name.as_ref().map_or("unnamed snapshot", |x| &*x),
+                        line
+                    );
+                }
+            }
+        }
+    }
+
+    /// Check if the snapshot test passed.
+    ///
+    /// Returns true if the snapshot test passed,
+    /// returns false and prints an error message if the test failed.
+    pub fn check(self) -> bool {
+        match self {
+            SnapshotTestResult::Pass => true,
+            SnapshotTestResult::Fail {
+                snapshot_name,
+                line,
+            } => {
+                if should_fail_in_tests() {
+                    eprintln!(
+                        "snapshot assertion for '{}' failed in line {}",
+                        snapshot_name.as_ref().map_or("unnamed snapshot", |x| &*x),
+                        line
+                    );
+                    false
+                } else {
+                    true
+                }
+            }
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
-pub fn assert_snapshot(
-    refval: ReferenceValue<'_>,
+pub fn test_snapshot<'a>(
+    refval: ReferenceValue<'a>,
     new_snapshot: &str,
     manifest_dir: &str,
     module_path: &str,
     file: &str,
     line: u32,
     expr: &str,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<SnapshotTestResult<'a>, Box<dyn Error>> {
     let cargo_workspace = get_cargo_workspace(manifest_dir);
     let output_behavior = output_snapshot_behavior();
 
@@ -916,7 +970,7 @@ pub fn assert_snapshot(
                 )?;
             }
 
-            return Ok(());
+            return Ok(SnapshotTestResult::Pass);
         }
     }
 
@@ -958,13 +1012,8 @@ pub fn assert_snapshot(
         );
     }
 
-    if should_fail_in_tests() {
-        panic!(
-            "snapshot assertion for '{}' failed in line {}",
-            snapshot_name.as_ref().map_or("unnamed snapshot", |x| &*x),
-            line
-        );
-    }
-
-    Ok(())
+    Ok(SnapshotTestResult::Fail {
+        snapshot_name,
+        line,
+    })
 }

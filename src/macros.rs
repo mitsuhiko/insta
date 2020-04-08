@@ -294,7 +294,7 @@ macro_rules! assert_snapshot {
         $crate::assert_snapshot!($name, $value, stringify!($value))
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {
-        $crate::_macro_support::assert_snapshot(
+        $crate::_macro_support::test_snapshot(
             // Creates a ReferenceValue::Named variant
             $name.into(),
             &$value,
@@ -304,7 +304,8 @@ macro_rules! assert_snapshot {
             line!(),
             $debug_expr,
         )
-        .unwrap();
+        .unwrap()
+        .assert();
     };
     ($value:expr) => {
         $crate::assert_snapshot!($crate::_macro_support::AutoName, $value, stringify!($value))
