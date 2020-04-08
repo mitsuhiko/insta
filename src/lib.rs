@@ -230,7 +230,8 @@
 //!
 //! Example usage:
 //!
-//! ```no_run
+#![cfg_attr(feature = "redactions", doc = " ```no_run")]
+#![cfg_attr(not(feature = "redactions"), doc = " ```ignore")]
 //! # use insta::*; use serde::Serialize; use std::collections::HashMap;
 //! # #[derive(Serialize)] struct Uuid; impl Uuid { fn new_v4() -> Self { Uuid } }
 //! #[derive(Serialize)]
@@ -258,7 +259,8 @@
 //! instead of hardcoding a replacement value by using the
 //! [`dynamic_redaction`](fn.dynamic_redaction.html) function:
 //!
-//! ```no_run
+#![cfg_attr(feature = "redactions", doc = " ```no_run")]
+#![cfg_attr(not(feature = "redactions"), doc = " ```ignore")]
 //! # use insta::*; use serde::Serialize;
 //! # #[derive(Serialize)] struct Uuid; impl Uuid { fn new_v4() -> Self { Uuid } }
 //! # #[derive(Serialize)]

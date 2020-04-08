@@ -23,7 +23,8 @@
 ///
 /// Example:
 ///
-/// ```no_run
+#[cfg_attr(feature = "redactions", doc = " ```no_run")]
+#[cfg_attr(not(feature = "redactions"), doc = " ```ignore")]
 /// # use insta::*; use serde::Serialize;
 /// # #[derive(Serialize)] struct Value; let value = Value;
 /// assert_yaml_snapshot!(value, {
