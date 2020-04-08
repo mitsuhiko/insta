@@ -457,6 +457,7 @@ impl<'a> From<&'a str> for ReferenceValue<'a> {
     }
 }
 
+#[derive(Clone)]
 pub enum ReferenceValue<'a> {
     Named(Option<Cow<'a, str>>),
     Inline(&'a str),
@@ -1016,4 +1017,41 @@ pub fn test_snapshot<'a>(
         snapshot_name,
         line,
     })
+}
+
+#[cfg(feature = "glob")]
+pub fn assert_glob_snapshot<F>(
+    refval: ReferenceValue<'_>,
+    glob: &str,
+    f: F,
+    manifest_dir: &str,
+    module_path: &str,
+    file: &str,
+    line: u32,
+    expr: &str,
+) -> Result<(), Box<dyn Error>>
+where
+    F: Fn(String) -> String,
+{
+    let paths = ::glob::glob(glob)?;
+    let mut ok = true;
+    for path in paths {
+        let path = path?;
+        let result = f(std::fs::read_to_string(path)?);
+        ok = test_snapshot(
+            refval.clone(),
+            &result,
+            manifest_dir,
+            module_path,
+            file,
+            line,
+            expr,
+        )?
+        .check()
+            && ok; // do not short circuit on first failure!
+    }
+    if !ok {
+        panic!("some tests failed");
+    }
+    Ok(())
 }

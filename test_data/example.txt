@@ -1,0 +1,2 @@
+This is an example test input file.
+This test just outputs the file unchanged.

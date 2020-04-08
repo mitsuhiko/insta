@@ -372,6 +372,9 @@ pub mod _macro_support {
     pub use crate::runtime::{test_snapshot, AutoName, ReferenceValue};
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
 
+    #[cfg(feature = "glob")]
+    pub use crate::runtime::assert_glob_snapshot;
+
     #[cfg(feature = "redactions")]
     pub use crate::{
         redaction::Redaction, redaction::Selector, serialization::serialize_value_redacted,

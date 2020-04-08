@@ -312,6 +312,33 @@ macro_rules! assert_snapshot {
     };
 }
 
+#[macro_export]
+#[cfg(feature = "glob")]
+macro_rules! assert_glob_snapshot {
+    ($glob:expr, $value:expr) => {
+        $crate::assert_glob_snapshot!(
+            $crate::_macro_support::AutoName,
+            $glob,
+            $value,
+            stringify!($value)
+        )
+    };
+    ($name:expr, $glob:expr, $value:expr, $debug_expr:expr) => {
+        $crate::_macro_support::assert_glob_snapshot(
+            // Creates a ReferenceValue::Named variant
+            $name.into(),
+            $glob,
+            $value,
+            env!("CARGO_MANIFEST_DIR"),
+            module_path!(),
+            file!(),
+            line!(),
+            $debug_expr,
+        )
+        .unwrap();
+    };
+}
+
 /// Settings configuration macro.
 ///
 /// This macro lets you bind some settings temporarily.  The first argument
