@@ -433,6 +433,12 @@ impl From<AutoName> for ReferenceValue<'static> {
     }
 }
 
+impl From<AutoName> for Option<&'_ str> {
+    fn from(_: AutoName) -> Self {
+        None
+    }
+}
+
 impl From<Option<String>> for ReferenceValue<'static> {
     fn from(value: Option<String>) -> ReferenceValue<'static> {
         ReferenceValue::Named(value.map(Cow::Owned))
@@ -1021,7 +1027,7 @@ pub fn test_snapshot<'a>(
 
 #[cfg(feature = "glob")]
 pub fn assert_glob_snapshot<F>(
-    refval: ReferenceValue<'_>,
+    basename: Option<&str>,
     glob: &str,
     f: F,
     manifest_dir: &str,
@@ -1034,12 +1040,19 @@ where
     F: Fn(String) -> String,
 {
     let paths = ::glob::glob(glob)?;
+    let basename: Cow<str> = basename.map(Into::into).unwrap_or_else(|| {
+        generate_snapshot_name_for_thread(module_path)
+            .unwrap()
+            .into()
+    });
     let mut ok = true;
     for path in paths {
         let path = path?;
-        let result = f(std::fs::read_to_string(path)?);
+        let result = f(std::fs::read_to_string(&path)?);
         ok = test_snapshot(
-            refval.clone(),
+            ReferenceValue::Named(Some(
+                format!("{}/{}", basename, path.to_string_lossy()).into(),
+            )),
             &result,
             manifest_dir,
             module_path,

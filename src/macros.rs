@@ -325,7 +325,6 @@ macro_rules! assert_glob_snapshot {
     };
     ($name:expr, $glob:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_glob_snapshot(
-            // Creates a ReferenceValue::Named variant
             $name.into(),
             $glob,
             $value,
