@@ -1057,7 +1057,7 @@ where
             &result,
             manifest_dir,
             module_path,
-            Some(path_str.into()),
+            Some(dbg!(dbg!(path_str).replace("\\", "/"))),
             file,
             line,
             expr,
