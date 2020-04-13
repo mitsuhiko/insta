@@ -354,9 +354,6 @@ mod settings;
 mod snapshot;
 mod utils;
 
-#[macro_use]
-mod legacy_macros;
-
 #[cfg(feature = "redactions")]
 mod redaction;
 

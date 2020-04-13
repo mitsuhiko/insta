@@ -1,5 +1,0 @@
----
-source: tests/test_legacy.rs
-expression: td
----
-TestDisplay struct
