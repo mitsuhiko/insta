@@ -56,7 +56,7 @@
 //!
 //! Recommended way if you have `cargo-edit` installed:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo add --dev insta
 //! ```
 //!
@@ -65,7 +65,7 @@
 //!
 //! And for an improved review experience also install `cargo-insta`:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo install cargo-insta
 //! ```
 //!
@@ -85,7 +85,7 @@
 //! move the new files over.  To simplify this workflow you can use
 //! `cargo insta review` which will let you interactively review them:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo test
 //! $ cargo insta review
 //! ```
@@ -99,7 +99,7 @@
 //! The committed snapshot files will have a header with some meta information
 //! that can make debugging easier and the snapshot:
 //!
-//! ```ignore
+//! ```text
 //! ---
 //! expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
 //! source: tests/test_user.rs
@@ -128,7 +128,7 @@
 //! When `new` is used as mode the `cargo-insta` command can be used to review
 //! the snapshots conveniently:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo install cargo-insta
 //! $ cargo test
 //! $ cargo insta review
@@ -147,14 +147,14 @@
 //!
 //! This can be enabled by setting `INSTA_FORCE_PASS` to `1`:
 //!
-//! ```ignore
+//! ```text
 //! $ INSTA_FORCE_PASS=1 cargo test --no-fail-fast
 //! ```
 //!
 //! A better way to do this is to run `cargo insta test --review` which will
 //! run all tests with force pass and then bring up the review tool:
 //!
-//! ```ignore
+//! ```text
 //! $ cargo insta test --review
 //! ```
 //!
@@ -342,7 +342,7 @@
 //! them make sure the tests pass first and then run the following command
 //! to force a rewrite of them all:
 //!
-//! ```text,ignore
+//! ```text
 //! $ cargo insta test --accept --force-update-snapshots
 //! ```
 #[macro_use]
