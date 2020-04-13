@@ -66,7 +66,7 @@ pub struct ActualSettings {
 /// ```rust,ignore
 /// use insta;
 ///
-/// let mut settings = insta::Settings::new();
+/// let mut settings = insta::Settings::clone_current();
 /// settings.set_sort_maps(true);
 /// settings.bind(|| {
 ///     insta::assert_snapshot!(...);
@@ -87,6 +87,9 @@ impl Default for Settings {
 
 impl Settings {
     /// Returns the default settings.
+    ///
+    /// It's recommended to use `clone_current` instead so that
+    /// already applied modifications are not discarded.
     pub fn new() -> Settings {
         Settings::default()
     }

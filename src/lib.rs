@@ -328,6 +328,7 @@
 //!
 //! * `ron`: enables RON support (`assert_ron_snapshot!`)
 //! * `redactions`: enables support for redactions
+//! * `glob`: enables support for globbing (`glob!`)
 //!
 //! # Settings
 //!
