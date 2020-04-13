@@ -3,6 +3,11 @@
 ## 0.16.0
 
 * Made snapshot names optional for inline snapshots. (#106)
+* Remove legacy macros. (#115)
+* Made small improvements to cargo-insta's messaging and flags (#114)
+* Added new logo.
+* Added `glob` support. (#112)
+* Made `MetaData` fields internal. (#111)
 
 ## 0.15.0
 
