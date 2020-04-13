@@ -71,7 +71,7 @@ impl PendingSnapshot {
     pub fn summary(&self) -> String {
         use std::fmt::Write;
         let mut rv = String::new();
-        if let Some(ref source) = self.new.metadata().source {
+        if let Some(source) = self.new.metadata().source() {
             write!(&mut rv, "{}", source).unwrap();
         }
         if let Some(line) = self.line {
