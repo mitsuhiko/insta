@@ -72,13 +72,24 @@ impl PendingInlineSnapshot {
 pub struct MetaData {
     /// The source file (relative to workspace root).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source: Option<String>,
+    pub(crate) source: Option<String>,
     /// Optionally the expression that created the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expression: Option<String>,
+    pub(crate) expression: Option<String>,
 }
 
 impl MetaData {
+    /// Returns the absolute source path.
+    pub fn source(&self) -> Option<&str> {
+        self.source.as_deref()
+    }
+
+    /// Returns the expression that created the snapshot.
+    pub fn expression(&self) -> Option<&str> {
+        self.expression.as_deref()
+    }
+
+    /// Returns the relative source path.
     pub fn get_relative_source(&self, base: &Path) -> Option<PathBuf> {
         self.source.as_ref().map(|source| {
             base.join(source)
