@@ -9,6 +9,7 @@ use structopt::StructOpt;
 
 use crate::cargo::{
     find_packages, find_snapshots, get_cargo, get_package_metadata, Operation, Package,
+    SnapshotContainer,
 };
 use crate::utils::{err_msg, QuietExit};
 
@@ -110,6 +111,9 @@ pub struct TestCommand {
     /// Accept all snapshots after test.
     #[structopt(long, conflicts_with = "review")]
     pub accept: bool,
+    /// Accept all new (previously unseen).
+    #[structopt(long)]
+    pub accept_unseen: bool,
     /// Do not reject pending snapshots before run.
     #[structopt(long)]
     pub keep_pending: bool,
@@ -213,30 +217,32 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
     }
 }
 
-fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), Box<dyn Error>> {
-    let term = Term::stdout();
+fn load_snapshot_containers<'a>(
+    loc: &'a LocationInfo,
+) -> Result<Vec<(SnapshotContainer, Option<&'a Package>)>, Box<dyn Error>> {
     let mut snapshot_containers = vec![];
-
-    let LocationInfo {
-        workspace_root,
-        packages,
-        exts,
-    } = handle_target_args(&cmd.target_args)?;
-
-    match packages {
+    match loc.packages {
         Some(ref packages) => {
             for package in packages.iter() {
-                for snapshot_container in package.iter_snapshot_containers(&exts) {
+                for snapshot_container in package.iter_snapshot_containers(&loc.exts) {
                     snapshot_containers.push((snapshot_container?, Some(package)));
                 }
             }
         }
         None => {
-            for snapshot_container in find_snapshots(workspace_root.clone(), &exts) {
+            for snapshot_container in find_snapshots(loc.workspace_root.clone(), &loc.exts) {
                 snapshot_containers.push((snapshot_container?, None));
             }
         }
     }
+    Ok(snapshot_containers)
+}
+
+fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), Box<dyn Error>> {
+    let term = Term::stdout();
+
+    let loc = handle_target_args(&cmd.target_args)?;
+    let mut snapshot_containers = load_snapshot_containers(&loc)?;
 
     let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum();
 
@@ -259,7 +265,7 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
             let op = match op {
                 Some(op) => op,
                 None => query_snapshot(
-                    &workspace_root,
+                    &loc.workspace_root,
                     &term,
                     &snapshot_ref.new,
                     snapshot_ref.old.as_ref(),
@@ -316,9 +322,36 @@ fn process_snapshots(cmd: &ProcessCommand, op: Option<Operation>) -> Result<(), 
     Ok(())
 }
 
-fn test_run(cmd: &TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
+fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     let mut proc = process::Command::new(get_cargo());
     proc.arg("test");
+
+    // if INSTA_UPDATE is set as environment variable we're using it to
+    // override some arguments.  The logic is is quite weird because we
+    // don't support all of the same values and we also want to override
+    // it through the command line switches.
+    match env::var("INSTA_UPDATE").ok().as_deref() {
+        Some("auto") | Some("new") => {}
+        Some("always") => {
+            if !cmd.accept && !cmd.accept_unseen && !cmd.review {
+                cmd.review = false;
+                cmd.accept = true;
+            }
+        }
+        Some("unseen") => {
+            if !cmd.accept {
+                cmd.accept_unseen = true;
+                cmd.review = true;
+                cmd.accept = false;
+            }
+        }
+        // silently ignored always
+        None | Some("") | Some("no") => {}
+        _ => {
+            return Err(err_msg("invalid value for INSTA_UPDATE"));
+        }
+    }
+
     if cmd.target_args.all {
         proc.arg("--all");
     }
@@ -336,9 +369,10 @@ fn test_run(cmd: &TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     if !cmd.no_force_pass {
         proc.env("INSTA_FORCE_PASS", "1");
     }
-    if cmd.review {
-        proc.env("INSTA_UPDATE", "new");
-    }
+    proc.env(
+        "INSTA_UPDATE",
+        if cmd.accept_unseen { "unseen" } else { "new" },
+    );
     if cmd.force_update_snapshots {
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
     }
@@ -365,7 +399,7 @@ fn test_run(cmd: &TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
 
     if !cmd.keep_pending {
         process_snapshots(
-            &ProcessCommand {
+            ProcessCommand {
                 target_args: cmd.target_args.clone(),
                 quiet: true,
             },
@@ -381,13 +415,18 @@ fn test_run(cmd: &TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 "{} non snapshot tests failed, skipping review",
                 style("warning:").bold().yellow()
             );
+        } else if cmd.accept {
+            eprintln!(
+                "{} non snapshot tests failed, not accepted changes",
+                style("warning:").bold().yellow()
+            );
         }
         return Err(QuietExit(1).into());
     }
 
     if cmd.review || cmd.accept {
         process_snapshots(
-            &ProcessCommand {
+            ProcessCommand {
                 target_args: cmd.target_args.clone(),
                 quiet: false,
             },
@@ -397,6 +436,21 @@ fn test_run(cmd: &TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 None
             },
         )?
+    } else {
+        let loc = handle_target_args(&cmd.target_args)?;
+        let snapshot_containers = load_snapshot_containers(&loc)?;
+        let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum::<usize>();
+        if snapshot_count > 0 {
+            eprintln!(
+                "{}: {} snapshot{} to review",
+                style("info").bold(),
+                style(snapshot_count).yellow(),
+                if snapshot_count != 1 { "s" } else { "" }
+            );
+            eprintln!("use `cargo insta review` to review snapshots");
+        } else {
+            println!("{}: no snapshots to review", style("info").bold());
+        }
     }
 
     Ok(())
@@ -410,12 +464,13 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     }
 
     let opts = Opts::from_iter(args);
+
     let color = opts.color.as_ref().map(|x| x.as_str()).unwrap_or("auto");
     handle_color(color)?;
     match opts.command {
-        Command::Review(cmd) => process_snapshots(&cmd, None),
-        Command::Accept(cmd) => process_snapshots(&cmd, Some(Operation::Accept)),
-        Command::Reject(cmd) => process_snapshots(&cmd, Some(Operation::Reject)),
-        Command::Test(cmd) => test_run(&cmd, color),
+        Command::Review(cmd) => process_snapshots(cmd, None),
+        Command::Accept(cmd) => process_snapshots(cmd, Some(Operation::Accept)),
+        Command::Reject(cmd) => process_snapshots(cmd, Some(Operation::Reject)),
+        Command::Test(cmd) => test_run(cmd, color),
     }
 }
