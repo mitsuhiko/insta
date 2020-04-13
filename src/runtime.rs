@@ -313,7 +313,7 @@ pub fn get_snapshot_filename(
             .join(format!(
                 "{}__{}.snap",
                 module_path.replace("::", "__"),
-                snapshot_name
+                snapshot_name.replace("/", "__").replace("\\", "__")
             ))
     })
 }
@@ -353,6 +353,10 @@ pub fn print_snapshot_summary(
                 "".to_string()
             }
         );
+    }
+
+    if let Some(ref value) = snapshot.metadata().input_file() {
+        println!("Input file: {}", style(value).cyan());
     }
 }
 
@@ -515,20 +519,28 @@ fn generate_snapshot_name_for_thread(module_path: &str) -> Result<String, &'stat
                  names from the call stack.");
         }
     }
+
+    // clean test name first
     let mut name = name.rsplit("::").next().unwrap();
-    // we really do not care about poisoning here.
-    let key = format!("{}::{}", module_path.replace("::", "__"), name);
-    let mut counters = TEST_NAME_COUNTERS.lock().unwrap_or_else(|x| x.into_inner());
-    let test_idx = counters.get(&key).cloned().unwrap_or(0) + 1;
     if name.starts_with("test_") {
         name = &name[5..];
     }
+
+    // next check if we need to add a suffix
+    let name = add_suffix_to_snapshot_name(Cow::Borrowed(name));
+    let key = format!("{}::{}", module_path.replace("::", "__"), name);
+
+    // if the snapshot name clashes we need to increment a counter.
+    // we really do not care about poisoning here.
+    let mut counters = TEST_NAME_COUNTERS.lock().unwrap_or_else(|x| x.into_inner());
+    let test_idx = counters.get(&key).cloned().unwrap_or(0) + 1;
     let rv = if test_idx == 1 {
         name.to_string()
     } else {
         format!("{}-{}", name, test_idx)
     };
     counters.insert(key, test_idx);
+
     Ok(rv)
 }
 
@@ -820,6 +832,16 @@ fn update_snapshots(
     Ok(())
 }
 
+/// If there is a suffix on the settings, append it to the snapshot name.
+fn add_suffix_to_snapshot_name(name: Cow<'_, str>) -> Cow<'_, str> {
+    Settings::with(|settings| {
+        settings
+            .snapshot_suffix()
+            .map(|suffix| Cow::Owned(format!("{}@{}", name, suffix)))
+            .unwrap_or_else(|| name)
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn assert_snapshot(
     refval: ReferenceValue<'_>,
@@ -835,8 +857,8 @@ pub fn assert_snapshot(
 
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
         ReferenceValue::Named(snapshot_name) => {
-            let snapshot_name: Cow<str> = match snapshot_name {
-                Some(snapshot_name) => snapshot_name,
+            let snapshot_name = match snapshot_name {
+                Some(snapshot_name) => add_suffix_to_snapshot_name(snapshot_name),
                 None => generate_snapshot_name_for_thread(module_path)
                     .unwrap()
                     .into(),
@@ -884,6 +906,17 @@ pub fn assert_snapshot(
         MetaData {
             source: Some(path_to_storage(file)),
             expression: Some(expr.to_string()),
+            input_file: Settings::with(|settings| {
+                settings
+                    .input_file()
+                    .and_then(|x| cargo_workspace.join(x).canonicalize().ok())
+                    .and_then(|s| {
+                        s.strip_prefix(cargo_workspace)
+                            .ok()
+                            .map(|x| x.to_path_buf())
+                    })
+                    .map(path_to_storage)
+            }),
         },
         new_snapshot_contents,
     );

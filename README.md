@@ -270,6 +270,31 @@ assert_yaml_snapshot!(&User {
 });
 ```
 
+## Globbing
+
+**Feature:** `glob`
+
+Sometimes it can be useful to run code against multiple input files.
+The easiest way to accomplish this is to use the `glob!` macro which
+runs a closure for each input file that matches.  Before the closure
+is executed the settings are updated to set a reference to the input
+file and the appropriate snapshot suffix.
+
+Example:
+
+```rust
+use std::fs;
+
+glob!("inputs/*.txt", |path| {
+    let input = fs::read_to_string(path).unwrap();
+    assert_json_snapshot!(input.to_uppercase());
+});
+```
+
+The path to the glob macro is relative to the location of the test
+file.  It uses the [`globset`](https://crates.io/crates/globset) crate
+for actual glob operations.
+
 ## Inline Snapshots
 
 Additionally snapshots can also be stored inline.  In that case the format
@@ -300,6 +325,7 @@ The following features exist:
 
 * `ron`: enables RON support (`assert_ron_snapshot!`)
 * `redactions`: enables support for redactions
+* `glob`: enables support for globbing (`glob!`)
 
 ## Settings
 
