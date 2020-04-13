@@ -13,6 +13,8 @@ lazy_static! {
     static ref DEFAULT_SETTINGS: Arc<ActualSettings> = Arc::new(ActualSettings {
         sort_maps: false,
         snapshot_path: "snapshots".into(),
+        snapshot_suffix: "".into(),
+        input_file: None,
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
     });
@@ -41,6 +43,8 @@ impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
 pub struct ActualSettings {
     pub sort_maps: bool,
     pub snapshot_path: PathBuf,
+    pub snapshot_suffix: String,
+    pub input_file: Option<PathBuf>,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
 }
@@ -87,6 +91,11 @@ impl Settings {
         Settings::default()
     }
 
+    /// Returns a copy of the current settings.
+    pub fn clone_current() -> Settings {
+        Settings::with(|x| x.clone())
+    }
+
     /// Internal helper for macros
     #[doc(hidden)]
     pub fn _private_inner_mut(&mut self) -> &mut ActualSettings {
@@ -106,6 +115,51 @@ impl Settings {
     /// Returns the current value for map sorting.
     pub fn sort_maps(&self) -> bool {
         self.inner.sort_maps
+    }
+
+    /// Sets the snapshot suffix.
+    ///
+    /// The snapshot suffix is added to all snapshot names with an `@` sign
+    /// between.  For instance if the snapshot suffix is set to `"foo"` and
+    /// the snapshot would be named `"snapshot"` it turns into `"snapshot@foo"`.
+    /// This is useful to separate snapshots if you want to use test
+    /// parameterization.
+    pub fn set_snapshot_suffix<I: Into<String>>(&mut self, suffix: I) {
+        self._private_inner_mut().snapshot_suffix = suffix.into();
+    }
+
+    /// Removes the snapshot suffix.
+    pub fn remove_snapshot_suffix(&mut self) {
+        self.set_snapshot_suffix("");
+    }
+
+    /// Returns the current snapshot suffix.
+    pub fn snapshot_suffix(&self) -> Option<&str> {
+        if self.inner.snapshot_suffix.is_empty() {
+            None
+        } else {
+            Some(&self.inner.snapshot_suffix)
+        }
+    }
+
+    /// Sets the input file reference.
+    ///
+    /// This value is completely unused by the snapshot testing system but
+    /// it lets you store some meta data with a snapshot that refers you back
+    /// to the input file.  The path stored here is made relative to the
+    /// workspace root before storing with the snapshot.
+    pub fn set_input_file<P: AsRef<Path>>(&mut self, p: P) {
+        self._private_inner_mut().input_file = Some(p.as_ref().to_path_buf());
+    }
+
+    /// Removes the input file reference.
+    pub fn remove_input_file(&mut self) {
+        self._private_inner_mut().input_file = None;
+    }
+
+    /// Returns the current input file reference.
+    pub fn input_file(&self) -> Option<&Path> {
+        self.inner.input_file.as_deref()
     }
 
     /// Registers redactions that should be applied.

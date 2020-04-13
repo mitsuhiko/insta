@@ -201,7 +201,7 @@ the `INSTA_OUTPUT` environment variable.  The following values are possible:
 
 * `diff` (default): prints the diffs
 * `summary`: prints only summaries (name of snapshot files etc.)
-* `minimal`: like `summary` but more minimal
+* `mimimal`: like `summary` but more minimal
 * `none`: insta will not output any extra information
 
 ## Redactions
@@ -269,6 +269,31 @@ assert_yaml_snapshot!(&User {
     }),
 });
 ```
+
+## Globbing
+
+**Feature:** `glob`
+
+Sometimes it can be useful to run code against multiple input files.
+The easiest way to accomplish this is to use the `glob!` macro which
+runs a closure for each input file that matches.  Before the closure
+is executed the settings are updated to set a reference to the input
+file and the appropriate snapshot suffix.
+
+Example:
+
+```rust
+use std::fs;
+
+glob!("inputs/*.txt", |path| {
+    let input = fs::read_to_string(path).unwrap();
+    assert_json_snapshot!(input.to_uppercase());
+});
+```
+
+The path to the glob macro is relative to the location of the test
+file.  It uses the [`globset`](https://crates.io/crates/globset) crate
+for actual glob operations.
 
 ## Inline Snapshots
 

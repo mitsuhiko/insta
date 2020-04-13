@@ -333,3 +333,20 @@ macro_rules! with_settings {
         settings.bind(|| $body)
     }}
 }
+
+/// Executes a closure for all input files matching a glob.
+///
+/// The closure is passed the path to the file.
+#[cfg(feature = "glob")]
+#[macro_export]
+macro_rules! glob {
+    ($glob:expr, $closure:expr) => {{
+        let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(file!())
+            .parent()
+            .unwrap()
+            .canonicalize()
+            .unwrap();
+        $crate::_macro_support::glob_exec(&base, $glob, $closure);
+    }};
+}

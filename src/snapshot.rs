@@ -76,6 +76,9 @@ pub struct MetaData {
     /// Optionally the expression that created the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) expression: Option<String>,
+    /// Reference to the input file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) input_file: Option<String>,
 }
 
 impl MetaData {
@@ -98,6 +101,11 @@ impl MetaData {
                 .and_then(|s| s.strip_prefix(base).ok().map(|x| x.to_path_buf()))
                 .unwrap_or_else(|| base.to_path_buf())
         })
+    }
+
+    /// Returns the input file reference.
+    pub fn input_file(&self) -> Option<&str> {
+        self.input_file.as_deref()
     }
 }
 
