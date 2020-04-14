@@ -16,6 +16,11 @@ values and come with comprehensive tools to review changes.
 Snapshot tests are particularly useful if your reference values are very
 large or change often.
 
+## What it looks like:
+
+There is a screencast that shows the entire workflow: [watch the insta
+introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be)
+
 ## How it operates
 
 This crate exports multiple macros for snapshot testing:
@@ -42,15 +47,6 @@ See [inline snapshots](#inline-snapshots) for more information.
 For macros that work with `serde::Serialize` this crate also permits
 redacting of partial values.  See [redactions](#redactions) for more
 information.
-
-## What it looks like:
-
-This is what the cargo insta review UI looks like:
-
-<img src="https://github.com/mitsuhiko/insta/blob/master/assets/review.png?raw=true" alt="">
-
-There is also a screencast that shows the entire workflow: [watch the insta
-introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be)
 
 ## Example
 
