@@ -48,7 +48,7 @@
 //! <img src="https://github.com/mitsuhiko/insta/blob/master/assets/review.png?raw=true" alt="">
 //!
 //! There is also a screencast that shows the entire workflow: [watch the insta
-//! introduction screencast](https://www.youtube.com/watch?v=7mIDiKK4eyo&feature=youtu.be)
+//! introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be)
 //!
 //! # Example
 //!
