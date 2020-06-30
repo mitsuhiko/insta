@@ -16,9 +16,6 @@ exclude = [
 [package.metadata.docs.rs]
 all-features = true
 
-[workspace]
-members = [".", "cargo-insta"]
-
 [features]
 default = []
 
