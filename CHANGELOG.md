@@ -2,7 +2,10 @@
 
 ## 0.16.1
 
-* Add `Settings::bind_async` when the `async` feature is enabled.
+* Add `Settings::bind_async` when the `async` feature is enabled. (#121)
+* Bumped `console` dependency to 0.11. (#124)
+* Fixed incorrect path handling for `glob!`. (#123)
+* Remove `cargo-insta` from workspace and add `Cargo.lock`. (#116)
 
 ## 0.16.0
 
