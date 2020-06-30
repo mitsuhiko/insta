@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.1
+
+* Add `Settings::bind_async` when the `async` feature is enabled.
+
 ## 0.16.0
 
 * Made snapshot names optional for inline snapshots. (#106)
