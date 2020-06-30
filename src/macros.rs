@@ -341,12 +341,12 @@ macro_rules! with_settings {
 #[macro_export]
 macro_rules! glob {
     ($glob:expr, $closure:expr) => {{
-        let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        let base = $crate::_macro_support::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"))
             .join(file!())
             .parent()
             .unwrap()
             .canonicalize()
-            .unwrap();
+            .unwrap_or_else(|e| panic!("failed to canonicalize insta::glob! base path: {}", e));
         $crate::_macro_support::glob_exec(&base, $glob, $closure);
     }};
 }

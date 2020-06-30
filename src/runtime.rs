@@ -149,7 +149,7 @@ fn get_cargo() -> String {
         .unwrap_or_else(|| "cargo".to_string())
 }
 
-fn get_cargo_workspace(manifest_dir: &str) -> &Path {
+pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     // we really do not care about poisoning here.
     let mut workspaces = WORKSPACES.lock().unwrap_or_else(|x| x.into_inner());
     if let Some(rv) = workspaces.get(manifest_dir) {
