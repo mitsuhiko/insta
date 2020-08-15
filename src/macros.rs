@@ -347,6 +347,7 @@ macro_rules! glob {
             .unwrap()
             .canonicalize()
             .unwrap_or_else(|e| panic!("failed to canonicalize insta::glob! base path: {}", e));
-        $crate::_macro_support::glob_exec(&base, $glob, $closure);
+        let count = $crate::_macro_support::glob_exec(&base, $glob, $closure);
+        assert!(count > 0, "the glob \"{}\" did not match anything", $glob);
     }};
 }

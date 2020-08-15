@@ -9,8 +9,8 @@ fn test_basic_globbing() {
 }
 
 #[test]
-fn test_that_should_probably_fail() {
-    // FIXME: Ideally this would fail.
+#[should_panic(expected = "the glob \"inputz/*.txt\" did not match anything")]
+fn test_glob_must_have_matches() {
     let typod_glob = "inputz/*.txt";
     insta::glob!(typod_glob, |_| assert!(false));
 }

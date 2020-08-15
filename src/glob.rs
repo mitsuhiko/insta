@@ -4,14 +4,16 @@ use globwalk::{FileType, GlobWalkerBuilder};
 
 use crate::settings::Settings;
 
-pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
+pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) -> usize {
     let walker = GlobWalkerBuilder::new(base, pattern)
         .case_insensitive(true)
         .file_type(FileType::FILE)
         .build()
         .unwrap();
 
+    let mut count = 0;
     for file in walker {
+        count += 1;
         let file = file.unwrap();
         let path = file.path();
 
@@ -23,4 +25,6 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
             f(path);
         });
     }
+
+    count
 }
