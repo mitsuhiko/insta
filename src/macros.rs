@@ -1,3 +1,46 @@
+/// Asserts a `Serialize` snapshot in CSV format.
+///
+/// **Feature:** `csv` (disabled by default)
+///
+/// This works exactly like [`assert_yaml_snapshot`](macro.assert_yaml_snapshot.html)
+/// but serializes in [CSV](https://github.com/burntsushi/rust-csv) format instead of
+/// YAML.
+///
+/// Example:
+///
+/// ```no_run,ignore
+/// assert_csv_snapshot!(vec[1, 2, 3]);
+/// ```
+///
+/// The third argument to the macro can be an object expression for redaction.
+/// It's in the form `{ selector => replacement }`.  For more information
+/// about redactions see [redactions](index.html#redactions).
+///
+/// The snapshot name is optional but can be provided as first argument.
+/// For more information see [named snapshots](index.html#named-snapshots)
+#[cfg(feature = "csv")]
+#[macro_export]
+macro_rules! assert_csv_snapshot {
+    ($value:expr, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot!($value, Csv, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Csv, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Csv);
+    }};
+    ($name:expr, $value:expr) => {{
+        $crate::_assert_serialized_snapshot!(Some($name), $value, Csv);
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Csv);
+    }};
+    ($value:expr) => {{
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Csv);
+    }};
+}
+
 /// Asserts a `Serialize` snapshot in YAML format.
 ///
 /// The value needs to implement the `serde::Serialize` trait and the snapshot

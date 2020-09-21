@@ -1,3 +1,5 @@
+#[cfg(feature = "csv")]
+use insta::assert_csv_snapshot;
 #[cfg(feature = "ron")]
 use insta::assert_ron_snapshot;
 use insta::{assert_debug_snapshot, assert_json_snapshot, assert_snapshot, assert_yaml_snapshot};
@@ -46,6 +48,29 @@ fn test_newline() {
     // https://github.com/mitsuhiko/insta/issues/39
     assert_snapshot!("\n", @"
 ");
+}
+
+#[cfg(feature = "csv")]
+#[test]
+fn test_csv_inline() {
+    #[derive(Serialize)]
+    pub struct Email(String);
+
+    #[derive(Serialize)]
+    pub struct User {
+        id: u32,
+        username: String,
+        email: Email,
+    }
+
+    assert_csv_snapshot!(User {
+        id: 1453,
+        username: "mehmed-doe".into(),
+        email: Email("mehmed@doe.invalid".into()),
+    }, @r###"
+    id,username,email
+    1453,mehmed-doe,mehmed@doe.invalid
+    "###);
 }
 
 #[cfg(feature = "ron")]

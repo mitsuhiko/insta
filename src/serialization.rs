@@ -5,6 +5,8 @@ use crate::content::{Content, ContentSerializer};
 use crate::settings::Settings;
 
 pub enum SerializationFormat {
+    #[cfg(feature = "csv")]
+    Csv,
     #[cfg(feature = "ron")]
     Ron,
     Yaml,
@@ -43,6 +45,16 @@ pub fn serialize_content(
             }
         }
         SerializationFormat::Json => serde_json::to_string_pretty(&content).unwrap(),
+        #[cfg(feature = "csv")]
+        SerializationFormat::Csv => {
+            let mut buf = Vec::with_capacity(128);
+            {
+                let mut writer = csv::Writer::from_writer(&mut buf);
+                writer.serialize(&content).unwrap();
+                writer.flush().unwrap();
+            }
+            String::from_utf8(buf).unwrap()
+        }
         #[cfg(feature = "ron")]
         SerializationFormat::Ron => {
             let mut serializer = ron::ser::Serializer::new(
