@@ -5,6 +5,7 @@
 * Globs now follow links (#132)
 * Added CSV Support (#134)
 * Changed globs to also include directories not just files.
+* Support snapshots outside source folder. (#70)
 
 ## 0.16.1
 

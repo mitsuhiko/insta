@@ -284,21 +284,45 @@ impl Package {
         &self,
         extensions: &'a [&'a str],
     ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-        let mut roots = HashSet::new();
+        let mut roots = Vec::new();
+
+        // the manifest path's parent is always a snapshot container.  For
+        // a rationale see GH-70.  But generally a user would expect to be
+        // able to put a snapshot into foo/snapshots instead of foo/src/snapshots.
+        if let Some(manifest) = self.manifest_path.parent() {
+            roots.push(manifest.to_path_buf());
+        }
+
+        // additionally check all targets.
         for target in &self.targets {
-            // We want to skip custom build scripts and not support snapshots
-            // for them.  If we don't skip them here we run into issues where
-            // the existence of a build script causes a snapshot to be picked
-            // up twice since the same path is determined.  (GH-15)
+            // custom build scripts we can safely skip over.  In the past this
+            // caused issues with duplicate paths but that's resolved in other
+            // ways now.  We do not want to pick up snapshots in such places
+            // though.
             if target.kind.contains("custom-build") {
                 continue;
             }
+
+            // this gives us the containing source folder.  Typically this is
+            // something like crate/src.
             let root = target.src_path.parent().unwrap();
-            if !roots.contains(root) {
-                roots.insert(root.to_path_buf());
+            roots.push(root.to_path_buf());
+        }
+
+        // reduce roots to avoid traversing into paths twice.  If we have both
+        // /foo and /foo/bar as roots we would only walk into /foo.  Otherwise
+        // we would encounter paths twice.  If we don't skip them here we run
+        // into issues where the existence of a build script causes a snapshot
+        // to be picked up twice since the same path is determined.  (GH-15)
+        roots.sort_by_key(|x| x.as_os_str().len());
+        let mut reduced_roots = vec![];
+        for root in roots {
+            if !reduced_roots.iter().any(|x| root.starts_with(&x)) {
+                reduced_roots.push(root);
             }
         }
-        roots
+
+        reduced_roots
             .into_iter()
             .flat_map(move |root| find_snapshots(root, extensions))
     }
