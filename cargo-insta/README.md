@@ -7,21 +7,11 @@
 
 This crate provides a cargo command for insta snapshot reviews.
 
-```rust
+```
 $ cargo install cargo-insta
 $ cargo insta --help
 ```
 
 For more information see [the insta crate documentation](https://docs.rs/insta).
-
-## Alternative Installation Ways
-
-The community is maintaining some alternative ways to install `cargo-insta`:
-
-**Arch Linux:**
-
-```
-yay -S cargo-insta
-```
 
 License: Apache-2.0

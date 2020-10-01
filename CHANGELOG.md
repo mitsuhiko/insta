@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.17.0
+## 1.0.0
 
 * Globs now follow links (#132)
 * Added CSV Support (#134)
