@@ -66,7 +66,7 @@ pub struct ActualSettings {
 ///
 /// Example:
 ///
-/// ```rust,ignore
+/// ```ignore
 /// use insta;
 ///
 /// let mut settings = insta::Settings::clone_current();

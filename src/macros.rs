@@ -52,8 +52,9 @@ macro_rules! assert_csv_snapshot {
 ///
 /// Example:
 ///
-/// ```no_run,ignore
-/// assert_yaml_snapshot!(vec[1, 2, 3]);
+/// ```no_run
+/// # use insta::*;
+/// assert_yaml_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
 /// Unlike the [`assert_debug_snapshot`](macros.assert_debug_snapshot.html)
@@ -65,7 +66,10 @@ macro_rules! assert_csv_snapshot {
 ///
 /// Example:
 ///
-/// ```no_run,ignore
+#[cfg_attr(feature = "redactions", doc = " ```no_run")]
+#[cfg_attr(not(feature = "redactions"), doc = " ```ignore")]
+/// # use insta::*; use serde::Serialize;
+/// # #[derive(Serialize)] struct Value; let value = Value;
 /// assert_yaml_snapshot!(value, {
 ///     ".key.to.redact" => "[replacement value]",
 ///     ".another.key.*.to.redact" => 42
@@ -113,8 +117,9 @@ macro_rules! assert_yaml_snapshot {
 ///
 /// Example:
 ///
-/// ```no_run,ignore
-/// assert_ron_snapshot!(vec[1, 2, 3]);
+/// ```no_run
+/// # use insta::*;
+/// assert_ron_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
@@ -154,8 +159,9 @@ macro_rules! assert_ron_snapshot {
 ///
 /// Example:
 ///
-/// ```no_run,ignore
-/// assert_json_snapshot!(vec[1, 2, 3]);
+/// ```no_run
+/// # use insta::*;
+/// assert_json_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
@@ -307,7 +313,8 @@ macro_rules! assert_display_snapshot {
 /// a string to store as snapshot an does not apply any other transformations
 /// on it.  This is useful to build ones own primitives.
 ///
-/// ```no_run,ignore
+/// ```no_run
+/// # use insta::*;
 /// assert_snapshot!("reference value to snapshot");
 /// ```
 ///

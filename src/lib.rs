@@ -67,7 +67,7 @@
 //! $ cargo install cargo-insta
 //! ```
 //!
-//! ```rust,ignore
+//! ```no_run
 //! use insta::assert_debug_snapshot;
 //!
 //! #[test]
@@ -177,7 +177,7 @@
 //! To provide an explicit name provide the name of the snapshot as first
 //! argument to the macro:
 //!
-//! ```rust,ignore
+//! ```no_run
 //! #[test]
 //! fn test_something() {
 //!     assert_snapshot!("first_snapshot", "first value");
@@ -228,7 +228,10 @@
 //!
 //! Example usage:
 //!
-//! ```rust,ignore
+//! ```no_run
+//! # #[cfg(feature = "redactions")] {
+//! # use insta::*; use serde::Serialize; use std::collections::HashMap;
+//! # #[derive(Serialize)] struct Uuid; impl Uuid { fn new_v4() -> Self { Uuid } }
 //! #[derive(Serialize)]
 //! pub struct User {
 //!     id: Uuid,
@@ -248,13 +251,17 @@
 //!     ".id" => "[uuid]",
 //!     ".extra.ssn" => "[ssn]"
 //! });
+//! # }
 //! ```
 //!
 //! It's also possible to execute a callback that can produce a new value
 //! instead of hardcoding a replacement value by using the
 //! [`dynamic_redaction`](fn.dynamic_redaction.html) function:
 //!
-//! ```rust,ignore
+//! ```no_run
+//! # #[cfg(feature = "redactions")] {
+//! # use insta::*; use serde::Serialize;
+//! # #[derive(Serialize)] struct Uuid; impl Uuid { fn new_v4() -> Self { Uuid } }
 //! # #[derive(Serialize)]
 //! # pub struct User {
 //! #     id: Uuid,
@@ -269,6 +276,7 @@
 //!         "[uuid]"
 //!     }),
 //! });
+//! # }
 //! ```
 //!
 //! # Globbing
@@ -306,7 +314,8 @@
 //!
 //! Example:
 //!
-//! ```rust,ignore
+//! ```no_run
+//! # use insta::*; use serde::Serialize;
 //! #[derive(Serialize)]
 //! pub struct User {
 //!     username: String,
