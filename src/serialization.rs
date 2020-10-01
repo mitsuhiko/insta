@@ -57,16 +57,13 @@ pub fn serialize_content(
         }
         #[cfg(feature = "ron")]
         SerializationFormat::Ron => {
-            let mut serializer = ron::ser::Serializer::new(
-                Some(ron::ser::PrettyConfig {
-                    new_line: "\n".to_string(),
-                    indentor: "  ".to_string(),
-                    ..ron::ser::PrettyConfig::default()
-                }),
-                true,
-            );
+            let mut buf = Vec::new();
+            let mut config = ron::ser::PrettyConfig::new();
+            config.new_line = "\n".to_string();
+            config.indentor = "  ".to_string();
+            let mut serializer = ron::ser::Serializer::new(&mut buf, Some(config), true).unwrap();
             content.serialize(&mut serializer).unwrap();
-            serializer.into_output_string()
+            String::from_utf8(buf).unwrap()
         }
     }
 }

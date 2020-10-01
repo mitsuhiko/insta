@@ -6,6 +6,7 @@
 * Added CSV Support (#134)
 * Changed globs to also include directories not just files.
 * Support snapshots outside source folder. (#70)
+* Update RON to 0.6.
 
 ## 0.16.1
 
