@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.17.0
+
+* Globs now follow links (#132)
+* Added CSV Support (#134)
+
 ## 0.16.1
 
 * Add `Settings::bind_async` when the `async` feature is enabled. (#121)
