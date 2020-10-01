@@ -8,7 +8,7 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
     let walker = GlobWalkerBuilder::new(base, pattern)
         .case_insensitive(true)
         .follow_links(true)
-        .file_type(FileType::FILE)
+        .file_type(FileType::all())
         .build()
         .unwrap();
 
