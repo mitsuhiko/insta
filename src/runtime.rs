@@ -173,8 +173,8 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     }
 }
 
-fn print_changeset(changeset: &Changeset, expr: Option<&str>) {
-    let Changeset { ref diffs, .. } = *changeset;
+fn print_changeset(changeset: Changeset, expr: Option<&str>) {
+    let Changeset { diffs, .. } = changeset;
     #[derive(PartialEq, Debug)]
     enum Mode {
         Same,
@@ -360,6 +360,34 @@ pub fn print_snapshot_summary(
     }
 }
 
+/// Calculates `difference::Changeset` of given files.
+/// Falls back to manually constructed `Changeset`
+/// for large inputs to avoid OOM in `difference`.
+fn get_changeset(orig: &str, edit: &str) -> Changeset {
+    const FALLBACK_THRESHOLD: usize = 10_000_000;
+    let orig_cnt = orig.lines().count();
+    let edited_cnt = edit.lines().count();
+    if orig_cnt * edited_cnt > FALLBACK_THRESHOLD {
+        // `difference` crate will likely use hundreds of megabytes
+        // possibly leading to OOM.
+
+        let mut changeset = Changeset {
+            diffs: Vec::new(),
+            // following two fields will not be read anyway
+            split: String::new(),
+            distance: 0,
+        };
+        for line in orig.lines() {
+            changeset.diffs.push(Difference::Rem(line.to_string()));
+        }
+        for line in edit.lines() {
+            changeset.diffs.push(Difference::Add(line.to_string()));
+        }
+        return changeset;
+    }
+    Changeset::new(orig, edit, "\n")
+}
+
 /// Prints a diff against an old snapshot.
 pub fn print_snapshot_diff(
     workspace_root: &Path,
@@ -369,10 +397,9 @@ pub fn print_snapshot_diff(
     line: Option<u32>,
 ) {
     print_snapshot_summary(workspace_root, new, snapshot_file, line);
-    let changeset = Changeset::new(
+    let changeset = get_changeset(
         old_snapshot.as_ref().map_or("", |x| x.contents_str()),
         &new.contents_str(),
-        "\n",
     );
     if old_snapshot.is_some() {
         println!("{}", style("-old snapshot").red());
@@ -380,7 +407,7 @@ pub fn print_snapshot_diff(
     } else {
         println!("{}", style("+new results").green());
     }
-    print_changeset(&changeset, new.metadata().expression.as_deref());
+    print_changeset(changeset, new.metadata().expression.as_deref());
 }
 
 fn print_snapshot_diff_with_title(
