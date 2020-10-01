@@ -74,6 +74,20 @@ fn test_with_random_value_and_trailing_comma() {
     });
 }
 
+#[cfg(feature = "csv")]
+#[test]
+fn test_with_random_value_csv() {
+    use insta::assert_csv_snapshot;
+    assert_csv_snapshot!("user_csv", &User {
+        id: 44,
+        username: "julius_csv".to_string(),
+        email: Email("julius@example.com".to_string()),
+        extra: "".to_string(),
+    }, {
+        ".id" => "[id]"
+    });
+}
+
 #[cfg(feature = "ron")]
 #[test]
 fn test_with_random_value_ron() {

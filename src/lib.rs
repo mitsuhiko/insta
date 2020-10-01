@@ -26,6 +26,8 @@
 //! - `assert_snapshot!` for comparing basic string snapshots.
 //! - `assert_debug_snapshot!` for comparing `Debug` outputs of values.
 //! - `assert_display_snapshot!` for comparing `Display` outputs of values.
+//! - `aasert_csv_snapshot!` for comparing CSV serialized output of
+//!   types implementing `serde::Serialize`. (requires the `csv` feature)
 //! - `assert_yaml_snapshot!` for comparing YAML serialized
 //!   output of types implementing `serde::Serialize`.
 //! - `assert_ron_snapshot!` for comparing RON serialized output of
@@ -322,6 +324,7 @@
 //!
 //! The following features exist:
 //!
+//! * `csv`: enables CSV support (`assert_csv_snapshot!`)
 //! * `ron`: enables RON support (`assert_ron_snapshot!`)
 //! * `redactions`: enables support for redactions
 //! * `glob`: enables support for globbing (`glob!`)
