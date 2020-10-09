@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+
+* Added the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable to support
+  deletions of unreferenced snapshot files. (#136)
+
 ## 1.0.0
 
 * Globs now follow links (#132)
