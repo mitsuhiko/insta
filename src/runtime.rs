@@ -11,7 +11,6 @@ use std::str;
 use std::sync::Mutex;
 use std::thread;
 
-use console::style;
 use difference::{Changeset, Difference};
 use lazy_static::lazy_static;
 
@@ -19,7 +18,7 @@ use serde::Deserialize;
 
 use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
-use crate::utils::is_ci;
+use crate::utils::{is_ci, style};
 
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
@@ -49,6 +48,17 @@ fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
 #[cfg(not(windows))]
 fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
     path.as_ref().to_string_lossy().into()
+}
+
+fn term_width() -> usize {
+    #[cfg(feature = "colors")]
+    {
+        console::Term::stdout().size().1 as usize
+    }
+    #[cfg(not(feature = "colors"))]
+    {
+        74
+    }
 }
 
 fn format_rust_expression(value: &str) -> Cow<'_, str> {
@@ -254,7 +264,7 @@ fn print_changeset(changeset: Changeset, expr: Option<&str>) {
         }
     }
 
-    let width = console::Term::stdout().size().1 as usize;
+    let width = term_width();
 
     if let Some(expr) = expr {
         println!("{:─^1$}", "", width,);
@@ -439,7 +449,7 @@ fn print_snapshot_diff_with_title(
     line: u32,
     snapshot_file: Option<&Path>,
 ) {
-    let width = console::Term::stdout().size().1 as usize;
+    let width = term_width();
     println!(
         "{title:━^width$}",
         title = style(" Snapshot Differences ").bold(),
@@ -462,7 +472,7 @@ fn print_snapshot_summary_with_title(
     snapshot_file: Option<&Path>,
 ) {
     let _old_snapshot = old_snapshot;
-    let width = console::Term::stdout().size().1 as usize;
+    let width = term_width();
     println!(
         "{title:━^width$}",
         title = style(" Snapshot Summary ").bold(),

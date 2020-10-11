@@ -8,6 +8,8 @@
 * Avoid diff calculation on large input files. (#135)
 * Added `prepend_module_to_snapshot` flag to disable prepending of module
   names to snapshot files. (#133)
+* Made `console` dependency optional.  The `colors` feature can be disabled now
+  which disables colored output.
 
 ## 1.0.0
 
