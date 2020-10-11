@@ -8,7 +8,7 @@
 //! Snapshots tests (also sometimes called approval tests) are tests that
 //! assert values against a reference value (the snapshot).  This is similar
 //! to how `assert_eq!` lets you compare a value against a reference value but
-//! unlike simple string assertions snapshot tests let you test against complex
+//! unlike simple string assertions, snapshot tests let you test against complex
 //! values and come with comprehensive tools to review changes.
 //!
 //! Snapshot tests are particularly useful if your reference values are very
@@ -16,8 +16,59 @@
 //!
 //! # What it looks like:
 //!
-//! There is a screencast that shows the entire workflow: [watch the insta
-//! introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be)
+//! ```no_run
+//! #[test]
+//! fn test_hello_world() {
+//!     insta::assert_debug_snapshot!(vec![1, 2, 3]);
+//! }
+//! ```
+//!
+//! Curious?  There is a screencast that shows the entire workflow: [watch the insta
+//! introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be).
+//! Or if you're not into videos, read the [one minute introduction](#introduction).
+//!
+//! # Introduction
+//!
+//! Install `insta`:
+//!
+//! Recommended way if you have `cargo-edit` installed:
+//!
+//! ```text
+//! $ cargo add --dev insta
+//! ```
+//!
+//! Alternatively edit your `Cargo.toml` manually and add `insta` as manual
+//! dependency.
+//!
+//! And for an improved review experience also install `cargo-insta`:
+//!
+//! ```text
+//! $ cargo install cargo-insta
+//! ```
+//!
+//! ```no_run
+//! use insta::assert_debug_snapshot;
+//!
+//! #[test]
+//! fn test_snapshots() {
+//!     assert_debug_snapshot!(vec![1, 2, 3]);
+//! }
+//! ```
+//!
+//! The recommended flow is to run the tests once, have them fail and check
+//! if the result is okay.  By default the new snapshots are stored next
+//! to the old ones with the extra `.new` extension.  Once you are satisifed
+//! move the new files over.  To simplify this workflow you can use
+//! `cargo insta review` which will let you interactively review them:
+//!
+//! ```text
+//! $ cargo test
+//! $ cargo insta review
+//! ```
+//!
+//! For more information on updating see [Snapshot Updating].
+//!
+//! [Snapshot Updating]: #snapshot-updating
 //!
 //! # How it operates
 //!
@@ -48,50 +99,6 @@
 //! redacting of partial values.  See [redactions](#redactions) for more
 //! information.
 //!
-//! # Example
-//!
-//! Install `insta`:
-//!
-//! Recommended way if you have `cargo-edit` installed:
-//!
-//! ```text
-//! $ cargo add --dev insta
-//! ```
-//!
-//! Alternatively edit your `Cargo.toml` manually and add `insta` as manual
-//! dependency.
-//!
-//! And for an improved review experience also install `cargo-insta`:
-//!
-//! ```text
-//! $ cargo install cargo-insta
-//! ```
-//!
-//! ```no_run
-//! use insta::assert_debug_snapshot;
-//!
-//! #[test]
-//! fn test_snapshots() {
-//!     let value = vec![1, 2, 3];
-//!     assert_debug_snapshot!(value);
-//! }
-//! ```
-//!
-//! The recommended flow is to run the tests once, have them fail and check
-//! if the result is okay.  By default the new snapshots are stored next
-//! to the old ones with the extra `.new` extension.  Once you are satisifed
-//! move the new files over.  To simplify this workflow you can use
-//! `cargo insta review` which will let you interactively review them:
-//!
-//! ```text
-//! $ cargo test
-//! $ cargo insta review
-//! ```
-//!
-//! For more information on updating see [Snapshot Updating].
-//!
-//! [Snapshot Updating]: #snapshot-updating
-//!
 //! # Snapshot files
 //!
 //! The committed snapshot files will have a header with some meta information
@@ -99,8 +106,8 @@
 //!
 //! ```text
 //! ---
-//! expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
-//! source: tests/test_user.rs
+//! expression: "vec![1, 2, 3]"
+//! source: tests/test_basic.rs
 //! ---
 //! [
 //!     1,
@@ -113,7 +120,8 @@
 //!
 //! During test runs snapshots will be updated according to the `INSTA_UPDATE`
 //! environment variable.  The default is `auto` which will write all new
-//! snapshots into `.snap.new` files if no CI is detected.
+//! snapshots into `.snap.new` files if no CI is detected so that `cargo-insta`
+//! can pick them up.  Normally you don't have to change this variable.
 //!
 //! `INSTA_UPDATE` modes:
 //!
@@ -123,8 +131,8 @@
 //! - `new`: write new snapshots into `.snap.new` files
 //! - `no`: does not update snapshot files at all (just runs tests)
 //!
-//! When `new` is used as mode the `cargo-insta` command can be used to review
-//! the snapshots conveniently:
+//! When `new` or `auto` is used as mode the `cargo-insta` command can be used
+//! to review the snapshots conveniently:
 //!
 //! ```text
 //! $ cargo install cargo-insta
@@ -285,7 +293,7 @@
 //!
 //! Sometimes it can be useful to run code against multiple input files.
 //! The easiest way to accomplish this is to use the `glob!` macro which
-//! runs a closure for each input file that matches.  Before the closure
+//! runs a closure for each input path that matches.  Before the closure
 //! is executed the settings are updated to set a reference to the input
 //! file and the appropriate snapshot suffix.
 //!
@@ -301,7 +309,7 @@
 //! ```
 //!
 //! The path to the glob macro is relative to the location of the test
-//! file.  It uses the [`globset`](https://crates.io/crates/globset) crate
+//! file.  It uses the [`globwalk`](https://crates.io/crates/globwalk) crate
 //! for actual glob operations.
 //!
 //! # Inline Snapshots
