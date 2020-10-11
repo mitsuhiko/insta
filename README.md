@@ -79,7 +79,7 @@ This crate exports multiple macros for snapshot testing:
 - `assert_snapshot!` for comparing basic string snapshots.
 - `assert_debug_snapshot!` for comparing `Debug` outputs of values.
 - `assert_display_snapshot!` for comparing `Display` outputs of values.
-- `aasert_csv_snapshot!` for comparing CSV serialized output of
+- `assert_csv_snapshot!` for comparing CSV serialized output of
   types implementing `serde::Serialize`. (requires the `csv` feature)
 - `assert_yaml_snapshot!` for comparing YAML serialized
   output of types implementing `serde::Serialize`.
