@@ -5,6 +5,7 @@
 * Added the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable to support
   deletions of unreferenced snapshot files. (#136)
 * Added support for TOML serializations.
+* Avoid diff calculation on large input files. (#135)
 
 ## 1.0.0
 
