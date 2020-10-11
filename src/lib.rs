@@ -359,7 +359,7 @@
 //! Insta cannot detect unused snapshot files.  The reason for this is that
 //! insta does not control the execution of the entirety of the tests so it
 //! cannot spot which files are actually unreferenced.  However you can use
-//! the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable or the to
+//! the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable to
 //! instruct insta to append all referenced files into a list.  This can then
 //! be used to delete all files not referenced.  For instance one could use
 //! [`ripgrep`](https://github.com/BurntSushi/ripgrep) like this:
