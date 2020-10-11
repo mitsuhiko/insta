@@ -336,6 +336,7 @@ The following features exist:
 * `toml`: enables TOML support (`assert_toml_snapshot!`)
 * `redactions`: enables support for redactions
 * `glob`: enables support for globbing (`glob!`)
+* `colors`: enables color output (enabled by default)
 
 ## Settings
 
