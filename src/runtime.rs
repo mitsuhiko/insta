@@ -117,6 +117,19 @@ fn update_snapshot_behavior(unseen: bool) -> UpdateBehavior {
     }
 }
 
+fn memoize_snapshot_file(snapshot_file: &Path) {
+    if let Ok(path) = env::var("INSTA_SNAPSHOT_REFERENCES_FILE") {
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open(path)
+            .unwrap();
+        f.write_all(format!("{}\n", snapshot_file.display()).as_bytes())
+            .unwrap();
+    }
+}
+
 fn output_snapshot_behavior() -> OutputBehavior {
     match env::var("INSTA_OUTPUT").ok().as_deref() {
         None | Some("") | Some("diff") => OutputBehavior::Diff,
@@ -947,6 +960,11 @@ pub fn assert_snapshot(
         },
         new_snapshot_contents,
     );
+
+    // memoize the snapshot file if requested.
+    if let Some(ref snapshot_file) = snapshot_file {
+        memoize_snapshot_file(snapshot_file);
+    }
 
     // if the snapshot matches we're done.
     if let Some(ref old_snapshot) = old {

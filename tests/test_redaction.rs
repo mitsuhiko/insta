@@ -102,6 +102,20 @@ fn test_with_random_value_ron() {
     });
 }
 
+#[cfg(feature = "toml")]
+#[test]
+fn test_with_random_value_toml() {
+    use insta::assert_toml_snapshot;
+    assert_toml_snapshot!("user_toml", &User {
+        id: 53,
+        username: "john_ron".to_string(),
+        email: Email("john@example.com".to_string()),
+        extra: "".to_string(),
+    }, {
+        ".id" => "[id]"
+    });
+}
+
 #[test]
 fn test_with_random_value_json() {
     assert_json_snapshot!("user_json", &User {

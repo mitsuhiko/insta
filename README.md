@@ -10,7 +10,7 @@
 Snapshots tests (also sometimes called approval tests) are tests that
 assert values against a reference value (the snapshot).  This is similar
 to how `assert_eq!` lets you compare a value against a reference value but
-unlike simple string assertions snapshot tests let you test against complex
+unlike simple string assertions, snapshot tests let you test against complex
 values and come with comprehensive tools to review changes.
 
 Snapshot tests are particularly useful if your reference values are very
@@ -18,39 +18,18 @@ large or change often.
 
 ## What it looks like:
 
-There is a screencast that shows the entire workflow: [watch the insta
-introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be)
+```rust
+#[test]
+fn test_hello_world() {
+    insta::assert_debug_snapshot!(vec![1, 2, 3]);
+}
+```
 
-## How it operates
+Curious?  There is a screencast that shows the entire workflow: [watch the insta
+introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be).
+Or if you're not into videos, read the [one minute introduction](#introduction).
 
-This crate exports multiple macros for snapshot testing:
-
-- `assert_snapshot!` for comparing basic string snapshots.
-- `assert_debug_snapshot!` for comparing `Debug` outputs of values.
-- `assert_display_snapshot!` for comparing `Display` outputs of values.
-- `aasert_csv_snapshot!` for comparing CSV serialized output of
-  types implementing `serde::Serialize`. (requires the `csv` feature)
-- `assert_yaml_snapshot!` for comparing YAML serialized
-  output of types implementing `serde::Serialize`.
-- `assert_ron_snapshot!` for comparing RON serialized output of
-  types implementing `serde::Serialize`. (requires the `ron` feature)
-- `assert_json_snapshot!` for comparing JSON serialized output of
-  types implementing `serde::Serialize`.
-
-Snapshots are stored in the `snapshots` folder right next to the test file
-where this is used.  The name of the file is `<module>__<name>.snap` where
-the `name` of the snapshot.  Snapshots can either be explicitly named or the
-name is derived from the test name.
-
-Additionally snapshots can also be stored inline.  In that case the
-[`cargo-insta`](https://crates.io/crates/cargo-insta) tool is necessary.
-See [inline snapshots](#inline-snapshots) for more information.
-
-For macros that work with `serde::Serialize` this crate also permits
-redacting of partial values.  See [redactions](#redactions) for more
-information.
-
-## Example
+## Introduction
 
 Install `insta`:
 
@@ -74,8 +53,7 @@ use insta::assert_debug_snapshot;
 
 #[test]
 fn test_snapshots() {
-    let value = vec![1, 2, 3];
-    assert_debug_snapshot!(value);
+    assert_debug_snapshot!(vec![1, 2, 3]);
 }
 ```
 
@@ -94,6 +72,35 @@ For more information on updating see [Snapshot Updating].
 
 [Snapshot Updating]: #snapshot-updating
 
+## How it operates
+
+This crate exports multiple macros for snapshot testing:
+
+- `assert_snapshot!` for comparing basic string snapshots.
+- `assert_debug_snapshot!` for comparing `Debug` outputs of values.
+- `assert_display_snapshot!` for comparing `Display` outputs of values.
+- `assert_csv_snapshot!` for comparing CSV serialized output of
+  types implementing `serde::Serialize`. (requires the `csv` feature)
+- `assert_yaml_snapshot!` for comparing YAML serialized
+  output of types implementing `serde::Serialize`.
+- `assert_ron_snapshot!` for comparing RON serialized output of
+  types implementing `serde::Serialize`. (requires the `ron` feature)
+- `assert_json_snapshot!` for comparing JSON serialized output of
+  types implementing `serde::Serialize`.
+
+Snapshots are stored in the `snapshots` folder right next to the test file
+where this is used.  The name of the file is `<module>__<name>.snap` where
+the `name` of the snapshot.  Snapshots can either be explicitly named or the
+name is derived from the test name.
+
+Additionally snapshots can also be stored inline.  In that case the
+[`cargo-insta`](https://crates.io/crates/cargo-insta) tool is necessary.
+See [inline snapshots](#inline-snapshots) for more information.
+
+For macros that work with `serde::Serialize` this crate also permits
+redacting of partial values.  See [redactions](#redactions) for more
+information.
+
 ## Snapshot files
 
 The committed snapshot files will have a header with some meta information
@@ -101,8 +108,8 @@ that can make debugging easier and the snapshot:
 
 ```
 ---
-expression: "&User{id: Uuid::new_v4(), username: \"john_doe\".to_string(),}"
-source: tests/test_user.rs
+expression: "vec![1, 2, 3]"
+source: tests/test_basic.rs
 ---
 [
     1,
@@ -115,7 +122,8 @@ source: tests/test_user.rs
 
 During test runs snapshots will be updated according to the `INSTA_UPDATE`
 environment variable.  The default is `auto` which will write all new
-snapshots into `.snap.new` files if no CI is detected.
+snapshots into `.snap.new` files if no CI is detected so that `cargo-insta`
+can pick them up.  Normally you don't have to change this variable.
 
 `INSTA_UPDATE` modes:
 
@@ -125,8 +133,8 @@ snapshots into `.snap.new` files if no CI is detected.
 - `new`: write new snapshots into `.snap.new` files
 - `no`: does not update snapshot files at all (just runs tests)
 
-When `new` is used as mode the `cargo-insta` command can be used to review
-the snapshots conveniently:
+When `new` or `auto` is used as mode the `cargo-insta` command can be used
+to review the snapshots conveniently:
 
 ```
 $ cargo install cargo-insta
@@ -274,7 +282,7 @@ assert_yaml_snapshot!(&User {
 
 Sometimes it can be useful to run code against multiple input files.
 The easiest way to accomplish this is to use the `glob!` macro which
-runs a closure for each input file that matches.  Before the closure
+runs a closure for each input path that matches.  Before the closure
 is executed the settings are updated to set a reference to the input
 file and the appropriate snapshot suffix.
 
@@ -290,7 +298,7 @@ glob!("inputs/*.txt", |path| {
 ```
 
 The path to the glob macro is relative to the location of the test
-file.  It uses the [`globset`](https://crates.io/crates/globset) crate
+file.  It uses the [`globwalk`](https://crates.io/crates/globwalk) crate
 for actual glob operations.
 
 ## Inline Snapshots
@@ -340,6 +348,23 @@ to force a rewrite of them all:
 
 ```
 $ cargo insta test --accept --force-update-snapshots
+```
+
+## Deleting Unused Snapshots
+
+Insta cannot detect unused snapshot files.  The reason for this is that
+insta does not control the execution of the entirety of the tests so it
+cannot spot which files are actually unreferenced.  However you can use
+the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable to
+instruct insta to append all referenced files into a list.  This can then
+be used to delete all files not referenced.  For instance one could use
+[`ripgrep`](https://github.com/BurntSushi/ripgrep) like this:
+
+```
+export INSTA_SNAPSHOT_REFERENCES_FILE="$(mktemp)"
+cargo test
+rg --files -lg '*.snap' "$(pwd)" | grep -vFf "$INSTA_SNAPSHOT_REFERENCES_FILE" | xargs rm
+rm -f $INSTA_SNAPSHOT_REFERENCES_FILE
 ```
 
 License: Apache-2.0
