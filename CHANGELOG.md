@@ -6,6 +6,8 @@
   deletions of unreferenced snapshot files. (#136)
 * Added support for TOML serializations.
 * Avoid diff calculation on large input files. (#135)
+* Added `prepend_module_to_snapshot` flag to disable prepending of module
+  names to snapshot files. (#133)
 
 ## 1.0.0
 

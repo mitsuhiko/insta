@@ -323,11 +323,20 @@ pub fn get_snapshot_filename(
     Settings::with(|settings| {
         root.join(base.parent().unwrap())
             .join(settings.snapshot_path())
-            .join(format!(
-                "{}__{}.snap",
-                module_path.replace("::", "__"),
-                snapshot_name.replace("/", "__").replace("\\", "__")
-            ))
+            .join({
+                use std::fmt::Write;
+                let mut f = String::new();
+                if settings.prepend_module_to_snapshot() {
+                    write!(&mut f, "{}__", module_path.replace("::", "__")).unwrap();
+                }
+                write!(
+                    &mut f,
+                    "{}.snap",
+                    snapshot_name.replace("/", "__").replace("\\", "__")
+                )
+                .unwrap();
+                f
+            })
     })
 }
 

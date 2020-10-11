@@ -67,3 +67,10 @@ fn test_snapshot_path() {
         assert_yaml_snapshot!(vec![1, 2, 3]);
     });
 }
+
+#[test]
+fn test_snapshot_no_module_prepending() {
+    with_settings!({prepend_module_to_snapshot => false}, {
+        assert_yaml_snapshot!(vec![1, 2, 3]);
+    });
+}

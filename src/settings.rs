@@ -18,6 +18,7 @@ lazy_static! {
         snapshot_path: "snapshots".into(),
         snapshot_suffix: "".into(),
         input_file: None,
+        prepend_module_to_snapshot: true,
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
     });
@@ -48,6 +49,7 @@ pub struct ActualSettings {
     pub snapshot_path: PathBuf,
     pub snapshot_suffix: String,
     pub input_file: Option<PathBuf>,
+    pub prepend_module_to_snapshot: bool,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
 }
@@ -121,6 +123,22 @@ impl Settings {
     /// Returns the current value for map sorting.
     pub fn sort_maps(&self) -> bool {
         self.inner.sort_maps
+    }
+
+    /// Disbales prepending of modules to the snapshot filename.
+    ///
+    /// By default the filename of a snapshot is `<module>__<name>.snap`.
+    /// Setting this flag to `false` changes the snapshot filename to just
+    /// `<name>.snap`.
+    ///
+    /// The default value is `true`.
+    pub fn set_prepend_module_to_snapshot(&mut self, value: bool) {
+        self._private_inner_mut().prepend_module_to_snapshot = value;
+    }
+
+    /// Returns the current value for module name prepending.
+    pub fn prepend_module_to_snapshot(&self) -> bool {
+        self.inner.prepend_module_to_snapshot
     }
 
     /// Sets the snapshot suffix.
