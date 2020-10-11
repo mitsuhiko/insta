@@ -9,6 +9,8 @@ pub enum SerializationFormat {
     Csv,
     #[cfg(feature = "ron")]
     Ron,
+    #[cfg(feature = "toml")]
+    Toml,
     Yaml,
     Json,
 }
@@ -64,6 +66,14 @@ pub fn serialize_content(
             let mut serializer = ron::ser::Serializer::new(&mut buf, Some(config), true).unwrap();
             content.serialize(&mut serializer).unwrap();
             String::from_utf8(buf).unwrap()
+        }
+        #[cfg(feature = "toml")]
+        SerializationFormat::Toml => {
+            let mut rv = toml::to_string_pretty(&content).unwrap();
+            if rv.ends_with('\n') {
+                rv.truncate(rv.len() - 1);
+            }
+            rv
         }
     }
 }

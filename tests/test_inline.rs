@@ -2,6 +2,8 @@
 use insta::assert_csv_snapshot;
 #[cfg(feature = "ron")]
 use insta::assert_ron_snapshot;
+#[cfg(feature = "toml")]
+use insta::assert_toml_snapshot;
 use insta::{assert_debug_snapshot, assert_json_snapshot, assert_snapshot, assert_yaml_snapshot};
 use serde::Serialize;
 use std::thread;
@@ -96,6 +98,30 @@ fn test_ron_inline() {
       username: "peter-doe",
       email: Email("peter@doe.invalid"),
     )
+    "###);
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn test_toml_inline() {
+    #[derive(Serialize)]
+    pub struct Email(String);
+
+    #[derive(Serialize)]
+    pub struct User {
+        id: u32,
+        username: String,
+        email: Email,
+    }
+
+    assert_toml_snapshot!(User {
+        id: 42,
+        username: "peter-doe".into(),
+        email: Email("peter@doe.invalid".into()),
+    }, @r###"
+    id = 42
+    username = 'peter-doe'
+    email = 'peter@doe.invalid'
     "###);
 }
 
