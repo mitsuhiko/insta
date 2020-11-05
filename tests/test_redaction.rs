@@ -186,40 +186,62 @@ fn test_with_random_value_json_settings2() {
 }
 
 #[test]
-fn test_redact_newtype() {
-    #[derive(Serialize, Clone)]
-    pub struct User {
-        id: String,
-        name: String,
-    }
-
+fn test_redact_newtype_struct() {
     #[derive(Serialize)]
     pub struct UserWrapper(User);
 
-    let user = User {
-        id: "my-id".into(),
-        name: "my-name".into(),
-    };
-    let wrapper = UserWrapper(user.clone());
+    let wrapper = UserWrapper(User {
+        id: 42,
+        username: "john_doe".to_string(),
+        email: Email("john@example.com".to_string()),
+        extra: "".to_string(),
+    });
 
-    // This works as expected
-    assert_json_snapshot!(user, {
-        r#".id"# => "[id]"
-    }, @r###"
-    {
-      "id": "[id]",
-      "name": "my-name"
-    }
-    "###);
-
-    // This fails - 'id' is not redacted
     assert_json_snapshot!(wrapper, {
         r#".id"# => "[id]"
     }, @r###"
     {
       "id": "[id]",
-      "name": "my-name"
+      "username": "john_doe",
+      "email": "john@example.com",
+      "extra": ""
     }
+    "###);
+}
+
+#[test]
+fn test_redact_newtype_enum() {
+    #[derive(Serialize)]
+    pub enum Role {
+        Admin(User),
+        Visitor { id: String, name: String },
+    }
+
+    let visitor = Role::Visitor { id: "my-id".into(), name: "my-name".into() };
+    assert_yaml_snapshot!(visitor, {
+        r#".id"# => "[id]",
+    }, @r###"
+    ---
+    Visitor:
+      id: "[id]"
+      name: my-name
+    "###);
+
+    let admin = Role::Admin(User {
+        id: 42,
+        username: "john_doe".to_string(),
+        email: Email("john@example.com".to_string()),
+        extra: "".to_string(),
+    });
+    assert_yaml_snapshot!(admin, {
+        r#".id"# => "[id]",
+    }, @r###"
+    ---
+    Admin:
+      id: "[id]"
+      username: john_doe
+      email: john@example.com
+      extra: ""
     "###);
 }
 
