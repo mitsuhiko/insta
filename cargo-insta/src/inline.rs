@@ -75,8 +75,8 @@ impl FilePatcher {
         let inline = &mut self.inline_snapshots[id];
 
         // find prefix and suffix on the first and last lines
-        let prefix = self.lines[inline.start.0][..inline.start.1].to_string();
-        let suffix = self.lines[inline.end.0][inline.end.1..].to_string();
+        let prefix: String = self.lines[inline.start.0].chars().take(inline.start.1).collect();
+        let suffix: String = self.lines[inline.end.0].chars().skip(inline.end.1).collect();
 
         // replace lines
         let snapshot_line_contents =
