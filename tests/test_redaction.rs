@@ -217,7 +217,10 @@ fn test_redact_newtype_enum() {
         Visitor { id: String, name: String },
     }
 
-    let visitor = Role::Visitor { id: "my-id".into(), name: "my-name".into() };
+    let visitor = Role::Visitor {
+        id: "my-id".into(),
+        name: "my-name".into(),
+    };
     assert_yaml_snapshot!(visitor, {
         r#".id"# => "[id]",
     }, @r###"

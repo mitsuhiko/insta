@@ -450,12 +450,14 @@ impl<'a> Selector<'a> {
                     name,
                     Box::new(self.redact_impl(*inner, redaction, path)),
                 ),
-                Content::NewtypeVariant(name, index, variant_name, inner) => Content::NewtypeVariant(
-                    name,
-                    index,
-                    variant_name,
-                    Box::new(self.redact_impl(*inner, redaction, path)),
-                ),
+                Content::NewtypeVariant(name, index, variant_name, inner) => {
+                    Content::NewtypeVariant(
+                        name,
+                        index,
+                        variant_name,
+                        Box::new(self.redact_impl(*inner, redaction, path)),
+                    )
+                }
                 Content::Some(contents) => {
                     Content::Some(Box::new(self.redact_impl(*contents, redaction, path)))
                 }
