@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+* Fix invalid offset calculation for inline snapshot (#137)
+* Added support for newtype variant redactions. (#139)
+
 ## 1.1.0
 
 * Added the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable to support
