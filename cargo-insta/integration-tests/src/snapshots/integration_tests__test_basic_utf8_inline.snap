@@ -1,0 +1,11 @@
+---
+source: src/main.rs
+expression: "&fs::read_to_string(gen_file).unwrap()"
+input_file: tests/test_basic_utf8_inline.rs
+---
+#[test]
+#[rustfmt::skip]
+fn test_non_basic_plane() {
+    /* an offset here ❄️ */ insta::assert_snapshot!("a 😀oeu", @"a 😀oeu");
+}
+

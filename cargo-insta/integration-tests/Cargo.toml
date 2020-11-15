@@ -1,0 +1,13 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dircpy = "0.3.4"
+insta = { version = "1.1.0", path = "../..", features = ["redactions", "glob"] }
+walkdir = "2.3.1"
+serde = { version = "1.0.117", features = ["derive"] }
