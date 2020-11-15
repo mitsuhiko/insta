@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0
+
+* Expose more useful methods from `Content`.
+
 ## 1.2.0
 
 * Fix invalid offset calculation for inline snapshot (#137)

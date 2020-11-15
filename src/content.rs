@@ -4,8 +4,26 @@ use std::marker::PhantomData;
 
 /// Represents variable typed content.
 ///
-/// This is used internally for the serialization system to
-/// represent values before the actual snapshots are written.
+/// This is used for the serialization system to represent values
+/// before the actual snapshots are written and is also exposed to
+/// dynamic redaction functions.
+///
+/// Some enum variants are intentionally not exposed to user code.
+/// It's generally recommended to construct content objects by
+/// using the [`From`](https://doc.rust-lang.org/std/convert/trait.From.html)
+/// trait and by using the accessor methods to assert on it.
+///
+/// While matching on the content is possible in theory it is
+/// recommended against.  The reason for this is that the content
+/// enum holds variants that can "wrap" values where it's not
+/// expected.  For instance if a field holds an `Option<String>`
+/// you cannot use pattern matching to extract the string as it
+/// will be contained in an internal `Some` variant that is not
+/// exposed.  On the other hand the `as_str` method will
+/// automatically resolve such internal wrappers.
+///
+/// If you do need to pattern match you should use the
+/// `resolve_inner` method to resolve such internal wrappers.
 #[derive(Debug, Clone)]
 pub enum Content {
     Bool(bool),
@@ -125,16 +143,63 @@ impl<'a> From<&'a [u8]> for Content {
 }
 
 impl Content {
+    /// This resolves the innermost content in a chain of
+    /// wrapped content.
+    ///
+    /// For instance if you encounter an `Option<Option<String>>`
+    /// field the content will be wrapped twice in an internal
+    /// option wrapper.  If you need to pattern match you will
+    /// need in some situations to first resolve the inner value
+    /// before such matching can take place as there is no exposed
+    /// way to match on these wrappers.
+    ///
+    /// This method does not need to be called for the `as_`
+    /// methods which resolve automatically.
+    pub fn resolve_inner(&self) -> &Content {
+        match *self {
+            Content::Some(ref v)
+            | Content::NewtypeStruct(_, ref v)
+            | Content::NewtypeVariant(_, _, _, ref v) => v.resolve_inner(),
+            ref other => other,
+        }
+    }
+
     /// Returns the value as string
     pub fn as_str(&self) -> Option<&str> {
-        match *self {
+        match self.resolve_inner() {
             Content::String(ref s) => Some(s.as_str()),
             _ => None,
         }
     }
 
+    /// Returns the value as bytes
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        match self.resolve_inner() {
+            Content::Bytes(ref b) => Some(&*b),
+            _ => None,
+        }
+    }
+
+    /// Returns the value as slice of content values.
+    pub fn as_slice(&self) -> Option<&[Content]> {
+        match self.resolve_inner() {
+            Content::Seq(ref v) | Content::Tuple(ref v) | Content::TupleVariant(_, _, _, ref v) => {
+                Some(&v[..])
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns true if the value is nil.
+    pub fn is_nil(&self) -> bool {
+        match self.resolve_inner() {
+            Content::None | Content::Unit => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn as_key(&self) -> Key<'_> {
-        match *self {
+        match *self.resolve_inner() {
             Content::Bool(val) => Key::Bool(val),
             Content::Char(val) => Key::U64(val as u64),
             Content::U16(val) => Key::U64(val.into()),
@@ -147,14 +212,21 @@ impl Content {
             Content::F64(val) => Key::F64(val),
             Content::String(ref val) => Key::Str(&val.as_str()),
             Content::Bytes(ref val) => Key::Bytes(&val[..]),
-            Content::Some(ref val) => val.as_key(),
             _ => Key::Other,
+        }
+    }
+
+    /// Returns the value as bool
+    pub fn as_bool(&self) -> Option<bool> {
+        match *self.resolve_inner() {
+            Content::Bool(val) => Some(val),
+            _ => None,
         }
     }
 
     /// Returns the value as u64
     pub fn as_u64(&self) -> Option<u64> {
-        match *self {
+        match *self.resolve_inner() {
             Content::U8(v) => Some(u64::from(v)),
             Content::U16(v) => Some(u64::from(v)),
             Content::U32(v) => Some(u64::from(v)),
@@ -163,6 +235,37 @@ impl Content {
             Content::I16(v) if v >= 0 => Some(v as u64),
             Content::I32(v) if v >= 0 => Some(v as u64),
             Content::I64(v) if v >= 0 => Some(v as u64),
+            _ => None,
+        }
+    }
+
+    /// Returns the value as i64
+    pub fn as_i64(&self) -> Option<i64> {
+        match *self.resolve_inner() {
+            Content::U8(v) => Some(i64::from(v)),
+            Content::U16(v) => Some(i64::from(v)),
+            Content::U32(v) => Some(i64::from(v)),
+            Content::U64(v) => {
+                let rv = v as i64;
+                if rv as u64 == v {
+                    Some(rv)
+                } else {
+                    None
+                }
+            }
+            Content::I8(v) => Some(i64::from(v)),
+            Content::I16(v) => Some(i64::from(v)),
+            Content::I32(v) => Some(i64::from(v)),
+            Content::I64(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Returns the value as f64
+    pub fn as_f64(&self) -> Option<f64> {
+        match *self.resolve_inner() {
+            Content::F32(v) => Some(f64::from(v)),
+            Content::F64(v) => Some(v),
             _ => None,
         }
     }
