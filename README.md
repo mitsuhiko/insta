@@ -19,9 +19,9 @@ large or change often.
 ## What it looks like:
 
 ```rust
-#[test]
+#test
 fn test_hello_world() {
-    insta::assert_debug_snapshot!(vec![1, 2, 3]);
+    insta::assert_debug_snapshot!(vec!1, 2, 3);
 }
 ```
 
@@ -51,9 +51,9 @@ $ cargo install cargo-insta
 ```rust
 use insta::assert_debug_snapshot;
 
-#[test]
+#test
 fn test_snapshots() {
-    assert_debug_snapshot!(vec![1, 2, 3]);
+    assert_debug_snapshot!(vec!1, 2, 3);
 }
 ```
 
@@ -68,9 +68,9 @@ $ cargo test
 $ cargo insta review
 ```
 
-For more information on updating see [Snapshot Updating].
+For more information on updating see Snapshot Updating.
 
-[Snapshot Updating]: #snapshot-updating
+Snapshot Updating: #snapshot-updating
 
 ## How it operates
 
@@ -96,7 +96,7 @@ the `name` of the snapshot.  Snapshots can either be explicitly named or the
 name is derived from the test name.
 
 Additionally snapshots can also be stored inline.  In that case the
-[`cargo-insta`](https://crates.io/crates/cargo-insta) tool is necessary.
+`cargo-insta`(https://crates.io/crates/cargo-insta) tool is necessary.
 See [inline snapshots](#inline-snapshots) for more information.
 
 For macros that work with `serde::Serialize` this crate also permits
@@ -110,7 +110,7 @@ that can make debugging easier and the snapshot:
 
 ```
 ---
-expression: "vec![1, 2, 3]"
+expression: "vec!1, 2, 3"
 source: tests/test_basic.rs
 ---
 [
@@ -190,7 +190,7 @@ To provide an explicit name provide the name of the snapshot as first
 argument to the macro:
 
 ```rust
-#[test]
+#test
 fn test_something() {
     assert_snapshot!("first_snapshot", "first value");
     assert_snapshot!("second_snapshot", "second value");
@@ -228,12 +228,12 @@ the syntax `{ selector => replacement_value }`.
 The following selectors exist:
 
 - `.key`: selects the given key
-- `["key"]`: alternative syntax for keys
-- `[index]`: selects the given index in an array
-- `[]`: selects all items on an array
-- `[:end]`: selects all items up to `end` (excluding, supports negative indexing)
-- `[start:]`: selects all items starting with `start`
-- `[start:end]`: selects all items from `start` to `end` (end excluding,
+- `"key"`: alternative syntax for keys
+- `index`: selects the given index in an array
+- ``: selects all items on an array
+- `:end`: selects all items up to `end` (excluding, supports negative indexing)
+- `start:`: selects all items starting with `start`
+- `start:end`: selects all items from `start` to `end` (end excluding,
   supports negative indexing).
 - `.*`: selects all keys on that depth
 - `.**`: performs a deep match (zero or more items).  Can only be used once.
@@ -241,7 +241,7 @@ The following selectors exist:
 Example usage:
 
 ```rust
-#[derive(Serialize)]
+#derive(Serialize)
 pub struct User {
     id: Uuid,
     username: String,
@@ -257,14 +257,14 @@ assert_yaml_snapshot!(&User {
         map
     },
 }, {
-    ".id" => "[uuid]",
-    ".extra.ssn" => "[ssn]"
+    ".id" => "uuid",
+    ".extra.ssn" => "ssn"
 });
 ```
 
 It's also possible to execute a callback that can produce a new value
 instead of hardcoding a replacement value by using the
-[`dynamic_redaction`](fn.dynamic_redaction.html) function:
+`dynamic_redaction` function:
 
 ```rust
 assert_yaml_snapshot!(&User {
@@ -273,7 +273,7 @@ assert_yaml_snapshot!(&User {
 }, {
     ".id" => dynamic_redaction(|value, _| {
         // assert that the value looks like a uuid here
-        "[uuid]"
+        "uuid"
     }),
 });
 ```
@@ -300,8 +300,7 @@ glob!("inputs/*.txt", |path| {
 ```
 
 The path to the glob macro is relative to the location of the test
-file.  It uses the [`globwalk`](https://crates.io/crates/globwalk) crate
-for actual glob operations.
+file.  It uses the `globwalk` crate for actual glob operations.
 
 ## Inline Snapshots
 
@@ -314,7 +313,7 @@ value on review.
 Example:
 
 ```rust
-#[derive(Serialize)]
+#derive(Serialize)
 pub struct User {
     username: String,
 }
@@ -341,7 +340,7 @@ The following features exist:
 ## Settings
 
 There are some settings that can be changed on a per-thread (and thus
-per-test) basis.  For more information see [settings](struct.Settings.html).
+per-test) basis.  For more information see Settings.
 
 ## Legacy Snapshot Formats
 
@@ -362,7 +361,7 @@ cannot spot which files are actually unreferenced.  However you can use
 the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable to
 instruct insta to append all referenced files into a list.  This can then
 be used to delete all files not referenced.  For instance one could use
-[`ripgrep`](https://github.com/BurntSushi/ripgrep) like this:
+[ripgrep](https://github.com/BurntSushi/ripgrep) like this:
 
 ```
 export INSTA_SNAPSHOT_REFERENCES_FILE="$(mktemp)"

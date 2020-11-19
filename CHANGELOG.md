@@ -3,6 +3,7 @@
 ## 1.3.0
 
 * Expose more useful methods from `Content`.
+* Fixes for latest rustc version.
 
 ## 1.2.0
 

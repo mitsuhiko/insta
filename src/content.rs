@@ -10,8 +10,8 @@ use std::marker::PhantomData;
 ///
 /// Some enum variants are intentionally not exposed to user code.
 /// It's generally recommended to construct content objects by
-/// using the [`From`](https://doc.rust-lang.org/std/convert/trait.From.html)
-/// trait and by using the accessor methods to assert on it.
+/// using the [`From`](std::convert::From) trait and by using the
+/// accessor methods to assert on it.
 ///
 /// While matching on the content is possible in theory it is
 /// recommended against.  The reason for this is that the content

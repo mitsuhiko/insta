@@ -99,8 +99,8 @@ impl<'a> From<&'a [u8]> for Redaction {
 /// statically declaring it a dynamic value can be computed.  This can also
 /// be used to perform assertions before replacing the value.
 ///
-/// The closure is passed two arguments: the value as [`Content`](internals/enum.Content.html)
-/// and the path that was selected (as [`ContentPath`](internals/struct.ContentPath.html)).
+/// The closure is passed two arguments: the value as [`Content`]
+/// and the path that was selected (as [`ContentPath`])
 ///
 /// Example:
 ///

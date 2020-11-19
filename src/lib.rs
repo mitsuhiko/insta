@@ -266,7 +266,7 @@
 //!
 //! It's also possible to execute a callback that can produce a new value
 //! instead of hardcoding a replacement value by using the
-//! [`dynamic_redaction`](fn.dynamic_redaction.html) function:
+//! [`dynamic_redaction`] function:
 //!
 //! ```no_run
 //! # #[cfg(feature = "redactions")] {
@@ -311,8 +311,7 @@
 //! ```
 //!
 //! The path to the glob macro is relative to the location of the test
-//! file.  It uses the [`globwalk`](https://crates.io/crates/globwalk) crate
-//! for actual glob operations.
+//! file.  It uses the [`globwalk`] crate for actual glob operations.
 //!
 //! # Inline Snapshots
 //!
@@ -343,17 +342,17 @@
 //!
 //! The following features exist:
 //!
-//! * `csv`: enables CSV support (`assert_csv_snapshot!`)
-//! * `ron`: enables RON support (`assert_ron_snapshot!`)
-//! * `toml`: enables TOML support (`assert_toml_snapshot!`)
+//! * `csv`: enables CSV support ([`assert_csv_snapshot!`])
+//! * `ron`: enables RON support ([`assert_ron_snapshot!`])
+//! * `toml`: enables TOML support ([`assert_toml_snapshot!`])
 //! * `redactions`: enables support for redactions
-//! * `glob`: enables support for globbing (`glob!`)
+//! * `glob`: enables support for globbing ([`glob!`])
 //! * `colors`: enables color output (enabled by default)
 //!
 //! # Settings
 //!
 //! There are some settings that can be changed on a per-thread (and thus
-//! per-test) basis.  For more information see [settings](struct.Settings.html).
+//! per-test) basis.  For more information see [Settings].
 //!
 //! # Legacy Snapshot Formats
 //!
@@ -374,7 +373,7 @@
 //! the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable to
 //! instruct insta to append all referenced files into a list.  This can then
 //! be used to delete all files not referenced.  For instance one could use
-//! [`ripgrep`](https://github.com/BurntSushi/ripgrep) like this:
+//! [ripgrep](https://github.com/BurntSushi/ripgrep) like this:
 //!
 //! ```text
 //! export INSTA_SNAPSHOT_REFERENCES_FILE="$(mktemp)"

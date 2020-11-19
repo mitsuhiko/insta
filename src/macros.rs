@@ -2,7 +2,7 @@
 ///
 /// **Feature:** `csv` (disabled by default)
 ///
-/// This works exactly like [`assert_yaml_snapshot`](macro.assert_yaml_snapshot.html)
+/// This works exactly like [`assert_yaml_snapshot!`]
 /// but serializes in [CSV](https://github.com/burntsushi/rust-csv) format instead of
 /// YAML.
 ///
@@ -45,7 +45,7 @@ macro_rules! assert_csv_snapshot {
 ///
 /// **Feature:** `toml` (disabled by default)
 ///
-/// This works exactly like [`assert_toml_snapshot`](macro.assert_toml_snapshot.html)
+/// This works exactly like [`assert_toml_snapshot!`]
 /// but serializes in [TOML](https://github.com/alexcrichton/toml-rs) format instead of
 /// YAML.  Note that TOML cannot represent all values due to limitations in the
 /// format.
@@ -101,7 +101,7 @@ macro_rules! assert_toml_snapshot {
 /// assert_yaml_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
-/// Unlike the [`assert_debug_snapshot`](macros.assert_debug_snapshot.html)
+/// Unlike the [`assert_debug_snapshot!`]
 /// macro, this one has a secondary mode where redactions can be defined.
 ///
 /// The third argument to the macro can be an object expression for redaction.
@@ -155,7 +155,7 @@ macro_rules! assert_yaml_snapshot {
 ///
 /// **Feature:** `ron` (disabled by default)
 ///
-/// This works exactly like [`assert_yaml_snapshot`](macro.assert_yaml_snapshot.html)
+/// This works exactly like [`assert_yaml_snapshot!`]
 /// but serializes in [RON](https://github.com/ron-rs/ron/) format instead of
 /// YAML which retains some type information for more accurate comparisions.
 ///
@@ -197,9 +197,9 @@ macro_rules! assert_ron_snapshot {
 
 /// Asserts a `Serialize` snapshot in JSON format.
 ///
-/// This works exactly like [`assert_yaml_snapshot`](macro.assert_yaml_snapshot.html)
-/// but serializes in JSON format.  This is normally not recommended because it
-/// makes diffs less reliable, but it can be useful for certain specialized situations.
+/// This works exactly like [`assert_yaml_snapshot!`] but serializes in JSON format.
+/// This is normally not recommended because it makes diffs less reliable, but it can
+/// be useful for certain specialized situations.
 ///
 /// Example:
 ///

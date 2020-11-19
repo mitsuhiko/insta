@@ -34,7 +34,7 @@ lint:
 	@cargo clippy
 
 update-readme:
-	@cargo readme > README.md
+	@cargo readme | perl -pe 's/\[`(.*?)`]/`$$1`/g' | perl -pe 's/\[(.*?)\](?![(])/$$1/g' > README.md
 	@cd cargo-insta; cargo readme > README.md
 
 .PHONY: all doc test cargotest format format-check lint update-readme
