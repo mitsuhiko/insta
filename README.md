@@ -19,9 +19,9 @@ large or change often.
 ## What it looks like:
 
 ```rust
-#test
+#[test]
 fn test_hello_world() {
-    insta::assert_debug_snapshot!(vec!1, 2, 3);
+    insta::assert_debug_snapshot!(vec![1, 2, 3]);
 }
 ```
 
@@ -51,9 +51,9 @@ $ cargo install cargo-insta
 ```rust
 use insta::assert_debug_snapshot;
 
-#test
+#[test]
 fn test_snapshots() {
-    assert_debug_snapshot!(vec!1, 2, 3);
+    assert_debug_snapshot!(vec![1, 2, 3]);
 }
 ```
 
@@ -96,7 +96,7 @@ the `name` of the snapshot.  Snapshots can either be explicitly named or the
 name is derived from the test name.
 
 Additionally snapshots can also be stored inline.  In that case the
-`cargo-insta`(https://crates.io/crates/cargo-insta) tool is necessary.
+[`cargo-insta`](https://crates.io/crates/cargo-insta) tool is necessary.
 See [inline snapshots](#inline-snapshots) for more information.
 
 For macros that work with `serde::Serialize` this crate also permits
@@ -110,7 +110,7 @@ that can make debugging easier and the snapshot:
 
 ```
 ---
-expression: "vec!1, 2, 3"
+expression: "vec![1, 2, 3]"
 source: tests/test_basic.rs
 ---
 [
@@ -190,7 +190,7 @@ To provide an explicit name provide the name of the snapshot as first
 argument to the macro:
 
 ```rust
-#test
+#[test]
 fn test_something() {
     assert_snapshot!("first_snapshot", "first value");
     assert_snapshot!("second_snapshot", "second value");
@@ -241,7 +241,7 @@ The following selectors exist:
 Example usage:
 
 ```rust
-#derive(Serialize)
+#[derive(Serialize)]
 pub struct User {
     id: Uuid,
     username: String,
@@ -257,8 +257,8 @@ assert_yaml_snapshot!(&User {
         map
     },
 }, {
-    ".id" => "uuid",
-    ".extra.ssn" => "ssn"
+    ".id" => "[uuid]",
+    ".extra.ssn" => "[ssn]"
 });
 ```
 
@@ -273,7 +273,7 @@ assert_yaml_snapshot!(&User {
 }, {
     ".id" => dynamic_redaction(|value, _| {
         // assert that the value looks like a uuid here
-        "uuid"
+        "[uuid]"
     }),
 });
 ```
@@ -313,7 +313,7 @@ value on review.
 Example:
 
 ```rust
-#derive(Serialize)
+#[derive(Serialize)]
 pub struct User {
     username: String,
 }
