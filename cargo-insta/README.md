@@ -17,4 +17,4 @@ For more information see [the insta crate documentation](https://docs.rs/insta).
 
 - [Issue Tracker](https://github.com/mitsuhiko/insta/issues)
 - [Documentation](https://docs.rs/insta/)
-- License: Apache-2.0
+  [![License](https://img.shields.io/github/license/mitsuhiko/insta)](https://github.com/mitsuhiko/insta/blob/master/LICENSE)

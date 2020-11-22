@@ -3,6 +3,11 @@
  <p><strong>insta: a snapshot testing library for Rust</strong></p>
 </div>
 
+[![Build Status](https://github.com/mitsuhiko/insta/workflows/Tests/badge.svg?branch=master)](https://github.com/mitsuhiko/insta/actions?query=workflow%3ATests)
+[![Crates.io](https://img.shields.io/crates/d/insta.svg)](https://crates.io/crates/insta)
+[![License](https://img.shields.io/github/license/mitsuhiko/insta)](https://github.com/mitsuhiko/insta/blob/master/LICENSE)
+[![Documentation](https://docs.rs/insta/badge.svg)](https://docs.rs/insta)
+
 ## Introduction
 
 Snapshots tests (also sometimes called approval tests) are tests that
@@ -35,4 +40,4 @@ instead of separate files. This is accomplished by the companion
 
 - [Issue Tracker](https://github.com/mitsuhiko/insta/issues)
 - [Documentation](https://docs.rs/insta/)
-- License: Apache-2.0
+- License: [Apache-2.0](https://github.com/mitsuhiko/insta/blob/master/LICENSE)
