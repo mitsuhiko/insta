@@ -14,7 +14,7 @@ values and come with comprehensive tools to review changes.
 Snapshot tests are particularly useful if your reference values are very
 large or change often.
 
-## What it looks like:
+## Example
 
 ```rust
 #test
