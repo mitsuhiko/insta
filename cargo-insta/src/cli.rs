@@ -1,9 +1,11 @@
-use console::{set_colors_enabled, style, Key, Term};
-use insta::{print_snapshot_diff, Snapshot};
+use std::borrow::Cow;
 use std::env;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::process;
+
+use console::{set_colors_enabled, style, Key, Term};
+use insta::{print_snapshot_diff, Snapshot};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
@@ -198,22 +200,46 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
     if exts.is_empty() {
         exts.push("snap");
     }
-    match target_args.workspace_root {
-        Some(ref root) => Ok(LocationInfo {
-            workspace_root: root.clone(),
+
+    // if a workspace root is provided we first check if it points to a `Cargo.toml`.  If it
+    // does we instead treat it as manifest path.  If both are provided we fail with an error
+    // as this would indicate an error.
+    let (workspace_root, manifest_path) = match (
+        target_args.workspace_root.as_ref(),
+        target_args.manifest_path.as_ref(),
+    ) {
+        (Some(_), Some(_)) => {
+            return Err(err_msg(format!(
+                "both manifest-path and workspace-root provided."
+            )))
+        }
+        (None, Some(manifest)) => (None, Some(Cow::Borrowed(manifest))),
+        (Some(root), manifest_path) => {
+            let mut assumed_manifest = root.clone();
+            assumed_manifest.push("Cargo.toml");
+            if assumed_manifest.metadata().map_or(false, |x| x.is_file()) {
+                (None, Some(Cow::Owned(assumed_manifest)))
+            } else {
+                (Some(root.as_path()), manifest_path.map(Cow::Borrowed))
+            }
+        }
+        (None, None) => (None, None),
+    };
+
+    if let Some(workspace_root) = workspace_root {
+        Ok(LocationInfo {
+            workspace_root: workspace_root.to_owned(),
             packages: None,
             exts,
-        }),
-        None => {
-            let metadata =
-                get_package_metadata(target_args.manifest_path.as_ref().map(|x| x.as_path()))?;
-            let packages = find_packages(&metadata, target_args.all)?;
-            Ok(LocationInfo {
-                workspace_root: metadata.workspace_root().to_path_buf(),
-                packages: Some(packages),
-                exts,
-            })
-        }
+        })
+    } else {
+        let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
+        let packages = find_packages(&metadata, target_args.all)?;
+        Ok(LocationInfo {
+            workspace_root: metadata.workspace_root().to_path_buf(),
+            packages: Some(packages),
+            exts,
+        })
     }
 }
 
