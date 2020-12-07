@@ -22,9 +22,9 @@ large or change often.
 ## Example
 
 ```rust
-#test
+#[test]
 fn test_hello_world() {
-    insta::assert_debug_snapshot!(vec!1, 2, 3);
+    insta::assert_debug_snapshot!(vec![1, 2, 3]);
 }
 ```
 
