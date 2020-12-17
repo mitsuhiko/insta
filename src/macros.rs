@@ -45,7 +45,7 @@ macro_rules! assert_csv_snapshot {
 ///
 /// **Feature:** `toml` (disabled by default)
 ///
-/// This works exactly like [`assert_toml_snapshot!`]
+/// This works exactly like [`assert_yaml_snapshot!`]
 /// but serializes in [TOML](https://github.com/alexcrichton/toml-rs) format instead of
 /// YAML.  Note that TOML cannot represent all values due to limitations in the
 /// format.
