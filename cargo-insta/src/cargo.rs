@@ -272,6 +272,10 @@ pub fn find_snapshots<'a>(
 }
 
 impl Package {
+    pub fn manifest_path(&self) -> &Path {
+        &self.manifest_path
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }

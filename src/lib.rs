@@ -367,13 +367,21 @@
 //!
 //! # Deleting Unused Snapshots
 //!
-//! Insta cannot detect unused snapshot files.  The reason for this is that
-//! insta does not control the execution of the entirety of the tests so it
-//! cannot spot which files are actually unreferenced.  However you can use
-//! the `INSTA_SNAPSHOT_REFERENCES_FILE` environment variable to
-//! instruct insta to append all referenced files into a list.  This can then
-//! be used to delete all files not referenced.  For instance one could use
-//! [ripgrep](https://github.com/BurntSushi/ripgrep) like this:
+//! Insta only has limited support for detecting unused snapshot files.  The
+//! reason for this is that insta does not control the execution of all tests
+//! so it cannot spot which files are actually unreferenced.
+//!
+//! There are two solutions for this problem.  One is to use `cargo-insta`'s
+//! `test` command which accepts a `--delete-unreferenced-snapshots` flag:
+//!
+//! ```text
+//! cargo insta test --delete-unreferenced-snapshots
+//! ```
+//!
+//! The second option is to use the `INSTA_SNAPSHOT_REFERENCES_FILE` environment
+//! variable to instruct insta to append all referenced files into a list.  This
+//! can then be used to delete all files not referenced.  For instance one could
+//! use [ripgrep](https://github.com/BurntSushi/ripgrep) like this:
 //!
 //! ```text
 //! export INSTA_SNAPSHOT_REFERENCES_FILE="$(mktemp)"

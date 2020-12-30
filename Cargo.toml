@@ -47,3 +47,4 @@ backtrace = { version = "0.3.55", optional = true }
 toml = { version = "0.5.7", optional = true }
 globset = { version = "0.4.6", optional = true }
 walkdir = { version = "2.3.1", optional = true }
+uuid = "0.8.1"
