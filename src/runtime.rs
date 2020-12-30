@@ -25,6 +25,15 @@ lazy_static! {
     static ref TEST_NAME_COUNTERS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
 }
 
+// This macro is basically eprintln but without being captured and
+// hidden by the test runner.
+macro_rules! elog {
+    () => (write!(std::io::stderr()).ok());
+    ($($arg:tt)*) => ({
+        writeln!(std::io::stderr(), $($arg)*).ok();
+    })
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum UpdateBehavior {
     InPlace,
@@ -832,6 +841,13 @@ a
     );
 }
 
+#[derive(Debug, PartialEq)]
+enum SnapshotUpdateResult {
+    UpdatedInPlace,
+    WroteNewFile,
+    NoUpdate,
+}
+
 fn update_snapshots(
     snapshot_file: Option<&Path>,
     new: Snapshot,
@@ -839,7 +855,7 @@ fn update_snapshots(
     line: u32,
     pending_snapshots: Option<PathBuf>,
     output_behavior: OutputBehavior,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<SnapshotUpdateResult, Box<dyn Error>> {
     let unseen = snapshot_file.map_or(false, |x| fs::metadata(x).is_ok());
     let should_print = output_behavior != OutputBehavior::Nothing;
 
@@ -848,7 +864,7 @@ fn update_snapshots(
             if let Some(ref snapshot_file) = snapshot_file {
                 new.save(snapshot_file)?;
                 if should_print {
-                    eprintln!(
+                    elog!(
                         "{} {}",
                         if unseen {
                             style("created previously unseen snapshot").green()
@@ -858,23 +874,23 @@ fn update_snapshots(
                         style(snapshot_file.display()).cyan().underlined(),
                     );
                 }
-                return Ok(());
             } else if should_print {
-                eprintln!(
+                elog!(
                     "{}",
                     style("error: cannot update inline snapshots in-place")
                         .red()
                         .bold(),
                 );
             }
+            Ok(SnapshotUpdateResult::UpdatedInPlace)
         }
         UpdateBehavior::NewFile => {
-            if let Some(ref snapshot_file) = snapshot_file {
+            if let Some(snapshot_file) = snapshot_file {
                 let mut new_path = snapshot_file.to_path_buf();
                 new_path.set_extension("snap.new");
                 new.save(&new_path)?;
                 if should_print {
-                    eprintln!(
+                    elog!(
                         "{} {}",
                         style("stored new snapshot").green(),
                         style(new_path.display()).cyan().underlined(),
@@ -884,11 +900,10 @@ fn update_snapshots(
                 PendingInlineSnapshot::new(Some(new), old, line)
                     .save(pending_snapshots.unwrap())?;
             }
+            Ok(SnapshotUpdateResult::WroteNewFile)
         }
-        UpdateBehavior::NoUpdate => {}
+        UpdateBehavior::NoUpdate => Ok(SnapshotUpdateResult::NoUpdate),
     }
-
-    Ok(())
 }
 
 /// If there is a suffix on the settings, append it to the snapshot name.
@@ -1039,7 +1054,7 @@ pub fn assert_snapshot(
         _ => {}
     }
 
-    update_snapshots(
+    let update_result = update_snapshots(
         snapshot_file.as_deref(),
         new,
         old,
@@ -1048,14 +1063,16 @@ pub fn assert_snapshot(
         output_behavior,
     )?;
 
-    if output_behavior != OutputBehavior::Nothing {
+    if update_result == SnapshotUpdateResult::WroteNewFile
+        && output_behavior != OutputBehavior::Nothing
+    {
         println!(
             "{hint}",
             hint = style("To update snapshots run `cargo insta review`").dim(),
         );
     }
 
-    if should_fail_in_tests() {
+    if update_result != SnapshotUpdateResult::UpdatedInPlace && should_fail_in_tests() {
         panic!(
             "snapshot assertion for '{}' failed in line {}",
             snapshot_name.as_ref().map_or("unnamed snapshot", |x| &*x),
