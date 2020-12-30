@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+
+* Add `--delete-unreferenced-snapshots` parameter to `cargo-insta`.
+* Switch to the `globset` crate for the `glob` feature.
+
 ## 1.3.0
 
 * Expose more useful methods from `Content`.

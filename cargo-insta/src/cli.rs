@@ -1,13 +1,16 @@
 use std::borrow::Cow;
-use std::env;
+use std::collections::HashSet;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process;
+use std::{env, fs};
 
 use console::{set_colors_enabled, style, Key, Term};
 use insta::{print_snapshot_diff, Snapshot};
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
+use uuid::Uuid;
 
 use crate::cargo::{
     find_packages, find_snapshots, get_cargo, get_package_metadata, Operation, Package,
@@ -122,6 +125,9 @@ pub struct TestCommand {
     /// Update all snapshots even if they are still matching.
     #[structopt(long)]
     pub force_update_snapshots: bool,
+    /// Delete unreferenced snapshots after the test run.
+    #[structopt(long)]
+    pub delete_unreferenced_snapshots: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -348,9 +354,69 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
     Ok(())
 }
 
+fn make_walker(loc: &LocationInfo) -> ignore::Walk {
+    let roots: HashSet<_> = match loc.packages {
+        Some(ref packages) => packages
+            .iter()
+            .filter_map(|x| x.manifest_path().parent().unwrap().canonicalize().ok())
+            .collect(),
+        None => {
+            let mut hs = HashSet::new();
+            hs.insert(loc.workspace_root.clone());
+            hs
+        }
+    };
+
+    ignore::WalkBuilder::new(&loc.workspace_root)
+        .filter_entry(move |entry| {
+            // we only filter down for directories
+            if !entry.file_type().map_or(false, |x| x.is_dir()) {
+                return true;
+            }
+
+            let canonicalized = match entry.path().canonicalize() {
+                Ok(path) => path,
+                Err(_) => return true,
+            };
+
+            // We always want to skip target even if it was not excluded by
+            // ignore files.
+            if entry.path().file_name() == Some(&OsStr::new("target"))
+                && roots.contains(canonicalized.parent().unwrap())
+            {
+                return false;
+            }
+
+            // do not enter crates which are not in the list of known roots
+            // of the workspace.
+            if !roots.contains(&canonicalized)
+                && entry
+                    .path()
+                    .join("Cargo.toml")
+                    .metadata()
+                    .map_or(false, |x| x.is_file())
+            {
+                return false;
+            }
+
+            true
+        })
+        .build()
+}
+
 fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     let mut proc = process::Command::new(get_cargo());
     proc.arg("test");
+
+    // when unreferenced snapshots should be deleted we need to instruct
+    // insta to dump referenced snapshots somewhere.
+    let snapshot_ref_file = if cmd.delete_unreferenced_snapshots {
+        let snapshot_ref_file = env::temp_dir().join(Uuid::new_v4().to_string());
+        proc.env("INSTA_SNAPSHOT_REFERENCES_FILE", &snapshot_ref_file);
+        Some(snapshot_ref_file)
+    } else {
+        None
+    };
 
     // if INSTA_UPDATE is set as environment variable we're using it to
     // override some arguments.  The logic is is quite weird because we
@@ -448,6 +514,47 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
             );
         }
         return Err(QuietExit(1).into());
+    }
+
+    // delete unreferenced snapshots if we were instructed to do so
+    if let Some(ref path) = snapshot_ref_file {
+        let mut files = HashSet::new();
+        for line in fs::read_to_string(path).unwrap().lines() {
+            if let Ok(path) = fs::canonicalize(line) {
+                files.insert(path);
+            }
+        }
+
+        if let Ok(loc) = handle_target_args(&cmd.target_args) {
+            let mut deleted_any = false;
+            for entry in make_walker(&loc) {
+                let rel_path = match entry {
+                    Ok(ref entry) => entry.path(),
+                    _ => continue,
+                };
+                if !rel_path.is_file()
+                    || !rel_path
+                        .file_name()
+                        .map_or(false, |x| x.to_str().unwrap_or("").ends_with(".snap"))
+                {
+                    continue;
+                }
+
+                if let Ok(path) = fs::canonicalize(rel_path) {
+                    if !files.contains(&path) {
+                        if !deleted_any {
+                            eprintln!("{}: deleted unreferenced snapshots:", style("info").bold());
+                            deleted_any = true;
+                        }
+                        eprintln!("  {}", rel_path.display());
+                        fs::remove_file(path).ok();
+                    }
+                }
+            }
+            if !deleted_any {
+                eprintln!("{}: no unreferenced snapshots found", style("info").bold());
+            }
+        }
     }
 
     if cmd.review || cmd.accept {
