@@ -311,7 +311,7 @@
 //! ```
 //!
 //! The path to the glob macro is relative to the location of the test
-//! file.  It uses the [`globwalk`] crate for actual glob operations.
+//! file.  It uses the [`globset`] crate for actual glob operations.
 //!
 //! # Inline Snapshots
 //!
