@@ -4,6 +4,9 @@
 
 * Add `--delete-unreferenced-snapshots` parameter to `cargo-insta`.
 * Switch to the `globset` crate for the `glob` feature.
+* When `INSTA_UPDATE` is set to `always` or `unseen` it won't
+  fail on execution.
+* Changed informational outputs also show on pass.
 
 ## 1.3.0
 
