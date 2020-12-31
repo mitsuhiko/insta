@@ -1,6 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Insta Snapshots",
+  "information_for_contributors": [
+    "This file is a fork of the yaml language"
+  ],
   "patterns": [
     {
       "include": "#frontMatter"
@@ -23,21 +26,654 @@
     "snapshot": {
       "patterns": [
         {
-          "begin": "([\\w_]+)\\(",
-          "end": "\\)",
+          "include": "#node"
+        }
+      ]
+    },
+    "block-collection": {
+      "patterns": [
+        {
+          "include": "#block-sequence"
+        },
+        {
+          "include": "#block-mapping"
+        }
+      ]
+    },
+    "block-mapping": {
+      "patterns": [
+        {
+          "include": "#block-pair"
+        }
+      ]
+    },
+    "block-node": {
+      "patterns": [
+        {
+          "include": "#flow-custom"
+        },
+        {
+          "include": "#prototype"
+        },
+        {
+          "include": "#block-scalar"
+        },
+        {
+          "include": "#block-collection"
+        },
+        {
+          "include": "#flow-scalar-plain-out"
+        },
+        {
+          "include": "#flow-node"
+        }
+      ]
+    },
+    "block-pair": {
+      "patterns": [
+        {
+          "begin": "\\?",
           "beginCaptures": {
             "1": {
-              "name": "keyword"
+              "name": "punctuation.definition.key-value.begin.insta"
             }
           },
+          "end": "(?=\\?)|^ *(:)|(:)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.separator.key-value.mapping.insta"
+            },
+            "2": {
+              "name": "invalid.illegal.expected-newline.insta"
+            }
+          },
+          "name": "meta.block-mapping.insta",
           "patterns": [
             {
-              "include": "#snapshot"
+              "include": "#block-node"
             }
           ]
         },
         {
-          "include": "source.yaml"
+          "begin": "(?x)\n                        (?=\n                            (?x:\n                                  [^\\s[-?:,\\[\\]{}#&*!|>'\"%@`]]\n                                | [?:-] \\S\n                            )\n                            (\n                                  [^\\s:]\n                                | : \\S\n                                | \\s+ (?![#\\s])\n                            )*\n                            \\s*\n                            :\n\t\t\t\t\t\t\t(\\s|$)\n                        )\n                    ",
+          "end": "(?x)\n                        (?=\n                              \\s* $\n                            | \\s+ \\#\n                            | \\s* : (\\s|$)\n                        )\n                    ",
+          "patterns": [
+            {
+              "include": "#flow-scalar-plain-out-implicit-type"
+            },
+            {
+              "begin": "(?x)\n                                  [^\\s[-?:,\\[\\]{}#&*!|>'\"%@`]]\n                                | [?:-] \\S\n                            ",
+              "beginCaptures": {
+                "0": {
+                  "name": "entity.name.tag.insta"
+                }
+              },
+              "contentName": "entity.name.tag.insta",
+              "end": "(?x)\n                                (?=\n                                      \\s* $\n                                    | \\s+ \\#\n                                    | \\s* : (\\s|$)\n                                )\n                            ",
+              "name": "string.unquoted.plain.out.insta"
+            }
+          ]
+        },
+        {
+          "match": ":(?=\\s|$)",
+          "name": "punctuation.separator.key-value.mapping.insta"
+        }
+      ]
+    },
+    "block-scalar": {
+      "begin": "(?:(\\|)|(>))([1-9])?([-+])?(.*\\n?)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.flow.block-scalar.literal.insta"
+        },
+        "2": {
+          "name": "keyword.control.flow.block-scalar.folded.insta"
+        },
+        "3": {
+          "name": "constant.numeric.indentation-indicator.insta"
+        },
+        "4": {
+          "name": "storage.modifier.chomping-indicator.insta"
+        },
+        "5": {
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "match": ".+",
+              "name": "invalid.illegal.expected-comment-or-newline.insta"
+            }
+          ]
+        }
+      },
+      "end": "^(?=\\S)|(?!\\G)",
+      "patterns": [
+        {
+          "begin": "^([ ]+)(?! )",
+          "end": "^(?!\\1|\\s*$)",
+          "name": "string.unquoted.block.insta"
+        }
+      ]
+    },
+    "block-sequence": {
+      "match": "(-)(?!\\S)",
+      "name": "punctuation.definition.block.sequence.item.insta"
+    },
+    "comment": {
+      "begin": "(?:(^[ \\t]*)|[ \\t]+)(?=#\\p{Print}*$)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.whitespace.comment.leading.insta"
+        }
+      },
+      "end": "(?!\\G)",
+      "patterns": [
+        {
+          "begin": "#",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.comment.insta"
+            }
+          },
+          "end": "\\n",
+          "name": "comment.line.number-sign.insta"
+        }
+      ]
+    },
+    "directive": {
+      "begin": "^%",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.directive.begin.insta"
+        }
+      },
+      "end": "(?=$|[ \\t]+($|#))",
+      "name": "meta.directive.insta",
+      "patterns": [
+        {
+          "captures": {
+            "1": {
+              "name": "keyword.other.directive.insta.insta"
+            },
+            "2": {
+              "name": "constant.numeric.insta-version.insta"
+            }
+          },
+          "match": "\\G(YAML)[ \\t]+(\\d+\\.\\d+)"
+        },
+        {
+          "captures": {
+            "1": {
+              "name": "keyword.other.directive.tag.insta"
+            },
+            "2": {
+              "name": "storage.type.tag-handle.insta"
+            },
+            "3": {
+              "name": "support.type.tag-prefix.insta"
+            }
+          },
+          "match": "(?x)\n                        \\G\n                        (TAG)\n                        (?:[ \\t]+\n                            ((?:!(?:[0-9A-Za-z\\-]*!)?))\n                            (?:[ \\t]+ (\n                                  !              (?x: %[0-9A-Fa-f]{2} | [0-9A-Za-z\\-#;/?:@&=+$,_.!~*'()\\[\\]] )*\n                                | (?![,!\\[\\]{}]) (?x: %[0-9A-Fa-f]{2} | [0-9A-Za-z\\-#;/?:@&=+$,_.!~*'()\\[\\]] )+\n                                )\n                            )?\n                        )?\n                    "
+        },
+        {
+          "captures": {
+            "1": {
+              "name": "support.other.directive.reserved.insta"
+            },
+            "2": {
+              "name": "string.unquoted.directive-name.insta"
+            },
+            "3": {
+              "name": "string.unquoted.directive-parameter.insta"
+            }
+          },
+          "match": "(?x) \\G (\\w+) (?:[ \\t]+ (\\w+) (?:[ \\t]+ (\\w+))? )?"
+        },
+        {
+          "match": "\\S+",
+          "name": "invalid.illegal.unrecognized.insta"
+        }
+      ]
+    },
+    "flow-alias": {
+      "captures": {
+        "1": {
+          "name": "keyword.control.flow.alias.insta"
+        },
+        "2": {
+          "name": "punctuation.definition.alias.insta"
+        },
+        "3": {
+          "name": "variable.other.alias.insta"
+        },
+        "4": {
+          "name": "invalid.illegal.character.anchor.insta"
+        }
+      },
+      "match": "((\\*))([^\\s\\[\\]/{/},]+)([^\\s\\]},]\\S*)?"
+    },
+    "flow-collection": {
+      "patterns": [
+        {
+          "include": "#flow-sequence"
+        },
+        {
+          "include": "#flow-mapping"
+        },
+        {
+          "include": "#flow-custom"
+        }
+      ]
+    },
+    "flow-mapping": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.mapping.begin.insta"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.mapping.end.insta"
+        }
+      },
+      "name": "meta.flow-mapping.insta",
+      "patterns": [
+        {
+          "include": "#prototype"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.mapping.insta"
+        },
+        {
+          "include": "#flow-pair"
+        }
+      ]
+    },
+    "flow-type-wrapper": {
+      "begin": "\\b([\\w_]+)\\s*(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.insta"
+        },
+        "2": {
+          "name": "punctuation.definition.mapping.begin.insta"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.mapping.end.insta"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#flow-node"
+        }
+      ]
+    },
+    "flow-ron-struct": {
+      "begin": "\\b([\\w_]+)\\s*(\\{)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.insta"
+        },
+        "2": {
+          "name": "punctuation.definition.mapping.begin.insta"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.mapping.end.insta"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#flow-node"
+        }
+      ]
+    },
+    "flow-node": {
+      "patterns": [
+        {
+          "include": "#prototype"
+        },
+        {
+          "include": "#flow-alias"
+        },
+        {
+          "include": "#flow-collection"
+        },
+        {
+          "include": "#flow-scalar"
+        }
+      ]
+    },
+    "flow-custom": {
+      "patterns": [
+        {
+          "include": "#flow-type-wrapper"
+        },
+        {
+          "include": "#flow-ron-struct"
+        }
+      ]
+    },
+    "flow-pair": {
+      "patterns": [
+        {
+          "begin": "\\?",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.key-value.begin.insta"
+            }
+          },
+          "end": "(?=[},\\]])",
+          "name": "meta.flow-pair.explicit.insta",
+          "patterns": [
+            {
+              "include": "#prototype"
+            },
+            {
+              "include": "#flow-pair"
+            },
+            {
+              "include": "#flow-node"
+            },
+            {
+              "begin": ":(?=\\s|$|[\\[\\]{},])",
+              "beginCaptures": {
+                "0": {
+                  "name": "punctuation.separator.key-value.mapping.insta"
+                }
+              },
+              "end": "(?=[},\\]])",
+              "patterns": [
+                {
+                  "include": "#flow-value"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "begin": "(?x)\n                        (?=\n                            (?:\n                                [^\\s[-?:,\\[\\]{}#&*!|>'\"%@`]]\n                              | [?:-] [^\\s[\\[\\]{},]]\n                            )\n                            (\n                                  [^\\s:[\\[\\]{},]]\n                                | : [^\\s[\\[\\]{},]]\n                                | \\s+ (?![#\\s])\n                            )*\n                            \\s*\n                            :\n\t\t\t\t\t\t\t(\\s|$)\n                        )\n                    ",
+          "end": "(?x)\n                        (?=\n                              \\s* $\n                            | \\s+ \\#\n                            | \\s* : (\\s|$)\n                            | \\s* : [\\[\\]{},]\n                            | \\s* [\\[\\]{},]\n                        )\n                    ",
+          "name": "meta.flow-pair.key.insta",
+          "patterns": [
+            {
+              "include": "#flow-scalar-plain-in-implicit-type"
+            },
+            {
+              "begin": "(?x)\n                                  [^\\s[-?:,\\[\\]{}#&*!|>'\"%@`]]\n                                | [?:-] [^\\s[\\[\\]{},]]\n                            ",
+              "beginCaptures": {
+                "0": {
+                  "name": "entity.name.tag.insta"
+                }
+              },
+              "contentName": "entity.name.tag.insta",
+              "end": "(?x)\n                                (?=\n                                      \\s* $\n                                    | \\s+ \\#\n                                    | \\s* : (\\s|$)\n                                    | \\s* : [\\[\\]{},]\n                                    | \\s* [\\[\\]{},]\n                                )\n                            ",
+              "name": "string.unquoted.plain.in.insta"
+            }
+          ]
+        },
+        {
+          "include": "#flow-node"
+        },
+        {
+          "begin": ":(?=\\s|$|[\\[\\]{},])",
+          "captures": {
+            "0": {
+              "name": "punctuation.separator.key-value.mapping.insta"
+            }
+          },
+          "end": "(?=[},\\]])",
+          "name": "meta.flow-pair.insta",
+          "patterns": [
+            {
+              "include": "#flow-value"
+            }
+          ]
+        }
+      ]
+    },
+    "flow-scalar": {
+      "patterns": [
+        {
+          "include": "#flow-scalar-double-quoted"
+        },
+        {
+          "include": "#flow-scalar-single-quoted"
+        },
+        {
+          "include": "#flow-scalar-plain-in"
+        }
+      ]
+    },
+    "flow-scalar-double-quoted": {
+      "begin": "\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.insta"
+        }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.insta"
+        }
+      },
+      "name": "string.quoted.double.insta",
+      "patterns": [
+        {
+          "match": "\\\\([0abtnvfre \"/\\\\N_Lp]|x\\d\\d|u\\d{4}|U\\d{8})",
+          "name": "constant.character.escape.insta"
+        },
+        {
+          "match": "\\\\\\n",
+          "name": "constant.character.escape.double-quoted.newline.insta"
+        }
+      ]
+    },
+    "flow-scalar-plain-in": {
+      "patterns": [
+        {
+          "include": "#flow-scalar-plain-in-implicit-type"
+        },
+        {
+          "begin": "(?x)\n                          [^\\s[-?:,\\[\\]{}#&*!|>'\"%@`]]\n                        | [?:-] [^\\s[\\[\\]{},]]\n                    ",
+          "end": "(?x)\n                        (?=\n                              \\s* $\n                            | \\s+ \\#\n                            | \\s* : (\\s|$)\n                            | \\s* : [\\[\\]{},]\n                            | \\s* [\\[\\]{},]\n                        )\n                    ",
+          "name": "string.unquoted.plain.in.insta"
+        }
+      ]
+    },
+    "flow-scalar-plain-in-implicit-type": {
+      "patterns": [
+        {
+          "captures": {
+            "1": {
+              "name": "constant.language.null.insta"
+            },
+            "2": {
+              "name": "constant.language.boolean.insta"
+            },
+            "3": {
+              "name": "constant.numeric.integer.insta"
+            },
+            "4": {
+              "name": "constant.numeric.float.insta"
+            },
+            "5": {
+              "name": "constant.other.timestamp.insta"
+            },
+            "6": {
+              "name": "constant.language.value.insta"
+            },
+            "7": {
+              "name": "constant.language.merge.insta"
+            }
+          },
+          "match": "(?x)\n                        (?x:\n                              (null|Null|NULL|~|None)\n                            | (y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF)\n                            | (\n                                (?:\n                                      [-+]? 0b [0-1_]+ # (base 2)\n                                    | [-+]? 0  [0-7_]+ # (base 8)\n                                    | [-+]? (?: 0|[1-9][0-9_]*) # (base 10)\n                                    | [-+]? 0x [0-9a-fA-F_]+ # (base 16)\n                                    | [-+]? [1-9] [0-9_]* (?: :[0-5]?[0-9])+ # (base 60)\n                                )\n                              )\n                            | (\n                                (?x:\n                                      [-+]? (?: [0-9] [0-9_]*)? \\. [0-9.]* (?: [eE] [-+] [0-9]+)? # (base 10)\n                                    | [-+]? [0-9] [0-9_]* (?: :[0-5]?[0-9])+ \\. [0-9_]* # (base 60)\n                                    | [-+]? \\. (?: inf|Inf|INF) # (infinity)\n                                    |       \\. (?: nan|NaN|NAN) # (not a number)\n                                )\n                              )\n                            | (\n                                (?x:\n                                    \\d{4} - \\d{2} - \\d{2}           # (y-m-d)\n                                  | \\d{4}                           # (year)\n                                    - \\d{1,2}                       # (month)\n                                    - \\d{1,2}                       # (day)\n                                    (?: [Tt] | [ \\t]+) \\d{1,2}      # (hour)\n                                    : \\d{2}                         # (minute)\n                                    : \\d{2}                         # (second)\n                                    (?: \\.\\d*)?                     # (fraction)\n                                    (?:\n                                          (?:[ \\t]*) Z\n                                        | [-+] \\d{1,2} (?: :\\d{1,2})?\n                                    )?                              # (time zone)\n                                )\n                              )\n                            | (=)\n                            | (<<)\n                        )\n                        (?:\n                            (?=\n                                  \\s* $\n                                | \\s+ \\#\n                                | \\s* : (\\s|$)\n                                | \\s* : [\\[\\]{},]\n                                | \\s* [\\[\\]{},]\n                            )\n                        )\n                    "
+        }
+      ]
+    },
+    "flow-scalar-plain-out": {
+      "patterns": [
+        {
+          "include": "#flow-scalar-plain-out-implicit-type"
+        },
+        {
+          "begin": "(?x)\n                          [^\\s[-?:,\\[\\]{}#&*!|>'\"%@`]]\n                        | [?:-] \\S\n                    ",
+          "end": "(?x)\n                        (?=\n                              \\s* $\n                            | \\s+ \\#\n                            | \\s* : (\\s|$)\n                        )\n                    ",
+          "name": "string.unquoted.plain.out.insta"
+        }
+      ]
+    },
+    "flow-scalar-plain-out-implicit-type": {
+      "patterns": [
+        {
+          "captures": {
+            "1": {
+              "name": "constant.language.null.insta"
+            },
+            "2": {
+              "name": "constant.language.boolean.insta"
+            },
+            "3": {
+              "name": "constant.numeric.integer.insta"
+            },
+            "4": {
+              "name": "constant.numeric.float.insta"
+            },
+            "5": {
+              "name": "constant.other.timestamp.insta"
+            },
+            "6": {
+              "name": "constant.language.value.insta"
+            },
+            "7": {
+              "name": "constant.language.merge.insta"
+            }
+          },
+          "match": "(?x)\n                        (?x:\n                              (null|Null|NULL|~)\n                            | (y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF)\n                            | (\n                                (?:\n                                      [-+]? 0b [0-1_]+ # (base 2)\n                                    | [-+]? 0  [0-7_]+ # (base 8)\n                                    | [-+]? (?: 0|[1-9][0-9_]*) # (base 10)\n                                    | [-+]? 0x [0-9a-fA-F_]+ # (base 16)\n                                    | [-+]? [1-9] [0-9_]* (?: :[0-5]?[0-9])+ # (base 60)\n                                )\n                              )\n                            | (\n                                (?x:\n                                      [-+]? (?: [0-9] [0-9_]*)? \\. [0-9.]* (?: [eE] [-+] [0-9]+)? # (base 10)\n                                    | [-+]? [0-9] [0-9_]* (?: :[0-5]?[0-9])+ \\. [0-9_]* # (base 60)\n                                    | [-+]? \\. (?: inf|Inf|INF) # (infinity)\n                                    |       \\. (?: nan|NaN|NAN) # (not a number)\n                                )\n                              )\n                            | (\n                                (?x:\n                                    \\d{4} - \\d{2} - \\d{2}           # (y-m-d)\n                                  | \\d{4}                           # (year)\n                                    - \\d{1,2}                       # (month)\n                                    - \\d{1,2}                       # (day)\n                                    (?: [Tt] | [ \\t]+) \\d{1,2}      # (hour)\n                                    : \\d{2}                         # (minute)\n                                    : \\d{2}                         # (second)\n                                    (?: \\.\\d*)?                     # (fraction)\n                                    (?:\n                                          (?:[ \\t]*) Z\n                                        | [-+] \\d{1,2} (?: :\\d{1,2})?\n                                    )?                              # (time zone)\n                                )\n                              )\n                            | (=)\n                            | (<<)\n                        )\n                        (?x:\n                            (?=\n                                  \\s* $\n                                | \\s+ \\#\n                                | \\s* : (\\s|$)\n                            )\n                        )\n                    "
+        }
+      ]
+    },
+    "flow-scalar-single-quoted": {
+      "begin": "'",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.insta"
+        }
+      },
+      "end": "'(?!')",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.insta"
+        }
+      },
+      "name": "string.quoted.single.insta",
+      "patterns": [
+        {
+          "match": "''",
+          "name": "constant.character.escape.single-quoted.insta"
+        }
+      ]
+    },
+    "flow-sequence": {
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.sequence.begin.insta"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.sequence.end.insta"
+        }
+      },
+      "name": "meta.flow-sequence.insta",
+      "patterns": [
+        {
+          "include": "#prototype"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.sequence.insta"
+        },
+        {
+          "include": "#flow-pair"
+        },
+        {
+          "include": "#flow-node"
+        }
+      ]
+    },
+    "flow-value": {
+      "patterns": [
+        {
+          "begin": "\\G(?![},\\]])",
+          "end": "(?=[},\\]])",
+          "name": "meta.flow-pair.value.insta",
+          "patterns": [
+            {
+              "include": "#flow-node"
+            }
+          ]
+        }
+      ]
+    },
+    "node": {
+      "patterns": [
+        {
+          "include": "#block-node"
+        }
+      ]
+    },
+    "property": {
+      "begin": "(?=!|&)",
+      "end": "(?!\\G)",
+      "name": "meta.property.insta",
+      "patterns": [
+        {
+          "captures": {
+            "1": {
+              "name": "keyword.control.property.anchor.insta"
+            },
+            "2": {
+              "name": "punctuation.definition.anchor.insta"
+            },
+            "3": {
+              "name": "entity.name.type.anchor.insta"
+            },
+            "4": {
+              "name": "invalid.illegal.character.anchor.insta"
+            }
+          },
+          "match": "\\G((&))([^\\s\\[\\]/{/},]+)(\\S+)?"
+        },
+        {
+          "match": "(?x)\n                        \\G\n                        (?:\n                            ! < (?: %[0-9A-Fa-f]{2} | [0-9A-Za-z\\-#;/?:@&=+$,_.!~*'()\\[\\]] )+ >\n                          | (?:!(?:[0-9A-Za-z\\-]*!)?) (?: %[0-9A-Fa-f]{2} | [0-9A-Za-z\\-#;/?:@&=+$_.~*'()] )+\n                          | !\n                        )\n                        (?=\\ |\\t|$)\n                    ",
+          "name": "storage.type.tag-handle.insta"
+        },
+        {
+          "match": "\\S+",
+          "name": "invalid.illegal.tag-handle.insta"
+        }
+      ]
+    },
+    "prototype": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#property"
         }
       ]
     }
