@@ -39,6 +39,16 @@
         "language": "insta-snapshots",
         "scopeName": "source.insta-snapshots",
         "path": "./syntaxes/insta-snapshots.tmLanguage.json"
+      },
+      {
+        "scopeName": "source.inline-insta-snapshots",
+        "injectTo": [
+          "source.rust"
+        ],
+        "path": "./syntaxes/inline-insta-snapshots.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.inline-insta-snapshot": "insta-snapshots"
+        }
       }
     ]
   }
