@@ -555,6 +555,8 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 eprintln!("{}: no unreferenced snapshots found", style("info").bold());
             }
         }
+
+        fs::remove_file(&path).ok();
     }
 
     if cmd.review || cmd.accept {
