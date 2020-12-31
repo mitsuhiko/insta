@@ -18,7 +18,6 @@ difference = "2.0.0"
 structopt = "0.3.20"
 serde = { version = "1.0.117", features = ["derive"] }
 serde_json = "1.0.59"
-glob = "0.3.0"
 walkdir = "2.3.1"
 proc-macro2 = { version = "1.0.24", features = ["span-locations"] }
 syn = { version = "1.0.50", features = ["full", "visit", "extra-traits"] }
