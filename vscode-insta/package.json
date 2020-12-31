@@ -1,39 +1,45 @@
 {
-    "name": "insta",
-    "displayName": "insta snapshots",
-    "description": "Syntax support for insta snapshots",
-    "version": "1.0.0",
-    "publisher": "mitsuhiko",
-    "engines": {
-        "vscode": "^1.52.0"
-    },
-    "categories": [
-        "Programming Languages"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/mitsuhiko/insta.git"
-    },
-    "contributes": {
-        "languages": [
-            {
-                "id": "insta-snapshots",
-                "aliases": [
-                    "Insta Snapshots",
-                    "insta-snapshots"
-                ],
-                "extensions": [
-                    ".snap"
-                ],
-                "configuration": "./language-configuration.json"
-            }
+  "name": "insta",
+  "displayName": "insta snapshots",
+  "description": "Syntax support for insta snapshots",
+  "version": "1.0.0",
+  "publisher": "mitsuhiko",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "mitsuhiko"
+  },
+  "engines": {
+    "vscode": "^1.52.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mitsuhiko/insta.git"
+  },
+  "homepage": "https://github.com/mitsuhiko/insta",
+  "icon": "images/icon.png",
+  "contributes": {
+    "languages": [
+      {
+        "id": "insta-snapshots",
+        "aliases": [
+          "Insta Snapshots",
+          "insta-snapshots"
         ],
-        "grammars": [
-            {
-                "language": "insta-snapshots",
-                "scopeName": "source.insta-snapshots",
-                "path": "./syntaxes/insta-snapshots.tmLanguage.json"
-            }
-        ]
-    }
+        "extensions": [
+          ".snap"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "insta-snapshots",
+        "scopeName": "source.insta-snapshots",
+        "path": "./syntaxes/insta-snapshots.tmLanguage.json"
+      }
+    ]
+  }
 }
