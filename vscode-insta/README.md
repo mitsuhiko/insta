@@ -8,4 +8,4 @@ After loading the extension `.snap` snapshots from insta are picked up automatic
 and syntax highlighted as if they are YAML files.  For RON snapshots some small
 tweaks are applied.
 
-![example screenshot](images/screenshot.png)
+![example screenshot](https://raw.githubusercontent.com/mitsuhiko/insta/master/vscode-insta/images/screenshot.png)
