@@ -1,0 +1,46 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Insta Snapshots",
+	"patterns": [
+		{
+			"include": "#frontMatter"
+		},
+		{
+			"include": "#snapshot"
+		}
+	],
+	"repository": {
+		"frontMatter": {
+			"begin": "\\A-{3}\\s*$",
+			"contentName": "meta.embedded.block.frontmatter",
+			"patterns": [
+				{
+					"include": "source.yaml"
+				}
+			],
+			"end": "(^|\\G)-{3}|\\.{3}\\s*$"
+		},
+		"snapshot": {
+			"patterns": [
+				{
+					"begin": "([\\w_]+)\\(",
+					"end": "\\)",
+					"beginCaptures": {
+						"1": {
+							"name": "keyword"
+						}
+					},
+					"patterns": [
+						{
+							"include": "#snapshot"
+						}
+					]
+				},
+				{
+					"include": "source.yaml"
+				}
+			]
+		}
+	},
+	"scopeName": "source.insta-snapshots"
+}

@@ -1,0 +1,34 @@
+{
+    "name": "insta",
+    "displayName": "insta",
+    "description": "Syntax support for insta snapshots",
+    "version": "1.0.0",
+    "engines": {
+        "vscode": "^1.52.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "insta-snapshots",
+                "aliases": [
+                    "Insta Snapshots",
+                    "insta-snapshots"
+                ],
+                "extensions": [
+                    ".snap"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "insta-snapshots",
+                "scopeName": "source.insta-snapshots",
+                "path": "./syntaxes/insta-snapshots.tmLanguage.json"
+            }
+        ]
+    }
+}
