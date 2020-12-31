@@ -1,14 +1,19 @@
 {
     "name": "insta",
-    "displayName": "insta",
+    "displayName": "insta snapshots",
     "description": "Syntax support for insta snapshots",
     "version": "1.0.0",
+    "publisher": "mitsuhiko",
     "engines": {
         "vscode": "^1.52.0"
     },
     "categories": [
         "Programming Languages"
     ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mitsuhiko/insta.git"
+    },
     "contributes": {
         "languages": [
             {
