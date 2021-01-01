@@ -1,7 +1,7 @@
 {
     "editor.formatOnSave": true,
-    "rust.clippy_preference": "on",
-    "rust.cfg_test": true,
-    "rust.all_features": true,
-    "rust-analyzer.cargo.allFeatures": true
+    "rust-analyzer.checkOnSave.allFeatures": true,
+    "rust-analyzer.cargo.allFeatures": true,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
 }
