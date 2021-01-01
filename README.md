@@ -36,6 +36,12 @@ Insta also supports inline snapshots which are stored right in your source file
 instead of separate files. This is accomplished by the companion
 [cargo-insta](https://crates.io/crates/cargo-insta) tool.
 
+## Editor Support
+
+For looking at `.snap` files there is a [vscode extension](https://github.com/mitsuhiko/insta/tree/master/vscode-insta)
+which can syntax highlight snapshot files.  It can be installed from the
+marketplace: [view on marketplace](https://marketplace.visualstudio.com/items?itemName=mitsuhiko.insta).
+
 ## License and Links
 
 - [Issue Tracker](https://github.com/mitsuhiko/insta/issues)
