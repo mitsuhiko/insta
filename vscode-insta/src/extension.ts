@@ -80,7 +80,6 @@ class SnapshotPathProvider implements DefinitionProvider {
     let functionName = null;
 
     while (scanLine >= 0) {
-      console.log(document.lineAt(scanLine).text.match(FUNCTION));
       // stop if we find a test function declaration
       let functionMatch;
       if (
