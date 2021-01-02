@@ -219,8 +219,17 @@ fn handle_color(color: &str) -> Result<(), Box<dyn Error>> {
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "snake_case", tag = "type")]
 enum SnapshotKey<'a> {
-    NamedSnapshot { path: &'a Path },
-    InlineSnapshot { path: &'a Path, line: u32 },
+    NamedSnapshot {
+        path: &'a Path,
+    },
+    InlineSnapshot {
+        path: &'a Path,
+        line: u32,
+        name: Option<&'a str>,
+        old_snapshot: Option<&'a str>,
+        new_snapshot: &'a str,
+        expression: Option<&'a str>,
+    },
 }
 
 struct LocationInfo<'a> {
@@ -648,6 +657,10 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,
                         line: snapshot_ref.line.unwrap(),
+                        name: snapshot_ref.new.snapshot_name(),
+                        old_snapshot: snapshot_ref.old.as_ref().map(|x| x.contents_str()),
+                        new_snapshot: snapshot_ref.new.contents_str(),
+                        expression: snapshot_ref.new.metadata().expression(),
                     }
                 } else {
                     SnapshotKey::NamedSnapshot { path: &target_file }
