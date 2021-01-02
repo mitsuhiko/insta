@@ -8,19 +8,19 @@ use serde::Serialize;
 
 #[test]
 fn test_selector_parser() {
-    macro_rules! assert_selector {
+    macro_rules! assert_selector_snapshot {
         ($short:expr, $sel:expr) => {
             assert_debug_snapshot!($short, Selector::parse($sel).unwrap());
         };
     }
 
-    assert_selector!("foo_bar", ".foo.bar");
-    assert_selector!("foo_bar_alt", ".foo[\"bar\"]");
-    assert_selector!("foo_bar_full_range", ".foo.bar[]");
-    assert_selector!("foo_bar_range_to", ".foo.bar[:10]");
-    assert_selector!("foo_bar_range_from", ".foo.bar[10:]");
-    assert_selector!("foo_bar_range", ".foo.bar[10:20]");
-    assert_selector!("foo_bar_deep", ".foo.bar.**");
+    assert_selector_snapshot!("foo_bar", ".foo.bar");
+    assert_selector_snapshot!("foo_bar_alt", ".foo[\"bar\"]");
+    assert_selector_snapshot!("foo_bar_full_range", ".foo.bar[]");
+    assert_selector_snapshot!("foo_bar_range_to", ".foo.bar[:10]");
+    assert_selector_snapshot!("foo_bar_range_from", ".foo.bar[10:]");
+    assert_selector_snapshot!("foo_bar_range", ".foo.bar[10:20]");
+    assert_selector_snapshot!("foo_bar_deep", ".foo.bar.**");
 }
 
 #[derive(Serialize)]

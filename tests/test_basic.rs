@@ -42,8 +42,7 @@ fn test_unnamed_json_vector() {
 mod nested {
     #[test]
     fn test_nested_module() {
-        use insta::assert_snapshot;
-        assert_snapshot!("aoeu");
+        insta::assert_snapshot!("aoeu");
     }
 }
 
