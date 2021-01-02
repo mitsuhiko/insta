@@ -1,3 +1,4 @@
+import * as cp from "child_process";
 import { platform } from "os";
 import {
   ExtensionContext,
@@ -15,6 +16,11 @@ import {
   commands,
   window,
   FileSystemError,
+  TreeDataProvider,
+  TreeItem,
+  Event,
+  WorkspaceFolder,
+  EventEmitter,
 } from "vscode";
 
 const NAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]\s*,/;
@@ -198,13 +204,15 @@ async function openSnapshotDiff(selectedSnapshot?: Uri) {
     oldSnapshot = Uri.file(platform() == "win32" ? "NUL" : "/dev/null");
   }
 
-  commands
-    .executeCommand("vscode.diff", oldSnapshot, newSnapshot, "Snapshot Diff", {
+  commands.executeCommand(
+    "vscode.diff",
+    oldSnapshot,
+    newSnapshot,
+    "Snapshot Diff",
+    {
       preview: true,
-    })
-    .then((result) => {
-      console.log(result);
-    });
+    }
+  );
 }
 
 async function performSnapshotAction(
@@ -286,15 +294,109 @@ async function switchSnapshotView(selectedSnapshot?: Uri): Promise<void> {
   await commands.executeCommand("vscode.open", otherFile);
 }
 
+class Snapshot extends TreeItem {
+  constructor(
+    public readonly uri: Uri,
+    public readonly line: number | undefined,
+    public readonly isInline: boolean
+  ) {
+    super(uri);
+    const relPath = workspace.asRelativePath(uri);
+    this.label = line !== undefined ? `${relPath}:${line}` : relPath;
+    if (isInline) {
+      this.description = "(inline)";
+    }
+    this.command = {
+      command: "mitsuhiko.insta.open-snapshot-diff",
+      title: "",
+      arguments: [uri],
+    };
+  }
+
+  contextValue = "pendingInstaSnapshot";
+}
+
+class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
+  private _onDidChangeTreeData: EventEmitter<
+    Snapshot | undefined | void
+  > = new EventEmitter<Snapshot | undefined | void>();
+  onDidChangeTreeData?:
+    | Event<void | Snapshot | null | undefined>
+    | undefined = this._onDidChangeTreeData.event;
+
+  constructor(private workspaceRoot?: WorkspaceFolder) {}
+
+  refresh(): void {
+    this._onDidChangeTreeData.fire();
+  }
+
+  getTreeItem(element: Snapshot): TreeItem | Thenable<TreeItem> {
+    return element;
+  }
+
+  getChildren(element?: Snapshot): ProviderResult<Snapshot[]> {
+    const { workspaceRoot } = this;
+    if (element || !workspaceRoot) {
+      return Promise.resolve([]);
+    }
+
+    return new Promise((resolve, reject) => {
+      let buffer = "";
+      const child = cp.spawn(
+        "cargo",
+        ["insta", "pending-snapshots", "--as-json"],
+        {
+          cwd: workspaceRoot.uri.fsPath,
+        }
+      );
+      if (!child) {
+        reject(new Error("could not spawn cargo-insta"));
+        return;
+      }
+      child.stdout?.setEncoding("utf8");
+      child.stdout.on("data", (data) => (buffer += data));
+      child.on("close", (_exitCode) => {
+        const snapshots = buffer
+          .split(/\n/g)
+          .map((line) => {
+            try {
+              const snapshotInfo = JSON.parse(line);
+              return new Snapshot(
+                Uri.file(snapshotInfo.path),
+                snapshotInfo.line,
+                snapshotInfo.type === "inline_snapshot"
+              );
+            } catch (e) {
+              return null;
+            }
+          })
+          .filter((x) => x !== null);
+        resolve(snapshots as any);
+      });
+    });
+  }
+}
+
 export function activate(context: ExtensionContext): void {
+  const pendingSnapshots = new PendingSnapshotsProvider(
+    workspace.workspaceFolders?.[0]
+  );
   context.subscriptions.push(
+    window.registerTreeDataProvider("pendingInstaSnapshots", pendingSnapshots),
     languages.registerDefinitionProvider(
       [RUST_SELECTOR],
       new SnapshotPathProvider()
     ),
     commands.registerCommand(
       "mitsuhiko.insta.open-snapshot-diff",
-      (selectedFile?: Uri) => openSnapshotDiff(selectedFile)
+      (selectedFile?: Uri | Snapshot) => {
+        // when we're invoked from the pending snapshots view the first
+        // argument is the node (Snapshot) instead of the URI.
+        if (selectedFile instanceof Snapshot) {
+          selectedFile = selectedFile.uri;
+        }
+        openSnapshotDiff(selectedFile);
+      }
     ),
     commands.registerCommand(
       "mitsuhiko.insta.accept-snapshot",
@@ -307,6 +409,9 @@ export function activate(context: ExtensionContext): void {
     commands.registerCommand(
       "mitsuhiko.insta.switch-snapshot-view",
       (selectedFile?: Uri) => switchSnapshotView(selectedFile)
+    ),
+    commands.registerCommand("mitsuhiko.insta.refresh-pending-snapshots", () =>
+      pendingSnapshots.refresh()
     )
   );
 }
