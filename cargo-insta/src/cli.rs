@@ -8,6 +8,7 @@ use std::{env, fs};
 
 use console::{set_colors_enabled, style, Key, Term};
 use insta::{print_snapshot_diff, Snapshot};
+use serde::Serialize;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 use uuid::Uuid;
@@ -52,6 +53,9 @@ pub enum Command {
     /// Run tests and then reviews
     #[structopt(name = "test")]
     Test(TestCommand),
+    /// Print a summary of all pending snapshots.
+    #[structopt(name = "pending-snapshots")]
+    PendingSnapshots(PendingSnapshotsCommand),
 }
 
 #[derive(StructOpt, Debug, Clone)]
@@ -76,6 +80,9 @@ pub struct TargetArgs {
 pub struct ProcessCommand {
     #[structopt(flatten)]
     pub target_args: TargetArgs,
+    /// Limits the operation to one or more snapshots.
+    #[structopt(long = "snapshot")]
+    pub snapshot_filter: Option<Vec<String>>,
     /// Do not print to stdout.
     #[structopt(short = "q", long)]
     pub quiet: bool,
@@ -128,6 +135,19 @@ pub struct TestCommand {
     /// Delete unreferenced snapshots after the test run.
     #[structopt(long)]
     pub delete_unreferenced_snapshots: bool,
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(rename_all = "kebab-case")]
+pub struct PendingSnapshotsCommand {
+    #[structopt(flatten)]
+    pub target_args: TargetArgs,
+    /// Changes the output from human readable to JSON.
+    #[structopt(long)]
+    pub as_json: bool,
+    /// Emits full instead of relative paths.
+    #[structopt(long)]
+    pub full_paths: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -193,6 +213,13 @@ fn handle_color(color: &str) -> Result<(), Box<dyn Error>> {
         color => return Err(err_msg(format!("invalid value for --color: {}", color))),
     }
     Ok(())
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "snake_case", tag = "type")]
+enum SnapshotKey<'a> {
+    NamedSnapshot { path: &'a Path },
+    InlineSnapshot { path: &'a Path, line: u32 },
 }
 
 struct LocationInfo<'a> {
@@ -291,8 +318,22 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
     let mut num = 0;
 
     for (snapshot_container, package) in snapshot_containers.iter_mut() {
+        let target_file = snapshot_container.target_file().to_path_buf();
         let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
         for snapshot_ref in snapshot_container.iter_snapshots() {
+            // if a filter is provided, check if the snapshot reference is included
+            if let Some(ref filter) = cmd.snapshot_filter {
+                let key = if let Some(line) = snapshot_ref.line {
+                    format!("{}:{}", target_file.display(), line)
+                } else {
+                    format!("{}", target_file.display())
+                };
+                if !filter.contains(&key) {
+                    skipped.push(snapshot_ref.summary());
+                    continue;
+                }
+            }
+
             num += 1;
             let op = match op {
                 Some(op) => op,
@@ -493,6 +534,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         process_snapshots(
             ProcessCommand {
                 target_args: cmd.target_args.clone(),
+                snapshot_filter: None,
                 quiet: true,
             },
             Some(Operation::Reject),
@@ -563,6 +605,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         process_snapshots(
             ProcessCommand {
                 target_args: cmd.target_args.clone(),
+                snapshot_filter: None,
                 quiet: false,
             },
             if cmd.accept {
@@ -591,6 +634,37 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Error>> {
+    let loc = handle_target_args(&cmd.target_args)?;
+    let mut snapshot_containers = load_snapshot_containers(&loc)?;
+
+    for (snapshot_container, _package) in snapshot_containers.iter_mut() {
+        let target_file = snapshot_container.target_file().to_path_buf();
+        let is_inline = snapshot_container.snapshot_file().is_none();
+        for snapshot_ref in snapshot_container.iter_snapshots() {
+            if cmd.as_json {
+                let info = if is_inline {
+                    SnapshotKey::InlineSnapshot {
+                        path: &target_file,
+                        line: snapshot_ref.line.unwrap(),
+                    }
+                } else {
+                    SnapshotKey::NamedSnapshot { path: &target_file }
+                };
+                println!("{}", serde_json::to_string(&info).unwrap());
+            } else {
+                if is_inline {
+                    println!("{}:{}", target_file.display(), snapshot_ref.line.unwrap());
+                } else {
+                    println!("{}", target_file.display());
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub fn run() -> Result<(), Box<dyn Error>> {
     // chop off cargo
     let mut args: Vec<_> = env::args_os().collect();
@@ -607,5 +681,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         Command::Accept(cmd) => process_snapshots(cmd, Some(Operation::Accept)),
         Command::Reject(cmd) => process_snapshots(cmd, Some(Operation::Reject)),
         Command::Test(cmd) => test_run(cmd, color),
+        Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
 }

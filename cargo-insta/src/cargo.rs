@@ -163,6 +163,10 @@ impl SnapshotContainer {
         })
     }
 
+    pub fn target_file(&self) -> &Path {
+        &self.target_path
+    }
+
     pub fn snapshot_file(&self) -> Option<&Path> {
         match self.kind {
             SnapshotContainerKind::External => Some(&self.target_path),
