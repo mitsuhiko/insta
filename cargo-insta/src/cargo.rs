@@ -5,9 +5,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
 
+use ignore::overrides::OverrideBuilder;
+use ignore::{DirEntry, WalkBuilder};
 use insta::{PendingInlineSnapshot, Snapshot};
 use serde::Deserialize;
-use walkdir::{DirEntry, WalkDir};
 
 use crate::inline::FilePatcher;
 use crate::utils::err_msg;
@@ -244,9 +245,20 @@ pub fn find_snapshots<'a>(
     root: PathBuf,
     extensions: &'a [&'a str],
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-    WalkDir::new(root.clone())
-        .into_iter()
-        .filter_entry(|e| e.file_type().is_file() || !is_hidden(e))
+    WalkBuilder::new(root.clone())
+        .hidden(false)
+        .overrides(
+            // make sure pending snaps are never ignored
+            OverrideBuilder::new(&root)
+                .add("**/.*.pending-snap")
+                .unwrap()
+                .add("**/*.snap.new")
+                .unwrap()
+                .build()
+                .unwrap(),
+        )
+        .filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e))
+        .build()
         .filter_map(|e| e.ok())
         .filter_map(move |e| {
             let fname = e.file_name().to_string_lossy();

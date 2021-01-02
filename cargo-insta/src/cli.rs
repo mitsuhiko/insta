@@ -7,6 +7,7 @@ use std::process;
 use std::{env, fs};
 
 use console::{set_colors_enabled, style, Key, Term};
+use ignore::WalkBuilder;
 use insta::{print_snapshot_diff, Snapshot};
 use serde::Serialize;
 use structopt::clap::AppSettings;
@@ -408,7 +409,7 @@ fn make_walker(loc: &LocationInfo) -> ignore::Walk {
         }
     };
 
-    ignore::WalkBuilder::new(&loc.workspace_root)
+    WalkBuilder::new(&loc.workspace_root)
         .filter_entry(move |entry| {
             // we only filter down for directories
             if !entry.file_type().map_or(false, |x| x.is_dir()) {

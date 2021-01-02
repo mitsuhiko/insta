@@ -98,7 +98,6 @@ dependencies = [
  "structopt",
  "syn",
  "uuid",
- "walkdir",
 ]
 
 [[package]]
