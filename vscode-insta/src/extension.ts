@@ -13,7 +13,7 @@ import {
   Uri,
 } from "vscode";
 
-const NAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]/;
+const NAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]\s*,/;
 const UNNAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(/;
 const FUNCTION: RegExp = /\bfn\s+([\w]+)\s*\(/;
 const TEST_DECL: RegExp = /#\[test\]/;
