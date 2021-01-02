@@ -21,10 +21,98 @@
   "homepage": "https://github.com/mitsuhiko/insta",
   "icon": "images/icon.png",
   "activationEvents": [
-    "onLanguage:rust"
+    "onLanguage:rust",
+    "onLanguage:insta-snapshots",
+    "onCommand:mitsuhiko.insta.open-snapshot-diff",
+    "onCommand:mitsuhiko.insta.accept-snapshot",
+    "onCommand:mitsuhiko.insta.reject-snapshot",
+    "onCommand:mitsuhiko.insta.switch-snapshot-view"
   ],
   "main": "./out/extension",
   "contributes": {
+    "commands": [
+      {
+        "command": "mitsuhiko.insta.open-snapshot-diff",
+        "title": "Compare Snapshots",
+        "category": "Insta",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "mitsuhiko.insta.accept-snapshot",
+        "title": "Accept New Snapshot",
+        "category": "Insta",
+        "icon": "$(check)"
+      },
+      {
+        "command": "mitsuhiko.insta.reject-snapshot",
+        "title": "Reject New Snapshot",
+        "category": "Insta",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "mitsuhiko.insta.switch-snapshot-view",
+        "title": "Switch Between Snapshots",
+        "category": "Insta",
+        "icon": "$(symbol-boolean)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mitsuhiko.insta.accept-snapshot",
+        "when": "isInDiffEditor || editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/",
+        "key": "ctrl+i ctrl+a",
+        "mac": "cmd+i cmd+a"
+      },
+      {
+        "command": "mitsuhiko.insta.reject-snapshot",
+        "when": "isInDiffEditor || editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/",
+        "key": "ctrl+i ctrl+r",
+        "mac": "cmd+i cmd+r"
+      },
+      {
+        "command": "mitsuhiko.insta.switch-snapshot-view",
+        "when": "!isInDiffEditor && editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/",
+        "key": "ctrl+i ctrl+o",
+        "mac": "cmd+i cmd+o"
+      },
+      {
+        "command": "mitsuhiko.insta.open-snapshot-diff",
+        "when": "!isInDiffEditor && editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/",
+        "key": "ctrl+i ctrl+d",
+        "mac": "cmd+i cmd+d"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mitsuhiko.insta.accept-snapshot",
+          "group": "navigation@-1.4",
+          "when": "isInDiffEditor || editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/"
+        },
+        {
+          "command": "mitsuhiko.insta.reject-snapshot",
+          "group": "navigation@-1.3",
+          "when": "isInDiffEditor || editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/"
+        },
+        {
+          "command": "mitsuhiko.insta.switch-snapshot-view",
+          "group": "navigation@-1.2",
+          "when": "!isInDiffEditor && editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/"
+        },
+        {
+          "command": "mitsuhiko.insta.open-snapshot-diff",
+          "group": "navigation@-1.1",
+          "when": "!isInDiffEditor && editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "mitsuhiko.insta.open-snapshot-diff",
+          "group": "3_compare",
+          "when": "resourceFilename =~ /\\.snap\\.new$/"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "insta-snapshots",
@@ -33,6 +121,7 @@
           "insta-snapshots"
         ],
         "extensions": [
+          ".snap.new",
           ".snap"
         ],
         "configuration": "./language-configuration.json"

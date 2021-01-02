@@ -5,10 +5,26 @@ files.  It adds syntax highlighting and other improvements.
 
 ## Features
 
+The following features are currently available.
+
+### Jump to Definition
+
 After loading the extension you can "jump to definition" by hitting "F12" on
 a snapshot assertion macro:
 
 ![jump to definition](https://raw.githubusercontent.com/mitsuhiko/insta/master/vscode-insta/images/jump-to-definition.gif)
+
+### Accepting / Rejecting
+
+Snapshots can be diffed, accepted and rejected right from within vscode.  This is available
+through the following commands:
+
+* "Compare Snapshots": opens a comparison view, also from the tree view.
+* "Switch Between Snapshots": switches between current and new snapshot.
+* "Accept New Snapshot": moves the new snapshot over the old snapshot.
+* "Reject New Snapshot": rejects (deletes) the new snapshot.
+
+### Syntax Highlighting
 
 For all insta `.snap` snapshots from insta syntax highlighting is provided as if they are YAML files.  For RON snapshots some small
 tweaks are applied to make them more pleasing to the eyes:

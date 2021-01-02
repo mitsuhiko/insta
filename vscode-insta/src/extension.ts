@@ -1,3 +1,4 @@
+import { platform } from "os";
 import {
   ExtensionContext,
   DefinitionProvider,
@@ -11,6 +12,9 @@ import {
   ProviderResult,
   workspace,
   Uri,
+  commands,
+  window,
+  FileSystemError,
 } from "vscode";
 
 const NAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]\s*,/;
@@ -32,8 +36,6 @@ type SnapshotMatch = {
 };
 
 class SnapshotPathProvider implements DefinitionProvider {
-  public selector = [RUST_SELECTOR];
-
   /**
    * This looks up an explicitly named snapshot (simple case)
    */
@@ -166,9 +168,145 @@ class SnapshotPathProvider implements DefinitionProvider {
   }
 }
 
+function getSnapshotPairs(uri: Uri): [Uri, Uri] | undefined {
+  if (uri.path.match(/\.snap$/)) {
+    return [uri, Uri.parse(`${uri}.new`)];
+  } else if (uri.path.match(/\.snap\.new$/)) {
+    return [uri.with({ path: uri.path.substr(0, uri.path.length - 4) }), uri];
+  }
+}
+
+async function openSnapshotDiff(selectedSnapshot?: Uri) {
+  if (!selectedSnapshot) {
+    selectedSnapshot = window.activeTextEditor?.document.uri;
+  }
+  if (!selectedSnapshot) {
+    window.showErrorMessage("No snapshot selected");
+    return;
+  }
+  const pair = getSnapshotPairs(selectedSnapshot);
+  if (!pair) {
+    window.showErrorMessage("Not an insta snapshot file");
+    return;
+  }
+
+  let [oldSnapshot, newSnapshot]: [Uri, Uri] = pair;
+  try {
+    await workspace.fs.stat(oldSnapshot);
+  } catch (e) {
+    // todo: windows
+    oldSnapshot = Uri.file(platform() == "win32" ? "NUL" : "/dev/null");
+  }
+
+  commands
+    .executeCommand("vscode.diff", oldSnapshot, newSnapshot, "Snapshot Diff", {
+      preview: true,
+    })
+    .then((result) => {
+      console.log(result);
+    });
+}
+
+async function performSnapshotAction(
+  action: "accept" | "reject",
+  selectedSnapshot?: Uri
+) {
+  // in most cases when we're invoked we don't have a selected snapshot yet.
+  // in that cas we always go by the active text editor's document.  However in
+  // case that document is not a snapshot file (because for instance it's the
+  // empty file we open for completely new snapshots), then we look at all other
+  // visible text editors for the first snapshot.
+  if (!selectedSnapshot) {
+    selectedSnapshot = window.activeTextEditor?.document.uri;
+    if (selectedSnapshot && !selectedSnapshot.path.match(/\.snap(\.new)?$/)) {
+      window.visibleTextEditors.forEach((editor) => {
+        if (editor.document.uri.path.match(/\.snap(\.new)?$/)) {
+          selectedSnapshot = editor.document.uri;
+        }
+      });
+    }
+  }
+
+  if (!selectedSnapshot) {
+    window.showErrorMessage(`Cannot ${action} snapshot: no snapshot selected`);
+    return;
+  }
+
+  const pair = getSnapshotPairs(selectedSnapshot);
+  if (!pair) {
+    window.showErrorMessage(`Cannot ${action} snapshot: not an insta snapshot`);
+    return;
+  }
+
+  if (action === "accept") {
+    try {
+      await workspace.fs.stat(pair[1]);
+    } catch (error) {
+      window.showErrorMessage("Could not accept snapshot: no new snapshot");
+      return;
+    }
+    await workspace.fs.rename(pair[1], pair[0], { overwrite: true });
+    window.showInformationMessage("New snapshot accepted");
+  } else if (action === "reject") {
+    try {
+      await workspace.fs.delete(pair[1]);
+    } catch (error) {
+      if (error instanceof FileSystemError && error.code === "FileNotFound") {
+        window.showInformationMessage("No new snapshot to reject");
+      } else {
+        throw error;
+      }
+      return;
+    }
+    window.showInformationMessage("New snapshot rejected");
+  }
+}
+
+async function switchSnapshotView(selectedSnapshot?: Uri): Promise<void> {
+  if (!selectedSnapshot) {
+    selectedSnapshot = window.activeTextEditor?.document.uri;
+  }
+  if (!selectedSnapshot) {
+    return;
+  }
+
+  const pair = getSnapshotPairs(selectedSnapshot);
+  if (!pair) {
+    window.showErrorMessage("Not an insta snapshot file");
+    return;
+  }
+
+  const otherFile = pair[0].path == selectedSnapshot.path ? pair[1] : pair[0];
+  try {
+    await workspace.fs.stat(otherFile);
+  } catch (e) {
+    window.showInformationMessage("Alternative snapshot does not exist.");
+    return;
+  }
+  await commands.executeCommand("vscode.open", otherFile);
+}
+
 export function activate(context: ExtensionContext): void {
-  const definitions = new SnapshotPathProvider();
   context.subscriptions.push(
-    languages.registerDefinitionProvider(definitions.selector, definitions)
+    languages.registerDefinitionProvider(
+      [RUST_SELECTOR],
+      new SnapshotPathProvider()
+    ),
+    commands.registerCommand(
+      "mitsuhiko.insta.open-snapshot-diff",
+      (selectedFile?: Uri) => openSnapshotDiff(selectedFile)
+    ),
+    commands.registerCommand(
+      "mitsuhiko.insta.accept-snapshot",
+      (selectedFile?: Uri) => performSnapshotAction("accept", selectedFile)
+    ),
+    commands.registerCommand(
+      "mitsuhiko.insta.reject-snapshot",
+      (selectedFile?: Uri) => performSnapshotAction("reject", selectedFile)
+    ),
+    commands.registerCommand(
+      "mitsuhiko.insta.switch-snapshot-view",
+      (selectedFile?: Uri) => switchSnapshotView(selectedFile)
+    )
   );
 }
