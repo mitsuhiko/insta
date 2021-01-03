@@ -110,10 +110,6 @@
           "command": "mitsuhiko.insta.open-snapshot-diff",
           "group": "navigation@-1.1",
           "when": "!isInDiffEditor && editorIsOpen && resourceFilename =~ /\\.snap(\\.new)?$/"
-        },
-        {
-          "command": "mitsuhiko.insta.refresh-pending-snapshots",
-          "group": ""
         }
       ],
       "explorer/context": [
