@@ -12,7 +12,7 @@ export class Snapshot extends TreeItem {
   public key: string;
   public inlineInfo?: InlineSnapshotInfo;
 
-  constructor(snapshotInfo: any) {
+  constructor(public rootUri: Uri, snapshotInfo: any) {
     super(Uri.file(snapshotInfo.path));
     const relPath = workspace.asRelativePath(snapshotInfo.path);
     const line = snapshotInfo.line;

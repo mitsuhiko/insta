@@ -5,15 +5,15 @@ import {
   Uri,
   TextDocumentContentProvider,
 } from "vscode";
-import { Snapshot } from "./Snapshot";
+import { PendingSnapshotsProvider } from "./PendingSnapshotsProvider";
 
 export class InlineSnapshotProvider implements TextDocumentContentProvider {
-  constructor(private inlineSnapshots: { [key: string]: Snapshot }) {}
+  constructor(private pendingSnapshotsProvider: PendingSnapshotsProvider) {}
   provideTextDocumentContent(
     uri: Uri,
     token: CancellationToken
   ): ProviderResult<string> {
-    const snapshot = this.inlineSnapshots[uri.fragment];
+    const snapshot = this.pendingSnapshotsProvider.getInlineSnapshot(uri);
     if (!snapshot) {
       throw new Error("Snapshot not found");
     }

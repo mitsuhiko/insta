@@ -9,6 +9,7 @@ import {
   FileSystemError,
 } from "vscode";
 import { InlineSnapshotProvider } from "./InlineSnapshotProvider";
+import { processInlineSnapshot } from "./insta";
 import { PendingSnapshotsProvider } from "./PendingSnapshotsProvider";
 import { Snapshot } from "./Snapshot";
 import { SnapshotPathProvider } from "./SnapshotPathProvider";
@@ -69,6 +70,7 @@ async function openInlineSnapshotDiff(snapshot: Snapshot) {
 
 async function performSnapshotAction(
   action: "accept" | "reject",
+  pendingSnapshotsProvider: PendingSnapshotsProvider,
   selectedSnapshot?: Uri
 ) {
   // in most cases when we're invoked we don't have a selected snapshot yet.
@@ -89,6 +91,21 @@ async function performSnapshotAction(
 
   if (!selectedSnapshot) {
     window.showErrorMessage(`Cannot ${action} snapshot: no snapshot selected`);
+    return;
+  }
+
+  // inline snapshots need to be handled through cargo-insta due to the
+  // patching.  special case it here.
+  if (selectedSnapshot.scheme === "instaInlineSnapshot") {
+    const snapshot = pendingSnapshotsProvider.getInlineSnapshot(
+      selectedSnapshot
+    );
+    if (!snapshot || !(await processInlineSnapshot(snapshot, action))) {
+      window.showErrorMessage(`Cannot ${action} snapshot: cargo-insta failed`);
+    } else {
+      pendingSnapshotsProvider.refresh();
+      commands.executeCommand("workbench.action.closeActiveEditor");
+    }
     return;
   }
 
@@ -154,7 +171,7 @@ export function activate(context: ExtensionContext): void {
     window.registerTreeDataProvider("pendingInstaSnapshots", pendingSnapshots),
     workspace.registerTextDocumentContentProvider(
       "instaInlineSnapshot",
-      new InlineSnapshotProvider(pendingSnapshots.cachedInlineSnapshots)
+      new InlineSnapshotProvider(pendingSnapshots)
     ),
     languages.registerDefinitionProvider(
       [
@@ -167,27 +184,29 @@ export function activate(context: ExtensionContext): void {
     ),
     commands.registerCommand(
       "mitsuhiko.insta.open-snapshot-diff",
-      (selectedFile?: Uri | Snapshot) => {
+      async (selectedFile?: Uri | Snapshot) => {
         // when we're invoked from the pending snapshots view the first
         // argument is the node (Snapshot) instead of the URI.
         if (selectedFile instanceof Snapshot) {
           if (selectedFile.inlineInfo) {
-            openInlineSnapshotDiff(selectedFile);
+            await openInlineSnapshotDiff(selectedFile);
             return;
           } else {
             selectedFile = selectedFile.resourceUri;
           }
         }
-        openNamedSnapshotDiff(selectedFile);
+        await openNamedSnapshotDiff(selectedFile);
       }
     ),
     commands.registerCommand(
       "mitsuhiko.insta.accept-snapshot",
-      (selectedFile?: Uri) => performSnapshotAction("accept", selectedFile)
+      (selectedFile?: Uri) =>
+        performSnapshotAction("accept", pendingSnapshots, selectedFile)
     ),
     commands.registerCommand(
       "mitsuhiko.insta.reject-snapshot",
-      (selectedFile?: Uri) => performSnapshotAction("reject", selectedFile)
+      (selectedFile?: Uri) =>
+        performSnapshotAction("reject", pendingSnapshots, selectedFile)
     ),
     commands.registerCommand(
       "mitsuhiko.insta.switch-snapshot-view",

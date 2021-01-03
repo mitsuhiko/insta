@@ -1,4 +1,3 @@
-import * as cp from "child_process";
 import {
   ProviderResult,
   TreeDataProvider,
@@ -6,7 +5,9 @@ import {
   Event,
   WorkspaceFolder,
   EventEmitter,
+  Uri,
 } from "vscode";
+import { getPendingSnapshots } from "./insta";
 import { Snapshot } from "./Snapshot";
 
 export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
@@ -24,6 +25,14 @@ export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
     this._onDidChangeTreeData.fire();
   }
 
+  getInlineSnapshot(uri: Uri): Snapshot | undefined {
+    return (
+      (uri.scheme === "instaInlineSnapshot" &&
+        this.cachedInlineSnapshots[uri.fragment]) ||
+      undefined
+    );
+  }
+
   getTreeItem(element: Snapshot): TreeItem | Thenable<TreeItem> {
     return element;
   }
@@ -34,37 +43,12 @@ export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
       return Promise.resolve([]);
     }
 
-    return new Promise((resolve, reject) => {
-      let buffer = "";
-      const child = cp.spawn(
-        "cargo",
-        ["insta", "pending-snapshots", "--as-json"],
-        {
-          cwd: workspaceRoot.uri.fsPath,
+    return getPendingSnapshots(workspaceRoot.uri).then((snapshots) => {
+      return snapshots.map((snapshot) => {
+        if (snapshot.inlineInfo) {
+          this.cachedInlineSnapshots[snapshot.key] = snapshot;
         }
-      );
-      if (!child) {
-        reject(new Error("could not spawn cargo-insta"));
-        return;
-      }
-      child.stdout?.setEncoding("utf8");
-      child.stdout.on("data", (data) => (buffer += data));
-      child.on("close", (_exitCode) => {
-        const snapshots = buffer
-          .split(/\n/g)
-          .map((line) => {
-            try {
-              const snapshot = new Snapshot(JSON.parse(line));
-              if (snapshot.inlineInfo) {
-                this.cachedInlineSnapshots[snapshot.key] = snapshot;
-              }
-              return snapshot;
-            } catch (e) {
-              return null;
-            }
-          })
-          .filter((x) => x !== null);
-        resolve(snapshots as any);
+        return snapshot;
       });
     });
   }
