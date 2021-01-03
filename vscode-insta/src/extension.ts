@@ -172,6 +172,15 @@ async function setInstaContext(value: boolean): Promise<void> {
   await commands.executeCommand("setContext", INSTA_CONTEXT_NAME, value);
 }
 
+function checkInstaContext() {
+  const rootUri = workspace.workspaceFolders?.[0].uri;
+  if (rootUri) {
+    projectUsesInsta(rootUri).then((usesInsta) => setInstaContext(usesInsta));
+  } else {
+    setInstaContext(false);
+  }
+}
+
 export function activate(context: ExtensionContext): void {
   const root = workspace.workspaceFolders?.[0];
   const pendingSnapshots = new PendingSnapshotsProvider(root);
@@ -179,21 +188,14 @@ export function activate(context: ExtensionContext): void {
   const snapWatcher = workspace.createFileSystemWatcher(
     "**/*.{snap,snap.new,pending-snap}"
   );
-  snapWatcher.onDidChange(() => {
-    pendingSnapshots.refreshDebounced();
-  });
+  snapWatcher.onDidChange(() => pendingSnapshots.refreshDebounced());
+  snapWatcher.onDidCreate(() => pendingSnapshots.refreshDebounced());
+  snapWatcher.onDidDelete(() => pendingSnapshots.refreshDebounced());
 
-  const cargoTomlWatcher = workspace.createFileSystemWatcher("Cargo.toml");
-  cargoTomlWatcher.onDidChange(() => {
-    const root = workspace.workspaceFolders?.[0];
-    if (root) {
-      projectUsesInsta(root.uri).then((usesInsta) =>
-        setInstaContext(usesInsta)
-      );
-    } else {
-      setInstaContext(false);
-    }
-  });
+  const cargoTomlWatcher = workspace.createFileSystemWatcher("**/Cargo.toml");
+  cargoTomlWatcher.onDidChange(() => checkInstaContext());
+  cargoTomlWatcher.onDidCreate(() => checkInstaContext());
+  cargoTomlWatcher.onDidDelete(() => checkInstaContext());
 
   if (root) {
     projectUsesInsta(root.uri).then((usesInsta) => setInstaContext(usesInsta));

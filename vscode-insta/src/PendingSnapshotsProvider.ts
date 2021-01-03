@@ -33,7 +33,7 @@ export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
     this.pendingRefresh = setTimeout(() => {
       this.pendingRefresh = undefined;
       this.refresh();
-    }, 500);
+    }, 200);
   }
 
   getInlineSnapshot(uri: Uri): Snapshot | undefined {
