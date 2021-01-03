@@ -1,179 +1,17 @@
-import * as cp from "child_process";
 import { platform } from "os";
 import {
   ExtensionContext,
-  DefinitionProvider,
-  DocumentFilter,
   languages,
-  TextDocument,
-  CancellationToken,
-  Definition,
-  Location,
-  Position,
-  ProviderResult,
   workspace,
   Uri,
   commands,
   window,
   FileSystemError,
-  TreeDataProvider,
-  TreeItem,
-  Event,
-  WorkspaceFolder,
-  EventEmitter,
-  TextDocumentContentProvider,
 } from "vscode";
-
-const NAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]\s*,/;
-const UNNAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(/;
-const FUNCTION: RegExp = /\bfn\s+([\w]+)\s*\(/;
-const TEST_DECL: RegExp = /#\[test\]/;
-const FILENAME_PARTITION: RegExp = /^(.*)[/\\](.*?)\.rs$/;
-const SNAPSHOT_FUNCTION_STRIP: RegExp = /^test_(.*?)$/;
-
-const RUST_SELECTOR: DocumentFilter = {
-  scheme: "file",
-  language: "rust",
-};
-
-type SnapshotMatch = {
-  snapshotName: string;
-  path: string;
-  localModuleName: string;
-};
-
-class SnapshotPathProvider implements DefinitionProvider {
-  /**
-   * This looks up an explicitly named snapshot (simple case)
-   */
-  private resolveNamedSnapshot(
-    document: TextDocument,
-    position: Position
-  ): SnapshotMatch | null {
-    const line =
-      (position.line >= 1 ? document.lineAt(position.line - 1).text : "") +
-      document.lineAt(position.line).text;
-
-    const snapshotMatch = line.match(NAMED_SNAPSHOT_ASSERTION);
-    if (!snapshotMatch) {
-      return null;
-    }
-    const snapshotName = snapshotMatch[1];
-    const fileNameMatch = document.fileName.match(FILENAME_PARTITION);
-    if (!fileNameMatch) {
-      return null;
-    }
-    const path = fileNameMatch[1];
-    const localModuleName = fileNameMatch[2];
-    return { snapshotName, path, localModuleName };
-  }
-
-  /**
-   * This locates an implicitly (unnamed) snapshot.
-   */
-  private resolveUnnamedSnapshot(
-    document: TextDocument,
-    position: Position
-  ): SnapshotMatch | null {
-    function unnamedSnapshotAt(lineno: number): boolean {
-      const line = document.lineAt(lineno).text;
-      return !!(
-        line.match(UNNAMED_SNAPSHOT_ASSERTION) &&
-        !line.match(NAMED_SNAPSHOT_ASSERTION)
-      );
-    }
-
-    // if we can't find an unnnamed snapshot at the given position we bail.
-    if (!unnamedSnapshotAt(position.line)) {
-      return null;
-    }
-
-    // otherwise scan backwards for unnamed snapshot matches until we find
-    // a test function declaration.
-    let snapshotNumber = 1;
-    let scanLine = position.line - 1;
-    let functionName = null;
-
-    while (scanLine >= 0) {
-      // stop if we find a test function declaration
-      let functionMatch;
-      if (
-        scanLine > 1 &&
-        (functionMatch = document.lineAt(scanLine).text.match(FUNCTION)) &&
-        document.lineAt(scanLine - 1).text.match(TEST_DECL)
-      ) {
-        functionName = functionMatch[1];
-        break;
-      }
-      if (unnamedSnapshotAt(scanLine)) {
-        snapshotNumber++;
-      }
-      scanLine--;
-    }
-
-    // if we couldn't find a function we have to bail.
-    if (!functionName) {
-      return null;
-    }
-
-    const snapshotName = `${functionName.match(SNAPSHOT_FUNCTION_STRIP)![1]}${
-      snapshotNumber > 1 ? `-${snapshotNumber}` : ""
-    }`;
-    const fileNameMatch = document.fileName.match(FILENAME_PARTITION);
-    if (!fileNameMatch) {
-      return null;
-    }
-
-    const path = fileNameMatch[1];
-    const localModuleName = fileNameMatch[2];
-    return { snapshotName, path, localModuleName };
-  }
-
-  public provideDefinition(
-    document: TextDocument,
-    position: Position,
-    token: CancellationToken
-  ): ProviderResult<Definition> {
-    const snapshotMatch =
-      this.resolveNamedSnapshot(document, position) ||
-      this.resolveUnnamedSnapshot(document, position);
-    if (!snapshotMatch) {
-      return null;
-    }
-
-    const getSearchPath = function (
-      mode: "exact" | "wildcard-prefix" | "wildcard-all"
-    ): string {
-      return workspace.asRelativePath(
-        `${snapshotMatch.path}/snapshots/${mode !== "exact" ? "*__" : ""}${
-          snapshotMatch.localModuleName
-        }${mode === "wildcard-all" ? "__*" : ""}__${
-          snapshotMatch.snapshotName
-        }.snap`
-      );
-    };
-
-    function findFiles(path: string): Thenable<Uri | null> {
-      return workspace
-        .findFiles(path, "", 1, token)
-        .then((results) => results[0] || null);
-    }
-
-    // we try to find the file in three passes:
-    // - exact matchin the snapshot folder.
-    // - with a wildcard module prefix (crate__foo__NAME__SNAP)
-    // - with a wildcard module prefix and suffix (crate__foo__NAME__tests__SNAP)
-    // This is needed since snapshots can be contained in submodules. Since
-    // getting the actual module name is tedious we just hope the match is
-    // unique.
-    return findFiles(getSearchPath("exact"))
-      .then((rv) => rv || findFiles(getSearchPath("wildcard-prefix")))
-      .then((rv) => rv || findFiles(getSearchPath("wildcard-all")))
-      .then((snapshot) =>
-        snapshot ? new Location(snapshot, new Position(0, 0)) : null
-      );
-  }
-}
+import { InlineSnapshotProvider } from "./InlineSnapshotProvider";
+import { PendingSnapshotsProvider } from "./PendingSnapshotsProvider";
+import { Snapshot } from "./Snapshot";
+import { SnapshotPathProvider } from "./SnapshotPathProvider";
 
 function getSnapshotPairs(uri: Uri): [Uri, Uri] | undefined {
   if (uri.path.match(/\.snap$/)) {
@@ -308,133 +146,6 @@ async function switchSnapshotView(selectedSnapshot?: Uri): Promise<void> {
   await commands.executeCommand("vscode.open", otherFile);
 }
 
-type InlineSnapshotInfo = {
-  oldSnapshot?: string;
-  newSnapshot: string;
-  line: number;
-  expression?: string;
-  name?: string;
-};
-
-class Snapshot extends TreeItem {
-  public key: string;
-  public inlineInfo?: InlineSnapshotInfo;
-
-  constructor(snapshotInfo: any) {
-    super(Uri.file(snapshotInfo.path));
-    const relPath = workspace.asRelativePath(snapshotInfo.path);
-    const line = snapshotInfo.line;
-    this.label = line !== undefined ? `${relPath}:${line}` : relPath;
-    this.key =
-      line !== undefined ? `${snapshotInfo.path}:${line}` : snapshotInfo.path;
-
-    if (snapshotInfo.type === "inline_snapshot") {
-      this.description = "(inline)";
-      this.inlineInfo = {
-        oldSnapshot:
-          snapshotInfo.old_snapshot === null
-            ? undefined
-            : snapshotInfo.old_snapshot,
-        newSnapshot: snapshotInfo.new_snapshot,
-        line: snapshotInfo.line,
-        expression:
-          snapshotInfo.expression === null
-            ? undefined
-            : snapshotInfo.expression,
-        name: snapshotInfo.name === null ? undefined : snapshotInfo.name,
-      };
-    }
-
-    this.command = {
-      command: "mitsuhiko.insta.open-snapshot-diff",
-      title: "",
-      arguments: [this],
-    };
-  }
-
-  contextValue = "pendingInstaSnapshot";
-}
-
-class InlineSnapshotProvider implements TextDocumentContentProvider {
-  constructor(private inlineSnapshots: { [key: string]: Snapshot }) {}
-  provideTextDocumentContent(
-    uri: Uri,
-    token: CancellationToken
-  ): ProviderResult<string> {
-    const snapshot = this.inlineSnapshots[uri.fragment];
-    if (!snapshot) {
-      throw new Error("Snapshot not found");
-    }
-    const inlineInfo = snapshot.inlineInfo!;
-    const contents =
-      inlineInfo[uri.path == "inline.snap" ? "oldSnapshot" : "newSnapshot"];
-    return `---\nsource: ${workspace.asRelativePath(
-      snapshot.resourceUri!
-    )}\nexpression: ${JSON.stringify(inlineInfo.expression)}\n---\n${contents}`;
-  }
-}
-
-class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
-  private _onDidChangeTreeData: EventEmitter<
-    Snapshot | undefined | void
-  > = new EventEmitter<Snapshot | undefined | void>();
-  onDidChangeTreeData?:
-    | Event<void | Snapshot | null | undefined>
-    | undefined = this._onDidChangeTreeData.event;
-  public cachedInlineSnapshots: { [key: string]: Snapshot } = {};
-
-  constructor(private workspaceRoot?: WorkspaceFolder) {}
-
-  refresh(): void {
-    this._onDidChangeTreeData.fire();
-  }
-
-  getTreeItem(element: Snapshot): TreeItem | Thenable<TreeItem> {
-    return element;
-  }
-
-  getChildren(element?: Snapshot): ProviderResult<Snapshot[]> {
-    const { workspaceRoot } = this;
-    if (element || !workspaceRoot) {
-      return Promise.resolve([]);
-    }
-
-    return new Promise((resolve, reject) => {
-      let buffer = "";
-      const child = cp.spawn(
-        "cargo",
-        ["insta", "pending-snapshots", "--as-json"],
-        {
-          cwd: workspaceRoot.uri.fsPath,
-        }
-      );
-      if (!child) {
-        reject(new Error("could not spawn cargo-insta"));
-        return;
-      }
-      child.stdout?.setEncoding("utf8");
-      child.stdout.on("data", (data) => (buffer += data));
-      child.on("close", (_exitCode) => {
-        const snapshots = buffer
-          .split(/\n/g)
-          .map((line) => {
-            try {
-              const snapshot = new Snapshot(JSON.parse(line));
-              if (snapshot.inlineInfo) {
-                this.cachedInlineSnapshots[snapshot.key] = snapshot;
-              }
-              return snapshot;
-            } catch (e) {
-              return null;
-            }
-          })
-          .filter((x) => x !== null);
-        resolve(snapshots as any);
-      });
-    });
-  }
-}
-
 export function activate(context: ExtensionContext): void {
   const pendingSnapshots = new PendingSnapshotsProvider(
     workspace.workspaceFolders?.[0]
@@ -446,7 +157,12 @@ export function activate(context: ExtensionContext): void {
       new InlineSnapshotProvider(pendingSnapshots.cachedInlineSnapshots)
     ),
     languages.registerDefinitionProvider(
-      [RUST_SELECTOR],
+      [
+        {
+          scheme: "file",
+          language: "rust",
+        },
+      ],
       new SnapshotPathProvider()
     ),
     commands.registerCommand(
