@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0
+
+* Add `pending-snapshots` parameter to `cargo-insta`.
+* `cargo-insta` now honors ignore files.  This can be overridden
+  with `--no-ignore`.
+* `cargo-insta` now supports the vscode extension.
+
 ## 1.4.0
 
 * Add `--delete-unreferenced-snapshots` parameter to `cargo-insta`.
