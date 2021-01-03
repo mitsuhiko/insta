@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.1
+
+* Fixed glob not working correctly.
+* Fail by default if glob is not returning any matches. Fixes #151.
+
 ## 1.5.0
 
 * Add `pending-snapshots` parameter to `cargo-insta`.
