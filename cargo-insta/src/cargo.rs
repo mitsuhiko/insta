@@ -244,9 +244,11 @@ fn is_hidden(entry: &DirEntry) -> bool {
 pub fn find_snapshots<'a>(
     root: PathBuf,
     extensions: &'a [&'a str],
+    no_ignore: bool,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
     WalkBuilder::new(root.clone())
         .hidden(false)
+        .standard_filters(!no_ignore)
         .overrides(
             // make sure pending snaps are never ignored
             OverrideBuilder::new(&root)
@@ -303,6 +305,7 @@ impl Package {
     pub fn iter_snapshot_containers<'a>(
         &self,
         extensions: &'a [&'a str],
+        no_ignore: bool,
     ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
         let mut roots = Vec::new();
 
@@ -344,7 +347,7 @@ impl Package {
 
         reduced_roots
             .into_iter()
-            .flat_map(move |root| find_snapshots(root, extensions))
+            .flat_map(move |root| find_snapshots(root, extensions, no_ignore))
     }
 }
 

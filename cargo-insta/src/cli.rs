@@ -7,7 +7,7 @@ use std::process;
 use std::{env, fs};
 
 use console::{set_colors_enabled, style, Key, Term};
-use ignore::WalkBuilder;
+use ignore::{Walk, WalkBuilder};
 use insta::{print_snapshot_diff, Snapshot};
 use serde::Serialize;
 use structopt::clap::AppSettings;
@@ -74,6 +74,9 @@ pub struct TargetArgs {
     /// Work on all packages in the workspace
     #[structopt(long)]
     pub all: bool,
+    /// Also walk into ignored paths.
+    #[structopt(long)]
+    pub no_ignore: bool,
 }
 
 #[derive(StructOpt, Debug)]
@@ -236,6 +239,7 @@ struct LocationInfo<'a> {
     workspace_root: PathBuf,
     packages: Option<Vec<Package>>,
     exts: Vec<&'a str>,
+    no_ignore: bool,
 }
 
 fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<dyn Error>> {
@@ -274,6 +278,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
             workspace_root: workspace_root.to_owned(),
             packages: None,
             exts,
+            no_ignore: target_args.no_ignore,
         })
     } else {
         let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
@@ -282,6 +287,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
             workspace_root: metadata.workspace_root().to_path_buf(),
             packages: Some(packages),
             exts,
+            no_ignore: target_args.no_ignore,
         })
     }
 }
@@ -293,13 +299,16 @@ fn load_snapshot_containers<'a>(
     match loc.packages {
         Some(ref packages) => {
             for package in packages.iter() {
-                for snapshot_container in package.iter_snapshot_containers(&loc.exts) {
+                for snapshot_container in package.iter_snapshot_containers(&loc.exts, loc.no_ignore)
+                {
                     snapshot_containers.push((snapshot_container?, Some(package)));
                 }
             }
         }
         None => {
-            for snapshot_container in find_snapshots(loc.workspace_root.clone(), &loc.exts) {
+            for snapshot_container in
+                find_snapshots(loc.workspace_root.clone(), &loc.exts, loc.no_ignore)
+            {
                 snapshot_containers.push((snapshot_container?, None));
             }
         }
@@ -405,7 +414,7 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
     Ok(())
 }
 
-fn make_walker(loc: &LocationInfo) -> ignore::Walk {
+fn make_deletion_walker(loc: &LocationInfo) -> Walk {
     let roots: HashSet<_> = match loc.packages {
         Some(ref packages) => packages
             .iter()
@@ -579,7 +588,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
 
         if let Ok(loc) = handle_target_args(&cmd.target_args) {
             let mut deleted_any = false;
-            for entry in make_walker(&loc) {
+            for entry in make_deletion_walker(&loc) {
                 let rel_path = match entry {
                     Ok(ref entry) => entry.path(),
                     _ => continue,
