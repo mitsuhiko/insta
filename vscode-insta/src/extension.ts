@@ -104,7 +104,11 @@ async function performSnapshotAction(
       window.showErrorMessage(`Cannot ${action} snapshot: cargo-insta failed`);
     } else {
       pendingSnapshotsProvider.refresh();
-      commands.executeCommand("workbench.action.closeActiveEditor");
+
+      const currentActiveUri = window.activeTextEditor?.document.uri;
+      if (currentActiveUri && selectedSnapshot.path.match(/\.snap(\.new)?$/)) {
+        commands.executeCommand("workbench.action.closeActiveEditor");
+      }
     }
     return;
   }
@@ -137,6 +141,8 @@ async function performSnapshotAction(
     }
     window.showInformationMessage("New snapshot rejected");
   }
+
+  pendingSnapshotsProvider.refresh();
 }
 
 async function switchSnapshotView(selectedSnapshot?: Uri): Promise<void> {
