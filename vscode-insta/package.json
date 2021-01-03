@@ -2,7 +2,7 @@
   "name": "insta",
   "displayName": "insta snapshots",
   "description": "Syntax support for insta snapshots",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "publisher": "mitsuhiko",
   "license": "Apache-2.0",
   "author": {
