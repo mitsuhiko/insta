@@ -85,7 +85,7 @@ checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 
 [[package]]
 name = "cargo-insta"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "clap",
  "console",
@@ -263,7 +263,7 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "console",
  "difference",
