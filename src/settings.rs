@@ -21,6 +21,8 @@ lazy_static! {
         prepend_module_to_snapshot: true,
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
+        #[cfg(feature = "glob")]
+        allow_empty_glob: false,
     });
 }
 thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings::new()));
@@ -52,6 +54,8 @@ pub struct ActualSettings {
     pub prepend_module_to_snapshot: bool,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
+    #[cfg(feature = "glob")]
+    pub allow_empty_glob: bool,
 }
 
 /// Configures how insta operates at test time.
@@ -125,7 +129,7 @@ impl Settings {
         self.inner.sort_maps
     }
 
-    /// Disbales prepending of modules to the snapshot filename.
+    /// Disables prepending of modules to the snapshot filename.
     ///
     /// By default the filename of a snapshot is `<module>__<name>.snap`.
     /// Setting this flag to `false` changes the snapshot filename to just
@@ -139,6 +143,24 @@ impl Settings {
     /// Returns the current value for module name prepending.
     pub fn prepend_module_to_snapshot(&self) -> bool {
         self.inner.prepend_module_to_snapshot
+    }
+
+    /// Allows the `glob!` macro to succeed if it matches no files.
+    ///
+    /// By default the glob macro will fail the test if it does not find
+    /// any files to prevent accidental typos.  This can be disabled when
+    /// fixtures should be conditional.
+    ///
+    /// The default value is `false`.
+    #[cfg(feature = "glob")]
+    pub fn set_allow_empty_glob(&mut self, value: bool) {
+        self._private_inner_mut().allow_empty_glob = value;
+    }
+
+    /// Returns the current value for the empty glob setting.
+    #[cfg(feature = "glob")]
+    pub fn allow_empty_glob(&self) -> bool {
+        self.inner.allow_empty_glob
     }
 
     /// Sets the snapshot suffix.

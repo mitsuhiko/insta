@@ -14,20 +14,27 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
         .compile_matcher();
 
     let walker = WalkDir::new(base).follow_links(true);
+    let mut glob_found_matches = false;
+    let mut settings = Settings::clone_current();
 
     for file in walker {
         let file = file.unwrap();
         let path = file.path();
-        if !glob.is_match(path) {
+        let stripped_path = path.strip_prefix(base).unwrap_or(path);
+        if !glob.is_match(stripped_path) {
             continue;
         }
 
-        let mut settings = Settings::clone_current();
         settings.set_input_file(&path);
         settings.set_snapshot_suffix(path.file_name().unwrap().to_str().unwrap());
 
+        glob_found_matches = true;
         settings.bind(|| {
             f(path);
         });
+    }
+
+    if !glob_found_matches && !settings.allow_empty_glob() {
+        panic!("the glob! macro did not match any files.");
     }
 }
