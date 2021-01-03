@@ -14,6 +14,16 @@ a snapshot assertion macro:
 
 ![jump to definition](https://raw.githubusercontent.com/mitsuhiko/insta/master/vscode-insta/images/jump-to-definition.gif)
 
+### Pending Snapshots View
+
+All pending snapshots are show in the sidebar if insta is used in your project:
+
+![sidebar](https://raw.githubusercontent.com/mitsuhiko/insta/master/vscode-insta/images/view.png)
+
+Clicking on a snapshot opens a diff view where you can accept and reject the
+snapshot.  This also works for inline snapshots.  Additionally you can instruct
+cargo insta to accept or reject all snapshots in one go.
+
 ### Accepting / Rejecting
 
 Snapshots can be diffed, accepted and rejected right from within vscode.  This is available
