@@ -5,7 +5,8 @@ Contains all notable changes to the vscode plugin for insta.
 ## 1.0.6
 
 * Enable syntax highlighting for `.snap.new` files
-* Added support for accepting/rejecting/diffing non-inline snapshots.
+* Added support for accepting/rejecting/diffing snapshots.
+* Added sidebar view for pending snapshots.
 
 ## 1.0.5
 

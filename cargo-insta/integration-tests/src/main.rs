@@ -33,6 +33,7 @@ fn main() {
     Command::new("../target/debug/cargo-insta")
         .arg("test")
         .arg("--accept")
+        .arg("--no-ignore")
         .status()
         .unwrap();
 

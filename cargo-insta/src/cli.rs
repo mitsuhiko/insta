@@ -7,7 +7,9 @@ use std::process;
 use std::{env, fs};
 
 use console::{set_colors_enabled, style, Key, Term};
+use ignore::{Walk, WalkBuilder};
 use insta::{print_snapshot_diff, Snapshot};
+use serde::Serialize;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 use uuid::Uuid;
@@ -52,6 +54,9 @@ pub enum Command {
     /// Run tests and then reviews
     #[structopt(name = "test")]
     Test(TestCommand),
+    /// Print a summary of all pending snapshots.
+    #[structopt(name = "pending-snapshots")]
+    PendingSnapshots(PendingSnapshotsCommand),
 }
 
 #[derive(StructOpt, Debug, Clone)]
@@ -69,6 +74,9 @@ pub struct TargetArgs {
     /// Work on all packages in the workspace
     #[structopt(long)]
     pub all: bool,
+    /// Also walk into ignored paths.
+    #[structopt(long)]
+    pub no_ignore: bool,
 }
 
 #[derive(StructOpt, Debug)]
@@ -76,6 +84,9 @@ pub struct TargetArgs {
 pub struct ProcessCommand {
     #[structopt(flatten)]
     pub target_args: TargetArgs,
+    /// Limits the operation to one or more snapshots.
+    #[structopt(long = "snapshot")]
+    pub snapshot_filter: Option<Vec<String>>,
     /// Do not print to stdout.
     #[structopt(short = "q", long)]
     pub quiet: bool,
@@ -128,6 +139,19 @@ pub struct TestCommand {
     /// Delete unreferenced snapshots after the test run.
     #[structopt(long)]
     pub delete_unreferenced_snapshots: bool,
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(rename_all = "kebab-case")]
+pub struct PendingSnapshotsCommand {
+    #[structopt(flatten)]
+    pub target_args: TargetArgs,
+    /// Changes the output from human readable to JSON.
+    #[structopt(long)]
+    pub as_json: bool,
+    /// Emits full instead of relative paths.
+    #[structopt(long)]
+    pub full_paths: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -195,10 +219,27 @@ fn handle_color(color: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "snake_case", tag = "type")]
+enum SnapshotKey<'a> {
+    NamedSnapshot {
+        path: &'a Path,
+    },
+    InlineSnapshot {
+        path: &'a Path,
+        line: u32,
+        name: Option<&'a str>,
+        old_snapshot: Option<&'a str>,
+        new_snapshot: &'a str,
+        expression: Option<&'a str>,
+    },
+}
+
 struct LocationInfo<'a> {
     workspace_root: PathBuf,
     packages: Option<Vec<Package>>,
     exts: Vec<&'a str>,
+    no_ignore: bool,
 }
 
 fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<dyn Error>> {
@@ -237,6 +278,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
             workspace_root: workspace_root.to_owned(),
             packages: None,
             exts,
+            no_ignore: target_args.no_ignore,
         })
     } else {
         let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
@@ -245,6 +287,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
             workspace_root: metadata.workspace_root().to_path_buf(),
             packages: Some(packages),
             exts,
+            no_ignore: target_args.no_ignore,
         })
     }
 }
@@ -256,13 +299,16 @@ fn load_snapshot_containers<'a>(
     match loc.packages {
         Some(ref packages) => {
             for package in packages.iter() {
-                for snapshot_container in package.iter_snapshot_containers(&loc.exts) {
+                for snapshot_container in package.iter_snapshot_containers(&loc.exts, loc.no_ignore)
+                {
                     snapshot_containers.push((snapshot_container?, Some(package)));
                 }
             }
         }
         None => {
-            for snapshot_container in find_snapshots(loc.workspace_root.clone(), &loc.exts) {
+            for snapshot_container in
+                find_snapshots(loc.workspace_root.clone(), &loc.exts, loc.no_ignore)
+            {
                 snapshot_containers.push((snapshot_container?, None));
             }
         }
@@ -291,8 +337,22 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
     let mut num = 0;
 
     for (snapshot_container, package) in snapshot_containers.iter_mut() {
+        let target_file = snapshot_container.target_file().to_path_buf();
         let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
         for snapshot_ref in snapshot_container.iter_snapshots() {
+            // if a filter is provided, check if the snapshot reference is included
+            if let Some(ref filter) = cmd.snapshot_filter {
+                let key = if let Some(line) = snapshot_ref.line {
+                    format!("{}:{}", target_file.display(), line)
+                } else {
+                    format!("{}", target_file.display())
+                };
+                if !filter.contains(&key) {
+                    skipped.push(snapshot_ref.summary());
+                    continue;
+                }
+            }
+
             num += 1;
             let op = match op {
                 Some(op) => op,
@@ -354,7 +414,7 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
     Ok(())
 }
 
-fn make_walker(loc: &LocationInfo) -> ignore::Walk {
+fn make_deletion_walker(loc: &LocationInfo) -> Walk {
     let roots: HashSet<_> = match loc.packages {
         Some(ref packages) => packages
             .iter()
@@ -367,7 +427,7 @@ fn make_walker(loc: &LocationInfo) -> ignore::Walk {
         }
     };
 
-    ignore::WalkBuilder::new(&loc.workspace_root)
+    WalkBuilder::new(&loc.workspace_root)
         .filter_entry(move |entry| {
             // we only filter down for directories
             if !entry.file_type().map_or(false, |x| x.is_dir()) {
@@ -493,6 +553,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         process_snapshots(
             ProcessCommand {
                 target_args: cmd.target_args.clone(),
+                snapshot_filter: None,
                 quiet: true,
             },
             Some(Operation::Reject),
@@ -527,7 +588,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
 
         if let Ok(loc) = handle_target_args(&cmd.target_args) {
             let mut deleted_any = false;
-            for entry in make_walker(&loc) {
+            for entry in make_deletion_walker(&loc) {
                 let rel_path = match entry {
                     Ok(ref entry) => entry.path(),
                     _ => continue,
@@ -563,6 +624,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         process_snapshots(
             ProcessCommand {
                 target_args: cmd.target_args.clone(),
+                snapshot_filter: None,
                 quiet: false,
             },
             if cmd.accept {
@@ -591,6 +653,41 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Error>> {
+    let loc = handle_target_args(&cmd.target_args)?;
+    let mut snapshot_containers = load_snapshot_containers(&loc)?;
+
+    for (snapshot_container, _package) in snapshot_containers.iter_mut() {
+        let target_file = snapshot_container.target_file().to_path_buf();
+        let is_inline = snapshot_container.snapshot_file().is_none();
+        for snapshot_ref in snapshot_container.iter_snapshots() {
+            if cmd.as_json {
+                let info = if is_inline {
+                    SnapshotKey::InlineSnapshot {
+                        path: &target_file,
+                        line: snapshot_ref.line.unwrap(),
+                        name: snapshot_ref.new.snapshot_name(),
+                        old_snapshot: snapshot_ref.old.as_ref().map(|x| x.contents_str()),
+                        new_snapshot: snapshot_ref.new.contents_str(),
+                        expression: snapshot_ref.new.metadata().expression(),
+                    }
+                } else {
+                    SnapshotKey::NamedSnapshot { path: &target_file }
+                };
+                println!("{}", serde_json::to_string(&info).unwrap());
+            } else {
+                if is_inline {
+                    println!("{}:{}", target_file.display(), snapshot_ref.line.unwrap());
+                } else {
+                    println!("{}", target_file.display());
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub fn run() -> Result<(), Box<dyn Error>> {
     // chop off cargo
     let mut args: Vec<_> = env::args_os().collect();
@@ -607,5 +704,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         Command::Accept(cmd) => process_snapshots(cmd, Some(Operation::Accept)),
         Command::Reject(cmd) => process_snapshots(cmd, Some(Operation::Reject)),
         Command::Test(cmd) => test_run(cmd, color),
+        Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
 }

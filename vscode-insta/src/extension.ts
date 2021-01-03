@@ -1,172 +1,21 @@
 import { platform } from "os";
 import {
   ExtensionContext,
-  DefinitionProvider,
-  DocumentFilter,
   languages,
-  TextDocument,
-  CancellationToken,
-  Definition,
-  Location,
-  Position,
-  ProviderResult,
   workspace,
   Uri,
   commands,
   window,
   FileSystemError,
 } from "vscode";
+import { projectUsesInsta } from "./cargo";
+import { InlineSnapshotProvider } from "./InlineSnapshotProvider";
+import { processAllSnapshots, processInlineSnapshot } from "./insta";
+import { PendingSnapshotsProvider } from "./PendingSnapshotsProvider";
+import { Snapshot } from "./Snapshot";
+import { SnapshotPathProvider } from "./SnapshotPathProvider";
 
-const NAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]\s*,/;
-const UNNAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(/;
-const FUNCTION: RegExp = /\bfn\s+([\w]+)\s*\(/;
-const TEST_DECL: RegExp = /#\[test\]/;
-const FILENAME_PARTITION: RegExp = /^(.*)[/\\](.*?)\.rs$/;
-const SNAPSHOT_FUNCTION_STRIP: RegExp = /^test_(.*?)$/;
-
-const RUST_SELECTOR: DocumentFilter = {
-  scheme: "file",
-  language: "rust",
-};
-
-type SnapshotMatch = {
-  snapshotName: string;
-  path: string;
-  localModuleName: string;
-};
-
-class SnapshotPathProvider implements DefinitionProvider {
-  /**
-   * This looks up an explicitly named snapshot (simple case)
-   */
-  private resolveNamedSnapshot(
-    document: TextDocument,
-    position: Position
-  ): SnapshotMatch | null {
-    const line =
-      (position.line >= 1 ? document.lineAt(position.line - 1).text : "") +
-      document.lineAt(position.line).text;
-
-    const snapshotMatch = line.match(NAMED_SNAPSHOT_ASSERTION);
-    if (!snapshotMatch) {
-      return null;
-    }
-    const snapshotName = snapshotMatch[1];
-    const fileNameMatch = document.fileName.match(FILENAME_PARTITION);
-    if (!fileNameMatch) {
-      return null;
-    }
-    const path = fileNameMatch[1];
-    const localModuleName = fileNameMatch[2];
-    return { snapshotName, path, localModuleName };
-  }
-
-  /**
-   * This locates an implicitly (unnamed) snapshot.
-   */
-  private resolveUnnamedSnapshot(
-    document: TextDocument,
-    position: Position
-  ): SnapshotMatch | null {
-    function unnamedSnapshotAt(lineno: number): boolean {
-      const line = document.lineAt(lineno).text;
-      return !!(
-        line.match(UNNAMED_SNAPSHOT_ASSERTION) &&
-        !line.match(NAMED_SNAPSHOT_ASSERTION)
-      );
-    }
-
-    // if we can't find an unnnamed snapshot at the given position we bail.
-    if (!unnamedSnapshotAt(position.line)) {
-      return null;
-    }
-
-    // otherwise scan backwards for unnamed snapshot matches until we find
-    // a test function declaration.
-    let snapshotNumber = 1;
-    let scanLine = position.line - 1;
-    let functionName = null;
-
-    while (scanLine >= 0) {
-      // stop if we find a test function declaration
-      let functionMatch;
-      if (
-        scanLine > 1 &&
-        (functionMatch = document.lineAt(scanLine).text.match(FUNCTION)) &&
-        document.lineAt(scanLine - 1).text.match(TEST_DECL)
-      ) {
-        functionName = functionMatch[1];
-        break;
-      }
-      if (unnamedSnapshotAt(scanLine)) {
-        snapshotNumber++;
-      }
-      scanLine--;
-    }
-
-    // if we couldn't find a function we have to bail.
-    if (!functionName) {
-      return null;
-    }
-
-    const snapshotName = `${functionName.match(SNAPSHOT_FUNCTION_STRIP)![1]}${
-      snapshotNumber > 1 ? `-${snapshotNumber}` : ""
-    }`;
-    const fileNameMatch = document.fileName.match(FILENAME_PARTITION);
-    if (!fileNameMatch) {
-      return null;
-    }
-
-    const path = fileNameMatch[1];
-    const localModuleName = fileNameMatch[2];
-    return { snapshotName, path, localModuleName };
-  }
-
-  public provideDefinition(
-    document: TextDocument,
-    position: Position,
-    token: CancellationToken
-  ): ProviderResult<Definition> {
-    const snapshotMatch =
-      this.resolveNamedSnapshot(document, position) ||
-      this.resolveUnnamedSnapshot(document, position);
-    if (!snapshotMatch) {
-      return null;
-    }
-
-    const getSearchPath = function (
-      mode: "exact" | "wildcard-prefix" | "wildcard-all"
-    ): string {
-      return workspace.asRelativePath(
-        `${snapshotMatch.path}/snapshots/${mode !== "exact" ? "*__" : ""}${
-          snapshotMatch.localModuleName
-        }${mode === "wildcard-all" ? "__*" : ""}__${
-          snapshotMatch.snapshotName
-        }.snap`
-      );
-    };
-
-    function findFiles(path: string): Thenable<Uri | null> {
-      return workspace
-        .findFiles(path, "", 1, token)
-        .then((results) => results[0] || null);
-    }
-
-    // we try to find the file in three passes:
-    // - exact matchin the snapshot folder.
-    // - with a wildcard module prefix (crate__foo__NAME__SNAP)
-    // - with a wildcard module prefix and suffix (crate__foo__NAME__tests__SNAP)
-    // This is needed since snapshots can be contained in submodules. Since
-    // getting the actual module name is tedious we just hope the match is
-    // unique.
-    return findFiles(getSearchPath("exact"))
-      .then((rv) => rv || findFiles(getSearchPath("wildcard-prefix")))
-      .then((rv) => rv || findFiles(getSearchPath("wildcard-all")))
-      .then((snapshot) =>
-        snapshot ? new Location(snapshot, new Position(0, 0)) : null
-      );
-  }
-}
+const INSTA_CONTEXT_NAME = "inInstaSnapshotsProject";
 
 function getSnapshotPairs(uri: Uri): [Uri, Uri] | undefined {
   if (uri.path.match(/\.snap$/)) {
@@ -176,7 +25,7 @@ function getSnapshotPairs(uri: Uri): [Uri, Uri] | undefined {
   }
 }
 
-async function openSnapshotDiff(selectedSnapshot?: Uri) {
+async function openNamedSnapshotDiff(selectedSnapshot?: Uri) {
   if (!selectedSnapshot) {
     selectedSnapshot = window.activeTextEditor?.document.uri;
   }
@@ -198,17 +47,33 @@ async function openSnapshotDiff(selectedSnapshot?: Uri) {
     oldSnapshot = Uri.file(platform() == "win32" ? "NUL" : "/dev/null");
   }
 
-  commands
-    .executeCommand("vscode.diff", oldSnapshot, newSnapshot, "Snapshot Diff", {
+  await commands.executeCommand(
+    "vscode.diff",
+    oldSnapshot,
+    newSnapshot,
+    "Snapshot Diff",
+    {
       preview: true,
-    })
-    .then((result) => {
-      console.log(result);
-    });
+    }
+  );
+}
+
+async function openInlineSnapshotDiff(snapshot: Snapshot) {
+  const key = encodeURIComponent(snapshot.key);
+  await commands.executeCommand(
+    "vscode.diff",
+    Uri.parse(`instaInlineSnapshot:inline.snap#${key}`),
+    Uri.parse(`instaInlineSnapshot:inline.snap.new#${key}`),
+    "Inline Snapshot Diff",
+    {
+      preview: true,
+    }
+  );
 }
 
 async function performSnapshotAction(
   action: "accept" | "reject",
+  pendingSnapshotsProvider: PendingSnapshotsProvider,
   selectedSnapshot?: Uri
 ) {
   // in most cases when we're invoked we don't have a selected snapshot yet.
@@ -229,6 +94,23 @@ async function performSnapshotAction(
 
   if (!selectedSnapshot) {
     window.showErrorMessage(`Cannot ${action} snapshot: no snapshot selected`);
+    return;
+  }
+
+  // inline snapshots need to be handled through cargo-insta due to the
+  // patching.  special case it here.
+  if (selectedSnapshot.scheme === "instaInlineSnapshot") {
+    const snapshot = pendingSnapshotsProvider.getInlineSnapshot(
+      selectedSnapshot
+    );
+    if (!snapshot || !(await processInlineSnapshot(snapshot, action))) {
+      window.showErrorMessage(`Cannot ${action} snapshot: cargo-insta failed`);
+    } else {
+      const currentActiveUri = window.activeTextEditor?.document.uri;
+      if (currentActiveUri && selectedSnapshot.path.match(/\.snap(\.new)?$/)) {
+        commands.executeCommand("workbench.action.closeActiveEditor");
+      }
+    }
     return;
   }
 
@@ -286,27 +168,108 @@ async function switchSnapshotView(selectedSnapshot?: Uri): Promise<void> {
   await commands.executeCommand("vscode.open", otherFile);
 }
 
+async function setInstaContext(value: boolean): Promise<void> {
+  await commands.executeCommand("setContext", INSTA_CONTEXT_NAME, value);
+}
+
+function checkInstaContext() {
+  const rootUri = workspace.workspaceFolders?.[0].uri;
+  if (rootUri) {
+    projectUsesInsta(rootUri).then((usesInsta) => setInstaContext(usesInsta));
+  } else {
+    setInstaContext(false);
+  }
+}
+
+function performOnAllSnapshots(op: "accept" | "reject") {
+  const root = workspace.workspaceFolders?.[0];
+  if (!root) {
+    return;
+  }
+  processAllSnapshots(root.uri, op).then((okay) => {
+    if (okay) {
+      window.showInformationMessage(`Successfully ${op}ed all snapshots.`);
+    } else {
+      window.showErrorMessage(`Could not ${op} snapshots.`);
+    }
+  });
+}
+
 export function activate(context: ExtensionContext): void {
+  const root = workspace.workspaceFolders?.[0];
+  const pendingSnapshots = new PendingSnapshotsProvider(root);
+
+  const snapWatcher = workspace.createFileSystemWatcher(
+    "**/*.{snap,snap.new,pending-snap}"
+  );
+  snapWatcher.onDidChange(() => pendingSnapshots.refreshDebounced());
+  snapWatcher.onDidCreate(() => pendingSnapshots.refreshDebounced());
+  snapWatcher.onDidDelete(() => pendingSnapshots.refreshDebounced());
+
+  const cargoTomlWatcher = workspace.createFileSystemWatcher("**/Cargo.toml");
+  cargoTomlWatcher.onDidChange(() => checkInstaContext());
+  cargoTomlWatcher.onDidCreate(() => checkInstaContext());
+  cargoTomlWatcher.onDidDelete(() => checkInstaContext());
+
+  if (root) {
+    projectUsesInsta(root.uri).then((usesInsta) => setInstaContext(usesInsta));
+  }
+
   context.subscriptions.push(
+    snapWatcher,
+    cargoTomlWatcher,
+    window.registerTreeDataProvider("pendingInstaSnapshots", pendingSnapshots),
+    workspace.registerTextDocumentContentProvider(
+      "instaInlineSnapshot",
+      new InlineSnapshotProvider(pendingSnapshots)
+    ),
     languages.registerDefinitionProvider(
-      [RUST_SELECTOR],
+      [
+        {
+          scheme: "file",
+          language: "rust",
+        },
+      ],
       new SnapshotPathProvider()
     ),
     commands.registerCommand(
       "mitsuhiko.insta.open-snapshot-diff",
-      (selectedFile?: Uri) => openSnapshotDiff(selectedFile)
+      async (selectedFile?: Uri | Snapshot) => {
+        // when we're invoked from the pending snapshots view the first
+        // argument is the node (Snapshot) instead of the URI.
+        if (selectedFile instanceof Snapshot) {
+          if (selectedFile.inlineInfo) {
+            await openInlineSnapshotDiff(selectedFile);
+            return;
+          } else {
+            selectedFile = selectedFile.resourceUri;
+          }
+        }
+        await openNamedSnapshotDiff(selectedFile);
+      }
     ),
     commands.registerCommand(
       "mitsuhiko.insta.accept-snapshot",
-      (selectedFile?: Uri) => performSnapshotAction("accept", selectedFile)
+      (selectedFile?: Uri) =>
+        performSnapshotAction("accept", pendingSnapshots, selectedFile)
     ),
     commands.registerCommand(
       "mitsuhiko.insta.reject-snapshot",
-      (selectedFile?: Uri) => performSnapshotAction("reject", selectedFile)
+      (selectedFile?: Uri) =>
+        performSnapshotAction("reject", pendingSnapshots, selectedFile)
     ),
     commands.registerCommand(
       "mitsuhiko.insta.switch-snapshot-view",
       (selectedFile?: Uri) => switchSnapshotView(selectedFile)
+    ),
+    commands.registerCommand("mitsuhiko.insta.refresh-pending-snapshots", () =>
+      pendingSnapshots.refresh()
+    ),
+    commands.registerCommand("mitsuhiko.insta.accept-all-snapshots", () =>
+      performOnAllSnapshots("accept")
+    ),
+    commands.registerCommand("mitsuhiko.insta.reject-all-snapshots", () =>
+      performOnAllSnapshots("reject")
     )
   );
 }

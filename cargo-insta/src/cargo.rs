@@ -5,9 +5,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
 
+use ignore::overrides::OverrideBuilder;
+use ignore::{DirEntry, WalkBuilder};
 use insta::{PendingInlineSnapshot, Snapshot};
 use serde::Deserialize;
-use walkdir::{DirEntry, WalkDir};
 
 use crate::inline::FilePatcher;
 use crate::utils::err_msg;
@@ -163,6 +164,10 @@ impl SnapshotContainer {
         })
     }
 
+    pub fn target_file(&self) -> &Path {
+        &self.target_path
+    }
+
     pub fn snapshot_file(&self) -> Option<&Path> {
         match self.kind {
             SnapshotContainerKind::External => Some(&self.target_path),
@@ -239,10 +244,23 @@ fn is_hidden(entry: &DirEntry) -> bool {
 pub fn find_snapshots<'a>(
     root: PathBuf,
     extensions: &'a [&'a str],
+    no_ignore: bool,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-    WalkDir::new(root.clone())
-        .into_iter()
-        .filter_entry(|e| e.file_type().is_file() || !is_hidden(e))
+    WalkBuilder::new(root.clone())
+        .hidden(false)
+        .standard_filters(!no_ignore)
+        .overrides(
+            // make sure pending snaps are never ignored
+            OverrideBuilder::new(&root)
+                .add("**/.*.pending-snap")
+                .unwrap()
+                .add("**/*.snap.new")
+                .unwrap()
+                .build()
+                .unwrap(),
+        )
+        .filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e))
+        .build()
         .filter_map(|e| e.ok())
         .filter_map(move |e| {
             let fname = e.file_name().to_string_lossy();
@@ -287,6 +305,7 @@ impl Package {
     pub fn iter_snapshot_containers<'a>(
         &self,
         extensions: &'a [&'a str],
+        no_ignore: bool,
     ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
         let mut roots = Vec::new();
 
@@ -328,7 +347,7 @@ impl Package {
 
         reduced_roots
             .into_iter()
-            .flat_map(move |root| find_snapshots(root, extensions))
+            .flat_map(move |root| find_snapshots(root, extensions, no_ignore))
     }
 }
 

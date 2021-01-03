@@ -23,10 +23,13 @@
   "activationEvents": [
     "onLanguage:rust",
     "onLanguage:insta-snapshots",
+    "onView:pendingInstaSnapshots",
     "onCommand:mitsuhiko.insta.open-snapshot-diff",
     "onCommand:mitsuhiko.insta.accept-snapshot",
     "onCommand:mitsuhiko.insta.reject-snapshot",
-    "onCommand:mitsuhiko.insta.switch-snapshot-view"
+    "onCommand:mitsuhiko.insta.switch-snapshot-view",
+    "onCommand:mitsuhiko.insta.accept-all-snapshots",
+    "onCommand:mitsuhiko.insta.reject-all-snapshots"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -54,6 +57,24 @@
         "title": "Switch Between Snapshots",
         "category": "Insta",
         "icon": "$(symbol-boolean)"
+      },
+      {
+        "command": "mitsuhiko.insta.refresh-pending-snapshots",
+        "title": "Refresh Pending Snapshots",
+        "category": "Insta",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mitsuhiko.insta.accept-all-snapshots",
+        "title": "Accept All Snapshots",
+        "category": "Insta",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "mitsuhiko.insta.reject-all-snapshots",
+        "title": "Reject All Snapshots",
+        "category": "Insta",
+        "icon": "$(discard)"
       }
     ],
     "keybindings": [
@@ -110,6 +131,40 @@
           "command": "mitsuhiko.insta.open-snapshot-diff",
           "group": "3_compare",
           "when": "resourceFilename =~ /\\.snap\\.new$/"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "mitsuhiko.insta.accept-all-snapshots",
+          "when": "view == pendingInstaSnapshots",
+          "group": "navigation"
+        },
+        {
+          "command": "mitsuhiko.insta.reject-all-snapshots",
+          "when": "view == pendingInstaSnapshots",
+          "group": "navigation"
+        },
+        {
+          "command": "mitsuhiko.insta.refresh-pending-snapshots",
+          "when": "view == pendingInstaSnapshots",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "mitsuhiko.insta.open-snapshot-diff",
+          "when": "view == pendingInstaSnapshots",
+          "group": "inline"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "pendingInstaSnapshots",
+          "name": "Pending Insta Snapshots",
+          "when": "inInstaSnapshotsProject",
+          "contextualTitle": "Pending Insta Snapshots"
         }
       ]
     },
