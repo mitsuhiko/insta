@@ -18,11 +18,22 @@ export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
     | Event<void | Snapshot | null | undefined>
     | undefined = this._onDidChangeTreeData.event;
   public cachedInlineSnapshots: { [key: string]: Snapshot } = {};
+  private pendingRefresh?: NodeJS.Timeout;
 
   constructor(private workspaceRoot?: WorkspaceFolder) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  refreshDebounced(): void {
+    if (this.pendingRefresh !== undefined) {
+      clearTimeout(this.pendingRefresh);
+    }
+    this.pendingRefresh = setTimeout(() => {
+      this.pendingRefresh = undefined;
+      this.refresh();
+    }, 500);
   }
 
   getInlineSnapshot(uri: Uri): Snapshot | undefined {

@@ -139,6 +139,7 @@
         {
           "id": "pendingInstaSnapshots",
           "name": "Pending Insta Snapshots",
+          "when": "inInstaSnapshotsProject",
           "contextualTitle": "Pending Insta Snapshots"
         }
       ]

@@ -8,11 +8,14 @@ import {
   window,
   FileSystemError,
 } from "vscode";
+import { projectUsesInsta } from "./cargo";
 import { InlineSnapshotProvider } from "./InlineSnapshotProvider";
 import { processInlineSnapshot } from "./insta";
 import { PendingSnapshotsProvider } from "./PendingSnapshotsProvider";
 import { Snapshot } from "./Snapshot";
 import { SnapshotPathProvider } from "./SnapshotPathProvider";
+
+const INSTA_CONTEXT_NAME = "inInstaSnapshotsProject";
 
 function getSnapshotPairs(uri: Uri): [Uri, Uri] | undefined {
   if (uri.path.match(/\.snap$/)) {
@@ -103,8 +106,6 @@ async function performSnapshotAction(
     if (!snapshot || !(await processInlineSnapshot(snapshot, action))) {
       window.showErrorMessage(`Cannot ${action} snapshot: cargo-insta failed`);
     } else {
-      pendingSnapshotsProvider.refresh();
-
       const currentActiveUri = window.activeTextEditor?.document.uri;
       if (currentActiveUri && selectedSnapshot.path.match(/\.snap(\.new)?$/)) {
         commands.executeCommand("workbench.action.closeActiveEditor");
@@ -141,8 +142,6 @@ async function performSnapshotAction(
     }
     window.showInformationMessage("New snapshot rejected");
   }
-
-  pendingSnapshotsProvider.refresh();
 }
 
 async function switchSnapshotView(selectedSnapshot?: Uri): Promise<void> {
@@ -169,11 +168,40 @@ async function switchSnapshotView(selectedSnapshot?: Uri): Promise<void> {
   await commands.executeCommand("vscode.open", otherFile);
 }
 
+async function setInstaContext(value: boolean): Promise<void> {
+  await commands.executeCommand("setContext", INSTA_CONTEXT_NAME, value);
+}
+
 export function activate(context: ExtensionContext): void {
-  const pendingSnapshots = new PendingSnapshotsProvider(
-    workspace.workspaceFolders?.[0]
+  const root = workspace.workspaceFolders?.[0];
+  const pendingSnapshots = new PendingSnapshotsProvider(root);
+
+  const snapWatcher = workspace.createFileSystemWatcher(
+    "**/*.{snap,snap.new,pending-snap}"
   );
+  snapWatcher.onDidChange(() => {
+    pendingSnapshots.refreshDebounced();
+  });
+
+  const cargoTomlWatcher = workspace.createFileSystemWatcher("Cargo.toml");
+  cargoTomlWatcher.onDidChange(() => {
+    const root = workspace.workspaceFolders?.[0];
+    if (root) {
+      projectUsesInsta(root.uri).then((usesInsta) =>
+        setInstaContext(usesInsta)
+      );
+    } else {
+      setInstaContext(false);
+    }
+  });
+
+  if (root) {
+    projectUsesInsta(root.uri).then((usesInsta) => setInstaContext(usesInsta));
+  }
+
   context.subscriptions.push(
+    snapWatcher,
+    cargoTomlWatcher,
     window.registerTreeDataProvider("pendingInstaSnapshots", pendingSnapshots),
     workspace.registerTextDocumentContentProvider(
       "instaInlineSnapshot",
