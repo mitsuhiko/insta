@@ -54,3 +54,21 @@ export function processInlineSnapshot(
     });
   });
 }
+
+export function processAllSnapshots(
+  rootUri: Uri,
+  op: "accept" | "reject"
+): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const child = cp.spawn("cargo", ["insta", op], {
+      cwd: rootUri.fsPath,
+    });
+    if (!child) {
+      reject(new Error("could not spawn cargo-insta"));
+      return;
+    }
+    child.on("close", (exitCode) => {
+      resolve(exitCode === 0);
+    });
+  });
+}

@@ -10,7 +10,7 @@ import {
 } from "vscode";
 import { projectUsesInsta } from "./cargo";
 import { InlineSnapshotProvider } from "./InlineSnapshotProvider";
-import { processInlineSnapshot } from "./insta";
+import { processAllSnapshots, processInlineSnapshot } from "./insta";
 import { PendingSnapshotsProvider } from "./PendingSnapshotsProvider";
 import { Snapshot } from "./Snapshot";
 import { SnapshotPathProvider } from "./SnapshotPathProvider";
@@ -181,6 +181,20 @@ function checkInstaContext() {
   }
 }
 
+function performOnAllSnapshots(op: "accept" | "reject") {
+  const root = workspace.workspaceFolders?.[0];
+  if (!root) {
+    return;
+  }
+  processAllSnapshots(root.uri, op).then((okay) => {
+    if (okay) {
+      window.showInformationMessage(`Successfully ${op}ed all snapshots.`);
+    } else {
+      window.showErrorMessage(`Could not ${op} snapshots.`);
+    }
+  });
+}
+
 export function activate(context: ExtensionContext): void {
   const root = workspace.workspaceFolders?.[0];
   const pendingSnapshots = new PendingSnapshotsProvider(root);
@@ -250,6 +264,12 @@ export function activate(context: ExtensionContext): void {
     ),
     commands.registerCommand("mitsuhiko.insta.refresh-pending-snapshots", () =>
       pendingSnapshots.refresh()
+    ),
+    commands.registerCommand("mitsuhiko.insta.accept-all-snapshots", () =>
+      performOnAllSnapshots("accept")
+    ),
+    commands.registerCommand("mitsuhiko.insta.reject-all-snapshots", () =>
+      performOnAllSnapshots("reject")
     )
   );
 }

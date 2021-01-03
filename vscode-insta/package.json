@@ -27,7 +27,9 @@
     "onCommand:mitsuhiko.insta.open-snapshot-diff",
     "onCommand:mitsuhiko.insta.accept-snapshot",
     "onCommand:mitsuhiko.insta.reject-snapshot",
-    "onCommand:mitsuhiko.insta.switch-snapshot-view"
+    "onCommand:mitsuhiko.insta.switch-snapshot-view",
+    "onCommand:mitsuhiko.insta.accept-all-snapshots",
+    "onCommand:mitsuhiko.insta.reject-all-snapshots"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -61,6 +63,18 @@
         "title": "Refresh Pending Snapshots",
         "category": "Insta",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "mitsuhiko.insta.accept-all-snapshots",
+        "title": "Accept All Snapshots",
+        "category": "Insta",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "mitsuhiko.insta.reject-all-snapshots",
+        "title": "Reject All Snapshots",
+        "category": "Insta",
+        "icon": "$(discard)"
       }
     ],
     "keybindings": [
@@ -120,6 +134,16 @@
         }
       ],
       "view/title": [
+        {
+          "command": "mitsuhiko.insta.accept-all-snapshots",
+          "when": "view == pendingInstaSnapshots",
+          "group": "navigation"
+        },
+        {
+          "command": "mitsuhiko.insta.reject-all-snapshots",
+          "when": "view == pendingInstaSnapshots",
+          "group": "navigation"
+        },
         {
           "command": "mitsuhiko.insta.refresh-pending-snapshots",
           "when": "view == pendingInstaSnapshots",
