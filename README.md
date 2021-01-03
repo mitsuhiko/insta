@@ -7,6 +7,7 @@
 [![Crates.io](https://img.shields.io/crates/d/insta.svg)](https://crates.io/crates/insta)
 [![License](https://img.shields.io/github/license/mitsuhiko/insta)](https://github.com/mitsuhiko/insta/blob/master/LICENSE)
 [![Documentation](https://docs.rs/insta/badge.svg)](https://docs.rs/insta)
+[![VSCode Extension](https://img.shields.io/visual-studio-marketplace/v/mitsuhiko.insta?label=vscode%20extension)](https://marketplace.visualstudio.com/items?itemName=mitsuhiko.insta)
 
 ## Introduction
 
