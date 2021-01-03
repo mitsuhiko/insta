@@ -20,8 +20,10 @@ export class InlineSnapshotProvider implements TextDocumentContentProvider {
     const inlineInfo = snapshot.inlineInfo!;
     const contents =
       inlineInfo[uri.path == "inline.snap" ? "oldSnapshot" : "newSnapshot"];
-    return `---\nsource: ${workspace.asRelativePath(
-      snapshot.resourceUri!
-    )}\nexpression: ${JSON.stringify(inlineInfo.expression)}\n---\n${contents}`;
+    return `---\nsource: ${workspace.asRelativePath(snapshot.resourceUri!)}:${
+      inlineInfo.line
+    }\nexpression: ${JSON.stringify(inlineInfo.expression)}\nname: ${
+      inlineInfo.name || "unknown"
+    }\n---\n${contents}`;
   }
 }

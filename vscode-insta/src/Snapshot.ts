@@ -21,7 +21,7 @@ export class Snapshot extends TreeItem {
       line !== undefined ? `${snapshotInfo.path}:${line}` : snapshotInfo.path;
 
     if (snapshotInfo.type === "inline_snapshot") {
-      this.description = "(inline)";
+      this.description = snapshotInfo.name || "(inline)";
       this.inlineInfo = {
         oldSnapshot:
           snapshotInfo.old_snapshot === null
