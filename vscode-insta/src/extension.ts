@@ -21,6 +21,7 @@ import {
   Event,
   WorkspaceFolder,
   EventEmitter,
+  TextDocumentContentProvider,
 } from "vscode";
 
 const NAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]\s*,/;
@@ -182,7 +183,7 @@ function getSnapshotPairs(uri: Uri): [Uri, Uri] | undefined {
   }
 }
 
-async function openSnapshotDiff(selectedSnapshot?: Uri) {
+async function openNamedSnapshotDiff(selectedSnapshot?: Uri) {
   if (!selectedSnapshot) {
     selectedSnapshot = window.activeTextEditor?.document.uri;
   }
@@ -204,11 +205,24 @@ async function openSnapshotDiff(selectedSnapshot?: Uri) {
     oldSnapshot = Uri.file(platform() == "win32" ? "NUL" : "/dev/null");
   }
 
-  commands.executeCommand(
+  await commands.executeCommand(
     "vscode.diff",
     oldSnapshot,
     newSnapshot,
     "Snapshot Diff",
+    {
+      preview: true,
+    }
+  );
+}
+
+async function openInlineSnapshotDiff(snapshot: Snapshot) {
+  const key = encodeURIComponent(snapshot.key);
+  await commands.executeCommand(
+    "vscode.diff",
+    Uri.parse(`instaInlineSnapshot:inline.snap#${key}`),
+    Uri.parse(`instaInlineSnapshot:inline.snap.new#${key}`),
+    "Inline Snapshot Diff",
     {
       preview: true,
     }
@@ -294,26 +308,70 @@ async function switchSnapshotView(selectedSnapshot?: Uri): Promise<void> {
   await commands.executeCommand("vscode.open", otherFile);
 }
 
+type InlineSnapshotInfo = {
+  oldSnapshot?: string;
+  newSnapshot: string;
+  line: number;
+  expression?: string;
+  name?: string;
+};
+
 class Snapshot extends TreeItem {
-  constructor(
-    public readonly uri: Uri,
-    public readonly line: number | undefined,
-    public readonly isInline: boolean
-  ) {
-    super(uri);
-    const relPath = workspace.asRelativePath(uri);
+  public key: string;
+  public inlineInfo?: InlineSnapshotInfo;
+
+  constructor(snapshotInfo: any) {
+    super(Uri.file(snapshotInfo.path));
+    const relPath = workspace.asRelativePath(snapshotInfo.path);
+    const line = snapshotInfo.line;
     this.label = line !== undefined ? `${relPath}:${line}` : relPath;
-    if (isInline) {
+    this.key =
+      line !== undefined ? `${snapshotInfo.path}:${line}` : snapshotInfo.path;
+
+    if (snapshotInfo.type === "inline_snapshot") {
       this.description = "(inline)";
+      this.inlineInfo = {
+        oldSnapshot:
+          snapshotInfo.old_snapshot === null
+            ? undefined
+            : snapshotInfo.old_snapshot,
+        newSnapshot: snapshotInfo.new_snapshot,
+        line: snapshotInfo.line,
+        expression:
+          snapshotInfo.expression === null
+            ? undefined
+            : snapshotInfo.expression,
+        name: snapshotInfo.name === null ? undefined : snapshotInfo.name,
+      };
     }
+
     this.command = {
       command: "mitsuhiko.insta.open-snapshot-diff",
       title: "",
-      arguments: [uri],
+      arguments: [this],
     };
   }
 
   contextValue = "pendingInstaSnapshot";
+}
+
+class InlineSnapshotProvider implements TextDocumentContentProvider {
+  constructor(private inlineSnapshots: { [key: string]: Snapshot }) {}
+  provideTextDocumentContent(
+    uri: Uri,
+    token: CancellationToken
+  ): ProviderResult<string> {
+    const snapshot = this.inlineSnapshots[uri.fragment];
+    if (!snapshot) {
+      throw new Error("Snapshot not found");
+    }
+    const inlineInfo = snapshot.inlineInfo!;
+    const contents =
+      inlineInfo[uri.path == "inline.snap" ? "oldSnapshot" : "newSnapshot"];
+    return `---\nsource: ${workspace.asRelativePath(
+      snapshot.resourceUri!
+    )}\nexpression: ${JSON.stringify(inlineInfo.expression)}\n---\n${contents}`;
+  }
 }
 
 class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
@@ -323,6 +381,7 @@ class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
   onDidChangeTreeData?:
     | Event<void | Snapshot | null | undefined>
     | undefined = this._onDidChangeTreeData.event;
+  public cachedInlineSnapshots: { [key: string]: Snapshot } = {};
 
   constructor(private workspaceRoot?: WorkspaceFolder) {}
 
@@ -360,12 +419,11 @@ class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
           .split(/\n/g)
           .map((line) => {
             try {
-              const snapshotInfo = JSON.parse(line);
-              return new Snapshot(
-                Uri.file(snapshotInfo.path),
-                snapshotInfo.line,
-                snapshotInfo.type === "inline_snapshot"
-              );
+              const snapshot = new Snapshot(JSON.parse(line));
+              if (snapshot.inlineInfo) {
+                this.cachedInlineSnapshots[snapshot.key] = snapshot;
+              }
+              return snapshot;
             } catch (e) {
               return null;
             }
@@ -383,6 +441,10 @@ export function activate(context: ExtensionContext): void {
   );
   context.subscriptions.push(
     window.registerTreeDataProvider("pendingInstaSnapshots", pendingSnapshots),
+    workspace.registerTextDocumentContentProvider(
+      "instaInlineSnapshot",
+      new InlineSnapshotProvider(pendingSnapshots.cachedInlineSnapshots)
+    ),
     languages.registerDefinitionProvider(
       [RUST_SELECTOR],
       new SnapshotPathProvider()
@@ -393,9 +455,14 @@ export function activate(context: ExtensionContext): void {
         // when we're invoked from the pending snapshots view the first
         // argument is the node (Snapshot) instead of the URI.
         if (selectedFile instanceof Snapshot) {
-          selectedFile = selectedFile.uri;
+          if (selectedFile.inlineInfo) {
+            openInlineSnapshotDiff(selectedFile);
+            return;
+          } else {
+            selectedFile = selectedFile.resourceUri;
+          }
         }
-        openSnapshotDiff(selectedFile);
+        openNamedSnapshotDiff(selectedFile);
       }
     ),
     commands.registerCommand(
