@@ -149,9 +149,6 @@ pub struct PendingSnapshotsCommand {
     /// Changes the output from human readable to JSON.
     #[structopt(long)]
     pub as_json: bool,
-    /// Emits full instead of relative paths.
-    #[structopt(long)]
-    pub full_paths: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
