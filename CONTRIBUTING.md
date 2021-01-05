@@ -38,3 +38,8 @@ This issue tracker follows the [Rust Code of Conduct]. For escalation or moderat
 issues please contact Armin (armin.ronacher@active-4.com) instead of the Rust moderation team.
 
 [rust code of conduct]: https://www.rust-lang.org/policies/code-of-conduct
+
+## Website / Documentation
+
+If you want to do changes to the website or documentation have a look at the
+separate [insta-website](https://github.com/mitsuhiko/insta-website) repository.
