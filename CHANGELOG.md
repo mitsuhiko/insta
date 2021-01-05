@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.2
+
+* API documentation updates.
+
 ## 1.5.1
 
 * Fixed glob not working correctly.
