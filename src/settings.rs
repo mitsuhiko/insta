@@ -60,15 +60,19 @@ pub struct ActualSettings {
 
 /// Configures how insta operates at test time.
 ///
-/// Settings are always bound to a thread and some default settings
-/// are always available.  Settings can be either temporarily bound
-/// of permanently.
+/// Settings are always bound to a thread and some default settings are always
+/// available.  These settings can be changed and influence how insta behaves on
+/// that thread.  They can either temporarily or permanently changed.
 ///
 /// This can be used to influence how the snapshot macros operate.
 /// For instance it can be useful to force ordering of maps when
 /// unordered structures are used through settings.
 ///
-/// Settings can also be configured with the `with_settings!` macro.
+/// Some of the settings can be changed but shuoldn't as it will make it harder
+/// for tools like cargo-insta or an editor integration to locate the snapshot
+/// files.
+///
+/// Settings can also be configured with the [`with_settings!`] macro.
 ///
 /// Example:
 ///
@@ -78,6 +82,7 @@ pub struct ActualSettings {
 /// let mut settings = insta::Settings::clone_current();
 /// settings.set_sort_maps(true);
 /// settings.bind(|| {
+///     // runs the assertion with the changed settings enabled
 ///     insta::assert_snapshot!(...);
 /// });
 /// ```
@@ -145,7 +150,7 @@ impl Settings {
         self.inner.prepend_module_to_snapshot
     }
 
-    /// Allows the `glob!` macro to succeed if it matches no files.
+    /// Allows the [`glob!`] macro to succeed if it matches no files.
     ///
     /// By default the glob macro will fail the test if it does not find
     /// any files to prevent accidental typos.  This can be disabled when

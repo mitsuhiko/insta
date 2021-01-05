@@ -47,6 +47,7 @@ marketplace: [view on marketplace](https://marketplace.visualstudio.com/items?it
 
 ## License and Links
 
-- [Issue Tracker](https://github.com/mitsuhiko/insta/issues)
+- [Project Website](https://insta.rs/)
 - [Documentation](https://docs.rs/insta/)
+- [Issue Tracker](https://github.com/mitsuhiko/insta/issues)
 - License: [Apache-2.0](https://github.com/mitsuhiko/insta/blob/master/LICENSE)

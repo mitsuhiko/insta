@@ -14,10 +14,9 @@
 ///
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions see [redactions](index.html#redactions).
+/// about redactions see [redactions](https://docs.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-/// For more information see [named snapshots](index.html#named-snapshots)
 #[cfg(feature = "csv")]
 #[macro_export]
 macro_rules! assert_csv_snapshot {
@@ -58,10 +57,9 @@ macro_rules! assert_csv_snapshot {
 ///
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions see [redactions](index.html#redactions).
+/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-/// For more information see [named snapshots](index.html#named-snapshots)
 #[cfg(feature = "toml")]
 #[macro_export]
 macro_rules! assert_toml_snapshot {
@@ -106,7 +104,7 @@ macro_rules! assert_toml_snapshot {
 ///
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions see [redactions](index.html#redactions).
+/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
 ///
 /// Example:
 ///
@@ -124,11 +122,9 @@ macro_rules! assert_toml_snapshot {
 ///
 /// For inline usage the format is `(expression, @reference_value)` where the
 /// reference value must be a string literal.  If you make the initial snapshot
-/// just use an empty string (`@""`).  For more information see
-/// [inline snapshots](index.html#inline-snapshots).
+/// just use an empty string (`@""`).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-/// For more information see [named snapshots](index.html#named-snapshots)
 #[macro_export]
 macro_rules! assert_yaml_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -168,10 +164,9 @@ macro_rules! assert_yaml_snapshot {
 ///
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions see [redactions](index.html#redactions).
+/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-/// For more information see [named snapshots](index.html#named-snapshots)
 #[cfg(feature = "ron")]
 #[macro_export]
 macro_rules! assert_ron_snapshot {
@@ -210,10 +205,9 @@ macro_rules! assert_ron_snapshot {
 ///
 /// The third argument to the macro can be an object expression for redaction.
 /// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions see [redactions](index.html#redactions).
+/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-/// For more information see [named snapshots](index.html#named-snapshots)
 #[macro_export]
 macro_rules! assert_json_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -311,8 +305,7 @@ macro_rules! _prepare_snapshot_for_redaction {
 /// simple values that do not implement the `Serialize` trait but does not
 /// permit redactions.
 ///
-/// Additionally the name is optional.  For more information see
-/// [unnamed snapshots](index.html#unnamed-snapshots)
+/// The snapshot name is optional.
 #[macro_export]
 macro_rules! assert_debug_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -333,8 +326,7 @@ macro_rules! assert_debug_snapshot {
 ///
 /// The value needs to implement the `fmt::Display` trait.
 ///
-/// Additionally the name is optional.  For more information see
-/// [unnamed snapshots](index.html#unnamed-snapshots)
+/// The snapshot name is optional.
 #[macro_export]
 macro_rules! assert_display_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -366,8 +358,7 @@ macro_rules! assert_display_snapshot {
 /// stringified as debug expression.  For more information on this look at the
 /// source of this macro and other assertion macros.
 ///
-/// Additionally the name is optional.  For more information see
-/// [unnamed snapshots](index.html#unnamed-snapshots)
+/// The snapshot name is optional.
 #[macro_export]
 macro_rules! assert_snapshot {
     ($value:expr, @$snapshot:literal) => {
