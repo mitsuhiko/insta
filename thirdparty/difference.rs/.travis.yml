@@ -1,0 +1,53 @@
+dist: trusty
+sudo: false
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+
+install:
+  # Install rustfmt
+  # There are no linux binaries for rustfmt-bin available right now. See https://github.com/japaric/rustfmt-bin/issues/2.
+  #- curl -LSfs https://japaric.github.io/trust/install.sh | sh -s -- --force --crate rustfmt --git japaric/rustfmt-bin --tag v0.9.0-20170614
+  - if [ "$TRAVIS_RUST_VERSION" = "stable" ]; then (cargo install rustfmt --vers 0.9.0 --force) fi
+  # Install clippy
+  - if [ "$TRAVIS_RUST_VERSION" = "nightly" ]; then (cargo install clippy --force) fi
+  - export PATH=$HOME/.cargo/bin:$PATH
+
+script:
+  - cargo build --features=bin
+  - cargo test
+  - if [ "$TRAVIS_RUST_VERSION" = "nightly" ]; then (cargo clippy) fi
+  - if [ "$TRAVIS_RUST_VERSION" = "stable" ]; then (cargo fmt -- --write-mode=diff) fi
+
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - cmake
+      - gcc
+      - binutils-dev
+
+cache:
+  apt: true
+  directories:
+    - $HOME/.cargo
+    - target/debug/build
+
+before_cache:
+    # Travis can't cache files that are not readable by "others"
+    - chmod -R a+r $HOME/.cargo
+
+after_success: |
+  [ $TRAVIS_RUST_VERSION = stable ] &&
+  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
+  tar xzf master.tar.gz && mkdir kcov-master/build && cd kcov-master/build && cmake .. && make && make install DESTDIR=../tmp && cd ../.. &&
+  ls target/debug &&
+  ./kcov-master/tmp/usr/local/bin/kcov --coveralls-id=$TRAVIS_JOB_ID --exclude-pattern=/.cargo target/kcov target/debug/difference-*
+
+env:
+  global:
+    - secure: by21VBcjZUvTcgLKxo9lSKIoHfPCHPHitazvLgebRInyI82hH39HiCsNLVwjU6BGGjTnj9Y/j/ygr8qogq+WW+Wls2LrMsomid+I5WvldgJNPoKaHNNa68zTK18zVq68nM351CU9CjMSMS7MPpWsrgD6avAB50nmrEjWhi8n6jwu6FIXkRZtOyIgdlR/Qm1CnOA5OX2i3EiGe0r90tLpEpyaQ2Ml0pLyBdlxftqef++nvY9e0ufihGdzkRyVAsDs7td4JkHkEPN9rKMRx0jq42daB5Mvu9nWKPGbz04RfOug0SxaT7BnUhRsIJGwd9be7Hz2Wdvb5I7uV/g86INojMhU8S4/BlXKkIy1CZvLrQc+fGjeA9MXFeKFBVbC3L+qAfTPdkhjw6VAdg37tiYzV4lnPYyujiY00qGmKTKoG+xGTx/jEX2kRt8p7OGXgougwxIbEowHOduYtbCnBmhng6bcy3qyr8AztcM44AIlEy3OLKB7ocgvoFv+Fz4kjROQCVq+oW86bZ014Ex8k32wAlibU8M3mVALRk6Cgk7nbCl6s1+Y5uZE/TeDaLEYpLGSqYWeU9in8o4m6U65bh9XEUCnEgY7IcwV93zHUA+i50bwOROkS7c57bvAfdq/dwaW79VHqpq5D2toDVlKXYN90r6vAX0VhH91rW31FNXe0X0=
