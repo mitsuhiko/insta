@@ -11,16 +11,25 @@ import {
 } from "vscode";
 
 const NAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]\s*,/;
+const STRING_INLINE_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(\s*['"]([^'"]+)['"]\s*,\s*@(r#*)?["']/;
 const UNNAMED_SNAPSHOT_ASSERTION: RegExp = /(?:\binsta::)?(?:assert(?:_\w+)?_snapshot!)\(/;
+const INLINE_MARKER: RegExp = /@(r#*)?["']/;
 const FUNCTION: RegExp = /\bfn\s+([\w]+)\s*\(/;
 const TEST_DECL: RegExp = /#\[test\]/;
 const FILENAME_PARTITION: RegExp = /^(.*)[/\\](.*?)\.rs$/;
 const SNAPSHOT_FUNCTION_STRIP: RegExp = /^test_(.*?)$/;
+const SNAPSHOT_HEADER: RegExp = /^---\s*$(.*?)^---\s*$/ms;
 
 type SnapshotMatch = {
-  snapshotName: string;
+  snapshotName: string | null;
+  line: number | null;
   path: string;
-  localModuleName: string;
+  localModuleName: string | null;
+  snapshotType: "inline" | "named";
+};
+
+type ResolvedSnapshotMatch = SnapshotMatch & {
+  snapshotUri: Uri;
 };
 
 export class SnapshotPathProvider implements DefinitionProvider {
@@ -46,7 +55,13 @@ export class SnapshotPathProvider implements DefinitionProvider {
     }
     const path = fileNameMatch[1];
     const localModuleName = fileNameMatch[2];
-    return { snapshotName, path, localModuleName };
+    return {
+      snapshotName,
+      line: null,
+      path,
+      localModuleName,
+      snapshotType: "named",
+    };
   }
 
   /**
@@ -54,13 +69,15 @@ export class SnapshotPathProvider implements DefinitionProvider {
    */
   private resolveUnnamedSnapshot(
     document: TextDocument,
-    position: Position
+    position: Position,
+    noInline: boolean
   ): SnapshotMatch | null {
     function unnamedSnapshotAt(lineno: number): boolean {
       const line = document.lineAt(lineno).text;
       return !!(
         line.match(UNNAMED_SNAPSHOT_ASSERTION) &&
-        !line.match(NAMED_SNAPSHOT_ASSERTION)
+        !line.match(NAMED_SNAPSHOT_ASSERTION) &&
+        (noInline || !line.match(STRING_INLINE_SNAPSHOT_ASSERTION))
       );
     }
 
@@ -74,52 +91,83 @@ export class SnapshotPathProvider implements DefinitionProvider {
     let snapshotNumber = 1;
     let scanLine = position.line - 1;
     let functionName = null;
+    let isInline = !!document.lineAt(position.line).text.match(INLINE_MARKER);
+    console.log("inline", document.lineAt(position.line), isInline);
 
     while (scanLine >= 0) {
       // stop if we find a test function declaration
       let functionMatch;
+      const line = document.lineAt(scanLine);
       if (
         scanLine > 1 &&
-        (functionMatch = document.lineAt(scanLine).text.match(FUNCTION)) &&
+        (functionMatch = line.text.match(FUNCTION)) &&
         document.lineAt(scanLine - 1).text.match(TEST_DECL)
       ) {
         functionName = functionMatch[1];
         break;
       }
+      if (!isInline && line.text.match(INLINE_MARKER)) {
+        isInline = true;
+      }
       if (unnamedSnapshotAt(scanLine)) {
+        // TODO: do not increment if the snapshot at that location
         snapshotNumber++;
       }
       scanLine--;
     }
 
-    // if we couldn't find a function we have to bail.
-    if (!functionName) {
+    // if we couldn't find a function or an unexpected inline snapshot we have to bail.
+    if (!functionName || (noInline && isInline)) {
       return null;
     }
 
-    const snapshotName = `${functionName.match(SNAPSHOT_FUNCTION_STRIP)![1]}${
-      snapshotNumber > 1 ? `-${snapshotNumber}` : ""
-    }`;
-    const fileNameMatch = document.fileName.match(FILENAME_PARTITION);
-    if (!fileNameMatch) {
-      return null;
+    let snapshotName = null;
+    let line = null;
+    let path = null;
+    let localModuleName = null;
+
+    if (isInline) {
+      line = position.line;
+      path = document.fileName;
+    } else {
+      snapshotName = `${functionName.match(SNAPSHOT_FUNCTION_STRIP)![1]}${
+        snapshotNumber > 1 ? `-${snapshotNumber}` : ""
+      }`;
+      const fileNameMatch = document.fileName.match(FILENAME_PARTITION);
+      if (!fileNameMatch) {
+        return null;
+      }
+      path = fileNameMatch[1];
+      localModuleName = fileNameMatch[2];
     }
 
-    const path = fileNameMatch[1];
-    const localModuleName = fileNameMatch[2];
-    return { snapshotName, path, localModuleName };
+    return {
+      snapshotName,
+      line,
+      path,
+      localModuleName,
+      snapshotType: isInline ? "inline" : "named",
+    };
   }
 
-  public provideDefinition(
+  public findSnapshotAtLocation(
     document: TextDocument,
     position: Position,
-    token: CancellationToken
-  ): ProviderResult<Definition> {
+    token: CancellationToken,
+    noInline: boolean = false
+  ): Thenable<ResolvedSnapshotMatch | null> {
     const snapshotMatch =
       this.resolveNamedSnapshot(document, position) ||
-      this.resolveUnnamedSnapshot(document, position);
+      this.resolveUnnamedSnapshot(document, position, noInline);
     if (!snapshotMatch) {
-      return null;
+      return Promise.resolve(null);
+    }
+
+    if (snapshotMatch.snapshotType === "inline") {
+      return Promise.resolve({
+        snapshotUri: document.uri,
+        ...snapshotMatch,
+      });
     }
 
     const getSearchPath = function (
@@ -151,7 +199,30 @@ export class SnapshotPathProvider implements DefinitionProvider {
       .then((rv) => rv || findFiles(getSearchPath("wildcard-prefix")))
       .then((rv) => rv || findFiles(getSearchPath("wildcard-all")))
       .then((snapshot) =>
-        snapshot ? new Location(snapshot, new Position(0, 0)) : null
+        snapshot ? { snapshotUri: snapshot, ...snapshotMatch } : null
       );
+  }
+
+  public provideDefinition(
+    document: TextDocument,
+    position: Position,
+    token: CancellationToken
+  ): ProviderResult<Definition> {
+    return this.findSnapshotAtLocation(document, position, token, true).then(
+      (match) => {
+        if (!match) {
+          return null;
+        }
+        return workspace.fs.readFile(match.snapshotUri).then((contents) => {
+          const stringContents = Buffer.from(contents).toString("utf-8");
+          const header = stringContents.match(SNAPSHOT_HEADER);
+          let location = new Position(0, 0);
+          if (header) {
+            location = new Position(header[0].match(/\n/g)!.length + 1, 0);
+          }
+          return new Location(match.snapshotUri, location);
+        });
+      }
+    );
   }
 }

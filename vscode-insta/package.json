@@ -21,6 +21,7 @@
   "homepage": "https://github.com/mitsuhiko/insta",
   "icon": "images/icon.png",
   "activationEvents": [
+    "workspaceContains:Cargo.toml",
     "onLanguage:rust",
     "onLanguage:insta-snapshots",
     "onView:pendingInstaSnapshots",

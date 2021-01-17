@@ -14,9 +14,8 @@ export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
   private _onDidChangeTreeData: EventEmitter<
     Snapshot | undefined | void
   > = new EventEmitter<Snapshot | undefined | void>();
-  onDidChangeTreeData?:
-    | Event<void | Snapshot | null | undefined>
-    | undefined = this._onDidChangeTreeData.event;
+  onDidChangeTreeData: Event<void | Snapshot | null | undefined> = this
+    ._onDidChangeTreeData.event;
   public cachedInlineSnapshots: { [key: string]: Snapshot } = {};
   private pendingRefresh?: NodeJS.Timeout;
 

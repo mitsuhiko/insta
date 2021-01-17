@@ -7,6 +7,7 @@ import {
   commands,
   window,
   FileSystemError,
+  DocumentFilter,
 } from "vscode";
 import { projectUsesInsta } from "./cargo";
 import { InlineSnapshotProvider } from "./InlineSnapshotProvider";
@@ -16,6 +17,10 @@ import { Snapshot } from "./Snapshot";
 import { SnapshotPathProvider } from "./SnapshotPathProvider";
 
 const INSTA_CONTEXT_NAME = "inInstaSnapshotsProject";
+const RUST_FILTER: DocumentFilter = {
+  scheme: "file",
+  language: "rust",
+};
 
 function getSnapshotPairs(uri: Uri): [Uri, Uri] | undefined {
   if (uri.path.match(/\.snap$/)) {
@@ -198,6 +203,7 @@ function performOnAllSnapshots(op: "accept" | "reject") {
 export function activate(context: ExtensionContext): void {
   const root = workspace.workspaceFolders?.[0];
   const pendingSnapshots = new PendingSnapshotsProvider(root);
+  const snapshotPathProvider = new SnapshotPathProvider();
 
   const snapWatcher = workspace.createFileSystemWatcher(
     "**/*.{snap,snap.new,pending-snap}"
@@ -223,15 +229,7 @@ export function activate(context: ExtensionContext): void {
       "instaInlineSnapshot",
       new InlineSnapshotProvider(pendingSnapshots)
     ),
-    languages.registerDefinitionProvider(
-      [
-        {
-          scheme: "file",
-          language: "rust",
-        },
-      ],
-      new SnapshotPathProvider()
-    ),
+    languages.registerDefinitionProvider([RUST_FILTER], snapshotPathProvider),
     commands.registerCommand(
       "mitsuhiko.insta.open-snapshot-diff",
       async (selectedFile?: Uri | Snapshot) => {
