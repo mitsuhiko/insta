@@ -551,9 +551,9 @@ dependencies = [
 
 [[package]]
 name = "similar"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82f5bba4a4b51b05d0031b9e1d61916c0f06c32b3ae555b1dc8a597f29e87f94"
+checksum = "a9d986ab02d85ad65a66fc194ed4f1698897e405393fc4c4990c740d83fcf740"
 
 [[package]]
 name = "strsim"
