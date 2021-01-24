@@ -266,13 +266,13 @@ name = "insta"
 version = "1.5.2"
 dependencies = [
  "console",
- "difference",
  "lazy_static",
  "pest",
  "pest_derive",
  "serde",
  "serde_json",
  "serde_yaml",
+ "similar",
  "uuid",
 ]
 
@@ -548,6 +548,12 @@ dependencies = [
  "fake-simd",
  "opaque-debug",
 ]
+
+[[package]]
+name = "similar"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82f5bba4a4b51b05d0031b9e1d61916c0f06c32b3ae555b1dc8a597f29e87f94"
 
 [[package]]
 name = "strsim"
