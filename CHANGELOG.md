@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.5.3
+
+* Replace [difference](https://crates.io/crates/difference) with
+  [similar](https://crates.io/crates/similar).
+
 ## 1.5.2
 
 * API documentation updates.
