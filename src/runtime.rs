@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env;
 use std::error::Error;
-use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -11,8 +10,8 @@ use std::str;
 use std::sync::Mutex;
 use std::thread;
 
-use difference::{Changeset, Difference};
 use lazy_static::lazy_static;
+use similar::text::{ChangeTag, TextDiff};
 
 use serde::Deserialize;
 
@@ -205,70 +204,13 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     }
 }
 
-fn print_changeset(changeset: Changeset, expr: Option<&str>) {
-    let Changeset { diffs, .. } = changeset;
-    #[derive(PartialEq, Debug)]
-    enum Mode {
-        Same,
-        Add,
-        Rem,
-    }
-
-    #[derive(PartialEq, Debug)]
-    enum Lineno {
-        NotPresent,
-        Present(usize),
-    }
-
-    impl fmt::Display for Lineno {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            match *self {
-                Lineno::NotPresent => f.pad(""),
-                Lineno::Present(lineno) => fmt::Display::fmt(&lineno, f),
-            }
-        }
-    }
-
+fn print_changeset(diff: &TextDiff, expr: Option<&str>) {
     let mut lines = vec![];
 
-    let mut lineno_a = 1;
-    let mut lineno_b = 1;
-
-    for diff in diffs.iter() {
-        match *diff {
-            Difference::Same(ref x) => {
-                for line in x.split('\n') {
-                    lines.push((
-                        Mode::Same,
-                        Lineno::Present(lineno_a),
-                        Lineno::Present(lineno_b),
-                        line.trim_end(),
-                    ));
-                    lineno_a += 1;
-                    lineno_b += 1;
-                }
-            }
-            Difference::Add(ref x) => {
-                for line in x.split('\n') {
-                    lines.push((
-                        Mode::Add,
-                        Lineno::NotPresent,
-                        Lineno::Present(lineno_b),
-                        line.trim_end(),
-                    ));
-                    lineno_b += 1;
-                }
-            }
-            Difference::Rem(ref x) => {
-                for line in x.split('\n') {
-                    lines.push((
-                        Mode::Rem,
-                        Lineno::Present(lineno_a),
-                        Lineno::NotPresent,
-                        line.trim_end(),
-                    ));
-                    lineno_a += 1;
-                }
+    for group in diff.grouped_ops(5) {
+        for op in group {
+            for change in diff.iter_changes(&op) {
+                lines.push(change);
             }
         }
     }
@@ -281,40 +223,35 @@ fn print_changeset(changeset: Changeset, expr: Option<&str>) {
     }
     println!("────────────┬{:─^1$}", "", width.saturating_sub(13),);
     let mut has_changes = false;
-    for (i, (mode, lineno_a, lineno_b, line)) in lines.iter().enumerate() {
-        match mode {
-            Mode::Add => {
+    for change in lines.iter() {
+        match change.tag() {
+            ChangeTag::Insert => {
                 has_changes = true;
                 println!(
                     "{:>5} {:>5} │{}{}",
-                    style(lineno_a).dim(),
-                    style(lineno_b).dim().bold(),
+                    "",
+                    style(change.new_index().unwrap()).dim().bold(),
                     style("+").green(),
-                    style(line).green()
+                    style(change.value().trim_end()).green()
                 );
             }
-            Mode::Rem => {
+            ChangeTag::Delete => {
                 has_changes = true;
                 println!(
                     "{:>5} {:>5} │{}{}",
-                    style(lineno_a).dim(),
-                    style(lineno_b).dim().bold(),
+                    style(change.old_index().unwrap()).dim(),
+                    "",
                     style("-").red(),
-                    style(line).red()
+                    style(change.value().trim_end()).red()
                 );
             }
-            Mode::Same => {
-                if lines[i.saturating_sub(5)..(i + 5).min(lines.len())]
-                    .iter()
-                    .any(|x| x.0 != Mode::Same)
-                {
-                    println!(
-                        "{:>5} {:>5} │ {}",
-                        style(lineno_a).dim(),
-                        style(lineno_b).dim().bold(),
-                        style(line).dim()
-                    );
-                }
+            ChangeTag::Equal => {
+                println!(
+                    "{:>5} {:>5} │ {}",
+                    style(change.old_index().unwrap()).dim(),
+                    style(change.new_index().unwrap()).dim().bold(),
+                    style(change.value().trim_end()).dim()
+                );
             }
         }
     }
@@ -401,34 +338,6 @@ pub fn print_snapshot_summary(
     }
 }
 
-/// Calculates `difference::Changeset` of given files.
-/// Falls back to manually constructed `Changeset`
-/// for large inputs to avoid OOM in `difference`.
-fn get_changeset(orig: &str, edit: &str) -> Changeset {
-    const FALLBACK_THRESHOLD: usize = 10_000_000;
-    let orig_cnt = orig.lines().count();
-    let edited_cnt = edit.lines().count();
-    if orig_cnt * edited_cnt > FALLBACK_THRESHOLD {
-        // `difference` crate will likely use hundreds of megabytes
-        // possibly leading to OOM.
-
-        let mut changeset = Changeset {
-            diffs: Vec::new(),
-            // following two fields will not be read anyway
-            split: String::new(),
-            distance: 0,
-        };
-        for line in orig.lines() {
-            changeset.diffs.push(Difference::Rem(line.to_string()));
-        }
-        for line in edit.lines() {
-            changeset.diffs.push(Difference::Add(line.to_string()));
-        }
-        return changeset;
-    }
-    Changeset::new(orig, edit, "\n")
-}
-
 /// Prints a diff against an old snapshot.
 pub fn print_snapshot_diff(
     workspace_root: &Path,
@@ -438,7 +347,7 @@ pub fn print_snapshot_diff(
     line: Option<u32>,
 ) {
     print_snapshot_summary(workspace_root, new, snapshot_file, line);
-    let changeset = get_changeset(
+    let diff = TextDiff::from_lines(
         old_snapshot.as_ref().map_or("", |x| x.contents_str()),
         &new.contents_str(),
     );
@@ -448,7 +357,7 @@ pub fn print_snapshot_diff(
     } else {
         println!("{}", style("+new results").green());
     }
-    print_changeset(changeset, new.metadata().expression.as_deref());
+    print_changeset(&diff, new.metadata().expression.as_deref());
 }
 
 fn print_snapshot_diff_with_title(
@@ -714,7 +623,7 @@ fn test_min_indentation() {
     assert_eq!(min_indentation(t), 3);
 
     let t = r#"
-        a 
+        a
     "#;
     assert_eq!(min_indentation(t), 8);
 
@@ -722,14 +631,14 @@ fn test_min_indentation() {
     assert_eq!(min_indentation(t), 0);
 
     let t = r#"
-    a 
+    a
     b
 c
     "#;
     assert_eq!(min_indentation(t), 0);
 
     let t = r#"
-a 
+a
     "#;
     assert_eq!(min_indentation(t), 0);
 
@@ -802,7 +711,7 @@ fn test_normalize_inline_snapshot() {
     );
 
     let t = r#"
-        a 
+        a
     "#;
     assert_eq!(normalize_inline_snapshot(t), "a");
 
@@ -810,20 +719,20 @@ fn test_normalize_inline_snapshot() {
     assert_eq!(normalize_inline_snapshot(t), "");
 
     let t = r#"
-    a 
+    a
     b
 c
     "#;
     assert_eq!(
         normalize_inline_snapshot(t),
         r###"
-    a 
+    a
     b
 c"###[1..]
     );
 
     let t = r#"
-a 
+a
     "#;
     assert_eq!(normalize_inline_snapshot(t), "a");
 
