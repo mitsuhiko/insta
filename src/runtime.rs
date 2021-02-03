@@ -11,7 +11,7 @@ use std::sync::Mutex;
 use std::thread;
 
 use lazy_static::lazy_static;
-use similar::text::{ChangeTag, TextDiff};
+use similar::{ChangeTag, TextDiff};
 
 use serde::Deserialize;
 
@@ -204,54 +204,51 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     }
 }
 
-fn print_changeset(diff: &TextDiff, expr: Option<&str>) {
-    let mut lines = vec![];
-
-    for group in diff.grouped_ops(5) {
-        for op in group {
-            for change in diff.iter_changes(&op) {
-                lines.push(change);
-            }
-        }
-    }
-
+fn print_changeset(diff: &TextDiff<str>, expr: Option<&str>) {
     let width = term_width();
 
     if let Some(expr) = expr {
         println!("{:─^1$}", "", width,);
         println!("{}", style(format_rust_expression(expr)));
     }
-    println!("────────────┬{:─^1$}", "", width.saturating_sub(13),);
+    println!("────────────┬{:─^1$}", "", width.saturating_sub(13));
     let mut has_changes = false;
-    for change in lines.iter() {
-        match change.tag() {
-            ChangeTag::Insert => {
-                has_changes = true;
-                println!(
-                    "{:>5} {:>5} │{}{}",
-                    "",
-                    style(change.new_index().unwrap()).dim().bold(),
-                    style("+").green(),
-                    style(change.value().trim_end()).green()
-                );
-            }
-            ChangeTag::Delete => {
-                has_changes = true;
-                println!(
-                    "{:>5} {:>5} │{}{}",
-                    style(change.old_index().unwrap()).dim(),
-                    "",
-                    style("-").red(),
-                    style(change.value().trim_end()).red()
-                );
-            }
-            ChangeTag::Equal => {
-                println!(
-                    "{:>5} {:>5} │ {}",
-                    style(change.old_index().unwrap()).dim(),
-                    style(change.new_index().unwrap()).dim().bold(),
-                    style(change.value().trim_end()).dim()
-                );
+    for (idx, group) in diff.grouped_ops(4).iter().enumerate() {
+        if idx > 0 {
+            println!("┈┈┈┈┈┈┈┈┈┈┈┈┼{:┈^1$}", "", width.saturating_sub(13));
+        }
+        for op in group {
+            for change in diff.iter_changes(&op) {
+                match change.tag() {
+                    ChangeTag::Insert => {
+                        has_changes = true;
+                        println!(
+                            "{:>5} {:>5} │{}{}",
+                            "",
+                            style(change.new_index().unwrap()).cyan().dim().bold(),
+                            style("+").green(),
+                            style(change.value().trim_end()).green()
+                        );
+                    }
+                    ChangeTag::Delete => {
+                        has_changes = true;
+                        println!(
+                            "{:>5} {:>5} │{}{}",
+                            style(change.old_index().unwrap()).cyan().dim(),
+                            "",
+                            style("-").red(),
+                            style(change.value().trim_end()).red()
+                        );
+                    }
+                    ChangeTag::Equal => {
+                        println!(
+                            "{:>5} {:>5} │ {}",
+                            style(change.old_index().unwrap()).cyan().dim(),
+                            style(change.new_index().unwrap()).cyan().dim().bold(),
+                            style(change.value().trim_end()).dim()
+                        );
+                    }
+                }
             }
         }
     }
