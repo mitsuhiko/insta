@@ -3,8 +3,10 @@ use std::thread;
 
 #[test]
 fn test_clash_detection() {
-    let value = env::var("INSTA_UPDATE");
+    let old_update_value = env::var("INSTA_UPDATE");
+    let old_force_pass_value = env::var("INSTA_FORCE_PASS");
     env::set_var("INSTA_UPDATE", "no");
+    env::set_var("INSTA_FORCE_PASS", "0");
 
     let err1 = thread::Builder::new()
         .name("test_foo_always_missing".into())
@@ -23,10 +25,15 @@ fn test_clash_detection() {
         .join()
         .unwrap_err();
 
-    if let Ok(value) = value {
+    if let Ok(value) = old_update_value {
         env::set_var("INSTA_UPDATE", value);
     } else {
         env::remove_var("INSTA_UPDATE");
+    }
+    if let Ok(value) = old_force_pass_value {
+        env::set_var("INSTA_FORCE_PASS", value);
+    } else {
+        env::remove_var("INSTA_FORCE_PASS");
     }
 
     let s1 = err1.downcast_ref::<String>().unwrap();
@@ -35,6 +42,6 @@ fn test_clash_detection() {
     values.sort();
     assert_eq!(&values[..], vec![
         "Insta snapshot name clash detected between \'foo_always_missing\' and \'test_foo_always_missing\' in \'test_clash_detection\'. Rename one function.",
-        "snapshot assertion for \'foo_always_missing\' failed in line 12",
+        "snapshot assertion for \'foo_always_missing\' failed in line 14",
     ]);
 }
