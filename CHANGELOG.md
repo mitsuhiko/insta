@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.6.0
+
+* Change CSV serialization format to format multiple structs as
+  multiple rows.   Fixes #156
+
 ## 1.5.3
 
 * Replace [difference](https://crates.io/crates/difference) with

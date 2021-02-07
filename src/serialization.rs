@@ -52,8 +52,19 @@ pub fn serialize_content(
             let mut buf = Vec::with_capacity(128);
             {
                 let mut writer = csv::Writer::from_writer(&mut buf);
-                writer.serialize(&content).unwrap();
+                // if the top-level content we're serializing is a vector we
+                // want to serialize it multiple times once for each item.
+                if let Some(content_slice) = content.as_slice() {
+                    for content in content_slice {
+                        writer.serialize(content).unwrap();
+                    }
+                } else {
+                    writer.serialize(&content).unwrap();
+                }
                 writer.flush().unwrap();
+            }
+            if buf.ends_with(b"\n") {
+                buf.truncate(buf.len() - 1);
             }
             String::from_utf8(buf).unwrap()
         }
