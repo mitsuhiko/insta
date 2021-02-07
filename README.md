@@ -45,6 +45,11 @@ marketplace: [view on marketplace](https://marketplace.visualstudio.com/items?it
 
 ![jump to definition](https://raw.githubusercontent.com/mitsuhiko/insta/master/vscode-insta/images/jump-to-definition.gif)
 
+## Diffing
+
+Insta uses [`similar`](https://github.com/mitsuhiko/similar) for all its diffing
+operations.  You can use it independently of insta.
+
 ## License and Links
 
 - [Project Website](https://insta.rs/)
