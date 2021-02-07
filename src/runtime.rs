@@ -22,6 +22,8 @@ use crate::utils::{is_ci, style};
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
     static ref TEST_NAME_COUNTERS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
+    static ref TEST_NAME_CLASH_DETECTION: Mutex<BTreeMap<String, bool>> =
+        Mutex::new(BTreeMap::new());
 }
 
 // This macro is basically eprintln but without being captured and
@@ -496,13 +498,35 @@ fn generate_snapshot_name_for_thread(module_path: &str) -> Result<String, &'stat
 
     // clean test name first
     let mut name = name.rsplit("::").next().unwrap();
+    let mut test_prefixed = false;
     if name.starts_with("test_") {
         name = &name[5..];
+        test_prefixed = true;
     }
 
     // next check if we need to add a suffix
     let name = add_suffix_to_snapshot_name(Cow::Borrowed(name));
     let key = format!("{}::{}", module_path.replace("::", "__"), name);
+
+    // because fn foo and fn test_foo end up with the same snapshot name we
+    // make sure we detect this here and raise an error.
+    let mut name_clash_detection = TEST_NAME_CLASH_DETECTION
+        .lock()
+        .unwrap_or_else(|x| x.into_inner());
+    match name_clash_detection.get(&key) {
+        None => {
+            name_clash_detection.insert(key.clone(), test_prefixed);
+        }
+        Some(&was_test_prefixed) => {
+            if was_test_prefixed != test_prefixed {
+                panic!(
+                    "Insta snapshot name clash detected between '{}' \
+                     and 'test_{}' in '{}'. Rename one function.",
+                    name, name, module_path
+                );
+            }
+        }
+    }
 
     // if the snapshot name clashes we need to increment a counter.
     // we really do not care about poisoning here.
