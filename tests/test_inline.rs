@@ -75,6 +75,37 @@ fn test_csv_inline() {
     "###);
 }
 
+#[cfg(feature = "csv")]
+#[test]
+fn test_csv_inline_multiple_values() {
+    #[derive(Serialize)]
+    pub struct Email(String);
+
+    #[derive(Serialize)]
+    pub struct User {
+        id: u32,
+        username: String,
+        email: Email,
+    }
+
+    let user1 = User {
+        id: 1453,
+        username: "mehmed-doe".into(),
+        email: Email("mehmed@doe.invalid".into()),
+    };
+    let user2 = User {
+        id: 1455,
+        username: "mehmed-doe-di".into(),
+        email: Email("mehmed@doe-di.invalid".into()),
+    };
+
+    assert_csv_snapshot!(vec![user1, user2], @r###"
+    id,username,email
+    1453,mehmed-doe,mehmed@doe.invalid
+    1455,mehmed-doe-di,mehmed@doe-di.invalid
+    "###);
+}
+
 #[cfg(feature = "ron")]
 #[test]
 fn test_ron_inline() {
