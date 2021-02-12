@@ -192,10 +192,7 @@ impl Content {
 
     /// Returns true if the value is nil.
     pub fn is_nil(&self) -> bool {
-        match self.resolve_inner() {
-            Content::None | Content::Unit => true,
-            _ => false,
-        }
+        matches!(self.resolve_inner(), Content::None | Content::Unit)
     }
 
     pub(crate) fn as_key(&self) -> Key<'_> {
