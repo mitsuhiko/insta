@@ -241,7 +241,7 @@ fn print_changeset(old: &str, new: &str, expr: Option<&str>) {
                     }
                     ChangeTag::Delete => {
                         has_changes = true;
-                        println!(
+                        print!(
                             "{:>5} {:>5} │{}",
                             style(change.old_index().unwrap()).cyan().dim(),
                             "",
