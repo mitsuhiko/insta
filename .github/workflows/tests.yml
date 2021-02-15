@@ -29,4 +29,4 @@ jobs:
           profile: minimal
           override: true
       - name: Test
-        run: make test
+        run: make test-141

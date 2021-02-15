@@ -8,6 +8,8 @@ doc:
 
 test: cargotest cargo-insta-tests
 
+test-141: cargotest-141
+
 cargo-insta-tests:
 	@echo "CARGO-INSTA INTEGRATION TESTS"
 	@cd cargo-insta/integration-tests; cargo run
@@ -19,6 +21,16 @@ cargotest:
 	@cargo test --all-features
 	@cargo test --no-default-features
 	@cargo test --features redactions,backtrace -- --test-threads 1
+	@cd cargo-insta; cargo test
+
+cargotest-141:
+	# This can't run the tests against backtrace as this feature no longer works
+	# on Rust 1.41.0
+	@echo "CARGO TESTS 1.41.0"
+	@cargo test
+	@cargo test --features redactions,glob
+	@cargo test --features redactions
+	@cargo test --no-default-features
 	@cd cargo-insta; cargo test
 
 format:
