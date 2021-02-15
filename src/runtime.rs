@@ -206,8 +206,9 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     }
 }
 
-fn print_changeset(diff: &TextDiff<str>, expr: Option<&str>) {
+fn print_changeset(old: &str, new: &str, expr: Option<&str>) {
     let width = term_width();
+    let diff = TextDiff::from_lines(old, new);
 
     if let Some(expr) = expr {
         println!("{:─^1$}", "", width,);
@@ -220,36 +221,53 @@ fn print_changeset(diff: &TextDiff<str>, expr: Option<&str>) {
             println!("┈┈┈┈┈┈┈┈┈┈┈┈┼{:┈^1$}", "", width.saturating_sub(13));
         }
         for op in group {
-            for change in diff.iter_changes(&op) {
+            for change in diff.iter_inline_changes(&op) {
                 match change.tag() {
                     ChangeTag::Insert => {
                         has_changes = true;
-                        println!(
-                            "{:>5} {:>5} │{}{}",
+                        print!(
+                            "{:>5} {:>5} │{}",
                             "",
                             style(change.new_index().unwrap()).cyan().dim().bold(),
                             style("+").green(),
-                            style(change.value().trim_end()).green()
                         );
+                        for &(emphasized, change) in change.values() {
+                            if emphasized {
+                                print!("{}", style(change).green().underlined());
+                            } else {
+                                print!("{}", style(change).green());
+                            }
+                        }
                     }
                     ChangeTag::Delete => {
                         has_changes = true;
                         println!(
-                            "{:>5} {:>5} │{}{}",
+                            "{:>5} {:>5} │{}",
                             style(change.old_index().unwrap()).cyan().dim(),
                             "",
                             style("-").red(),
-                            style(change.value().trim_end()).red()
                         );
+                        for &(emphasized, change) in change.values() {
+                            if emphasized {
+                                print!("{}", style(change).red().underlined());
+                            } else {
+                                print!("{}", style(change).red());
+                            }
+                        }
                     }
                     ChangeTag::Equal => {
-                        println!(
-                            "{:>5} {:>5} │ {}",
+                        print!(
+                            "{:>5} {:>5} │ ",
                             style(change.old_index().unwrap()).cyan().dim(),
                             style(change.new_index().unwrap()).cyan().dim().bold(),
-                            style(change.value().trim_end()).dim()
                         );
+                        for &(_, change) in change.values() {
+                            print!("{}", style(change).dim());
+                        }
                     }
+                }
+                if change.missing_newline() {
+                    println!();
                 }
             }
         }
@@ -346,17 +364,19 @@ pub fn print_snapshot_diff(
     line: Option<u32>,
 ) {
     print_snapshot_summary(workspace_root, new, snapshot_file, line);
-    let diff = TextDiff::from_lines(
-        old_snapshot.as_ref().map_or("", |x| x.contents_str()),
-        &new.contents_str(),
-    );
-    if old_snapshot.is_some() {
+    let old_contents = old_snapshot.as_ref().map_or("", |x| x.contents_str());
+    let new_contents = new.contents_str();
+    if !old_contents.is_empty() {
         println!("{}", style("-old snapshot").red());
         println!("{}", style("+new results").green());
     } else {
         println!("{}", style("+new results").green());
     }
-    print_changeset(&diff, new.metadata().expression.as_deref());
+    print_changeset(
+        old_contents,
+        new_contents,
+        new.metadata().expression.as_deref(),
+    );
 }
 
 fn print_snapshot_diff_with_title(
