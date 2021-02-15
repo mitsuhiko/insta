@@ -246,47 +246,47 @@ pub fn find_snapshots<'a>(
     extensions: &'a [&'a str],
     no_ignore: bool,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-    WalkBuilder::new(root.clone())
+    let mut builder = WalkBuilder::new(root.clone());
+    builder
         .hidden(false)
         .standard_filters(!no_ignore)
-        .overrides(
-            // make sure pending snaps are never ignored
-            OverrideBuilder::new(&root)
-                .add("**/.*.pending-snap")
-                .unwrap()
-                .add("**/*.snap.new")
-                .unwrap()
-                .build()
-                .unwrap(),
-        )
-        .filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e))
-        .build()
-        .filter_map(|e| e.ok())
-        .filter_map(move |e| {
-            let fname = e.file_name().to_string_lossy();
-            if fname.ends_with(".new")
-                && extensions.contains(&fname.rsplit('.').nth(1).unwrap_or(""))
-            {
-                let new_path = e.into_path();
-                let mut old_path = new_path.clone();
-                old_path.set_extension("");
-                Some(SnapshotContainer::load(
-                    new_path,
-                    old_path,
-                    SnapshotContainerKind::External,
-                ))
-            } else if fname.starts_with('.') && fname.ends_with(".pending-snap") {
-                let mut target_path = e.path().to_path_buf();
-                target_path.set_file_name(&fname[1..fname.len() - 13]);
-                Some(SnapshotContainer::load(
-                    e.path().to_path_buf(),
-                    target_path,
-                    SnapshotContainerKind::Inline,
-                ))
-            } else {
-                None
-            }
-        })
+        .filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
+
+    let mut override_builder = OverrideBuilder::new(&root);
+    override_builder
+        .add(".*.pending-snap")
+        .unwrap()
+        .add("*.snap.new")
+        .unwrap();
+
+    for ext in extensions {
+        override_builder.add(&format!("*.{}.new", ext)).unwrap();
+    }
+
+    builder.overrides(override_builder.build().unwrap());
+    builder.build().filter_map(|e| e.ok()).filter_map(move |e| {
+        let fname = e.file_name().to_string_lossy();
+        if fname.ends_with(".new") {
+            let new_path = e.into_path();
+            let mut old_path = new_path.clone();
+            old_path.set_extension("");
+            Some(SnapshotContainer::load(
+                new_path,
+                old_path,
+                SnapshotContainerKind::External,
+            ))
+        } else if fname.starts_with('.') && fname.ends_with(".pending-snap") {
+            let mut target_path = e.path().to_path_buf();
+            target_path.set_file_name(&fname[1..fname.len() - 13]);
+            Some(SnapshotContainer::load(
+                e.path().to_path_buf(),
+                target_path,
+                SnapshotContainerKind::Inline,
+            ))
+        } else {
+            None
+        }
+    })
 }
 
 impl Package {
