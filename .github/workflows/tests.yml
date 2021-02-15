@@ -3,11 +3,30 @@ name: Tests
 on: [push]
 
 jobs:
-  build:
-
+  build-latest:
+    name: Test on Latest
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Test
-      run: make test
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - name: Test
+        run: make test
+
+  build-stable:
+    name: Test on 1.43.0
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.43.0
+          profile: minimal
+          override: true
+      - name: Test
+        run: make test

@@ -595,8 +595,9 @@ pub(super) fn get_inline_snapshot_value(frozen_value: &str) -> String {
                 }
             }
             if let Some(remainder) = line.get(indentation..) {
-                if let Some(rest) = remainder.strip_prefix('⋮') {
-                    buf.push_str(rest);
+                if remainder.starts_with('⋮') {
+                    // 3 because '⋮' is three utf-8 bytes long
+                    buf.push_str(&remainder[3..]);
                     buf.push('\n');
                 } else if remainder.trim().is_empty() {
                     continue;
