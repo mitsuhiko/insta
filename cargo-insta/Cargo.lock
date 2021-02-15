@@ -85,7 +85,7 @@ checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 
 [[package]]
 name = "cargo-insta"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "clap",
  "console",
@@ -263,7 +263,7 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "console",
  "lazy_static",
@@ -551,9 +551,9 @@ dependencies = [
 
 [[package]]
 name = "similar"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2931f493c6f9c6089136233a695cd79f79a066e2ee702f63185c13a090ab8146"
+checksum = "9a04629d2e8ecdcf30e0188e3699ed6d50d5750d0219db146a790065fe92a897"
 
 [[package]]
 name = "strsim"
