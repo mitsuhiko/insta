@@ -27,6 +27,7 @@ cargotest-141:
 	# This can't run the tests against backtrace as this feature no longer works
 	# on Rust 1.41.0
 	@echo "CARGO TESTS 1.41.0"
+	@rustup component add rustfmt 2> /dev/null
 	@cargo test
 	@cargo test --features redactions,glob
 	@cargo test --features redactions
