@@ -632,7 +632,7 @@ fn min_indentation(snapshot: &str) -> usize {
     }
 
     lines
-        .skip_while(|l| l.is_empty())
+        .filter(|l| !l.is_empty())
         .map(count_leading_spaces)
         .min()
         .unwrap_or(0)
@@ -699,7 +699,7 @@ fn normalize_inline_snapshot(snapshot: &str) -> String {
         .trim_end()
         .lines()
         .skip_while(|l| l.is_empty())
-        .map(|l| &l[indentation..])
+        .map(|l| l.get(indentation..).unwrap_or(""))
         .collect::<Vec<&str>>()
         .join("\n")
 }

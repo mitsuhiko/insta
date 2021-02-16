@@ -215,3 +215,14 @@ fn test_yaml_inline_redacted() {
 fn test_non_basic_plane() {
     assert_snapshot!("a 😀oeu", @"a 😀oeu");
 }
+
+#[test]
+fn test_multiline_with_empty_lines() {
+    assert_snapshot!("# first\nsecond\n  third\n\n# alternative", @r###"
+    # first
+    second
+      third
+
+    # alternative
+    "###);
+}
