@@ -2,6 +2,14 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.6.3
+
+* Fix a bug with empty lines in inline snapshots.  (#166)
+
+## 1.6.2
+
+* Lower Rust support to 1.41.0  (#165)
+
 ## 1.6.1
 
 * Bump similar dependency to reintroduce support for Rust 1.43.0  (#162)
