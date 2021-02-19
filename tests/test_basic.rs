@@ -66,3 +66,9 @@ fn test_unnamed_display() {
     assert_display_snapshot!(td);
     assert_display_snapshot!("whatever");
 }
+
+#[test]
+fn test_u128_json() {
+    let x: u128 = 42;
+    assert_json_snapshot!(&x, @"42");
+}
