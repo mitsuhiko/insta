@@ -32,11 +32,13 @@ pub enum Content {
     U16(u16),
     U32(u32),
     U64(u64),
+    U128(u128),
 
     I8(i8),
     I16(i16),
     I32(i32),
     I64(i64),
+    I128(i128),
 
     F32(f32),
     F64(f64),
@@ -86,6 +88,8 @@ pub enum Key<'a> {
     U64(u64),
     I64(i64),
     F64(f64),
+    U128(u128),
+    I128(i128),
     Str(&'a str),
     Bytes(&'a [u8]),
     Other,
@@ -114,10 +118,12 @@ impl_from!(u8, U8);
 impl_from!(u16, U16);
 impl_from!(u32, U32);
 impl_from!(u64, U64);
+impl_from!(u128, U128);
 impl_from!(i8, I8);
 impl_from!(i16, I16);
 impl_from!(i32, I32);
 impl_from!(i64, I64);
+impl_from!(i128, I128);
 impl_from!(f32, F32);
 impl_from!(f64, F64);
 impl_from!(char, Char);
@@ -206,9 +212,11 @@ impl Content {
             Content::U16(val) => Key::U64(val.into()),
             Content::U32(val) => Key::U64(val.into()),
             Content::U64(val) => Key::U64(val),
+            Content::U128(val) => Key::U128(val),
             Content::I16(val) => Key::I64(val.into()),
             Content::I32(val) => Key::I64(val.into()),
             Content::I64(val) => Key::I64(val),
+            Content::I128(val) => Key::I128(val),
             Content::F32(val) => Key::F64(val.into()),
             Content::F64(val) => Key::F64(val),
             Content::String(ref val) => Key::Str(&val.as_str()),
@@ -232,11 +240,36 @@ impl Content {
             Content::U16(v) => Some(u64::from(v)),
             Content::U32(v) => Some(u64::from(v)),
             Content::U64(v) => Some(v),
+            Content::U128(v) => {
+                let rv = v as u64;
+                if rv as u128 == v {
+                    Some(rv)
+                } else {
+                    None
+                }
+            }
             Content::I8(v) if v >= 0 => Some(v as u64),
             Content::I16(v) if v >= 0 => Some(v as u64),
             Content::I32(v) if v >= 0 => Some(v as u64),
             Content::I64(v) if v >= 0 => Some(v as u64),
+            Content::I128(v) => {
+                let rv = v as u64;
+                if rv as i128 == v {
+                    Some(rv)
+                } else {
+                    None
+                }
+            }
             _ => None,
+        }
+    }
+
+    /// Returns the value as u128
+    pub fn as_u128(&self) -> Option<u128> {
+        match *self.resolve_inner() {
+            Content::U128(v) => Some(v),
+            Content::I128(v) if v >= 0 => Some(v as u128),
+            _ => self.as_u64().map(u128::from),
         }
     }
 
@@ -254,11 +287,43 @@ impl Content {
                     None
                 }
             }
+            Content::U128(v) => {
+                let rv = v as i64;
+                if rv as u128 == v {
+                    Some(rv)
+                } else {
+                    None
+                }
+            }
             Content::I8(v) => Some(i64::from(v)),
             Content::I16(v) => Some(i64::from(v)),
             Content::I32(v) => Some(i64::from(v)),
             Content::I64(v) => Some(v),
+            Content::I128(v) => {
+                let rv = v as i64;
+                if rv as i128 == v {
+                    Some(rv)
+                } else {
+                    None
+                }
+            }
             _ => None,
+        }
+    }
+
+    /// Returns the value as i128
+    pub fn as_i128(&self) -> Option<i128> {
+        match *self.resolve_inner() {
+            Content::U128(v) => {
+                let rv = v as i128;
+                if rv as u128 == v {
+                    Some(rv)
+                } else {
+                    None
+                }
+            }
+            Content::I128(v) => Some(v),
+            _ => self.as_i64().map(i128::from),
         }
     }
 
@@ -350,10 +415,12 @@ impl Serialize for Content {
             Content::U16(u) => serializer.serialize_u16(u),
             Content::U32(u) => serializer.serialize_u32(u),
             Content::U64(u) => serializer.serialize_u64(u),
+            Content::U128(u) => serializer.serialize_u128(u),
             Content::I8(i) => serializer.serialize_i8(i),
             Content::I16(i) => serializer.serialize_i16(i),
             Content::I32(i) => serializer.serialize_i32(i),
             Content::I64(i) => serializer.serialize_i64(i),
+            Content::I128(i) => serializer.serialize_i128(i),
             Content::F32(f) => serializer.serialize_f32(f),
             Content::F64(f) => serializer.serialize_f64(f),
             Content::Char(c) => serializer.serialize_char(c),
@@ -466,6 +533,10 @@ where
         Ok(Content::I64(v))
     }
 
+    fn serialize_i128(self, v: i128) -> Result<Content, E> {
+        Ok(Content::I128(v))
+    }
+
     fn serialize_u8(self, v: u8) -> Result<Content, E> {
         Ok(Content::U8(v))
     }
@@ -480,6 +551,10 @@ where
 
     fn serialize_u64(self, v: u64) -> Result<Content, E> {
         Ok(Content::U64(v))
+    }
+
+    fn serialize_u128(self, v: u128) -> Result<Content, E> {
+        Ok(Content::U128(v))
     }
 
     fn serialize_f32(self, v: f32) -> Result<Content, E> {

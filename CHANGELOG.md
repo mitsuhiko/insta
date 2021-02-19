@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.7.0
+
+* Added support for u128/i128.  (#169)
+
 ## 1.6.3
 
 * Fix a bug with empty lines in inline snapshots.  (#166)
