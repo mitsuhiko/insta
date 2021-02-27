@@ -5,6 +5,7 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.7.0
 
 * Added support for u128/i128.  (#169)
+* Normalize newlines to unix before before asserting.  (#172)
 
 ## 1.6.3
 
