@@ -9,9 +9,10 @@ use std::process::{Command, Stdio};
 use std::str;
 use std::sync::Mutex;
 use std::thread;
+use std::time::Duration;
 
 use lazy_static::lazy_static;
-use similar::{ChangeTag, TextDiff};
+use similar::{Algorithm, ChangeTag, TextDiff};
 
 use serde::Deserialize;
 
@@ -208,7 +209,10 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
 
 fn print_changeset(old: &str, new: &str, expr: Option<&str>) {
     let width = term_width();
-    let diff = TextDiff::from_lines(old, new);
+    let diff = TextDiff::configure()
+        .algorithm(Algorithm::Patience)
+        .timeout(Duration::from_millis(500))
+        .diff_lines(old, new);
 
     if let Some(expr) = expr {
         println!("{:─^1$}", "", width,);
@@ -642,6 +646,7 @@ fn min_indentation(snapshot: &str) -> usize {
 
 #[test]
 fn test_min_indentation() {
+    use similar_asserts::assert_eq;
     let t = r#"
    1
    2
@@ -709,6 +714,7 @@ fn normalize_inline_snapshot(snapshot: &str) -> String {
 
 #[test]
 fn test_normalize_inline_snapshot() {
+    use similar_asserts::assert_eq;
     // here we do exact matching (rather than `assert_snapshot`)
     // to ensure we're not incorporating the modifications this library makes
     let t = r#"

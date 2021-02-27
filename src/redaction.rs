@@ -469,6 +469,7 @@ impl<'a> Selector<'a> {
 
 #[test]
 fn test_range_checks() {
+    use similar_asserts::assert_eq;
     assert_eq!(PathItem::Index(0, 10).range_check(None, Some(-1)), true);
     assert_eq!(PathItem::Index(9, 10).range_check(None, Some(-1)), false);
     assert_eq!(PathItem::Index(0, 10).range_check(Some(1), Some(-1)), false);

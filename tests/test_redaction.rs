@@ -6,6 +6,8 @@ use insta::{
 };
 use serde::Serialize;
 
+use similar_asserts::assert_eq;
+
 #[test]
 fn test_selector_parser() {
     macro_rules! assert_selector_snapshot {
