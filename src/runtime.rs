@@ -570,6 +570,8 @@ fn generate_snapshot_name_for_thread(module_path: &str) -> Result<String, &'stat
 /// frozen value string.  If the string starts with the '⋮' character
 /// (optionally prefixed by whitespace) the alternative serialization format
 /// is picked which has slightly improved indentation semantics.
+///
+/// This also changes all newlines to \n
 pub(super) fn get_inline_snapshot_value(frozen_value: &str) -> String {
     // TODO: could move this into the SnapshotContents `from_inline` method
     // (the only call site)
@@ -698,6 +700,7 @@ a
 }
 
 // Removes excess indentation, removes excess whitespace at start & end
+// and changes newlines to \n.
 fn normalize_inline_snapshot(snapshot: &str) -> String {
     let indentation = min_indentation(snapshot);
     snapshot
@@ -930,6 +933,7 @@ pub fn assert_snapshot(
     };
 
     let new_snapshot_contents: SnapshotContents = new_snapshot.into();
+
     let new = Snapshot::from_components(
         module_path.replace("::", "__"),
         snapshot_name.as_ref().map(|x| x.to_string()),
@@ -958,7 +962,7 @@ pub fn assert_snapshot(
 
     // if the snapshot matches we're done.
     if let Some(ref old_snapshot) = old {
-        if old_snapshot.contents() == new.contents() {
+        if dbg!(old_snapshot.contents()) == dbg!(new.contents()) {
             // let's just make sure there are no more pending files lingering
             // around.
             if let Some(ref snapshot_file) = snapshot_file {
