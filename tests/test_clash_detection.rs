@@ -1,6 +1,8 @@
 use std::env;
 use std::thread;
 
+use similar_asserts::assert_eq;
+
 #[test]
 fn test_clash_detection() {
     let old_update_value = env::var("INSTA_UPDATE");
@@ -42,6 +44,6 @@ fn test_clash_detection() {
     values.sort();
     assert_eq!(&values[..], &vec![
         "Insta snapshot name clash detected between \'foo_always_missing\' and \'test_foo_always_missing\' in \'test_clash_detection\'. Rename one function.",
-        "snapshot assertion for \'foo_always_missing\' failed in line 14",
+        "snapshot assertion for \'foo_always_missing\' failed in line 16",
     ][..]);
 }

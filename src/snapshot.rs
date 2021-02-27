@@ -330,6 +330,7 @@ impl PartialEq for SnapshotContents {
 
 #[test]
 fn test_snapshot_contents() {
+    use similar_asserts::assert_eq;
     let snapshot_contents = SnapshotContents("testing".to_string());
     assert_eq!(snapshot_contents.to_inline(0), r#""testing""#);
 
