@@ -11,7 +11,7 @@
 
 ## Introduction
 
-Snapshots tests (also sometimes called approval tests) are tests that
+Snapshots tests (also sometimes called [approval tests](https://approvaltests.com/)) are tests that
 assert values against a reference value (the snapshot). This is similar
 to how `assert_eq!` lets you compare a value against a reference value but
 unlike simple string assertions, snapshot tests let you test against complex
