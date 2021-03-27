@@ -308,14 +308,14 @@ impl SnapshotContents {
 impl From<&str> for SnapshotContents {
     fn from(value: &str) -> SnapshotContents {
         // make sure we have unix newlines consistently
-        SnapshotContents(value.replace("\r\n", "\n").to_string())
+        SnapshotContents(value.replace("\r\n", "\n"))
     }
 }
 
 impl From<String> for SnapshotContents {
     fn from(value: String) -> SnapshotContents {
         // make sure we have unix newlines consistently
-        SnapshotContents(value.replace("\r\n", "\n").to_string())
+        SnapshotContents(value.replace("\r\n", "\n"))
     }
 }
 
