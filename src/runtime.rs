@@ -962,7 +962,7 @@ pub fn assert_snapshot(
 
     // if the snapshot matches we're done.
     if let Some(ref old_snapshot) = old {
-        if dbg!(old_snapshot.contents()) == dbg!(new.contents()) {
+        if old_snapshot.contents() == new.contents() {
             // let's just make sure there are no more pending files lingering
             // around.
             if let Some(ref snapshot_file) = snapshot_file {
