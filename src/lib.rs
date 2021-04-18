@@ -162,6 +162,8 @@ mod redaction;
 #[cfg(feature = "glob")]
 mod glob;
 
+mod loader;
+
 #[cfg(test)]
 mod test;
 
