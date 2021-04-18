@@ -199,7 +199,9 @@ pub use crate::redaction::dynamic_redaction;
 #[doc(hidden)]
 pub mod _macro_support {
     pub use crate::content::Content;
-    pub use crate::runtime::{assert_snapshot, get_cargo_workspace, AutoName, ReferenceValue};
+    pub use crate::runtime::{
+        assert_snapshot, format_rust_expression, get_cargo_workspace, AutoName, ReferenceValue,
+    };
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
 
     #[cfg(feature = "glob")]

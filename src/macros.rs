@@ -1,3 +1,10 @@
+#[macro_export]
+macro_rules! _insta_rustfmt_stringify {
+    ($($tt:tt)*) => {
+        &$crate::_macro_support::format_rust_expression(stringify!($($tt)*))
+    };
+}
+
 /// Asserts a `Serialize` snapshot in CSV format.
 ///
 /// **Feature:** `csv` (disabled by default)
@@ -241,13 +248,13 @@ macro_rules! _assert_serialized_snapshot {
         );
         $crate::assert_snapshot!(
             value,
-            stringify!($value),
+            $crate::_insta_rustfmt_stringify!($value),
             @$snapshot
         );
     }};
     ($value:expr, {$($k:expr => $v:expr),*$(,)?}, $format:ident, @$snapshot:literal) => {{
         let (vec, value) = $crate::_prepare_snapshot_for_redaction!($value, {$($k => $v),*}, $format, Inline);
-        $crate::assert_snapshot!(value, stringify!($value), @$snapshot);
+        $crate::assert_snapshot!(value, $crate::_insta_rustfmt_stringify!($value), @$snapshot);
     }};
     ($name:expr, $value:expr, $format:ident) => {{
         let value = $crate::_macro_support::serialize_value(
@@ -258,12 +265,12 @@ macro_rules! _assert_serialized_snapshot {
         $crate::assert_snapshot!(
             $name,
             value,
-            stringify!($value)
+            $crate::_insta_rustfmt_stringify!($value)
         );
     }};
     ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}, $format:ident) => {{
         let (vec, value) = $crate::_prepare_snapshot_for_redaction!($value, {$($k => $v),*}, $format, File);
-        $crate::assert_snapshot!($name, value, stringify!($value));
+        $crate::assert_snapshot!($name, value, $crate::_insta_rustfmt_stringify!($value));
     }}
 }
 
@@ -310,15 +317,15 @@ macro_rules! _prepare_snapshot_for_redaction {
 macro_rules! assert_debug_snapshot {
     ($value:expr, @$snapshot:literal) => {{
         let value = format!("{:#?}", $value);
-        $crate::assert_snapshot!(value, stringify!($value), @$snapshot);
+        $crate::assert_snapshot!(value, $crate::_insta_rustfmt_stringify!($value), @$snapshot);
     }};
     ($name:expr, $value:expr) => {{
         let value = format!("{:#?}", $value);
-        $crate::assert_snapshot!(Some($name), value, stringify!($value));
+        $crate::assert_snapshot!(Some($name), value, $crate::_insta_rustfmt_stringify!($value));
     }};
     ($value:expr) => {{
         let value = format!("{:#?}", $value);
-        $crate::assert_snapshot!($crate::_macro_support::AutoName, value, stringify!($value));
+        $crate::assert_snapshot!($crate::_macro_support::AutoName, value, $crate::_insta_rustfmt_stringify!($value));
     }};
 }
 
@@ -331,15 +338,15 @@ macro_rules! assert_debug_snapshot {
 macro_rules! assert_display_snapshot {
     ($value:expr, @$snapshot:literal) => {{
         let value = format!("{}", $value);
-        $crate::assert_snapshot!(value, stringify!($value), @$snapshot);
+        $crate::assert_snapshot!(value, $crate::_insta_rustfmt_stringify!($value), @$snapshot);
     }};
     ($name:expr, $value:expr) => {{
         let value = format!("{}", $value);
-        $crate::assert_snapshot!(Some($name), value, stringify!($value));
+        $crate::assert_snapshot!(Some($name), value, $crate::_insta_rustfmt_stringify!($value));
     }};
     ($value:expr) => {{
         let value = format!("{}", $value);
-        $crate::assert_snapshot!($crate::_macro_support::AutoName, value, stringify!($value));
+        $crate::assert_snapshot!($crate::_macro_support::AutoName, value, $crate::_insta_rustfmt_stringify!($value));
     }};
 }
 
@@ -365,7 +372,7 @@ macro_rules! assert_snapshot {
         $crate::assert_snapshot!(
             $crate::_macro_support::ReferenceValue::Inline($snapshot),
             $value,
-            stringify!($value)
+            $crate::_insta_rustfmt_stringify!($value)
         )
     };
     ($value:expr, $debug_expr:expr, @$snapshot:literal) => {
@@ -376,7 +383,7 @@ macro_rules! assert_snapshot {
         )
     };
     ($name:expr, $value:expr) => {
-        $crate::assert_snapshot!($name, $value, stringify!($value))
+        $crate::assert_snapshot!($name, $value, $crate::_insta_rustfmt_stringify!($value))
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_snapshot(
@@ -392,7 +399,11 @@ macro_rules! assert_snapshot {
         .unwrap();
     };
     ($value:expr) => {
-        $crate::assert_snapshot!($crate::_macro_support::AutoName, $value, stringify!($value))
+        $crate::assert_snapshot!(
+            $crate::_macro_support::AutoName,
+            $value,
+            $crate::_insta_rustfmt_stringify!($value)
+        )
     };
 }
 
