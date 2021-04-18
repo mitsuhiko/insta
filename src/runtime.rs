@@ -72,7 +72,7 @@ fn term_width() -> usize {
     }
 }
 
-fn format_rust_expression(value: &str) -> Cow<'_, str> {
+pub fn format_rust_expression(value: &str) -> Cow<'_, str> {
     const PREFIX: &str = "const x:() = ";
     const SUFFIX: &str = ";\n";
     if let Ok(mut proc) = Command::new("rustfmt")
@@ -216,7 +216,7 @@ fn print_changeset(old: &str, new: &str, expr: Option<&str>) {
 
     if let Some(expr) = expr {
         println!("{:─^1$}", "", width,);
-        println!("{}", style(format_rust_expression(expr)));
+        println!("{}", style(expr));
     }
     println!("────────────┬{:─^1$}", "", width.saturating_sub(13));
     let mut has_changes = false;
