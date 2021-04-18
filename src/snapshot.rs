@@ -73,13 +73,13 @@ impl PendingInlineSnapshot {
 pub struct MetaData {
     /// The source file (relative to workspace root).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) source: Option<String>,
+    pub source: Option<String>,
     /// Optionally the expression that created the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) expression: Option<String>,
+    pub expression: Option<String>,
     /// Reference to the input file.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) input_file: Option<String>,
+    pub input_file: Option<String>,
 }
 
 impl MetaData {
@@ -127,8 +127,8 @@ impl Snapshot {
         DefaultSnapfileFormatter::deserialize(&mut f, p.as_ref().file_name().unwrap())
     }
 
-    /// Creates an empty snapshot.
-    pub(crate) fn from_components(
+    /// Creates a snapshot from its parts.
+    pub fn from_components(
         module_name: String,
         snapshot_name: Option<String>,
         metadata: MetaData,
@@ -219,6 +219,10 @@ impl SnapshotContents {
         out.push_str(if is_escape { "\"###" } else { "\"" });
 
         out
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
