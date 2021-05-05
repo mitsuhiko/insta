@@ -189,19 +189,31 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
     if let Some(rv) = workspaces.get(manifest_dir) {
         rv
     } else {
-        #[derive(Deserialize)]
-        struct Manifest {
-            workspace_root: String,
-        }
-        let output = std::process::Command::new(get_cargo())
-            .arg("metadata")
-            .arg("--format-version=1")
-            .arg("--no-deps")
-            .current_dir(manifest_dir)
-            .output()
-            .unwrap();
-        let manifest: Manifest = serde_json::from_slice(&output.stdout).unwrap();
-        let path = Box::leak(Box::new(PathBuf::from(manifest.workspace_root)));
+        let workspace_root =
+        // If INSTA_WORKSPACE_ROOT environment variable is set, use the value
+        // as-is. This is useful for those users where the compiled in
+        // CARGO_MANIFEST_DIR points to some transient location. This can easily
+        // happen if the user builds the test in one directory but then tries to
+        // run it in another: even if sources are available in the new
+        // directory, in the past we would always go with the compiled-in value.
+        // The compiled-in directory may not even exist anymore.
+        if let Ok(workspace_root) = std::env::var("INSTA_WORKSPACE_ROOT") {
+            workspace_root
+        } else {
+            #[derive(Deserialize)]
+            struct Manifest {
+                workspace_root: String,
+            }
+            let output = std::process::Command::new(get_cargo())
+                .arg("metadata")
+                .arg("--format-version=1")
+                .arg("--no-deps")
+                .current_dir(manifest_dir)
+                .output()
+                .unwrap();
+            serde_json::from_slice::<Manifest>(&output.stdout).unwrap().workspace_root
+        };
+        let path = Box::leak(Box::new(PathBuf::from(workspace_root)));
         workspaces.insert(manifest_dir.to_string(), path.as_path());
         workspaces.get(manifest_dir).unwrap()
     }

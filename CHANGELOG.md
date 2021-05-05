@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+* When `INSTA_WORKSPACE_ROOT` is set, the value is used as the manifest
+  directory rather than whatever `CARGO_MANIFEST_DIR` was set to at compile
+  time.  (#180)
+
 ## 1.7.1
 
 * Removed an accidental debug print.  (#175)
@@ -124,7 +130,7 @@ All notable changes to insta and cargo-insta are documented here.
 ## 0.13
 
 * Add support for deep wildcard matches (#92)
-* Use module paths for test names (#87) 
+* Use module paths for test names (#87)
 * Do not emit useless indentations for empty lines (#88)
 
 ## 0.12
