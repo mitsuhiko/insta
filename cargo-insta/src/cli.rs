@@ -139,6 +139,10 @@ pub struct TestCommand {
     /// Delete unreferenced snapshots after the test run.
     #[structopt(long)]
     pub delete_unreferenced_snapshots: bool,
+    /// Options passed to cargo test
+    // Sets raw to true so that `--` is required
+    #[structopt(name = "cargo_options", raw(true))]
+    pub cargo_options: Vec<String>,
 }
 
 #[derive(StructOpt, Debug)]
@@ -543,6 +547,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     }
     proc.arg("--color");
     proc.arg(color);
+    proc.args(cmd.cargo_options);
     proc.arg("--");
     proc.arg("-q");
 
