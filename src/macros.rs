@@ -389,7 +389,7 @@ macro_rules! assert_snapshot {
             line!(),
             $debug_expr,
         )
-        .unwrap();
+        .unwrap()
     };
     ($value:expr) => {
         $crate::assert_snapshot!($crate::_macro_support::AutoName, $value, stringify!($value))

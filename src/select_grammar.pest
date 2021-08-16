@@ -1,6 +1,6 @@
 WHITESPACE = _{ WHITE_SPACE }
 
-ident = @{ XID_START ~ XID_CONTINUE* }
+ident = @{ ( "_" | XID_START ) ~ XID_CONTINUE* }
 deep_wildcard = { "." ~ "**" }
 wildcard = { "." ~ "*" }
 key = @{ "." ~ ident }

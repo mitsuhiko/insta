@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+* Fixed an issue where selectors could not start with underscore.  (#189)
+
 ## 1.7.1
 
 * Removed an accidental debug print.  (#175)

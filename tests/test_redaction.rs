@@ -272,3 +272,38 @@ fn test_redact_recursive() {
     }
     "###);
 }
+
+#[test]
+fn test_struct_array_redaction() {
+    #[derive(Serialize)]
+    pub struct Product {
+        _id: String,
+        product_name: String,
+    }
+
+    #[derive(Serialize)]
+    pub struct Checkout {
+        _id: String,
+        products: Vec<Product>,
+    }
+
+    let checkout = Checkout {
+        _id: "checkout/1".to_string(),
+        products: vec![
+            Product {
+                _id: "product/1".to_string(),
+                product_name: "a car".to_string(),
+            },
+            Product {
+                _id: "product/2".to_string(),
+                product_name: "a boat".to_string(),
+            },
+        ],
+    };
+
+    insta::assert_yaml_snapshot!(vec![checkout], {
+        "[]._id" => "[checkout_id]",
+        "[].products[]._id" => "[product_id]",
+        "[].products[].product_name" => "[product_name]",
+    });
+}
