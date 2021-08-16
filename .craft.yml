@@ -1,0 +1,7 @@
+minVersion: "0.22.2"
+changelogPolicy: auto
+preReleaseCommand: ./scripts/bump-version.sh
+
+targets:
+  - name: github
+  - name: crates
