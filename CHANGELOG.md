@@ -6,6 +6,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 * Fixed an issue where selectors could not start with underscore.  (#189)
 * Allow passing arguments to `cargo test`.  (#183)
+* Avoid the use of `Box::leak`.  (#185)
 
 ## 1.7.1
 

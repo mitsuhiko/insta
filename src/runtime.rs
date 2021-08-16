@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::str;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -21,7 +21,7 @@ use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContent
 use crate::utils::{is_ci, style};
 
 lazy_static! {
-    static ref WORKSPACES: Mutex<BTreeMap<String, &'static Path>> = Mutex::new(BTreeMap::new());
+    static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
     static ref TEST_NAME_COUNTERS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
     static ref TEST_NAME_CLASH_DETECTION: Mutex<BTreeMap<String, bool>> =
         Mutex::new(BTreeMap::new());
@@ -183,11 +183,11 @@ fn get_cargo() -> String {
         .unwrap_or_else(|| "cargo".to_string())
 }
 
-pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
+pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
     // we really do not care about poisoning here.
     let mut workspaces = WORKSPACES.lock().unwrap_or_else(|x| x.into_inner());
     if let Some(rv) = workspaces.get(manifest_dir) {
-        rv
+        rv.clone()
     } else {
         #[derive(Deserialize)]
         struct Manifest {
@@ -201,9 +201,9 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
             .output()
             .unwrap();
         let manifest: Manifest = serde_json::from_slice(&output.stdout).unwrap();
-        let path = Box::leak(Box::new(PathBuf::from(manifest.workspace_root)));
-        workspaces.insert(manifest_dir.to_string(), path.as_path());
-        workspaces.get(manifest_dir).unwrap()
+        let path = Arc::new(PathBuf::from(manifest.workspace_root));
+        workspaces.insert(manifest_dir.to_string(), path.clone());
+        path
     }
 }
 
@@ -886,6 +886,7 @@ pub fn assert_snapshot(
     expr: &str,
 ) -> Result<(), Box<dyn Error>> {
     let cargo_workspace = get_cargo_workspace(manifest_dir);
+    let cargo_workspace = cargo_workspace.as_path();
     let output_behavior = output_snapshot_behavior();
 
     let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
