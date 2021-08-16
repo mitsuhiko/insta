@@ -7,6 +7,9 @@ All notable changes to insta and cargo-insta are documented here.
 - Fixed an issue where selectors could not start with underscore. (#189)
 - Allow passing arguments to `cargo test`. (#183)
 - Avoid the use of `Box::leak`. (#185)
+- When `INSTA_WORKSPACE_ROOT` is set, the value is used as the manifest
+  directory rather than whatever `CARGO_MANIFEST_DIR` was set to at compile
+  time. (#180)
 
 ## 1.7.1
 
