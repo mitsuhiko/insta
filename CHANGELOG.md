@@ -2,7 +2,7 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## Unreleased
+## 1.7.2
 
 - Fixed an issue where selectors could not start with underscore. (#189)
 - Allow passing arguments to `cargo test`. (#183)
