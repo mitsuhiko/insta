@@ -13,4 +13,4 @@ echo "Bumping version: ${NEW_VERSION}"
 find . -name Cargo.toml -type f -exec sed -i '' -e "1,/^version/ s/^version.*/version = \"${NEW_VERSION}\"/" {} \;
 
 cargo update -p insta
-cargo update -p cargo-insta
+(cd cargo-insta; cargo update -p cargo-insta)
