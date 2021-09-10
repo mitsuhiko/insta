@@ -417,10 +417,15 @@ impl<'a> Selector<'a> {
                 Content::Map(map) => Content::Map(
                     map.into_iter()
                         .map(|(key, value)| {
+                            path.push(PathItem::Field("$key"));
+                            let new_key = self.redact_impl(key.clone(), redaction, path);
+                            path.pop();
+
                             path.push(PathItem::Content(key.clone()));
                             let new_value = self.redact_impl(value, redaction, path);
                             path.pop();
-                            (key, new_value)
+
+                            (new_key, new_value)
                         })
                         .collect(),
                 ),

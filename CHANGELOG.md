@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.8.0
+
+- Added the ability to redact into a key. (#192)
+
 ## 1.7.2
 
 - Fixed an issue where selectors could not start with underscore. (#189)
