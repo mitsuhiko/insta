@@ -236,51 +236,47 @@ impl<'a> SnapshotAssertionContext<'a> {
         assertion_line: u32,
     ) -> Result<SnapshotAssertionContext<'a>, Box<dyn Error>> {
         let cargo_workspace = get_cargo_workspace(manifest_dir);
-        let (snapshot_name, snapshot_file, old_snapshot, pending_snapshots_path) = match refval {
-            ReferenceValue::Named(snapshot_name) => {
-                let snapshot_name = match snapshot_name {
-                    Some(snapshot_name) => add_suffix_to_snapshot_name(snapshot_name),
+        let snapshot_name;
+        let mut snapshot_file = None;
+        let mut old_snapshot = None;
+        let mut pending_snapshots_path = None;
+
+        match refval {
+            ReferenceValue::Named(name) => {
+                let name = match name {
+                    Some(name) => add_suffix_to_snapshot_name(name),
                     None => generate_snapshot_name_for_thread(module_path)
                         .unwrap()
                         .into(),
                 };
-                let snapshot_file = get_snapshot_filename(
-                    module_path,
-                    &snapshot_name,
-                    &cargo_workspace,
-                    assertion_file,
-                );
-                let old_snapshot = if fs::metadata(&snapshot_file).is_ok() {
-                    Some(Snapshot::from_file(&snapshot_file)?)
-                } else {
-                    None
-                };
-                (Some(snapshot_name), Some(snapshot_file), old_snapshot, None)
+                let file =
+                    get_snapshot_filename(module_path, &name, &cargo_workspace, assertion_file);
+                if fs::metadata(&file).is_ok() {
+                    old_snapshot = Some(Snapshot::from_file(&file)?);
+                }
+                snapshot_name = Some(name);
+                snapshot_file = Some(file);
             }
             ReferenceValue::Inline(contents) => {
-                let snapshot_name = generate_snapshot_name_for_thread(module_path)
+                snapshot_name = generate_snapshot_name_for_thread(module_path)
                     .ok()
                     .map(Cow::Owned);
-                let mut filename = cargo_workspace.join(assertion_file);
-                filename.set_file_name(format!(
+                let mut pending_file = cargo_workspace.join(assertion_file);
+                pending_file.set_file_name(format!(
                     ".{}.pending-snap",
-                    filename
+                    pending_file
                         .file_name()
                         .expect("no filename")
                         .to_str()
                         .expect("non unicode filename")
                 ));
-                (
-                    snapshot_name,
+                pending_snapshots_path = Some(pending_file);
+                old_snapshot = Some(Snapshot::from_components(
+                    module_path.replace("::", "__"),
                     None,
-                    Some(Snapshot::from_components(
-                        module_path.replace("::", "__"),
-                        None,
-                        MetaData::default(),
-                        SnapshotContents::from_inline(contents),
-                    )),
-                    Some(filename),
-                )
+                    MetaData::default(),
+                    SnapshotContents::from_inline(contents),
+                ));
             }
         };
 
