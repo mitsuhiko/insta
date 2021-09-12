@@ -149,6 +149,7 @@
 //! per-test) basis.  For more information see [Settings].
 #[macro_use]
 mod macros;
+mod cargo;
 mod content;
 mod output;
 mod runtime;
@@ -199,8 +200,9 @@ pub use crate::redaction::dynamic_redaction;
 // these are here to make the macros work
 #[doc(hidden)]
 pub mod _macro_support {
+    pub use crate::cargo::get_cargo_workspace;
     pub use crate::content::Content;
-    pub use crate::runtime::{assert_snapshot, get_cargo_workspace, AutoName, ReferenceValue};
+    pub use crate::runtime::{assert_snapshot, AutoName, ReferenceValue};
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
 
     #[cfg(feature = "glob")]

@@ -57,13 +57,6 @@ pub fn term_width() -> usize {
     }
 }
 
-/// Returns the cargo binary name
-pub fn get_cargo() -> String {
-    env::var("CARGO")
-        .ok()
-        .unwrap_or_else(|| "cargo".to_string())
-}
-
 /// Converts a path into a string that can be persisted.
 pub fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
     #[cfg(windows)]
