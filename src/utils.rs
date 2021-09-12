@@ -1,4 +1,10 @@
-use std::env;
+use std::{
+    borrow::Cow,
+    env,
+    io::Write,
+    path::Path,
+    process::{Command, Stdio},
+};
 
 /// Are we running in in a CI environment?
 pub fn is_ci() -> bool {
@@ -38,3 +44,79 @@ mod fake_colors {
 
 #[cfg(not(feature = "colors"))]
 pub use self::fake_colors::*;
+
+/// Returns the term width that insta should use.
+pub fn term_width() -> usize {
+    #[cfg(feature = "colors")]
+    {
+        console::Term::stdout().size().1 as usize
+    }
+    #[cfg(not(feature = "colors"))]
+    {
+        74
+    }
+}
+
+/// Returns the cargo binary name
+pub fn get_cargo() -> String {
+    env::var("CARGO")
+        .ok()
+        .unwrap_or_else(|| "cargo".to_string())
+}
+
+/// Converts a path into a string that can be persisted.
+pub fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
+    #[cfg(windows)]
+    {
+        path.as_ref().to_str().unwrap().replace('\\', "/")
+    }
+
+    #[cfg(not(windows))]
+    {
+        path.as_ref().to_string_lossy().into()
+    }
+}
+
+/// Tries to format a given rust expression with rustfmt
+pub fn format_rust_expression(value: &str) -> Cow<'_, str> {
+    const PREFIX: &str = "const x:() = ";
+    const SUFFIX: &str = ";\n";
+    if let Ok(mut proc) = Command::new("rustfmt")
+        .arg("--emit=stdout")
+        .arg("--edition=2018")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        {
+            let stdin = proc.stdin.as_mut().unwrap();
+            stdin.write_all(PREFIX.as_bytes()).unwrap();
+            stdin.write_all(value.as_bytes()).unwrap();
+            stdin.write_all(SUFFIX.as_bytes()).unwrap();
+        }
+        if let Ok(output) = proc.wait_with_output() {
+            if output.status.success() {
+                // slice between after the prefix and before the suffix
+                // (currently 14 from the start and 2 before the end, respectively)
+                let start = PREFIX.len() + 1;
+                let end = output.stdout.len() - SUFFIX.len();
+                return std::str::from_utf8(&output.stdout[start..end])
+                    .unwrap()
+                    .to_owned()
+                    .into();
+            }
+        }
+    }
+    Cow::Borrowed(value)
+}
+
+#[test]
+fn test_format_rust_expression() {
+    use crate::assert_snapshot;
+    assert_snapshot!(format_rust_expression("vec![1,2,3]"), @"vec![1, 2, 3]");
+    assert_snapshot!(format_rust_expression("vec![1,2,3].iter()"), @"vec![1, 2, 3].iter()");
+    assert_snapshot!(format_rust_expression(r#"    "aoeu""#), @r###""aoeu""###);
+    assert_snapshot!(format_rust_expression(r#"  "aoe😄""#), @r###""aoe😄""###);
+    assert_snapshot!(format_rust_expression("😄😄😄😄😄"), @"😄😄😄😄😄")
+}

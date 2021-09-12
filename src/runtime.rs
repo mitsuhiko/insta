@@ -5,7 +5,6 @@ use std::error::Error;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::str;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -18,7 +17,7 @@ use serde::Deserialize;
 
 use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
-use crate::utils::{is_ci, style};
+use crate::utils::{format_rust_expression, get_cargo, is_ci, path_to_storage, style, term_width};
 
 lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
@@ -49,70 +48,6 @@ enum OutputBehavior {
     Summary,
     Minimal,
     Nothing,
-}
-
-#[cfg(windows)]
-fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
-    path.as_ref().to_str().unwrap().replace('\\', "/")
-}
-
-#[cfg(not(windows))]
-fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
-    path.as_ref().to_string_lossy().into()
-}
-
-fn term_width() -> usize {
-    #[cfg(feature = "colors")]
-    {
-        console::Term::stdout().size().1 as usize
-    }
-    #[cfg(not(feature = "colors"))]
-    {
-        74
-    }
-}
-
-fn format_rust_expression(value: &str) -> Cow<'_, str> {
-    const PREFIX: &str = "const x:() = ";
-    const SUFFIX: &str = ";\n";
-    if let Ok(mut proc) = Command::new("rustfmt")
-        .arg("--emit=stdout")
-        .arg("--edition=2018")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        {
-            let stdin = proc.stdin.as_mut().unwrap();
-            stdin.write_all(PREFIX.as_bytes()).unwrap();
-            stdin.write_all(value.as_bytes()).unwrap();
-            stdin.write_all(SUFFIX.as_bytes()).unwrap();
-        }
-        if let Ok(output) = proc.wait_with_output() {
-            if output.status.success() {
-                // slice between after the prefix and before the suffix
-                // (currently 14 from the start and 2 before the end, respectively)
-                let start = PREFIX.len() + 1;
-                let end = output.stdout.len() - SUFFIX.len();
-                return str::from_utf8(&output.stdout[start..end])
-                    .unwrap()
-                    .to_owned()
-                    .into();
-            }
-        }
-    }
-    Cow::Borrowed(value)
-}
-
-#[test]
-fn test_format_rust_expression() {
-    use crate::assert_snapshot;
-    assert_snapshot!(format_rust_expression("vec![1,2,3]"), @"vec![1, 2, 3]");
-    assert_snapshot!(format_rust_expression("vec![1,2,3].iter()"), @"vec![1, 2, 3].iter()");
-    assert_snapshot!(format_rust_expression(r#"    "aoeu""#), @r###""aoeu""###);
-    assert_snapshot!(format_rust_expression(r#"  "aoe😄""#), @r###""aoe😄""###);
-    assert_snapshot!(format_rust_expression("😄😄😄😄😄"), @"😄😄😄😄😄")
 }
 
 fn update_snapshot_behavior(unseen: bool) -> UpdateBehavior {
@@ -175,12 +110,6 @@ fn should_fail_in_tests() -> bool {
         Some("1") => false,
         _ => panic!("invalid value for INSTA_FORCE_PASS"),
     }
-}
-
-fn get_cargo() -> String {
-    env::var("CARGO")
-        .ok()
-        .unwrap_or_else(|| "cargo".to_string())
 }
 
 pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
@@ -630,12 +559,6 @@ pub(super) fn get_inline_snapshot_value(frozen_value: &str) -> String {
     }
 }
 
-#[test]
-fn test_inline_snapshot_value_newline() {
-    // https://github.com/mitsuhiko/insta/issues/39
-    assert_eq!(get_inline_snapshot_value("\n"), "");
-}
-
 fn count_leading_spaces(value: &str) -> usize {
     value.chars().take_while(|x| x.is_whitespace()).count()
 }
@@ -655,61 +578,6 @@ fn min_indentation(snapshot: &str) -> usize {
         .unwrap_or(0)
 }
 
-#[test]
-fn test_min_indentation() {
-    use similar_asserts::assert_eq;
-    let t = r#"
-   1
-   2
-    "#;
-    assert_eq!(min_indentation(t), 3);
-
-    let t = r#"
-            1
-    2"#;
-    assert_eq!(min_indentation(t), 4);
-
-    let t = r#"
-            1
-            2
-    "#;
-    assert_eq!(min_indentation(t), 12);
-
-    let t = r#"
-   1
-   2
-"#;
-    assert_eq!(min_indentation(t), 3);
-
-    let t = r#"
-        a
-    "#;
-    assert_eq!(min_indentation(t), 8);
-
-    let t = "";
-    assert_eq!(min_indentation(t), 0);
-
-    let t = r#"
-    a
-    b
-c
-    "#;
-    assert_eq!(min_indentation(t), 0);
-
-    let t = r#"
-a
-    "#;
-    assert_eq!(min_indentation(t), 0);
-
-    let t = "
-    a";
-    assert_eq!(min_indentation(t), 4);
-
-    let t = r#"a
-  a"#;
-    assert_eq!(min_indentation(t), 0);
-}
-
 // Removes excess indentation, removes excess whitespace at start & end
 // and changes newlines to \n.
 fn normalize_inline_snapshot(snapshot: &str) -> String {
@@ -721,94 +589,6 @@ fn normalize_inline_snapshot(snapshot: &str) -> String {
         .map(|l| l.get(indentation..).unwrap_or(""))
         .collect::<Vec<&str>>()
         .join("\n")
-}
-
-#[test]
-fn test_normalize_inline_snapshot() {
-    use similar_asserts::assert_eq;
-    // here we do exact matching (rather than `assert_snapshot`)
-    // to ensure we're not incorporating the modifications this library makes
-    let t = r#"
-   1
-   2
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
-    );
-
-    let t = r#"
-            1
-    2"#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-        1
-2"###[1..]
-    );
-
-    let t = r#"
-            1
-            2
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
-    );
-
-    let t = r#"
-   1
-   2
-"#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
-    );
-
-    let t = r#"
-        a
-    "#;
-    assert_eq!(normalize_inline_snapshot(t), "a");
-
-    let t = "";
-    assert_eq!(normalize_inline_snapshot(t), "");
-
-    let t = r#"
-    a
-    b
-c
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-    a
-    b
-c"###[1..]
-    );
-
-    let t = r#"
-a
-    "#;
-    assert_eq!(normalize_inline_snapshot(t), "a");
-
-    let t = "
-    a";
-    assert_eq!(normalize_inline_snapshot(t), "a");
-
-    let t = r#"a
-  a"#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-a
-  a"###[1..]
-    );
 }
 
 #[derive(Debug, PartialEq)]
@@ -1053,4 +833,153 @@ pub fn assert_snapshot(
     }
 
     Ok(())
+}
+
+#[test]
+fn test_inline_snapshot_value_newline() {
+    // https://github.com/mitsuhiko/insta/issues/39
+    assert_eq!(get_inline_snapshot_value("\n"), "");
+}
+
+#[test]
+fn test_min_indentation() {
+    use similar_asserts::assert_eq;
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(min_indentation(t), 12);
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+        a
+    "#;
+    assert_eq!(min_indentation(t), 8);
+
+    let t = "";
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+    a
+    b
+c
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+a
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = "
+    a";
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"a
+  a"#;
+    assert_eq!(min_indentation(t), 0);
+}
+
+#[test]
+fn test_normalize_inline_snapshot() {
+    use similar_asserts::assert_eq;
+    // here we do exact matching (rather than `assert_snapshot`)
+    // to ensure we're not incorporating the modifications this library makes
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+        1
+2"###[1..]
+    );
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+        a
+    "#;
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = "";
+    assert_eq!(normalize_inline_snapshot(t), "");
+
+    let t = r#"
+    a
+    b
+c
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+    a
+    b
+c"###[1..]
+    );
+
+    let t = r#"
+a
+    "#;
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = "
+    a";
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = r#"a
+  a"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+a
+  a"###[1..]
+    );
 }
