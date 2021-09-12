@@ -15,7 +15,7 @@ lazy_static! {
 
 /// How snapshots are supposed to be updated
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SnapshotUpdateBehavior {
+pub enum SnapshotUpdate {
     /// Snapshots are updated in-place
     InPlace,
     /// Snapshots are placed in a new file with a .new suffix
@@ -67,25 +67,25 @@ pub fn get_output_behavior() -> OutputBehavior {
 }
 
 /// Returns the intended snapshot update behavior.
-pub fn get_snapshot_update_behavior(unseen: bool) -> SnapshotUpdateBehavior {
+pub fn get_snapshot_update_behavior(unseen: bool) -> SnapshotUpdate {
     match env::var("INSTA_UPDATE").ok().as_deref() {
         None | Some("") | Some("auto") => {
             if is_ci() {
-                SnapshotUpdateBehavior::NoUpdate
+                SnapshotUpdate::NoUpdate
             } else {
-                SnapshotUpdateBehavior::NewFile
+                SnapshotUpdate::NewFile
             }
         }
-        Some("always") | Some("1") => SnapshotUpdateBehavior::InPlace,
-        Some("new") => SnapshotUpdateBehavior::NewFile,
+        Some("always") | Some("1") => SnapshotUpdate::InPlace,
+        Some("new") => SnapshotUpdate::NewFile,
         Some("unseen") => {
             if unseen {
-                SnapshotUpdateBehavior::NewFile
+                SnapshotUpdate::NewFile
             } else {
-                SnapshotUpdateBehavior::InPlace
+                SnapshotUpdate::InPlace
             }
         }
-        Some("no") => SnapshotUpdateBehavior::NoUpdate,
+        Some("no") => SnapshotUpdate::NoUpdate,
         _ => panic!("invalid value for INSTA_UPDATE"),
     }
 }
