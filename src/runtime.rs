@@ -319,6 +319,26 @@ impl<'a> SnapshotAssertionContext<'a> {
         )
     }
 
+    /// Cleanup logic for passing snapshots.
+    pub fn cleanup_passing(&self) -> Result<(), Box<dyn Error>> {
+        // let's just make sure there are no more pending files lingering
+        // around.
+        if let Some(ref snapshot_file) = self.snapshot_file {
+            let mut snapshot_file = snapshot_file.clone();
+            snapshot_file.set_extension("snap.new");
+            fs::remove_file(snapshot_file).ok();
+        }
+
+        // and add a null pending snapshot to a pending snapshot file if needed
+        if let Some(ref pending_snapshots) = self.pending_snapshots_path {
+            if fs::metadata(pending_snapshots).is_ok() {
+                PendingInlineSnapshot::new(None, None, self.assertion_line)
+                    .save(pending_snapshots)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Writes the changes of the snapshot back.
     pub fn update_snapshot(
         &self,
@@ -414,60 +434,46 @@ pub fn assert_snapshot(
         memoize_snapshot_file(snapshot_file);
     }
 
-    // if the snapshot matches we're done.
-    if let Some(ref old_snapshot) = ctx.old_snapshot {
-        if old_snapshot.contents() == new_snapshot.contents() {
-            // let's just make sure there are no more pending files lingering
-            // around.
-            if let Some(ref snapshot_file) = ctx.snapshot_file {
-                let mut snapshot_file = snapshot_file.clone();
-                snapshot_file.set_extension("snap.new");
-                fs::remove_file(snapshot_file).ok();
-            }
+    // pass if the snapshots are missing
+    if ctx.old_snapshot.as_ref().map(|x| x.contents()) == Some(new_snapshot.contents()) {
+        ctx.cleanup_passing()?;
 
-            // and add a null pending snapshot to a pending snapshot file if needed
-            if let Some(ref pending_snapshots) = ctx.pending_snapshots_path {
-                if fs::metadata(pending_snapshots).is_ok() {
-                    PendingInlineSnapshot::new(None, None, assertion_line)
-                        .save(pending_snapshots)?;
-                }
-            }
-
-            // if we're force updating snapshots, write the new value back
-            if force_update_snapshots() {
-                ctx.update_snapshot(new_snapshot)?;
-            }
-
-            return Ok(());
+        if force_update_snapshots() {
+            ctx.update_snapshot(new_snapshot)?;
         }
+    // otherwise print information and update snapshots.
+    } else {
+        print_snapshot_info(&ctx, &new_snapshot);
+        let update_result = ctx.update_snapshot(new_snapshot)?;
+        finalize_assertion(&ctx, update_result);
     }
 
+    Ok(())
+}
+
+/// This prints the information about the snapshot
+fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) {
     match get_output_behavior() {
         OutputBehavior::Summary => {
             print_snapshot_summary_with_title(
                 ctx.cargo_workspace.as_path(),
-                &new_snapshot,
+                new_snapshot,
                 ctx.old_snapshot.as_ref(),
-                assertion_line,
+                ctx.assertion_line,
                 ctx.snapshot_file.as_deref(),
             );
         }
         OutputBehavior::Diff => {
             print_snapshot_diff_with_title(
                 ctx.cargo_workspace.as_path(),
-                &new_snapshot,
+                new_snapshot,
                 ctx.old_snapshot.as_ref(),
-                assertion_line,
+                ctx.assertion_line,
                 ctx.snapshot_file.as_deref(),
             );
         }
         _ => {}
     }
-
-    let update_result = ctx.update_snapshot(new_snapshot)?;
-    finalize_assertion(&ctx, update_result);
-
-    Ok(())
 }
 
 /// Finalizes the assertion based on the update result.
