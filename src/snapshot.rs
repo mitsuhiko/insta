@@ -7,8 +7,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
-use super::runtime::get_inline_snapshot_value;
-
 lazy_static! {
     static ref RUN_ID: String = {
         let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
@@ -331,6 +329,91 @@ impl PartialEq for SnapshotContents {
     }
 }
 
+fn count_leading_spaces(value: &str) -> usize {
+    value.chars().take_while(|x| x.is_whitespace()).count()
+}
+
+fn min_indentation(snapshot: &str) -> usize {
+    let lines = snapshot.trim_end().lines();
+
+    if lines.clone().count() <= 1 {
+        // not a multi-line string
+        return 0;
+    }
+
+    lines
+        .filter(|l| !l.is_empty())
+        .map(count_leading_spaces)
+        .min()
+        .unwrap_or(0)
+}
+
+// Removes excess indentation, removes excess whitespace at start & end
+// and changes newlines to \n.
+fn normalize_inline_snapshot(snapshot: &str) -> String {
+    let indentation = min_indentation(snapshot);
+    snapshot
+        .trim_end()
+        .lines()
+        .skip_while(|l| l.is_empty())
+        .map(|l| l.get(indentation..).unwrap_or(""))
+        .collect::<Vec<&str>>()
+        .join("\n")
+}
+
+/// Helper function that returns the real inline snapshot value from a given
+/// frozen value string.  If the string starts with the '⋮' character
+/// (optionally prefixed by whitespace) the alternative serialization format
+/// is picked which has slightly improved indentation semantics.
+///
+/// This also changes all newlines to \n
+fn get_inline_snapshot_value(frozen_value: &str) -> String {
+    // TODO: could move this into the SnapshotContents `from_inline` method
+    // (the only call site)
+
+    if frozen_value.trim_start().starts_with('⋮') {
+        // legacy format - retain so old snapshots still work
+        let mut buf = String::new();
+        let mut line_iter = frozen_value.lines();
+        let mut indentation = 0;
+
+        for line in &mut line_iter {
+            let line_trimmed = line.trim_start();
+            if line_trimmed.is_empty() {
+                continue;
+            }
+            indentation = line.len() - line_trimmed.len();
+            // 3 because '⋮' is three utf-8 bytes long
+            buf.push_str(&line_trimmed[3..]);
+            buf.push('\n');
+            break;
+        }
+
+        for line in &mut line_iter {
+            if let Some(prefix) = line.get(..indentation) {
+                if !prefix.trim().is_empty() {
+                    return "".to_string();
+                }
+            }
+            if let Some(remainder) = line.get(indentation..) {
+                if remainder.starts_with('⋮') {
+                    // 3 because '⋮' is three utf-8 bytes long
+                    buf.push_str(&remainder[3..]);
+                    buf.push('\n');
+                } else if remainder.trim().is_empty() {
+                    continue;
+                } else {
+                    return "".to_string();
+                }
+            }
+        }
+
+        buf.trim_end().to_string()
+    } else {
+        normalize_inline_snapshot(frozen_value)
+    }
+}
+
 #[test]
 fn test_snapshot_contents() {
     use similar_asserts::assert_eq;
@@ -385,4 +468,153 @@ b"[1..];
 
     let t = "ab";
     assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r##""ab""##);
+}
+
+#[test]
+fn test_normalize_inline_snapshot() {
+    use similar_asserts::assert_eq;
+    // here we do exact matching (rather than `assert_snapshot`)
+    // to ensure we're not incorporating the modifications this library makes
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+        1
+2"###[1..]
+    );
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+1
+2"###[1..]
+    );
+
+    let t = r#"
+        a
+    "#;
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = "";
+    assert_eq!(normalize_inline_snapshot(t), "");
+
+    let t = r#"
+    a
+    b
+c
+    "#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+    a
+    b
+c"###[1..]
+    );
+
+    let t = r#"
+a
+    "#;
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = "
+    a";
+    assert_eq!(normalize_inline_snapshot(t), "a");
+
+    let t = r#"a
+  a"#;
+    assert_eq!(
+        normalize_inline_snapshot(t),
+        r###"
+a
+  a"###[1..]
+    );
+}
+
+#[test]
+fn test_min_indentation() {
+    use similar_asserts::assert_eq;
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(min_indentation(t), 12);
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+        a
+    "#;
+    assert_eq!(min_indentation(t), 8);
+
+    let t = "";
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+    a
+    b
+c
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+a
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = "
+    a";
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"a
+  a"#;
+    assert_eq!(min_indentation(t), 0);
+}
+
+#[test]
+fn test_inline_snapshot_value_newline() {
+    // https://github.com/mitsuhiko/insta/issues/39
+    assert_eq!(get_inline_snapshot_value("\n"), "");
 }
