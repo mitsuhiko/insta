@@ -150,6 +150,7 @@
 #[macro_use]
 mod macros;
 mod content;
+mod output;
 mod runtime;
 mod serialization;
 mod settings;
@@ -185,9 +186,11 @@ pub mod internals {
 
 // exported for cargo-insta only
 #[doc(hidden)]
-pub use crate::{
-    runtime::print_snapshot_diff, snapshot::PendingInlineSnapshot, snapshot::SnapshotContents,
-};
+pub mod _cargo_insta_support {
+    pub use crate::{
+        output::print_snapshot_diff, snapshot::PendingInlineSnapshot, snapshot::SnapshotContents,
+    };
+}
 
 // useful for redactions
 #[cfg(feature = "redactions")]

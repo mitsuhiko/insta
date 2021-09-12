@@ -8,7 +8,8 @@ use std::{env, fs};
 
 use console::{set_colors_enabled, style, Key, Term};
 use ignore::{Walk, WalkBuilder};
-use insta::{print_snapshot_diff, Snapshot};
+use insta::Snapshot;
+use insta::_cargo_insta_support::print_snapshot_diff;
 use serde::Serialize;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;

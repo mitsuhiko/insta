@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use insta::SnapshotContents;
+use insta::_cargo_insta_support::SnapshotContents;
 use proc_macro2::TokenTree;
 use syn;
 use syn::spanned::Spanned;

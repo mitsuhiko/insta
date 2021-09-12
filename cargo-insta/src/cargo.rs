@@ -7,7 +7,8 @@ use std::process;
 
 use ignore::overrides::OverrideBuilder;
 use ignore::{DirEntry, WalkBuilder};
-use insta::{PendingInlineSnapshot, Snapshot};
+use insta::Snapshot;
+use insta::_cargo_insta_support::PendingInlineSnapshot;
 use serde::Deserialize;
 
 use crate::inline::FilePatcher;
