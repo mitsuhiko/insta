@@ -289,20 +289,19 @@ enum SnapshotUpdateResult {
 }
 
 fn update_snapshots(
-    snapshot_file: Option<&Path>,
-    new: Snapshot,
-    old: Option<Snapshot>,
-    line: u32,
-    pending_snapshots: Option<PathBuf>,
-    output_behavior: OutputBehavior,
+    ctx: &SnapshotAssertionContext,
+    new_snapshot: Snapshot,
 ) -> Result<SnapshotUpdateResult, Box<dyn Error>> {
-    let unseen = snapshot_file.map_or(false, |x| fs::metadata(x).is_ok());
-    let should_print = output_behavior != OutputBehavior::Nothing;
+    let unseen = ctx
+        .snapshot_file
+        .as_ref()
+        .map_or(false, |x| fs::metadata(x).is_ok());
+    let should_print = ctx.output_behavior != OutputBehavior::Nothing;
 
     match update_snapshot_behavior(unseen) {
         UpdateBehavior::InPlace => {
-            if let Some(ref snapshot_file) = snapshot_file {
-                new.save(snapshot_file)?;
+            if let Some(ref snapshot_file) = ctx.snapshot_file {
+                new_snapshot.save(snapshot_file)?;
                 if should_print {
                     elog!(
                         "{} {}",
@@ -325,10 +324,10 @@ fn update_snapshots(
             Ok(SnapshotUpdateResult::UpdatedInPlace)
         }
         UpdateBehavior::NewFile => {
-            if let Some(snapshot_file) = snapshot_file {
+            if let Some(ref snapshot_file) = ctx.snapshot_file {
                 let mut new_path = snapshot_file.to_path_buf();
                 new_path.set_extension("snap.new");
-                new.save(&new_path)?;
+                new_snapshot.save(&new_path)?;
                 if should_print {
                     elog!(
                         "{} {}",
@@ -337,8 +336,12 @@ fn update_snapshots(
                     );
                 }
             } else {
-                PendingInlineSnapshot::new(Some(new), old, line)
-                    .save(pending_snapshots.unwrap())?;
+                PendingInlineSnapshot::new(
+                    Some(new_snapshot),
+                    ctx.old_snapshot.clone(),
+                    ctx.assertion_line,
+                )
+                .save(ctx.pending_snapshots_path.as_ref().unwrap())?;
             }
             Ok(SnapshotUpdateResult::WroteNewFile)
         }
@@ -356,21 +359,26 @@ fn add_suffix_to_snapshot_name(name: Cow<'_, str>) -> Cow<'_, str> {
     })
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn assert_snapshot(
-    refval: ReferenceValue<'_>,
-    new_snapshot: &str,
+#[derive(Debug)]
+struct SnapshotAssertionContext<'a> {
+    cargo_workspace: Arc<PathBuf>,
+    output_behavior: OutputBehavior,
+    snapshot_name: Option<Cow<'a, str>>,
+    snapshot_file: Option<PathBuf>,
+    old_snapshot: Option<Snapshot>,
+    pending_snapshots_path: Option<PathBuf>,
+    assertion_line: u32,
+}
+
+fn prepare_snapshot_assertion<'a>(
+    refval: ReferenceValue<'a>,
     manifest_dir: &str,
     module_path: &str,
-    file: &str,
-    line: u32,
-    expr: &str,
-) -> Result<(), Box<dyn Error>> {
+    assertion_file: &str,
+    assertion_line: u32,
+) -> Result<SnapshotAssertionContext<'a>, Box<dyn Error>> {
     let cargo_workspace = get_cargo_workspace(manifest_dir);
-    let cargo_workspace = cargo_workspace.as_path();
-    let output_behavior = output_snapshot_behavior();
-
-    let (snapshot_name, snapshot_file, old, pending_snapshots) = match refval {
+    let (snapshot_name, snapshot_file, old_snapshot, pending_snapshots_path) = match refval {
         ReferenceValue::Named(snapshot_name) => {
             let snapshot_name = match snapshot_name {
                 Some(snapshot_name) => add_suffix_to_snapshot_name(snapshot_name),
@@ -378,20 +386,24 @@ pub fn assert_snapshot(
                     .unwrap()
                     .into(),
             };
-            let snapshot_file =
-                get_snapshot_filename(module_path, &snapshot_name, &cargo_workspace, file);
-            let old = if fs::metadata(&snapshot_file).is_ok() {
+            let snapshot_file = get_snapshot_filename(
+                module_path,
+                &snapshot_name,
+                &cargo_workspace,
+                assertion_file,
+            );
+            let old_snapshot = if fs::metadata(&snapshot_file).is_ok() {
                 Some(Snapshot::from_file(&snapshot_file)?)
             } else {
                 None
             };
-            (Some(snapshot_name), Some(snapshot_file), old, None)
+            (Some(snapshot_name), Some(snapshot_file), old_snapshot, None)
         }
         ReferenceValue::Inline(contents) => {
             let snapshot_name = generate_snapshot_name_for_thread(module_path)
                 .ok()
                 .map(Cow::Owned);
-            let mut filename = cargo_workspace.join(file);
+            let mut filename = cargo_workspace.join(assertion_file);
             filename.set_file_name(format!(
                 ".{}.pending-snap",
                 filename
@@ -414,20 +426,48 @@ pub fn assert_snapshot(
         }
     };
 
-    let new_snapshot_contents: SnapshotContents = new_snapshot.into();
+    Ok(SnapshotAssertionContext {
+        cargo_workspace,
+        output_behavior: output_snapshot_behavior(),
+        snapshot_name,
+        snapshot_file,
+        old_snapshot,
+        pending_snapshots_path,
+        assertion_line,
+    })
+}
 
-    let new = Snapshot::from_components(
+#[allow(clippy::too_many_arguments)]
+pub fn assert_snapshot(
+    refval: ReferenceValue<'_>,
+    new_snapshot_value: &str,
+    manifest_dir: &str,
+    module_path: &str,
+    assertion_file: &str,
+    assertion_line: u32,
+    expr: &str,
+) -> Result<(), Box<dyn Error>> {
+    let ctx = prepare_snapshot_assertion(
+        refval,
+        manifest_dir,
+        module_path,
+        assertion_file,
+        assertion_line,
+    )?;
+
+    let new_snapshot_contents: SnapshotContents = new_snapshot_value.into();
+    let new_snapshot = Snapshot::from_components(
         module_path.replace("::", "__"),
-        snapshot_name.as_ref().map(|x| x.to_string()),
+        ctx.snapshot_name.as_ref().map(|x| x.to_string()),
         MetaData {
-            source: Some(path_to_storage(file)),
+            source: Some(path_to_storage(assertion_file)),
             expression: Some(expr.to_string()),
             input_file: Settings::with(|settings| {
                 settings
                     .input_file()
-                    .and_then(|x| cargo_workspace.join(x).canonicalize().ok())
+                    .and_then(|x| ctx.cargo_workspace.join(x).canonicalize().ok())
                     .and_then(|s| {
-                        s.strip_prefix(cargo_workspace)
+                        s.strip_prefix(ctx.cargo_workspace.as_path())
                             .ok()
                             .map(|x| x.to_path_buf())
                     })
@@ -438,75 +478,62 @@ pub fn assert_snapshot(
     );
 
     // memoize the snapshot file if requested.
-    if let Some(ref snapshot_file) = snapshot_file {
+    if let Some(ref snapshot_file) = ctx.snapshot_file {
         memoize_snapshot_file(snapshot_file);
     }
 
     // if the snapshot matches we're done.
-    if let Some(ref old_snapshot) = old {
-        if old_snapshot.contents() == new.contents() {
+    if let Some(ref old_snapshot) = ctx.old_snapshot {
+        if old_snapshot.contents() == new_snapshot.contents() {
             // let's just make sure there are no more pending files lingering
             // around.
-            if let Some(ref snapshot_file) = snapshot_file {
+            if let Some(ref snapshot_file) = ctx.snapshot_file {
                 let mut snapshot_file = snapshot_file.clone();
                 snapshot_file.set_extension("snap.new");
                 fs::remove_file(snapshot_file).ok();
             }
             // and add a null pending snapshot to a pending snapshot file if needed
-            if let Some(ref pending_snapshots) = pending_snapshots {
+            if let Some(ref pending_snapshots) = ctx.pending_snapshots_path {
                 if fs::metadata(pending_snapshots).is_ok() {
-                    PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
+                    PendingInlineSnapshot::new(None, None, assertion_line)
+                        .save(pending_snapshots)?;
                 }
             }
 
             if force_update_snapshots() {
-                update_snapshots(
-                    snapshot_file.as_deref(),
-                    new,
-                    old,
-                    line,
-                    pending_snapshots,
-                    output_behavior,
-                )?;
+                update_snapshots(&ctx, new_snapshot)?;
             }
 
             return Ok(());
         }
     }
 
-    match output_behavior {
+    match ctx.output_behavior {
         OutputBehavior::Summary => {
             print_snapshot_summary_with_title(
-                cargo_workspace,
-                &new,
-                old.as_ref(),
-                line,
-                snapshot_file.as_deref(),
+                ctx.cargo_workspace.as_path(),
+                &new_snapshot,
+                ctx.old_snapshot.as_ref(),
+                assertion_line,
+                ctx.snapshot_file.as_deref(),
             );
         }
         OutputBehavior::Diff => {
             print_snapshot_diff_with_title(
-                cargo_workspace,
-                &new,
-                old.as_ref(),
-                line,
-                snapshot_file.as_deref(),
+                ctx.cargo_workspace.as_path(),
+                &new_snapshot,
+                ctx.old_snapshot.as_ref(),
+                assertion_line,
+                ctx.snapshot_file.as_deref(),
             );
         }
         _ => {}
     }
 
-    let update_result = update_snapshots(
-        snapshot_file.as_deref(),
-        new,
-        old,
-        line,
-        pending_snapshots,
-        output_behavior,
-    )?;
+    let update_result = update_snapshots(&ctx, new_snapshot)?;
 
     if update_result == SnapshotUpdateResult::WroteNewFile
-        && output_behavior != OutputBehavior::Nothing
+        && ctx.output_behavior != OutputBehavior::Nothing
     {
         println!(
             "{hint}",
@@ -517,8 +544,10 @@ pub fn assert_snapshot(
     if update_result != SnapshotUpdateResult::UpdatedInPlace && should_fail_in_tests() {
         panic!(
             "snapshot assertion for '{}' failed in line {}",
-            snapshot_name.as_ref().map_or("unnamed snapshot", |x| &*x),
-            line
+            ctx.snapshot_name
+                .as_ref()
+                .map_or("unnamed snapshot", |x| &*x),
+            assertion_line
         );
     }
 
