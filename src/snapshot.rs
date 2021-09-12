@@ -7,6 +7,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
+use crate::utils::path_to_storage;
+
 lazy_static! {
     static ref RUN_ID: String = {
         let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
@@ -80,6 +82,15 @@ pub struct MetaData {
 }
 
 impl MetaData {
+    /// Creates a new metadata from the given inputs.
+    pub(crate) fn new(source: &str, expr: &str, input_file: Option<PathBuf>) -> MetaData {
+        MetaData {
+            source: Some(path_to_storage(source)),
+            expression: Some(expr.to_string()),
+            input_file: input_file.map(path_to_storage),
+        }
+    }
+
     /// Returns the absolute source path.
     pub fn source(&self) -> Option<&str> {
         self.source.as_deref()
