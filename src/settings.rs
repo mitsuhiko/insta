@@ -68,7 +68,7 @@ pub struct ActualSettings {
 /// For instance it can be useful to force ordering of maps when
 /// unordered structures are used through settings.
 ///
-/// Some of the settings can be changed but shuoldn't as it will make it harder
+/// Some of the settings can be changed but shouldn't as it will make it harder
 /// for tools like cargo-insta or an editor integration to locate the snapshot
 /// files.
 ///
