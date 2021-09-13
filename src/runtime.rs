@@ -187,7 +187,7 @@ fn add_suffix_to_snapshot_name(name: Cow<'_, str>) -> Cow<'_, str> {
     })
 }
 
-pub fn get_snapshot_filename(
+fn get_snapshot_filename(
     module_path: &str,
     snapshot_name: &str,
     cargo_workspace: &Path,
@@ -403,6 +403,52 @@ impl<'a> SnapshotAssertionContext<'a> {
     }
 }
 
+/// This prints the information about the snapshot
+fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) {
+    match get_output_behavior() {
+        OutputBehavior::Summary => {
+            print_snapshot_summary_with_title(
+                ctx.cargo_workspace.as_path(),
+                new_snapshot,
+                ctx.old_snapshot.as_ref(),
+                ctx.assertion_line,
+                ctx.snapshot_file.as_deref(),
+            );
+        }
+        OutputBehavior::Diff => {
+            print_snapshot_diff_with_title(
+                ctx.cargo_workspace.as_path(),
+                new_snapshot,
+                ctx.old_snapshot.as_ref(),
+                ctx.assertion_line,
+                ctx.snapshot_file.as_deref(),
+            );
+        }
+        _ => {}
+    }
+}
+
+/// Finalizes the assertion based on the update result.
+fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpdate) {
+    if update_result == SnapshotUpdate::NewFile && get_output_behavior() != OutputBehavior::Nothing
+    {
+        println!(
+            "{hint}",
+            hint = style("To update snapshots run `cargo insta review`").dim(),
+        );
+    }
+
+    if update_result != SnapshotUpdate::InPlace && !force_pass() {
+        panic!(
+            "snapshot assertion for '{}' failed in line {}",
+            ctx.snapshot_name
+                .as_ref()
+                .map_or("unnamed snapshot", |x| &*x),
+            ctx.assertion_line
+        );
+    }
+}
+
 /// This function is invoked from the macros to run the main assertion logic.
 ///
 /// This will create the assertion context, run the main logic to assert
@@ -449,50 +495,4 @@ pub fn assert_snapshot(
     }
 
     Ok(())
-}
-
-/// This prints the information about the snapshot
-fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) {
-    match get_output_behavior() {
-        OutputBehavior::Summary => {
-            print_snapshot_summary_with_title(
-                ctx.cargo_workspace.as_path(),
-                new_snapshot,
-                ctx.old_snapshot.as_ref(),
-                ctx.assertion_line,
-                ctx.snapshot_file.as_deref(),
-            );
-        }
-        OutputBehavior::Diff => {
-            print_snapshot_diff_with_title(
-                ctx.cargo_workspace.as_path(),
-                new_snapshot,
-                ctx.old_snapshot.as_ref(),
-                ctx.assertion_line,
-                ctx.snapshot_file.as_deref(),
-            );
-        }
-        _ => {}
-    }
-}
-
-/// Finalizes the assertion based on the update result.
-fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpdate) {
-    if update_result == SnapshotUpdate::NewFile && get_output_behavior() != OutputBehavior::Nothing
-    {
-        println!(
-            "{hint}",
-            hint = style("To update snapshots run `cargo insta review`").dim(),
-        );
-    }
-
-    if update_result != SnapshotUpdate::InPlace && !force_pass() {
-        panic!(
-            "snapshot assertion for '{}' failed in line {}",
-            ctx.snapshot_name
-                .as_ref()
-                .map_or("unnamed snapshot", |x| &*x),
-            ctx.assertion_line
-        );
-    }
 }
