@@ -89,9 +89,7 @@ checksum = "ae44d1a3d5a19df61dd0c8beb138458ac2a53a7ac09eba97d55592540004306b"
 name = "cargo-insta"
 version = "1.7.2"
 dependencies = [
- "clap",
  "console",
- "difference",
  "ignore",
  "insta",
  "proc-macro2",
@@ -148,12 +146,6 @@ dependencies = [
  "cfg-if",
  "lazy_static",
 ]
-
-[[package]]
-name = "difference"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524cbf6897b527295dff137cec09ecf3a05f4fddffd7dfcd1585403449e74198"
 
 [[package]]
 name = "digest"
