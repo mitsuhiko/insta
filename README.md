@@ -31,7 +31,7 @@ fn test_hello_world() {
 
 Curious? There is a screencast that shows the entire workflow: [watch the insta
 introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be).
-Or if you're not into videos, read the [one minute introduction](#introduction).
+Or if you're not into videos, read the [5 minute introduction](https://insta.rs/docs/quickstart/).
 
 Insta also supports inline snapshots which are stored right in your source file
 instead of separate files. This is accomplished by the companion
