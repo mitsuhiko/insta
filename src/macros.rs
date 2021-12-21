@@ -435,3 +435,33 @@ macro_rules! glob {
         $crate::_macro_support::glob_exec(&base, $glob, $closure);
     }};
 }
+
+/// Look up an existing snapshot returning for the current test
+/// if no snapshot has been generated yet returns `None`
+#[macro_export]
+macro_rules! find_snapshot {
+    () => {
+        $crate::find_snapshot!($crate::_macro_support::AutoName)
+    };
+    ($name:expr) => {{
+        let ctx = SnapshotAssertionContext::prepare(
+            $name.into(),
+            env!("CARGO_MANIFEST_DIR"),
+            module_path!(),
+            file!(),
+            line!(),
+        )
+        .unwrap();
+        if let Some(path) = &ctx.snapshot_file {
+            if let Ok(snap) = $crate::Snapshot::from_file(path) {
+                return Some(snap);
+            }
+        }
+        if let Some(path) = &ctx.pending_snapshots_path {
+            if let Ok(snap) = $crate::Snapshot::from_file(path) {
+                return Some(snap);
+            }
+        }
+        ctx.old_snapshot
+    }};
+}
