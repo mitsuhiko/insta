@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.9.0
+
+- `cargo-insta` now correctly handles the package (`-p`) argument
+  on `test` when deleting unreferenced snapshots. (#201)
+
 ## 1.8.0
 
 - Added the ability to redact into a key. (#192)

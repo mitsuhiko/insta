@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::process;
 use std::{env, fs};
+use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
 use ignore::{Walk, WalkBuilder};
@@ -416,11 +416,19 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
     Ok(())
 }
 
-fn make_deletion_walker(loc: &LocationInfo) -> Walk {
+fn make_deletion_walker(loc: &LocationInfo, package: Option<&str>) -> Walk {
     let roots: HashSet<_> = match loc.packages {
         Some(ref packages) => packages
             .iter()
-            .filter_map(|x| x.manifest_path().parent().unwrap().canonicalize().ok())
+            .filter_map(|x| {
+                // filter out packages we did not ask for.
+                if let Some(only_package) = package {
+                    if x.name() != only_package {
+                        return None;
+                    }
+                }
+                x.manifest_path().parent().unwrap().canonicalize().ok()
+            })
             .collect(),
         None => {
             let mut hs = HashSet::new();
@@ -583,15 +591,26 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     // delete unreferenced snapshots if we were instructed to do so
     if let Some(ref path) = snapshot_ref_file {
         let mut files = HashSet::new();
-        for line in fs::read_to_string(path).unwrap().lines() {
-            if let Ok(path) = fs::canonicalize(line) {
-                files.insert(path);
+        match fs::read_to_string(path) {
+            Ok(s) => {
+                for line in s.lines() {
+                    if let Ok(path) = fs::canonicalize(line) {
+                        files.insert(path);
+                    }
+                }
+            }
+            Err(err) => {
+                // if the file was not created, no test referenced
+                // snapshots.
+                if err.kind() != io::ErrorKind::NotFound {
+                    return Err(err.into());
+                }
             }
         }
 
         if let Ok(loc) = handle_target_args(&cmd.target_args) {
             let mut deleted_any = false;
-            for entry in make_deletion_walker(&loc) {
+            for entry in make_deletion_walker(&loc, cmd.package.as_deref()) {
                 let rel_path = match entry {
                     Ok(ref entry) => entry.path(),
                     _ => continue,
