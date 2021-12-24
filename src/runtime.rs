@@ -313,6 +313,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             MetaData::new(
                 self.assertion_file,
                 expr,
+                Some(self.assertion_line),
                 Settings::with(|s| s.input_file().and_then(|x| self.localize_path(x))),
             ),
             contents,

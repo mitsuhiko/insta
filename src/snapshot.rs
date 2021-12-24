@@ -73,6 +73,9 @@ pub struct MetaData {
     /// The source file (relative to workspace root).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) source: Option<String>,
+    /// The source line if available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) assertion_line: Option<u32>,
     /// Optionally the expression that created the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) expression: Option<String>,
@@ -83,10 +86,16 @@ pub struct MetaData {
 
 impl MetaData {
     /// Creates a new metadata from the given inputs.
-    pub(crate) fn new(source: &str, expr: &str, input_file: Option<PathBuf>) -> MetaData {
+    pub(crate) fn new(
+        source: &str,
+        expr: &str,
+        assertion_line: Option<u32>,
+        input_file: Option<PathBuf>,
+    ) -> MetaData {
         MetaData {
             source: Some(path_to_storage(source)),
             expression: Some(expr.to_string()),
+            assertion_line,
             input_file: input_file.map(path_to_storage),
         }
     }
@@ -94,6 +103,11 @@ impl MetaData {
     /// Returns the absolute source path.
     pub fn source(&self) -> Option<&str> {
         self.source.as_deref()
+    }
+
+    /// Returns the assertion line.
+    pub fn assertion_line(&self) -> Option<u32> {
+        self.assertion_line
     }
 
     /// Returns the expression that created the snapshot.

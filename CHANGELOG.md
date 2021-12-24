@@ -5,6 +5,9 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.8.0
 
 - Added the ability to redact into a key. (#192)
+- Insta now memorizes assertion line numbers in snapshots.  While these
+  will quickly be old, they are often useful when reviewing snapshots
+  immediately after creation with `cargo-insta`. (#191)
 
 ## 1.7.2
 

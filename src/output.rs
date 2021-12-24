@@ -10,8 +10,13 @@ pub fn print_snapshot_summary(
     workspace_root: &Path,
     snapshot: &Snapshot,
     snapshot_file: Option<&Path>,
-    line: Option<u32>,
+    mut line: Option<u32>,
 ) {
+    // default to old assertion line from snapshot.
+    if line.is_none() {
+        line = snapshot.metadata().assertion_line();
+    }
+
     if let Some(snapshot_file) = snapshot_file {
         let snapshot_file = workspace_root
             .join(snapshot_file)
@@ -53,8 +58,13 @@ pub fn print_snapshot_diff(
     new: &Snapshot,
     old_snapshot: Option<&Snapshot>,
     snapshot_file: Option<&Path>,
-    line: Option<u32>,
+    mut line: Option<u32>,
 ) {
+    // default to old assertion line from snapshot.
+    if line.is_none() {
+        line = new.metadata().assertion_line();
+    }
+
     print_snapshot_summary(workspace_root, new, snapshot_file, line);
     let old_contents = old_snapshot.as_ref().map_or("", |x| x.contents_str());
     let new_contents = new.contents_str();
