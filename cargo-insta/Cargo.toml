@@ -13,7 +13,7 @@ readme = "README.md"
 
 [dependencies]
 insta = { version = "1.9.0", path = "..", features = ["redactions"] }
-console = "0.14.0"
+console = "0.15.0"
 structopt = "0.3.20"
 serde = { version = "1.0.117", features = ["derive"] }
 serde_json = "1.0.59"
