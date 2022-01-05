@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.10.0
+
+- Update internal dependencies for console and ron.
+
 ## 1.9.0
 
 - `cargo-insta` now correctly handles the package (`-p`) argument
