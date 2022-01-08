@@ -8,7 +8,7 @@ doc:
 
 test: cargotest cargo-insta-tests
 
-test-141: cargotest-141
+test-legacy: cargotest-legacy
 
 cargo-insta-tests:
 	@echo "CARGO-INSTA INTEGRATION TESTS"
@@ -23,10 +23,10 @@ cargotest:
 	@cargo test --features redactions,backtrace -- --test-threads 1
 	@cd cargo-insta; cargo test
 
-cargotest-141:
+cargotest-legacy:
 	# This can't run the tests against backtrace as this feature no longer works
-	# on Rust 1.41.0
-	@echo "CARGO TESTS 1.41.0"
+	# on older rust
+	@echo "CARGO TESTS LEGACY"
 	@rustup component add rustfmt 2> /dev/null
 	@cargo test
 	@cargo test --features redactions,glob
