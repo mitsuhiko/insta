@@ -17,20 +17,6 @@ jobs:
       - name: Test
         run: make test
 
-  build-stable:
-    name: Build on 1.42.0
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.42.0
-          profile: minimal
-          override: true
-      - name: Test
-        run: make build
-
   test-stable:
     name: Test on 1.46.0
     runs-on: ubuntu-latest
@@ -43,4 +29,4 @@ jobs:
           profile: minimal
           override: true
       - name: Test
-        run: make test-legacy
+        run: make test
