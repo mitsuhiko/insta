@@ -51,6 +51,11 @@ marketplace: [view on marketplace](https://marketplace.visualstudio.com/items?it
 Insta uses [`similar`](https://github.com/mitsuhiko/similar) for all its diffing
 operations.  You can use it independently of insta.
 
+## Sponsor
+
+If you like the project and find it useful you can [become a
+sponsor](https://github.com/sponsors/mitsuhiko).
+
 ## License and Links
 
 - [Project Website](https://insta.rs/)
