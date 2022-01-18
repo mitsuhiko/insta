@@ -6,13 +6,12 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 use std::{io, process};
 
+use clap::{AppSettings, ArgEnum, Args, ColorChoice, Parser, Subcommand};
 use console::{set_colors_enabled, style, Key, Term};
 use ignore::{Walk, WalkBuilder};
 use insta::Snapshot;
 use insta::_cargo_insta_support::print_snapshot_diff;
 use serde::Serialize;
-use structopt::clap::AppSettings;
-use structopt::StructOpt;
 use uuid::Uuid;
 
 use crate::cargo::{
@@ -21,138 +20,150 @@ use crate::cargo::{
 };
 use crate::utils::{err_msg, QuietExit};
 
-/// A helper utility to work with insta snapshots.
-#[derive(StructOpt, Debug)]
-#[structopt(
-    bin_name = "cargo insta",
-    setting = AppSettings::ArgRequiredElseHelp,
-    global_setting = AppSettings::ColorNever,
-    global_setting = AppSettings::UnifiedHelpMessage,
-    global_setting = AppSettings::DeriveDisplayOrder,
-    global_setting = AppSettings::DontCollapseArgsInUsage
-)]
-pub struct Opts {
-    /// Coloring: auto, always, never
-    #[structopt(long, global = true, value_name = "WHEN")]
-    pub color: Option<String>,
+#[derive(Debug, Clone, Copy, ArgEnum)]
+pub enum Color {
+    Auto,
+    Always,
+    Never,
+}
 
-    #[structopt(subcommand)]
+#[derive(Parser, Debug)]
+#[clap(bin_name = "cargo")]
+enum Cli {
+    #[clap(
+        version,
+        color = ColorChoice::Never,
+        global_setting = AppSettings::DeriveDisplayOrder,
+        global_setting = AppSettings::DontCollapseArgsInUsage,
+        global_setting = AppSettings::PropagateVersion,
+    )]
+    Insta(Opts),
+}
+
+/// A helper utility to work with insta snapshots.
+#[derive(Args, Debug)]
+pub struct Opts {
+    /// Coloring
+    #[clap(long, arg_enum, global = true, value_name = "WHEN", default_value_t = Color::Auto)]
+    pub color: Color,
+
+    #[clap(subcommand)]
     pub command: Command,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(bin_name = "cargo insta")]
+#[derive(Subcommand, Debug)]
 pub enum Command {
     /// Interactively review snapshots
-    #[structopt(name = "review", alias = "verify")]
+    #[clap(name = "review", alias = "verify")]
     Review(ProcessCommand),
     /// Rejects all snapshots
-    #[structopt(name = "reject")]
+    #[clap(name = "reject")]
     Reject(ProcessCommand),
     /// Accept all snapshots
-    #[structopt(name = "accept", alias = "approve")]
+    #[clap(name = "accept", alias = "approve")]
     Accept(ProcessCommand),
     /// Run tests and then reviews
-    #[structopt(name = "test")]
+    #[clap(name = "test")]
     Test(TestCommand),
     /// Print a summary of all pending snapshots.
-    #[structopt(name = "pending-snapshots")]
+    #[clap(name = "pending-snapshots")]
     PendingSnapshots(PendingSnapshotsCommand),
 }
 
-#[derive(StructOpt, Debug, Clone)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug, Clone)]
 pub struct TargetArgs {
     /// Path to Cargo.toml
-    #[structopt(long, value_name = "PATH", parse(from_os_str))]
+    #[clap(long, value_name = "PATH", parse(from_os_str))]
     pub manifest_path: Option<PathBuf>,
     /// Explicit path to the workspace root
-    #[structopt(long, value_name = "PATH", parse(from_os_str))]
+    #[clap(long, value_name = "PATH", parse(from_os_str))]
     pub workspace_root: Option<PathBuf>,
     /// Sets the extensions to consider.  Defaults to `.snap`
-    #[structopt(short = "e", long, value_name = "EXTENSIONS", multiple = true)]
+    #[clap(
+        short = 'e',
+        long,
+        value_name = "EXTENSIONS",
+        multiple_occurrences = true
+    )]
     pub extensions: Vec<String>,
     /// Work on all packages in the workspace
-    #[structopt(long)]
+    #[clap(long)]
     pub all: bool,
     /// Also walk into ignored paths.
-    #[structopt(long)]
+    #[clap(long)]
     pub no_ignore: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
 pub struct ProcessCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub target_args: TargetArgs,
     /// Limits the operation to one or more snapshots.
-    #[structopt(long = "snapshot")]
+    #[clap(long = "snapshot")]
     pub snapshot_filter: Option<Vec<String>>,
     /// Do not print to stdout.
-    #[structopt(short = "q", long)]
+    #[clap(short = 'q', long)]
     pub quiet: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
 pub struct TestCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub target_args: TargetArgs,
     /// Package to run tests for
-    #[structopt(short = "p", long)]
+    #[clap(short = 'p', long)]
     pub package: Option<String>,
     /// Disable force-passing of snapshot tests
-    #[structopt(long)]
+    #[clap(long)]
     pub no_force_pass: bool,
     /// Prevent running all tests regardless of failure
-    #[structopt(long)]
+    #[clap(long)]
     pub fail_fast: bool,
     /// Space-separated list of features to activate
-    #[structopt(long, value_name = "FEATURES")]
+    #[clap(long, value_name = "FEATURES")]
     pub features: Option<String>,
     /// Number of parallel jobs, defaults to # of CPUs
-    #[structopt(short = "j", long)]
+    #[clap(short = 'j', long)]
     pub jobs: Option<usize>,
     /// Build artifacts in release mode, with optimizations
-    #[structopt(long)]
+    #[clap(long)]
     pub release: bool,
     /// Activate all available features
-    #[structopt(long)]
+    #[clap(long)]
     pub all_features: bool,
     /// Do not activate the `default` feature
-    #[structopt(long)]
+    #[clap(long)]
     pub no_default_features: bool,
     /// Follow up with review.
-    #[structopt(long)]
+    #[clap(long)]
     pub review: bool,
     /// Accept all snapshots after test.
-    #[structopt(long, conflicts_with = "review")]
+    #[clap(long, conflicts_with = "review")]
     pub accept: bool,
     /// Accept all new (previously unseen).
-    #[structopt(long)]
+    #[clap(long)]
     pub accept_unseen: bool,
     /// Do not reject pending snapshots before run.
-    #[structopt(long)]
+    #[clap(long)]
     pub keep_pending: bool,
     /// Update all snapshots even if they are still matching.
-    #[structopt(long)]
+    #[clap(long)]
     pub force_update_snapshots: bool,
     /// Delete unreferenced snapshots after the test run.
-    #[structopt(long)]
+    #[clap(long)]
     pub delete_unreferenced_snapshots: bool,
     /// Options passed to cargo test
     // Sets raw to true so that `--` is required
-    #[structopt(name = "cargo_options", raw(true))]
+    #[clap(raw = true)]
     pub cargo_options: Vec<String>,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
 pub struct PendingSnapshotsCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub target_args: TargetArgs,
     /// Changes the output from human readable to JSON.
-    #[structopt(long)]
+    #[clap(long)]
     pub as_json: bool,
 }
 
@@ -211,14 +222,12 @@ fn query_snapshot(
     }
 }
 
-fn handle_color(color: &str) -> Result<(), Box<dyn Error>> {
+fn handle_color(color: Color) {
     match color {
-        "always" => set_colors_enabled(true),
-        "auto" => {}
-        "never" => set_colors_enabled(false),
-        color => return Err(err_msg(format!("invalid value for --color: {}", color))),
+        Color::Always => set_colors_enabled(true),
+        Color::Never => set_colors_enabled(false),
+        Color::Auto => (),
     }
-    Ok(())
 }
 
 #[derive(Serialize, Debug)]
@@ -474,7 +483,7 @@ fn make_deletion_walker(loc: &LocationInfo, package: Option<&str>) -> Walk {
         .build()
 }
 
-fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
+fn test_run(mut cmd: TestCommand, color: Color) -> Result<(), Box<dyn Error>> {
     let mut proc = process::Command::new(get_cargo());
     proc.arg("test");
 
@@ -555,7 +564,11 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         proc.arg("--no-default-features");
     }
     proc.arg("--color");
-    proc.arg(color);
+    proc.arg(match color {
+        Color::Auto => "auto",
+        Color::Always => "always",
+        Color::Never => "never",
+    });
     proc.args(cmd.cargo_options);
     proc.arg("--");
     proc.arg("-q");
@@ -711,21 +724,14 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
 }
 
 pub fn run() -> Result<(), Box<dyn Error>> {
-    // chop off cargo
-    let mut args: Vec<_> = env::args_os().collect();
-    if env::var("CARGO").is_ok() && args.get(1).and_then(|x| x.to_str()) == Some("insta") {
-        args.remove(1);
-    }
+    let Cli::Insta(opts) = Cli::parse();
 
-    let opts = Opts::from_iter(args);
-
-    let color = opts.color.as_ref().map(|x| x.as_str()).unwrap_or("auto");
-    handle_color(color)?;
+    handle_color(opts.color);
     match opts.command {
         Command::Review(cmd) => process_snapshots(cmd, None),
         Command::Accept(cmd) => process_snapshots(cmd, Some(Operation::Accept)),
         Command::Reject(cmd) => process_snapshots(cmd, Some(Operation::Reject)),
-        Command::Test(cmd) => test_run(cmd, color),
+        Command::Test(cmd) => test_run(cmd, opts.color),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
 }

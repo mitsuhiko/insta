@@ -31,6 +31,7 @@ fn main() {
 
     // run tests and accept snapshots
     Command::new("../target/debug/cargo-insta")
+        .arg("insta")
         .arg("test")
         .arg("--accept")
         .arg("--no-ignore")
