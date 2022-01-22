@@ -4,17 +4,15 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 use crate::utils::path_to_storage;
 
-lazy_static! {
-    static ref RUN_ID: String = {
-        let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        format!("{}-{}", d.as_secs(), d.subsec_nanos())
-    };
-}
+static RUN_ID: Lazy<String> = Lazy::new(|| {
+    let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    format!("{}-{}", d.as_secs(), d.subsec_nanos())
+});
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PendingInlineSnapshot {

@@ -1,4 +1,3 @@
-use lazy_static::lazy_static;
 use std::cell::RefCell;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -6,14 +5,16 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use once_cell::sync::Lazy;
+
 #[cfg(feature = "redactions")]
 use crate::{
     content::Content,
     redaction::{dynamic_redaction, ContentPath, Redaction, Selector},
 };
 
-lazy_static! {
-    static ref DEFAULT_SETTINGS: Arc<ActualSettings> = Arc::new(ActualSettings {
+static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
+    Arc::new(ActualSettings {
         sort_maps: false,
         snapshot_path: "snapshots".into(),
         snapshot_suffix: "".into(),
@@ -23,8 +24,8 @@ lazy_static! {
         redactions: Redactions::default(),
         #[cfg(feature = "glob")]
         allow_empty_glob: false,
-    });
-}
+    })
+});
 thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings::new()));
 
 /// Represents stored redactions.
