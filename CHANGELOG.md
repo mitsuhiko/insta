@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.11.0
+
+- Trim down some unnecessary dependencies and switch to `once_cell`. (#208)
+
 ## 1.10.0
 
 - Update internal dependencies for console and ron.
