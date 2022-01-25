@@ -1,5 +1,6 @@
 // this module is based on the content module in serde::private::ser
 use serde::ser::{self, Serialize, Serializer};
+use std::cmp::Ordering;
 use std::marker::PhantomData;
 
 /// Represents variable typed content.
@@ -24,7 +25,7 @@ use std::marker::PhantomData;
 ///
 /// If you do need to pattern match you should use the
 /// `resolve_inner` method to resolve such internal wrappers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Content {
     Bool(bool),
 
@@ -98,8 +99,8 @@ pub enum Key<'a> {
 impl<'a> Eq for Key<'a> {}
 
 impl<'a> Ord for Key<'a> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Less)
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap_or(Ordering::Less)
     }
 }
 
@@ -167,6 +168,16 @@ impl Content {
             | Content::NewtypeStruct(_, ref v)
             | Content::NewtypeVariant(_, _, _, ref v) => v.resolve_inner(),
             ref other => other,
+        }
+    }
+
+    /// Mutable version of [`resolve_inner`](Self::resolve_inner).
+    pub fn resolve_inner_mut(&mut self) -> &mut Content {
+        match *self {
+            Content::Some(ref mut v)
+            | Content::NewtypeStruct(_, ref mut v)
+            | Content::NewtypeVariant(_, _, _, ref mut v) => v.resolve_inner_mut(),
+            ref mut other => other,
         }
     }
 

@@ -1,0 +1,16 @@
+---
+source: tests/test_redaction.rs
+assertion_line: 384
+expression: "&User{id: 122,\n      username: \"jason_doe\".to_string(),\n      flags:\n          MySet(vec![\"zzz\".into(), \"foo\".into(), \"aha\".into(),\n                     \"is_admin\".into()].into_iter().collect()),}"
+
+---
+{
+  "flags": [
+    "aha",
+    "foo",
+    "is_admin",
+    "zzz"
+  ],
+  "id": 122,
+  "username": "jason_doe"
+}

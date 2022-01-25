@@ -1,10 +1,11 @@
 #![cfg(feature = "redactions")]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use insta::_macro_support::Selector;
 use insta::{
-    assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot, with_settings, Settings,
+    assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot, sorted_redaction,
+    with_settings, Settings,
 };
 use serde::Serialize;
 
@@ -340,4 +341,58 @@ fn test_map_key_redaction() {
         ".hm.$key.bucket" => "[bucket]",
         ".btm.$key" => "[key]",
     });
+}
+
+#[test]
+fn test_ordering() {
+    #[derive(Debug, Serialize)]
+    pub struct User {
+        id: u64,
+        username: String,
+        flags: HashSet<String>,
+    }
+
+    let mut settings = Settings::new();
+    settings.add_redaction(".id", "[id]");
+    settings.sort_selector(".flags");
+    settings.bind(|| {
+        assert_json_snapshot!(
+            "user_json_flags",
+            &User {
+                id: 122,
+                username: "jason_doe".to_string(),
+                flags: vec!["zzz".into(), "foo".into(), "aha".into(), "is_admin".into()]
+                    .into_iter()
+                    .collect(),
+            }
+        );
+    });
+}
+
+#[test]
+fn test_ordering_newtype_set() {
+    #[derive(Debug, Serialize)]
+    pub struct MySet(HashSet<String>);
+
+    #[derive(Debug, Serialize)]
+    pub struct User {
+        id: u64,
+        username: String,
+        flags: MySet,
+    }
+
+    assert_json_snapshot!(
+        "user_json_flags_alt",
+        &User {
+            id: 122,
+            username: "jason_doe".to_string(),
+            flags: MySet(vec!["zzz".into(), "foo".into(), "aha".into(), "is_admin".into()]
+                .into_iter()
+                .collect()),
+        },
+        {
+            "." => sorted_redaction(),
+            ".flags" => sorted_redaction()
+        }
+    );
 }
