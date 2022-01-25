@@ -131,11 +131,11 @@ where
 
 /// Creates a dynamic redaction that sorts the value at the selector.
 ///
-/// This is useful to force something like a set or map to be ordered by
-/// something predictable.  This is necessary as insta's serialization support
-/// is based on serde which does not have native set support.  As a result
-/// vectors (which need to retain order) and sets (which should be given a
-/// stable order) look the same.
+/// This is useful to force something like a set or map to be ordered to make
+/// it deterministic.  This is necessary as insta's serialization support is
+/// based on serde which does not have native set support.  As a result vectors
+/// (which need to retain order) and sets (which should be given a stable order)
+/// look the same.
 ///
 /// ```rust
 /// # use insta::{Settings, sorted_redaction};
@@ -144,11 +144,18 @@ where
 /// ```
 pub fn sorted_redaction() -> Redaction {
     fn sort(mut value: Content, _path: ContentPath) -> Content {
-        if let Content::Seq(ref mut val) = value {
-            val.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        }
-        if let Content::Map(ref mut val) = value {
-            val.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        match value.resolve_inner_mut() {
+            Content::Seq(ref mut val) => {
+                val.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            }
+            Content::Map(ref mut val) => {
+                val.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            }
+            Content::Struct(_, ref mut fields)
+            | Content::StructVariant(_, _, _, ref mut fields) => {
+                fields.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            }
+            _ => {}
         }
         value
     }

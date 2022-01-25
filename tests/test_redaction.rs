@@ -370,12 +370,15 @@ fn test_ordering() {
 }
 
 #[test]
-fn test_ordering_alt() {
+fn test_ordering_newtype_set() {
+    #[derive(Debug, Serialize)]
+    pub struct MySet(HashSet<String>);
+
     #[derive(Debug, Serialize)]
     pub struct User {
         id: u64,
         username: String,
-        flags: HashSet<String>,
+        flags: MySet,
     }
 
     assert_json_snapshot!(
@@ -383,11 +386,12 @@ fn test_ordering_alt() {
         &User {
             id: 122,
             username: "jason_doe".to_string(),
-            flags: vec!["zzz".into(), "foo".into(), "aha".into(), "is_admin".into()]
+            flags: MySet(vec!["zzz".into(), "foo".into(), "aha".into(), "is_admin".into()]
                 .into_iter()
-                .collect(),
+                .collect()),
         },
         {
+            "." => sorted_redaction(),
             ".flags" => sorted_redaction()
         }
     );

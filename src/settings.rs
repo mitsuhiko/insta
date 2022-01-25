@@ -235,7 +235,7 @@ impl Settings {
     /// asserts the value at a certain place.  This function is internally
     /// supposed to call things like `assert_eq!`.
     ///
-    /// This is a shortcut to `add_redaction("selector", dynamic_redaction(...))`;
+    /// This is a shortcut to `add_redaction(selector, dynamic_redaction(...))`;
     #[cfg(feature = "redactions")]
     pub fn add_dynamic_redaction<I, F>(&mut self, selector: &str, func: F)
     where
@@ -247,7 +247,7 @@ impl Settings {
 
     /// A special redaction that sorts a sequence or map.
     ///
-    /// This is a shortcut to `add_redaction("selector", sorted_redaction())`.
+    /// This is a shortcut to `add_redaction(selector, sorted_redaction())`.
     #[cfg(feature = "redactions")]
     pub fn sort_selector(&mut self, selector: &str) {
         self.add_redaction(selector, sorted_redaction());

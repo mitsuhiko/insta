@@ -171,6 +171,16 @@ impl Content {
         }
     }
 
+    /// Mutable version of [`resolve_inner`](Self::resolve_inner).
+    pub fn resolve_inner_mut(&mut self) -> &mut Content {
+        match *self {
+            Content::Some(ref mut v)
+            | Content::NewtypeStruct(_, ref mut v)
+            | Content::NewtypeVariant(_, _, _, ref mut v) => v.resolve_inner_mut(),
+            ref mut other => other,
+        }
+    }
+
     /// Returns the value as string
     pub fn as_str(&self) -> Option<&str> {
         match self.resolve_inner() {
