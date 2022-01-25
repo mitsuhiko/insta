@@ -31,6 +31,8 @@ fn test_unnamed_single_line() {
     assert_snapshot!("Testing-2");
 }
 
+// We used to use the thread name for snapshot name detection.  This is unreliable
+// so this test now basically does exactly the same as `test_unnamed_single_line`.
 #[test]
 fn test_unnamed_thread_single_line() {
     let builder = thread::Builder::new().name("foo::lol::something".into());

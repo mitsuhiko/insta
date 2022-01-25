@@ -6,7 +6,6 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::{Arc, Mutex};
-use std::thread;
 
 use once_cell::sync::Lazy;
 
@@ -76,59 +75,8 @@ pub enum ReferenceValue<'a> {
     Inline(&'a str),
 }
 
-#[cfg(feature = "backtrace")]
-fn test_name_from_backtrace(module_path: &str) -> Result<String, &'static str> {
-    let backtrace = backtrace::Backtrace::new();
-    let frames = backtrace.frames();
-    let mut found_run_wrapper = false;
-
-    for symbol in frames
-        .iter()
-        .rev()
-        .flat_map(|x| x.symbols())
-        .filter_map(|x| x.name())
-        .map(|x| format!("{}", x))
-    {
-        if !found_run_wrapper {
-            if symbol.starts_with("test::run_test::") {
-                found_run_wrapper = true;
-            }
-        } else if symbol.starts_with(module_path) {
-            let mut rv = &symbol[..symbol.len() - 19];
-            if rv.ends_with("::{{closure}}") {
-                rv = &rv[..rv.len() - 13];
-            }
-            return Ok(rv.to_string());
-        }
-    }
-
-    Err(
-        "Cannot determine test name from backtrace, no snapshot name \
-        can be generated. Did you forget to enable debug info?",
-    )
-}
-
-fn generate_snapshot_name_for_thread(module_path: &str) -> Result<String, &'static str> {
-    let thread = thread::current();
-    #[allow(unused_mut)]
-    let mut name = Cow::Borrowed(
-        thread
-            .name()
-            .ok_or("test thread is unnamed, no snapshot name can be generated.")?,
-    );
-    if name == "main" {
-        #[cfg(feature = "backtrace")]
-        {
-            name = Cow::Owned(test_name_from_backtrace(module_path)?);
-        }
-        #[cfg(not(feature = "backtrace"))]
-        {
-            return Err("tests run with disabled concurrency, automatic snapshot \
-                 name generation is not supported.  Consider using the \
-                 \"backtrace\" feature of insta which tries to recover test \
-                 names from the call stack.");
-        }
-    }
+fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String, &'static str> {
+    let name = Cow::Borrowed(function_name);
 
     // clean test name first
     let mut name = name.rsplit("::").next().unwrap();
@@ -230,6 +178,7 @@ impl<'a> SnapshotAssertionContext<'a> {
     fn prepare(
         refval: ReferenceValue<'a>,
         manifest_dir: &'a str,
+        function_name: &'a str,
         module_path: &'a str,
         assertion_file: &'a str,
         assertion_line: u32,
@@ -244,7 +193,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             ReferenceValue::Named(name) => {
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name),
-                    None => generate_snapshot_name_for_thread(module_path)
+                    None => detect_snapshot_name(function_name, module_path)
                         .unwrap()
                         .into(),
                 };
@@ -257,7 +206,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_file = Some(file);
             }
             ReferenceValue::Inline(contents) => {
-                snapshot_name = generate_snapshot_name_for_thread(module_path)
+                snapshot_name = detect_snapshot_name(function_name, module_path)
                     .ok()
                     .map(Cow::Owned);
                 let mut pending_file = cargo_workspace.join(assertion_file);
@@ -460,6 +409,7 @@ pub fn assert_snapshot(
     refval: ReferenceValue<'_>,
     new_snapshot_value: &str,
     manifest_dir: &str,
+    function_name: &str,
     module_path: &str,
     assertion_file: &str,
     assertion_line: u32,
@@ -468,6 +418,7 @@ pub fn assert_snapshot(
     let ctx = SnapshotAssertionContext::prepare(
         refval,
         manifest_dir,
+        function_name,
         module_path,
         assertion_file,
         assertion_line,

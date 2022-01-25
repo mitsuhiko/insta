@@ -1,7 +1,13 @@
 use std::env;
 use std::thread;
 
-use similar_asserts::assert_eq;
+fn test_foo_always_missing() {
+    insta::assert_debug_snapshot!(42);
+}
+
+fn foo_always_missing() {
+    insta::assert_debug_snapshot!(42);
+}
 
 #[test]
 fn test_clash_detection() {
@@ -11,17 +17,15 @@ fn test_clash_detection() {
     env::set_var("INSTA_FORCE_PASS", "0");
 
     let err1 = thread::Builder::new()
-        .name("test_foo_always_missing".into())
         .spawn(|| {
-            insta::assert_debug_snapshot!(42);
+            test_foo_always_missing();
         })
         .unwrap()
         .join()
         .unwrap_err();
     let err2 = thread::Builder::new()
-        .name("foo_always_missing".into())
         .spawn(|| {
-            insta::assert_debug_snapshot!(42);
+            foo_always_missing();
         })
         .unwrap()
         .join()
@@ -44,6 +48,6 @@ fn test_clash_detection() {
     values.sort();
     assert_eq!(&values[..], &vec![
         "Insta snapshot name clash detected between \'foo_always_missing\' and \'test_foo_always_missing\' in \'test_clash_detection\'. Rename one function.",
-        "snapshot assertion for \'foo_always_missing\' failed in line 16",
+        "snapshot assertion for \'foo_always_missing\' failed in line 5",
     ][..]);
 }

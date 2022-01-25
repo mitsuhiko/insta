@@ -1,3 +1,17 @@
+/// Utility macro to return the name of the current function.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _function_name {
+    () => {{
+        fn f() {}
+        fn type_name_of_val<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        let name = type_name_of_val(f).strip_suffix("::f").unwrap_or("");
+        name.strip_suffix("::{{closure}}").unwrap_or(name)
+    }};
+}
+
 /// Asserts a `Serialize` snapshot in CSV format.
 ///
 /// **Feature:** `csv` (disabled by default)
@@ -384,6 +398,7 @@ macro_rules! assert_snapshot {
             $name.into(),
             &$value,
             env!("CARGO_MANIFEST_DIR"),
+            $crate::_function_name!(),
             module_path!(),
             file!(),
             line!(),
