@@ -129,6 +129,31 @@ where
     Redaction::Dynamic(Box::new(move |c, p| func(c, p).into()))
 }
 
+/// Creates a dynamic redaction that sorts the value at the selector.
+///
+/// This is useful to force something like a set or map to be ordered by
+/// something predictable.  This is necessary as insta's serialization support
+/// is based on serde which does not have native set support.  As a result
+/// vectors (which need to retain order) and sets (which should be given a
+/// stable order) look the same.
+///
+/// ```rust
+/// # use insta::{Settings, sorted_redaction};
+/// # let mut settings = Settings::new();
+/// settings.add_redaction(".flags", sorted_redaction());
+/// ```
+pub fn sorted_redaction() -> Redaction {
+    dynamic_redaction(|mut value, _path| {
+        if let Content::Seq(ref mut val) = value {
+            val.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        }
+        if let Content::Map(ref mut val) = value {
+            val.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        }
+        value
+    })
+}
+
 impl Redaction {
     /// Performs the redaction of the value at the given path.
     fn redact(&self, value: Content, path: &[PathItem]) -> Content {
