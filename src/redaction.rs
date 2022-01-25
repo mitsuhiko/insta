@@ -143,7 +143,7 @@ where
 /// settings.add_redaction(".flags", sorted_redaction());
 /// ```
 pub fn sorted_redaction() -> Redaction {
-    dynamic_redaction(|mut value, _path| {
+    fn sort(mut value: Content, _path: ContentPath) -> Content {
         if let Content::Seq(ref mut val) = value {
             val.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
         }
@@ -151,7 +151,8 @@ pub fn sorted_redaction() -> Redaction {
             val.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
         }
         value
-    })
+    }
+    dynamic_redaction(sort)
 }
 
 impl Redaction {
