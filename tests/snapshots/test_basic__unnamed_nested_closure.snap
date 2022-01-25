@@ -1,0 +1,11 @@
+---
+source: tests/test_basic.rs
+assertion_line: 22
+expression: "vec![1, 2, 3]"
+
+---
+[
+    1,
+    2,
+    3,
+]

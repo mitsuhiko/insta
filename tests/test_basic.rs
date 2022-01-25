@@ -16,6 +16,15 @@ fn test_unnamed_debug_vector() {
 }
 
 #[test]
+fn test_unnamed_nested_closure() {
+    (|| {
+        (|| {
+            assert_debug_snapshot!(vec![1, 2, 3]);
+        })();
+    })();
+}
+
+#[test]
 fn test_yaml_vector() {
     assert_yaml_snapshot!("yaml_vector", vec![1, 2, 3]);
 }

@@ -7,8 +7,11 @@ macro_rules! _function_name {
         fn type_name_of_val<T>(_: T) -> &'static str {
             std::any::type_name::<T>()
         }
-        let name = type_name_of_val(f).strip_suffix("::f").unwrap_or("");
-        name.strip_suffix("::{{closure}}").unwrap_or(name)
+        let mut name = type_name_of_val(f).strip_suffix("::f").unwrap_or("");
+        while let Some(rest) = name.strip_suffix("::{{closure}}") {
+            name = rest;
+        }
+        name
     }};
 }
 
