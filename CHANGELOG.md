@@ -7,6 +7,19 @@ All notable changes to insta and cargo-insta are documented here.
 - Add support for sorting redactions (`sorted_redaction` and `Settings::sort_selector`). (#212)
 - Changed snapshot name detection to no longer use thread names but function names. (#213)
 
+**Upgrade Notes:**
+
+Insta used to detect the current test name by using the current thread name. This
+appeared to work well but unfortunatley ran into various limitations. In particular
+in some cases the thread name was truncated, missing or did not point to the current
+test name. To better support different platforms and situations insta now uses the
+function name instead.
+
+This however changes behavior. In particular if you are using a helper function to
+assert, a different snapshot name will now be used. You can work around this issue
+by using a helper macro instead or to explicitly pass a snapshot name in such
+situations.
+
 ## 1.11.0
 
 - Trim down some unnecessary dependencies and switch to `once_cell`. (#208)
@@ -23,7 +36,7 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.8.0
 
 - Added the ability to redact into a key. (#192)
-- Insta now memorizes assertion line numbers in snapshots.  While these
+- Insta now memorizes assertion line numbers in snapshots. While these
   will quickly be old, they are often useful when reviewing snapshots
   immediately after creation with `cargo-insta`. (#191)
 
