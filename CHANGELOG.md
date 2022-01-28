@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.13.0
+
+- Fixed a bug where an extra newline was emitted following the snapshot header.
+
 ## 1.12.0
 
 - Add support for sorting redactions (`sorted_redaction` and `Settings::sort_selector`). (#212)

@@ -274,7 +274,7 @@ impl Snapshot {
         }
         let mut f = fs::File::create(&path)?;
         serde_yaml::to_writer(&mut f, &self.metadata)?;
-        f.write_all(b"\n---\n")?;
+        f.write_all(b"---\n")?;
         f.write_all(self.contents_str().as_bytes())?;
         f.write_all(b"\n")?;
         Ok(())
