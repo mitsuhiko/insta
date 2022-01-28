@@ -1,5 +1,6 @@
 ---
 source: tests/test_redaction.rs
+assertion_line: 340
 expression: foo
 ---
 hm:
@@ -8,3 +9,4 @@ hm:
   : 42
 btm:
   "[key]": 23
+

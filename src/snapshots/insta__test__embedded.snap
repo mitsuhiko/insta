@@ -1,5 +1,6 @@
 ---
 source: src/test.rs
+assertion_line: 3
 expression: "\"Just a string\""
 ---
 Just a string

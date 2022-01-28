@@ -1,5 +1,6 @@
 ---
 source: tests/test_basic.rs
+assertion_line: 36
 expression: "vec![1, 2, 3, 4, 5]"
 ---
 - 1
@@ -7,3 +8,4 @@ expression: "vec![1, 2, 3, 4, 5]"
 - 3
 - 4
 - 5
+

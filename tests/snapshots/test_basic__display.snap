@@ -1,5 +1,6 @@
 ---
 source: tests/test_basic.rs
+assertion_line: 69
 expression: td
 ---
 TestDisplay struct

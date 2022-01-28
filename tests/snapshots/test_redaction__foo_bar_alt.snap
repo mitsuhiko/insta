@@ -1,5 +1,6 @@
 ---
 source: tests/test_redaction.rs
+assertion_line: 23
 expression: "Selector::parse(\".foo[\\\"bar\\\"]\").unwrap()"
 ---
 Selector {
