@@ -328,7 +328,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 if let Some(ref snapshot_file) = self.snapshot_file {
                     let mut new_path = snapshot_file.to_path_buf();
                     new_path.set_extension("snap.new");
-                    new_snapshot.save(&new_path)?;
+                    new_snapshot.save_new(&new_path)?;
                     if should_print {
                         elog!(
                             "{} {}",

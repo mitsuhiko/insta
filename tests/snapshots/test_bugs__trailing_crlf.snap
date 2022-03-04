@@ -1,6 +1,5 @@
 ---
 source: tests/test_bugs.rs
-assertion_line: 8
 expression: "\"foo\\r\\nbar\\r\\nbaz\\r\\n\""
 ---
 foo

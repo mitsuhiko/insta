@@ -1,6 +1,5 @@
 ---
 source: tests/test_glob.rs
-assertion_line: 7
 expression: "&contents"
 input_file: tests/inputs/hello.txt
 ---

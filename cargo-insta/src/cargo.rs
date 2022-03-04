@@ -221,7 +221,9 @@ impl SnapshotContainer {
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
                     Operation::Accept => {
-                        fs::rename(&self.snapshot_path, &self.target_path)?;
+                        let snapshot = Snapshot::from_file(&self.snapshot_path)?;
+                        snapshot.save(&self.target_path)?;
+                        fs::remove_file(&self.snapshot_path)?;
                     }
                     Operation::Reject => {
                         fs::remove_file(&self.snapshot_path)?;

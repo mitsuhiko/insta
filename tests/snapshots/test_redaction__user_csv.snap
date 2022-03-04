@@ -1,6 +1,5 @@
 ---
 source: tests/test_redaction.rs
-assertion_line: 85
 expression: "&User{id: 44,\n      username: \"julius_csv\".to_string(),\n      email: Email(\"julius@example.com\".to_string()),\n      extra: \"\".to_string(),}"
 ---
 id,username,email,extra
