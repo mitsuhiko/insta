@@ -5,6 +5,7 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.13.0
 
 - Fixed a bug where an extra newline was emitted following the snapshot header.
+- `assertion_line` is no longer retained in snapshots. (#218)
 
 ## 1.12.0
 

@@ -1,6 +1,5 @@
 ---
 source: tests/test_suffixes.rs
-assertion_line: 5
 expression: "&value"
 ---
 1

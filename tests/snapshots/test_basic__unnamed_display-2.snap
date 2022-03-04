@@ -1,6 +1,5 @@
 ---
 source: tests/test_basic.rs
-assertion_line: 76
 expression: "\"whatever\""
 ---
 whatever

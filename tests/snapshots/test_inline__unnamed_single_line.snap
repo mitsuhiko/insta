@@ -1,6 +1,5 @@
 ---
 source: tests/test_inline.rs
-assertion_line: 30
 expression: "\"Testing\""
 ---
 Testing

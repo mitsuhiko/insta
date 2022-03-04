@@ -267,17 +267,40 @@ impl Snapshot {
         &self.snapshot.0
     }
 
-    pub(crate) fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+    fn save_with_metadata<P: AsRef<Path>>(
+        &self,
+        path: P,
+        md: &MetaData,
+    ) -> Result<(), Box<dyn Error>> {
         let path = path.as_ref();
         if let Some(folder) = path.parent() {
             fs::create_dir_all(&folder)?;
         }
         let mut f = fs::File::create(&path)?;
-        serde_yaml::to_writer(&mut f, &self.metadata)?;
+        serde_yaml::to_writer(&mut f, md)?;
         f.write_all(b"---\n")?;
         f.write_all(self.contents_str().as_bytes())?;
         f.write_all(b"\n")?;
         Ok(())
+    }
+
+    /// Saves the snapshot.
+    #[doc(hidden)]
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+        // we do not want to retain the assertion line on the metadata when storing
+        // as a regular snapshot.
+        if self.metadata.assertion_line.is_some() {
+            let mut metadata = self.metadata.clone();
+            metadata.assertion_line = None;
+            self.save_with_metadata(path, &metadata)
+        } else {
+            self.save_with_metadata(path, &self.metadata)
+        }
+    }
+
+    /// Same as `save` but also holds information only relevant for `.new` files.
+    pub(crate) fn save_new<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+        self.save_with_metadata(path, &self.metadata)
     }
 }
 
