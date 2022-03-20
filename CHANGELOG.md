@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.14.0
+
+- Fixed a bug that caused insta to panic if inline snapshot assertions
+  moved since the time of the snapshot creation. (#220)
+
 ## 1.13.0
 
 - Fixed a bug where an extra newline was emitted following the snapshot header.
