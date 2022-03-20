@@ -128,15 +128,18 @@ impl SnapshotContainer {
                     pending_vec.sort_by_key(|pending| pending.line);
                     for (id, pending) in pending_vec.into_iter().enumerate() {
                         if let Some(new) = pending.new {
-                            snapshots.push(PendingSnapshot {
-                                id,
-                                old: pending.old,
-                                new,
-                                op: Operation::Skip,
-                                line: Some(pending.line),
-                            });
-                            patcher.add_snapshot_macro(pending.line as usize);
-                            have_new = true;
+                            if patcher.add_snapshot_macro(pending.line as usize) {
+                                snapshots.push(PendingSnapshot {
+                                    id,
+                                    old: pending.old,
+                                    new,
+                                    op: Operation::Skip,
+                                    line: Some(pending.line),
+                                });
+                                have_new = true;
+                            } else {
+                                // this is an outdated snapshot and the file changed.
+                            }
                         }
                     }
                     Some(patcher)
