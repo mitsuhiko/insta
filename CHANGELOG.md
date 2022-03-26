@@ -6,6 +6,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Fixed a bug that caused insta to panic if inline snapshot assertions
   moved since the time of the snapshot creation. (#220)
+- `cargo insta test` now returns non zero status code when snapshots
+  are left for review. (#222)
 
 ## 1.13.0
 
