@@ -667,6 +667,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 if snapshot_count != 1 { "s" } else { "" }
             );
             eprintln!("use `cargo insta review` to review snapshots");
+            return Err(QuietExit(1).into());
         } else {
             println!("{}: no snapshots to review", style("info").bold());
         }
