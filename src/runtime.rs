@@ -388,6 +388,15 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
     }
 
     if update_result != SnapshotUpdate::InPlace && !force_pass() {
+        if get_output_behavior() != OutputBehavior::Nothing {
+            println!(
+                "{hint}",
+                hint = style(
+                    "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
+                )
+                .dim(),
+            );
+        }
         panic!(
             "snapshot assertion for '{}' failed in line {}",
             ctx.snapshot_name
