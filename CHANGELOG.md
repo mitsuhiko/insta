@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.14.1
+
+- Use inline block format also for strings of form `"foo\n"`. (#225)
+
 ## 1.14.0
 
 - Fixed a bug that caused insta to panic if inline snapshot assertions
