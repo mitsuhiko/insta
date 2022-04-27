@@ -317,12 +317,12 @@ impl SnapshotContents {
     pub fn to_inline(&self, indentation: usize) -> String {
         let contents = &self.0;
         let mut out = String::new();
-        let is_escape = contents.lines().count() > 1 || contents.contains(&['\\', '"'][..]);
+        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
 
         out.push_str(if is_escape { "r###\"" } else { "\"" });
         // if we have more than one line we want to change into the block
         // representation mode
-        if contents.lines().count() > 1 {
+        if contents.contains('\n') {
             out.extend(
                 contents
                     .lines()
@@ -509,6 +509,16 @@ b"[1..];
     a
 
     b
+\"###"
+    );
+
+    let t = &"
+    ab
+"[1..];
+    assert_eq!(
+        SnapshotContents(t.to_string()).to_inline(0),
+        "r###\"
+    ab
 \"###"
     );
 
