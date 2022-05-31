@@ -4,6 +4,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.14.1
 
+- Update uuid crate to 1.0.0. (#228)
 - Use inline block format also for strings of form `"foo\n"`. (#225)
 
 ## 1.14.0
