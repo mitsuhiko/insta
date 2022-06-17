@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.15.0
+
+- Bump minimum version of Rust to 1.56.1.  This was done because the used
+  serde-yaml dependency no longer supports older versions of Rust.
+
 ## 1.14.1
 
 - Update uuid crate to 1.0.0. (#228)
