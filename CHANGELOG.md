@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 0.16.0
+
+- Added `--no-quiet`/`-Q` flag to `cargo insta test` to suppress the
+  quiet flag. This works around limitations with custom test harnesses
+  such as cucumber.
+
 ## 1.15.0
 
 - Bump minimum version of Rust to 1.56.1.  This was done because the used
