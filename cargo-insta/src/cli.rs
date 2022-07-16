@@ -140,6 +140,9 @@ pub struct TestCommand {
     /// Delete unreferenced snapshots after the test run.
     #[structopt(long)]
     pub delete_unreferenced_snapshots: bool,
+    /// Do not pass the quiet flag (`-q`) to tests.
+    #[structopt(short = "Q", long)]
+    pub no_quiet: bool,
     /// Options passed to cargo test
     // Sets raw to true so that `--` is required
     #[structopt(name = "cargo_options", raw(true))]
@@ -557,8 +560,11 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     proc.arg("--color");
     proc.arg(color);
     proc.args(cmd.cargo_options);
-    proc.arg("--");
-    proc.arg("-q");
+
+    if !cmd.no_quiet {
+        proc.arg("--");
+        proc.arg("-q");
+    }
 
     if !cmd.keep_pending {
         process_snapshots(
