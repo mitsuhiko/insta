@@ -335,9 +335,9 @@ fn test_map_key_redaction() {
     );
     let mut btm = BTreeMap::new();
     btm.insert((0, 0), 23);
-    let foo = Foo { hm, btm };
+    let foo_value = Foo { hm, btm };
 
-    insta::assert_yaml_snapshot!(foo, {
+    insta::assert_yaml_snapshot!(foo_value, {
         ".hm.$key.bucket" => "[bucket]",
         ".btm.$key" => "[key]",
     });

@@ -139,7 +139,7 @@ pub fn print_changeset(old: &str, new: &str, expr: Option<&str>) {
             println!("┈┈┈┈┈┈┈┈┈┈┈┈┼{:┈^1$}", "", width.saturating_sub(13));
         }
         for op in group {
-            for change in diff.iter_inline_changes(&op) {
+            for change in diff.iter_inline_changes(op) {
                 match change.tag() {
                     ChangeTag::Insert => {
                         has_changes = true;

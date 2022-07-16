@@ -154,7 +154,7 @@ fn get_snapshot_filename(
                 write!(
                     &mut f,
                     "{}.snap",
-                    snapshot_name.replace("/", "__").replace("\\", "__")
+                    snapshot_name.replace('/', "__").replace('\\', "__")
                 )
                 .unwrap();
                 f

@@ -17,6 +17,7 @@ fn test_unnamed_debug_vector() {
 
 #[test]
 fn test_unnamed_nested_closure() {
+    #![allow(clippy::redundant_closure_call)]
     (|| {
         (|| {
             assert_debug_snapshot!(vec![1, 2, 3]);

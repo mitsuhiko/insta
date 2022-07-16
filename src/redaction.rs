@@ -349,7 +349,7 @@ impl<'a> Selector<'a> {
         match *segment {
             Segment::Wildcard => true,
             Segment::DeepWildcard => true,
-            Segment::Key(ref k) => element.as_str() == Some(&k),
+            Segment::Key(ref k) => element.as_str() == Some(k),
             Segment::Index(i) => element.as_u64() == Some(i),
             Segment::Range(start, end) => element.range_check(start, end),
         }
@@ -392,7 +392,7 @@ impl<'a> Selector<'a> {
 
     pub fn is_match(&self, path: &[PathItem]) -> bool {
         for selector in &self.selectors {
-            if self.selector_is_match(&selector, path) {
+            if self.selector_is_match(selector, path) {
                 return true;
             }
         }
@@ -443,7 +443,7 @@ impl<'a> Selector<'a> {
         redaction: &Redaction,
         path: &mut Vec<PathItem>,
     ) -> Content {
-        if self.is_match(&path) {
+        if self.is_match(path) {
             redaction.redact(value, path)
         } else {
             match value {
@@ -454,7 +454,7 @@ impl<'a> Selector<'a> {
                             let new_key = self.redact_impl(key.clone(), redaction, path);
                             path.pop();
 
-                            path.push(PathItem::Content(key.clone()));
+                            path.push(PathItem::Content(key));
                             let new_value = self.redact_impl(value, redaction, path);
                             path.pop();
 
