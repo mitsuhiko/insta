@@ -230,7 +230,7 @@ impl Content {
             Content::I128(val) => Key::I128(val),
             Content::F32(val) => Key::F64(val.into()),
             Content::F64(val) => Key::F64(val),
-            Content::String(ref val) => Key::Str(&val.as_str()),
+            Content::String(ref val) => Key::Str(val.as_str()),
             Content::Bytes(ref val) => Key::Bytes(&val[..]),
             _ => Key::Other,
         }

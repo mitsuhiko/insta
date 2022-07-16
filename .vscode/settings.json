@@ -4,4 +4,5 @@
     "rust-analyzer.cargo.allFeatures": true,
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
+    "rust-analyzer.checkOnSave.command": "clippy",
 }

@@ -109,7 +109,7 @@ pub fn serialize_value_redacted<S: Serialize>(
     let serializer = ContentSerializer::<ValueError>::new();
     let mut content = Serialize::serialize(s, serializer).unwrap();
     for (selector, redaction) in redactions {
-        content = selector.redact(content, &redaction);
+        content = selector.redact(content, redaction);
     }
     serialize_content(content, format, location)
 }
