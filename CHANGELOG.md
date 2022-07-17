@@ -7,6 +7,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Added `--no-quiet`/`-Q` flag to `cargo insta test` to suppress the
   quiet flag. This works around limitations with custom test harnesses
   such as cucumber.
+- Update RON to 0.7.1.
 - Improved ergonomics around `with_settings!`.  It's now a perfect match to
   the settings object's setter methods.
 - Added `description` to snapshots.

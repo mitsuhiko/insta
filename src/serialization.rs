@@ -74,7 +74,13 @@ pub fn serialize_content(
             let mut config = ron::ser::PrettyConfig::new();
             config.new_line = "\n".to_string();
             config.indentor = "  ".to_string();
-            let mut serializer = ron::ser::Serializer::new(&mut buf, Some(config), true).unwrap();
+            config.struct_names = true;
+            let mut serializer = ron::ser::Serializer::with_options(
+                &mut buf,
+                Some(config),
+                ron::options::Options::default(),
+            )
+            .unwrap();
             content.serialize(&mut serializer).unwrap();
             String::from_utf8(buf).unwrap()
         }
