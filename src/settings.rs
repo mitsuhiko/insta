@@ -86,6 +86,11 @@ impl ActualSettings {
         self.prepend_module_to_snapshot = value;
     }
 
+    #[cfg(feature = "redactions")]
+    pub fn redactions<R: Into<Redactions>>(&mut self, r: R) {
+        self.redactions = r.into();
+    }
+
     #[cfg(feature = "glob")]
     pub fn allow_empty_glob(&mut self, value: bool) {
         self.allow_empty_glob = value;
