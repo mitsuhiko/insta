@@ -16,7 +16,7 @@ use crate::env::{
 use crate::output::{print_snapshot_diff_with_title, print_snapshot_summary_with_title};
 use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
-use crate::utils::style;
+use crate::utils::{path_to_storage, style};
 
 static TEST_NAME_COUNTERS: Lazy<Mutex<BTreeMap<String, usize>>> =
     Lazy::new(|| Mutex::new(BTreeMap::new()));
@@ -258,12 +258,16 @@ impl<'a> SnapshotAssertionContext<'a> {
         Snapshot::from_components(
             self.module_path.replace("::", "__"),
             self.snapshot_name.as_ref().map(|x| x.to_string()),
-            MetaData::new(
-                self.assertion_file,
-                expr,
-                Some(self.assertion_line),
-                Settings::with(|s| s.input_file().and_then(|x| self.localize_path(x))),
-            ),
+            Settings::with(|settings| MetaData {
+                source: Some(path_to_storage(self.assertion_file)),
+                assertion_line: Some(self.assertion_line),
+                description: settings.description().map(Into::into),
+                expression: Some(expr.to_string()),
+                input_file: settings
+                    .input_file()
+                    .and_then(|x| self.localize_path(x))
+                    .map(path_to_storage),
+            }),
             contents,
         )
     }

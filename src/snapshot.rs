@@ -7,8 +7,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::path_to_storage;
-
 static RUN_ID: Lazy<String> = Lazy::new(|| {
     let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
     format!("{}-{}", d.as_secs(), d.subsec_nanos())
@@ -74,6 +72,9 @@ pub struct MetaData {
     /// The source line if available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) assertion_line: Option<u32>,
+    /// Optional human readable (non formatted) snapshot description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) description: Option<String>,
     /// Optionally the expression that created the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) expression: Option<String>,
@@ -83,21 +84,6 @@ pub struct MetaData {
 }
 
 impl MetaData {
-    /// Creates a new metadata from the given inputs.
-    pub(crate) fn new(
-        source: &str,
-        expr: &str,
-        assertion_line: Option<u32>,
-        input_file: Option<PathBuf>,
-    ) -> MetaData {
-        MetaData {
-            source: Some(path_to_storage(source)),
-            expression: Some(expr.to_string()),
-            assertion_line,
-            input_file: input_file.map(path_to_storage),
-        }
-    }
-
     /// Returns the absolute source path.
     pub fn source(&self) -> Option<&str> {
         self.source.as_deref()
@@ -111,6 +97,11 @@ impl MetaData {
     /// Returns the expression that created the snapshot.
     pub fn expression(&self) -> Option<&str> {
         self.expression.as_deref()
+    }
+
+    /// Returns the description that created the snapshot.
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref().filter(|x| !x.is_empty())
     }
 
     /// Returns the relative source path.

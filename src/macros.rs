@@ -418,8 +418,8 @@ macro_rules! assert_snapshot {
 ///
 /// This macro lets you bind some settings temporarily.  The first argument
 /// takes key value pairs that should be set, the second is the block to
-/// execute.  All settings can be set (`sort_maps => value` maps roughly
-/// to `set_sort_maps(value)`).
+/// execute.  All settings can be set (`sort_maps => value` maps to `set_sort_maps(value)`).
+/// The exception are redactions which cannot be set this way.
 ///
 /// ```rust
 /// insta::with_settings!({sort_maps => true}, {
@@ -431,7 +431,7 @@ macro_rules! with_settings {
     ({$($k:ident => $v:expr),*$(,)?}, $body:block) => {{
         let mut settings = $crate::Settings::new();
         $(
-            settings._private_inner_mut().$k = $v.into();
+            settings._private_inner_mut().$k($v);
         )*
         settings.bind(|| $body)
     }}

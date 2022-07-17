@@ -74,3 +74,10 @@ fn test_snapshot_no_module_prepending() {
         assert_yaml_snapshot!(vec![1, 2, 3]);
     });
 }
+
+#[test]
+fn test_snapshot_with_description() {
+    with_settings!({description => "The snapshot are three integers"}, {
+        assert_yaml_snapshot!(vec![1, 2, 3])
+    });
+}

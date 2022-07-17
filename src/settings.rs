@@ -19,6 +19,7 @@ static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
         snapshot_path: "snapshots".into(),
         snapshot_suffix: "".into(),
         input_file: None,
+        description: None,
         prepend_module_to_snapshot: true,
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
@@ -52,11 +53,43 @@ pub struct ActualSettings {
     pub snapshot_path: PathBuf,
     pub snapshot_suffix: String,
     pub input_file: Option<PathBuf>,
+    pub description: Option<String>,
     pub prepend_module_to_snapshot: bool,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
     #[cfg(feature = "glob")]
     pub allow_empty_glob: bool,
+}
+
+impl ActualSettings {
+    pub fn sort_maps(&mut self, value: bool) {
+        self.sort_maps = value;
+    }
+
+    pub fn snapshot_path<P: AsRef<Path>>(&mut self, path: P) {
+        self.snapshot_path = path.as_ref().to_path_buf();
+    }
+
+    pub fn snapshot_suffix<I: Into<String>>(&mut self, suffix: I) {
+        self.snapshot_suffix = suffix.into();
+    }
+
+    pub fn input_file<P: AsRef<Path>>(&mut self, p: P) {
+        self.input_file = Some(p.as_ref().to_path_buf());
+    }
+
+    pub fn description<S: Into<String>>(&mut self, value: S) {
+        self.description = Some(value.into());
+    }
+
+    pub fn prepend_module_to_snapshot(&mut self, value: bool) {
+        self.prepend_module_to_snapshot = value;
+    }
+
+    #[cfg(feature = "glob")]
+    pub fn allow_empty_glob(&mut self, value: bool) {
+        self.allow_empty_glob = value;
+    }
 }
 
 /// Configures how insta operates at test time.
@@ -143,7 +176,7 @@ impl Settings {
     ///
     /// The default value is `true`.
     pub fn set_prepend_module_to_snapshot(&mut self, value: bool) {
-        self._private_inner_mut().prepend_module_to_snapshot = value;
+        self._private_inner_mut().prepend_module_to_snapshot(value);
     }
 
     /// Returns the current value for module name prepending.
@@ -160,7 +193,7 @@ impl Settings {
     /// The default value is `false`.
     #[cfg(feature = "glob")]
     pub fn set_allow_empty_glob(&mut self, value: bool) {
-        self._private_inner_mut().allow_empty_glob = value;
+        self._private_inner_mut().allow_empty_glob(value);
     }
 
     /// Returns the current value for the empty glob setting.
@@ -177,7 +210,7 @@ impl Settings {
     /// This is useful to separate snapshots if you want to use test
     /// parameterization.
     pub fn set_snapshot_suffix<I: Into<String>>(&mut self, suffix: I) {
-        self._private_inner_mut().snapshot_suffix = suffix.into();
+        self._private_inner_mut().snapshot_suffix(suffix);
     }
 
     /// Removes the snapshot suffix.
@@ -201,7 +234,7 @@ impl Settings {
     /// to the input file.  The path stored here is made relative to the
     /// workspace root before storing with the snapshot.
     pub fn set_input_file<P: AsRef<Path>>(&mut self, p: P) {
-        self._private_inner_mut().input_file = Some(p.as_ref().to_path_buf());
+        self._private_inner_mut().input_file(p);
     }
 
     /// Removes the input file reference.
@@ -212,6 +245,24 @@ impl Settings {
     /// Returns the current input file reference.
     pub fn input_file(&self) -> Option<&Path> {
         self.inner.input_file.as_deref()
+    }
+
+    /// Sets the description.
+    ///
+    /// The description is stored alongside the snapshot and will be displayed
+    /// in the diff UI.
+    pub fn set_description<S: Into<String>>(&mut self, value: S) {
+        self._private_inner_mut().description(value);
+    }
+
+    /// Removes the description.
+    pub fn remove_description(&mut self) {
+        self._private_inner_mut().description = None;
+    }
+
+    /// Returns the current description
+    pub fn description(&self) -> Option<&str> {
+        self.inner.description.as_deref()
     }
 
     /// Registers redactions that should be applied.
@@ -283,7 +334,7 @@ impl Settings {
     ///
     /// Defaults to `snapshots`.
     pub fn set_snapshot_path<P: AsRef<Path>>(&mut self, path: P) {
-        self._private_inner_mut().snapshot_path = path.as_ref().to_path_buf();
+        self._private_inner_mut().snapshot_path(path);
     }
 
     /// Returns the snapshot path.
