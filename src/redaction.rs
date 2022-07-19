@@ -9,7 +9,7 @@ use crate::content::Content;
 pub struct SelectorParseError(pest::error::Error<Rule>);
 
 impl SelectorParseError {
-    /// Return the column of where the error ocurred.
+    /// Return the column of where the error occurred.
     pub fn column(&self) -> usize {
         match self.0.line_col {
             pest::error::LineColLocation::Pos((_, col)) => col,
