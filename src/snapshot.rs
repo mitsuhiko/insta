@@ -78,6 +78,9 @@ pub struct MetaData {
     /// Optionally the expression that created the snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) expression: Option<String>,
+    /// An optional arbitrary structured info object.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) info: Option<serde_yaml::Value>,
     /// Reference to the input file.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) input_file: Option<String>,
@@ -102,6 +105,12 @@ impl MetaData {
     /// Returns the description that created the snapshot.
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref().filter(|x| !x.is_empty())
+    }
+
+    /// Returns the embedded info.
+    #[doc(hidden)]
+    pub fn private_info(&self) -> Option<&serde_yaml::Value> {
+        self.info.as_ref()
     }
 
     /// Returns the relative source path.

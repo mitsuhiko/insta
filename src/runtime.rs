@@ -263,6 +263,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 assertion_line: Some(self.assertion_line),
                 description: settings.description().map(Into::into),
                 expression: Some(expr.to_string()),
+                info: settings.info(),
                 input_file: settings
                     .input_file()
                     .and_then(|x| self.localize_path(x))

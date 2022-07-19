@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use once_cell::sync::Lazy;
+use serde::Serialize;
 
 #[cfg(feature = "redactions")]
 use crate::{
@@ -20,6 +21,7 @@ static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
         snapshot_suffix: "".into(),
         input_file: None,
         description: None,
+        info: None,
         prepend_module_to_snapshot: true,
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
@@ -54,6 +56,7 @@ pub struct ActualSettings {
     pub snapshot_suffix: String,
     pub input_file: Option<PathBuf>,
     pub description: Option<String>,
+    pub info: Option<serde_yaml::Value>,
     pub prepend_module_to_snapshot: bool,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
@@ -80,6 +83,10 @@ impl ActualSettings {
 
     pub fn description<S: Into<String>>(&mut self, value: S) {
         self.description = Some(value.into());
+    }
+
+    pub fn info<S: Serialize>(&mut self, value: &S) {
+        self.info = Some(serde_yaml::to_value(value).unwrap());
     }
 
     pub fn prepend_module_to_snapshot(&mut self, value: bool) {
@@ -268,6 +275,26 @@ impl Settings {
     /// Returns the current description
     pub fn description(&self) -> Option<&str> {
         self.inner.description.as_deref()
+    }
+
+    /// Sets the info.
+    pub fn set_info<S: Serialize>(&mut self, value: &S) {
+        self._private_inner_mut().info(value);
+    }
+
+    /// Removes the info.
+    pub fn remove_info(&mut self) {
+        self._private_inner_mut().info = None;
+    }
+
+    /// Returns the current info
+    pub(crate) fn info(&self) -> Option<serde_yaml::Value> {
+        self.inner.info.clone()
+    }
+
+    /// Returns the current info
+    pub fn has_info(&self) -> bool {
+        self.inner.info.is_some()
     }
 
     /// Registers redactions that should be applied.

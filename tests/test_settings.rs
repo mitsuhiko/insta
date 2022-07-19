@@ -81,3 +81,19 @@ fn test_snapshot_with_description() {
         assert_yaml_snapshot!(vec![1, 2, 3])
     });
 }
+
+#[test]
+fn test_snapshot_with_description_and_info() {
+    #[derive(serde::Serialize)]
+    pub struct Info {
+        env: std::collections::HashMap<&'static str, &'static str>,
+        cmdline: Vec<&'static str>,
+    }
+    let info = Info {
+        env: From::from([("ENVIRONMENT", "production")]),
+        cmdline: vec!["my-tool", "run"],
+    };
+    with_settings!({description => "The snapshot are four integers", info => &info}, {
+        assert_yaml_snapshot!(vec![1, 2, 3, 4])
+    });
+}

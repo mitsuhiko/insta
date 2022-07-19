@@ -59,6 +59,7 @@ pub fn print_snapshot_diff(
     old_snapshot: Option<&Snapshot>,
     snapshot_file: Option<&Path>,
     mut line: Option<u32>,
+    show_info: bool,
 ) {
     // default to old assertion line from snapshot.
     if line.is_none() {
@@ -68,13 +69,7 @@ pub fn print_snapshot_diff(
     print_snapshot_summary(workspace_root, new, snapshot_file, line);
     let old_contents = old_snapshot.as_ref().map_or("", |x| x.contents_str());
     let new_contents = new.contents_str();
-    if !old_contents.is_empty() {
-        println!("{}", style("-old snapshot").red());
-        println!("{}", style("+new results").green());
-    } else {
-        println!("{}", style("+new results").green());
-    }
-    print_changeset(old_contents, new_contents, new.metadata());
+    print_changeset(old_contents, new_contents, new.metadata(), show_info);
 }
 
 pub fn print_snapshot_diff_with_title(
@@ -96,6 +91,7 @@ pub fn print_snapshot_diff_with_title(
         old_snapshot,
         snapshot_file,
         Some(line),
+        true,
     );
 }
 
@@ -117,20 +113,37 @@ pub fn print_snapshot_summary_with_title(
     println!("{title:━^width$}", title = "", width = width);
 }
 
-pub fn print_changeset(old: &str, new: &str, metadata: &MetaData) {
+pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: bool) {
     let width = term_width();
     let diff = TextDiff::configure()
         .algorithm(Algorithm::Patience)
         .timeout(Duration::from_millis(500))
         .diff_lines(old, new);
+    println!("{:─^1$}", "", width);
 
-    if let Some(expr) = metadata.expression() {
-        println!("{:─^1$}", "", width);
-        println!("{}", style(format_rust_expression(expr)));
+    if show_info {
+        if let Some(expr) = metadata.expression() {
+            println!("Expression: {}", style(format_rust_expression(expr)));
+            println!("{:─^1$}", "", width);
+        }
+
+        if let Some(descr) = metadata.description() {
+            println!("{}", descr);
+            println!("{:─^1$}", "", width);
+        }
+
+        if let Some(info) = metadata.private_info() {
+            let out = serde_yaml::to_string(&info).unwrap();
+            println!("{}", out.trim().strip_prefix("---").unwrap().trim_start());
+            println!("{:─^1$}", "", width);
+        }
     }
-    if let Some(descr) = metadata.description() {
-        println!("{:─^1$}", "", width);
-        println!("{}", descr);
+
+    if !old.is_empty() {
+        println!("{}", style("-old snapshot").red());
+        println!("{}", style("+new results").green());
+    } else {
+        println!("{}", style("+new results").green());
     }
 
     println!("────────────┬{:─^1$}", "", width.saturating_sub(13));
