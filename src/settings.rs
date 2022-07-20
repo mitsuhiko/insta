@@ -262,7 +262,12 @@ impl Settings {
     /// Sets the description.
     ///
     /// The description is stored alongside the snapshot and will be displayed
-    /// in the diff UI.
+    /// in the diff UI.  When a snapshot is captured the Rust expression for that
+    /// snapshot is always retained.  However sometimes that information is not
+    /// super useful by itself, particularly when working with loops and generated
+    /// tests.  In that case the `description` can be set as extra information.
+    ///
+    /// See also [`set_info`](Self::set_info).
     pub fn set_description<S: Into<String>>(&mut self, value: S) {
         self._private_inner_mut().description(value);
     }
@@ -278,6 +283,14 @@ impl Settings {
     }
 
     /// Sets the info.
+    ///
+    /// The `info` is similar to `description` but for structured data.  This is
+    /// stored with the snapshot and shown in the review UI.  This for instance
+    /// can be used to show extended information that can make a reviewer better
+    /// understand what the snapshot is supposed to be testing.
+    ///
+    /// As an example the input paramters to the function that creates the snapshot
+    /// can be persisted here.
     pub fn set_info<S: Serialize>(&mut self, value: &S) {
         self._private_inner_mut().info(value);
     }
