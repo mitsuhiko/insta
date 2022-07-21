@@ -170,46 +170,61 @@ fn query_snapshot(
     i: usize,
     n: usize,
     snapshot_file: Option<&Path>,
+    show_info: &mut bool,
 ) -> Result<Operation, Box<dyn Error>> {
-    term.clear_screen()?;
-    println!(
-        "{}{}{}",
-        style("Reviewing [").bold(),
-        style(format!("{}/{}", i, n)).yellow().bold(),
-        style("]:").bold(),
-    );
-
-    if let Some(pkg) = pkg {
-        println!("Package: {} ({})", style(pkg.name()).dim(), pkg.version());
-    } else {
-        println!();
-    }
-
-    print_snapshot_diff(workspace_root, new, old, snapshot_file, line);
-
-    println!();
-    println!(
-        "  {} accept   {}",
-        style("a").green().bold(),
-        style("keep the new snapshot").dim()
-    );
-    println!(
-        "  {} reject   {}",
-        style("r").red().bold(),
-        style("keep the old snapshot").dim()
-    );
-    println!(
-        "  {} skip     {}",
-        style("s").yellow().bold(),
-        style("keep both for now").dim()
-    );
-
     loop {
-        match term.read_key()? {
-            Key::Char('a') | Key::Enter => break Ok(Operation::Accept),
-            Key::Char('r') | Key::Escape => break Ok(Operation::Reject),
-            Key::Char('s') | Key::Char(' ') => break Ok(Operation::Skip),
-            _ => {}
+        term.clear_screen()?;
+        let (pkg_name, pkg_version) = if let Some(pkg) = pkg {
+            (pkg.name(), pkg.version())
+        } else {
+            ("unknown package", "unknown version")
+        };
+
+        println!(
+            "{}{}{} {}@{}:",
+            style("Reviewing [").bold(),
+            style(format!("{}/{}", i, n)).yellow().bold(),
+            style("]").bold(),
+            pkg_name,
+            pkg_version,
+        );
+
+        print_snapshot_diff(workspace_root, new, old, snapshot_file, line, *show_info);
+
+        println!();
+        println!(
+            "  {} accept     {}",
+            style("a").green().bold(),
+            style("keep the new snapshot").dim()
+        );
+        println!(
+            "  {} reject     {}",
+            style("r").red().bold(),
+            style("keep the old snapshot").dim()
+        );
+        println!(
+            "  {} skip       {}",
+            style("s").yellow().bold(),
+            style("keep both for now").dim()
+        );
+        println!(
+            "  {} {} info  {}",
+            style("i").cyan().bold(),
+            if *show_info { "hide" } else { "show" },
+            style("toggles extended snapshot info").dim()
+        );
+
+        loop {
+            match term.read_key()? {
+                Key::Char('a') | Key::Enter => return Ok(Operation::Accept),
+                Key::Char('r') | Key::Escape => return Ok(Operation::Reject),
+                Key::Char('s') | Key::Char(' ') => return Ok(Operation::Skip),
+                Key::Char('i') => {
+                    *show_info = !*show_info;
+                    break;
+                }
+                _ => {}
+            }
         }
     }
 }
@@ -340,6 +355,7 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
     let mut rejected = vec![];
     let mut skipped = vec![];
     let mut num = 0;
+    let mut show_info = true;
 
     for (snapshot_container, package) in snapshot_containers.iter_mut() {
         let target_file = snapshot_container.target_file().to_path_buf();
@@ -371,6 +387,7 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
                     num,
                     snapshot_count,
                     snapshot_file.as_ref().map(|x| x.as_path()),
+                    &mut show_info,
                 )?,
             };
             match op {
