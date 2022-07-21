@@ -8,6 +8,7 @@ All notable changes to insta and cargo-insta are documented here.
   quiet flag. This works around limitations with custom test harnesses
   such as cucumber.
 - Update RON to 0.7.1.
+- Added improved support for running insta from doctests. (#243)
 
 ## 1.15.0
 
