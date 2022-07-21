@@ -36,7 +36,7 @@
 //!
 //! # Writing Tests
 //!
-//! ```no_run
+//! ```
 //! use insta::assert_debug_snapshot;
 //!
 //! #[test]
