@@ -10,7 +10,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Update RON to 0.7.1.
 - Improved ergonomics around `with_settings!`.  It's now a perfect match to
   the settings object's setter methods.
-- Added `description` to snapshots.
+- Added `description` and `info` to snapshots. (#239)
 
 ## 1.15.0
 
