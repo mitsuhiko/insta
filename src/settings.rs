@@ -22,6 +22,7 @@ static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
         input_file: None,
         description: None,
         info: None,
+        omit_expression: false,
         prepend_module_to_snapshot: true,
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
@@ -57,6 +58,7 @@ pub struct ActualSettings {
     pub input_file: Option<PathBuf>,
     pub description: Option<String>,
     pub info: Option<serde_yaml::Value>,
+    pub omit_expression: bool,
     pub prepend_module_to_snapshot: bool,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
@@ -87,6 +89,10 @@ impl ActualSettings {
 
     pub fn info<S: Serialize>(&mut self, value: &S) {
         self.info = Some(serde_yaml::to_value(value).unwrap());
+    }
+
+    pub fn omit_expression(&mut self, value: bool) {
+        self.omit_expression = value;
     }
 
     pub fn prepend_module_to_snapshot(&mut self, value: bool) {
@@ -308,6 +314,16 @@ impl Settings {
     /// Returns the current info
     pub fn has_info(&self) -> bool {
         self.inner.info.is_some()
+    }
+
+    /// If set to true, does not retain the expression in the snapshot.
+    pub fn set_omit_expression(&mut self, value: bool) {
+        self._private_inner_mut().omit_expression(value);
+    }
+
+    /// Returns true if expressions are omitted from snapshots.
+    pub fn omit_expression(&self) -> bool {
+        self.inner.omit_expression
     }
 
     /// Registers redactions that should be applied.

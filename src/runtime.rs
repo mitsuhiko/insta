@@ -262,7 +262,11 @@ impl<'a> SnapshotAssertionContext<'a> {
                 source: Some(path_to_storage(self.assertion_file)),
                 assertion_line: Some(self.assertion_line),
                 description: settings.description().map(Into::into),
-                expression: Some(expr.to_string()),
+                expression: if settings.omit_expression() {
+                    None
+                } else {
+                    Some(expr.to_string())
+                },
                 info: settings.info(),
                 input_file: settings
                     .input_file()

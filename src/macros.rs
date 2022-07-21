@@ -432,6 +432,7 @@ macro_rules! assert_snapshot {
 /// Is equivalent to the following:
 ///
 /// ```rust
+/// # use insta::Settings;
 /// let mut settings = Settings::new();
 /// settings.set_sort_maps(true);
 /// settings.bind(|| {
