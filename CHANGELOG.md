@@ -11,6 +11,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Improved ergonomics around `with_settings!`.  It's now a perfect match to
   the settings object's setter methods.
 - Added `description` and `info` to snapshots. (#239)
+- Added `omit_expression` setting. (#239)
 
 ## 1.15.0
 
