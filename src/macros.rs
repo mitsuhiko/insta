@@ -107,7 +107,7 @@ macro_rules! assert_toml_snapshot {
 /// snapshot variant the type of the value does not appear in the output.
 /// You can however use the `assert_ron_snapshot!` macro to dump out
 /// the value in [RON](https://github.com/ron-rs/ron/) format which retains some
-/// type information for more accurate comparisions.
+/// type information for more accurate comparisons.
 ///
 /// Example:
 ///
@@ -170,7 +170,7 @@ macro_rules! assert_yaml_snapshot {
 ///
 /// This works exactly like [`assert_yaml_snapshot!`]
 /// but serializes in [RON](https://github.com/ron-rs/ron/) format instead of
-/// YAML which retains some type information for more accurate comparisions.
+/// YAML which retains some type information for more accurate comparisons.
 ///
 /// Example:
 ///
