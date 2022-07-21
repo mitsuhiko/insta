@@ -12,6 +12,7 @@ All notable changes to insta and cargo-insta are documented here.
   the settings object's setter methods.
 - Added `description` and `info` to snapshots. (#239)
 - Added `omit_expression` setting. (#239)
+- Added improved support for running insta from doctests. (#243)
 
 ## 1.15.0
 
@@ -44,7 +45,7 @@ All notable changes to insta and cargo-insta are documented here.
 **Upgrade Notes:**
 
 Insta used to detect the current test name by using the current thread name. This
-appeared to work well but unfortunatley ran into various limitations. In particular
+appeared to work well but unfortunately ran into various limitations. In particular
 in some cases the thread name was truncated, missing or did not point to the current
 test name. To better support different platforms and situations insta now uses the
 function name instead.

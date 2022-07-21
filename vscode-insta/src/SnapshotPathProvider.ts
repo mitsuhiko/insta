@@ -189,7 +189,7 @@ export class SnapshotPathProvider implements DefinitionProvider {
     }
 
     // we try to find the file in three passes:
-    // - exact matchin the snapshot folder.
+    // - exact matching the snapshot folder.
     // - with a wildcard module prefix (crate__foo__NAME__SNAP)
     // - with a wildcard module prefix and suffix (crate__foo__NAME__tests__SNAP)
     // This is needed since snapshots can be contained in submodules. Since

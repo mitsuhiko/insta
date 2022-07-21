@@ -75,11 +75,20 @@ pub enum ReferenceValue<'a> {
     Inline(&'a str),
 }
 
+fn is_doctest(function_name: &str) -> bool {
+    function_name.starts_with("rust_out::main::_doctest")
+}
+
 fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String, &'static str> {
-    let name = Cow::Borrowed(function_name);
+    let mut name = function_name;
+
+    // simplify doctest names
+    if is_doctest(name) {
+        name = "unnamed_doctest";
+    }
 
     // clean test name first
-    let mut name = name.rsplit("::").next().unwrap();
+    name = name.rsplit("::").next().unwrap();
     let mut test_prefixed = false;
     if name.starts_with("test_") {
         name = &name[5..];
@@ -135,7 +144,9 @@ fn add_suffix_to_snapshot_name(name: Cow<'_, str>) -> Cow<'_, str> {
 }
 
 fn get_snapshot_filename(
+    function_name: &str,
     module_path: &str,
+    assertion_file: &str,
     snapshot_name: &str,
     cargo_workspace: &Path,
     base: &str,
@@ -149,7 +160,20 @@ fn get_snapshot_filename(
                 use std::fmt::Write;
                 let mut f = String::new();
                 if settings.prepend_module_to_snapshot() {
-                    write!(&mut f, "{}__", module_path.replace("::", "__")).unwrap();
+                    if is_doctest(function_name) {
+                        write!(
+                            &mut f,
+                            "doctest_{}__",
+                            Path::new(assertion_file)
+                                .file_name()
+                                .unwrap()
+                                .to_string_lossy()
+                                .replace('.', "_")
+                        )
+                        .unwrap();
+                    } else {
+                        write!(&mut f, "{}__", module_path.replace("::", "__")).unwrap();
+                    }
                 }
                 write!(
                     &mut f,
@@ -197,8 +221,14 @@ impl<'a> SnapshotAssertionContext<'a> {
                         .unwrap()
                         .into(),
                 };
-                let file =
-                    get_snapshot_filename(module_path, &name, &cargo_workspace, assertion_file);
+                let file = get_snapshot_filename(
+                    function_name,
+                    module_path,
+                    assertion_file,
+                    &name,
+                    &cargo_workspace,
+                    assertion_file,
+                );
                 if fs::metadata(&file).is_ok() {
                     old_snapshot = Some(Snapshot::from_file(&file)?);
                 }
@@ -465,3 +495,11 @@ pub fn assert_snapshot(
 
     Ok(())
 }
+
+/// Test snapshots in doctests.
+///
+/// ```
+/// insta::assert_yaml_snapshot!(vec![1, 2, 3]);
+/// insta::assert_yaml_snapshot!("named", vec![1, 2, 3, 4, 5]);
+/// ```
+const _DOCTEST: bool = false;

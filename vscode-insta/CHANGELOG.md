@@ -26,7 +26,7 @@ Contains all notable changes to the vscode plugin for insta.
 
 ## 1.0.1
 
-* Improvements to the syntax grammer
+* Improvements to the syntax grammar
 
 ## 1.0.0
 
