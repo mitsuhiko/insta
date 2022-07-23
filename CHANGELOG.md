@@ -6,8 +6,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Fixed an issue in `cargo-insta` where sometimes accepting inline snapshots
   would crash with an out of bounds panic.
-- Added new `filters` feature.
-- Disallow unnamed snapshots in doctests.
+- Added new `filters` feature. (#245)
+- Disallow unnamed snapshots in doctests. (#246)
 
 ## 1.16.0
 
