@@ -7,6 +7,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Fixed an issue in `cargo-insta` where sometimes accepting inline snapshots
   would crash with an out of bounds panic.
 - Added new `filters` feature.
+- Disallow unnamed snapshots in doctests.
 
 ## 1.16.0
 
@@ -14,7 +15,7 @@ All notable changes to insta and cargo-insta are documented here.
   quiet flag. This works around limitations with custom test harnesses
   such as cucumber.
 - Update RON to 0.7.1.
-- Improved ergonomics around `with_settings!`.  It's now a perfect match to
+- Improved ergonomics around `with_settings!`. It's now a perfect match to
   the settings object's setter methods.
 - Added `description` and `info` to snapshots. (#239)
 - Added `omit_expression` setting. (#239)
@@ -22,7 +23,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.15.0
 
-- Bump minimum version of Rust to 1.56.1.  This was done because the used
+- Bump minimum version of Rust to 1.56.1. This was done because the used
   serde-yaml dependency no longer supports older versions of Rust.
 
 ## 1.14.1
