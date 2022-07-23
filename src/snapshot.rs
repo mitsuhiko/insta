@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -346,6 +347,15 @@ impl SnapshotContents {
         out.push_str(if is_escape { "\"###" } else { "\"" });
 
         out
+    }
+}
+
+impl<'a> From<Cow<'a, str>> for SnapshotContents {
+    fn from(value: Cow<'a, str>) -> Self {
+        match value {
+            Cow::Borrowed(s) => SnapshotContents::from(s),
+            Cow::Owned(s) => SnapshotContents::from(s),
+        }
     }
 }
 

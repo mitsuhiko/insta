@@ -472,6 +472,11 @@ pub fn assert_snapshot(
         assertion_line,
     )?;
 
+    // apply filters if they are available
+    #[cfg(feature = "filters")]
+    let new_snapshot_value =
+        Settings::with(|settings| settings.filters().apply_to(new_snapshot_value));
+
     let new_snapshot = ctx.new_snapshot(new_snapshot_value.into(), expr);
 
     // memoize the snapshot file if requested.

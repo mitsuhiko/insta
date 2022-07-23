@@ -14,6 +14,9 @@ use crate::{
     redaction::{dynamic_redaction, sorted_redaction, ContentPath, Redaction, Selector},
 };
 
+#[cfg(feature = "filters")]
+use crate::filters::Filters;
+
 static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
     Arc::new(ActualSettings {
         sort_maps: false,
@@ -26,6 +29,8 @@ static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
         prepend_module_to_snapshot: true,
         #[cfg(feature = "redactions")]
         redactions: Redactions::default(),
+        #[cfg(feature = "filters")]
+        filters: Filters::default(),
         #[cfg(feature = "glob")]
         allow_empty_glob: false,
     })
@@ -62,6 +67,8 @@ pub struct ActualSettings {
     pub prepend_module_to_snapshot: bool,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
+    #[cfg(feature = "filters")]
+    pub filters: Filters,
     #[cfg(feature = "glob")]
     pub allow_empty_glob: bool,
 }
@@ -102,6 +109,11 @@ impl ActualSettings {
     #[cfg(feature = "redactions")]
     pub fn redactions<R: Into<Redactions>>(&mut self, r: R) {
         self.redactions = r.into();
+    }
+
+    #[cfg(feature = "filters")]
+    pub fn filters<F: Into<Filters>>(&mut self, f: F) {
+        self.filters = f.into();
     }
 
     #[cfg(feature = "glob")]
@@ -370,7 +382,7 @@ impl Settings {
     /// The default set is empty.
     #[cfg(feature = "redactions")]
     pub fn set_redactions<R: Into<Redactions>>(&mut self, redactions: R) {
-        self._private_inner_mut().redactions = redactions.into();
+        self._private_inner_mut().redactions(redactions);
     }
 
     /// Removes all redactions.
@@ -387,6 +399,50 @@ impl Settings {
             .0
             .iter()
             .map(|&(ref a, ref b)| (a, &**b))
+    }
+
+    /// Adds a new filter.
+    ///
+    /// Filters are similar to redactions but are applied as regex onto the final snapshot
+    /// value.  This can be used to perform modifications to the snapshot string that would
+    /// be impossible to do with redactions because for instance the value is just a string.
+    ///
+    /// The first argument is the [`regex`] pattern to apply, the second is a replacement
+    /// string.  The replacement string has the same functionality as the second argument
+    /// to [`Regex::replace`](regex::Regex::replace).
+    ///
+    /// This is useful to perform some cleanup procedures on the snapshot for unstable values.
+    ///
+    /// ```rust
+    /// # use insta::Settings;
+    /// # async fn foo() {
+    /// # let mut settings = Settings::new();
+    /// settings.add_filter(r"\b[[:xdigit:]]{32}\b", "[UID]");
+    /// # }
+    /// ```
+    #[cfg(feature = "filters")]
+    pub fn add_filter<S: Into<String>>(&mut self, regex: &str, replacement: S) {
+        self._private_inner_mut().filters.add(regex, replacement);
+    }
+
+    /// Replaces the currently set filters.
+    ///
+    /// The default set is empty.
+    #[cfg(feature = "filters")]
+    pub fn set_filters<F: Into<Filters>>(&mut self, filters: F) {
+        self._private_inner_mut().filters(filters);
+    }
+
+    /// Removes all filters.
+    #[cfg(feature = "filters")]
+    pub fn clear_filters(&mut self) {
+        self._private_inner_mut().filters.clear();
+    }
+
+    /// Returns the current filters
+    #[cfg(feature = "filters")]
+    pub(crate) fn filters(&self) -> &Filters {
+        &self.inner.filters
     }
 
     /// Sets the snapshot path.
