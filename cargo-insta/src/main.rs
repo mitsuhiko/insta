@@ -6,7 +6,7 @@
 //! This crate provides a cargo command for insta snapshot reviews.
 //!
 //! ```text
-//! $ cargo install cargo-insta
+//! $ cargo install --locked cargo-insta
 //! $ cargo insta --help
 //! ```
 //!

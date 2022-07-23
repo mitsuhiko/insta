@@ -7,7 +7,7 @@
 snapshot reviews.
 
 ```
-$ cargo install cargo-insta
+$ cargo install --locked cargo-insta
 $ cargo insta --help
 ```
 
