@@ -140,6 +140,7 @@
 //! * `ron`: enables RON support ([`assert_ron_snapshot!`])
 //! * `toml`: enables TOML support ([`assert_toml_snapshot!`])
 //! * `redactions`: enables support for redactions
+//! * `filters`: enables support for filters
 //! * `glob`: enables support for globbing ([`glob!`])
 //! * `colors`: enables color output (enabled by default)
 //!
@@ -161,6 +162,9 @@ mod utils;
 #[cfg(feature = "redactions")]
 mod redaction;
 
+#[cfg(feature = "filters")]
+mod filters;
+
 #[cfg(feature = "glob")]
 mod glob;
 
@@ -176,6 +180,8 @@ pub use crate::snapshot::{MetaData, Snapshot};
 /// are exposed for documentation primarily.
 pub mod internals {
     pub use crate::content::Content;
+    #[cfg(feature = "filters")]
+    pub use crate::filters::Filters;
     pub use crate::runtime::AutoName;
     pub use crate::snapshot::{MetaData, SnapshotContents};
     #[cfg(feature = "redactions")]

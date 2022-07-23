@@ -6,6 +6,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Fixed an issue in `cargo-insta` where sometimes accepting inline snapshots
   would crash with an out of bounds panic.
+- Added new `filters` feature.
 
 ## 1.16.0
 
