@@ -158,7 +158,11 @@ impl FilePatcher {
                 tokens: &[TokenTree],
                 indentation: usize,
             ) -> bool {
-                match &tokens[tokens.len() - 2] {
+                if tokens.len() < 2 {
+                    return false;
+                }
+
+                match tokens[tokens.len() - 2] {
                     TokenTree::Punct(ref punct) if punct.as_char() == '@' => {}
                     _ => {
                         return false;

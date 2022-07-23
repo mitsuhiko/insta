@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 0.17.0
+
+- Fixed an issue in `cargo-insta` where sometimes accepting inline snapshots
+  would crash with an out of bounds panic.
+
 ## 1.16.0
 
 - Added `--no-quiet`/`-Q` flag to `cargo insta test` to suppress the
