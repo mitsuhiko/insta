@@ -43,7 +43,7 @@ backtrace = []
 csv = { version = "1.1.4", optional = true }
 serde = { version = "1.0.117", features = ["derive"] }
 serde_yaml = "0.8.26"
-console = { version = "0.15.0", optional = true, default-features = false }
+console = { version = "0.15.1", optional = true, default-features = false }
 serde_json = "1.0.59"
 pest = { version = "2.1.3", optional = true }
 pest_derive = { version = "2.1.0", optional = true }
