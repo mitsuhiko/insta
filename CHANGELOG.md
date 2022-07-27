@@ -11,6 +11,7 @@ All notable changes to insta and cargo-insta are documented here.
 - `with_settings!` macro now inherits the former settings rather than resetting. (#249)
 - Added support for `Settings::bind_to_scope` and deprecated
   `Settings::bind_to_thread`. (#250)
+- Added support for `minimal-versions` builds.
 
 ## 1.16.0
 
