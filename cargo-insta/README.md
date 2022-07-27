@@ -11,6 +11,13 @@ $ cargo install cargo-insta
 $ cargo insta --help
 ```
 
+To install an old version ensure to pass the `--locked` flag so that the `Cargo.lock`
+file is honored:
+
+```
+$ cargo install cargo-insta --version 1.15.0 --locked
+```
+
 ## Usage
 
 `cargo-insta` provides a few different commands to interact with insta snapshots.
