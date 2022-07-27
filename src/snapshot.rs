@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::env;
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -9,8 +10,12 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 static RUN_ID: Lazy<String> = Lazy::new(|| {
-    let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-    format!("{}-{}", d.as_secs(), d.subsec_nanos())
+    dbg!(if let Ok(run_id) = env::var("NEXTEST_RUN_ID") {
+        run_id
+    } else {
+        let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        format!("{}-{}", d.as_secs(), d.subsec_nanos())
+    })
 });
 
 #[derive(Debug, Serialize, Deserialize)]
