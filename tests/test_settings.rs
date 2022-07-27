@@ -97,3 +97,14 @@ fn test_snapshot_with_description_and_info() {
         assert_yaml_snapshot!(vec![1, 2, 3, 4])
     });
 }
+
+#[test]
+fn test_with_settings_inherit() {
+    with_settings!({sort_maps => true}, {
+        with_settings!({description => "aha"}, {
+            let settings = Settings::clone_current();
+            assert!(settings.sort_maps());
+            assert_eq!(settings.description(), Some("aha"));
+        });
+    });
+}

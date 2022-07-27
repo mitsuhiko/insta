@@ -433,16 +433,19 @@ macro_rules! assert_snapshot {
 ///
 /// ```rust
 /// # use insta::Settings;
-/// let mut settings = Settings::new();
+/// let mut settings = Settings::clone_current();
 /// settings.set_sort_maps(true);
 /// settings.bind(|| {
 ///     // run snapshot test here
 /// });
 /// ```
+///
+/// Note: before insta 0.17 this macro used [`Settings::new`] which meant that original
+/// settings were always reset rather than extended.
 #[macro_export]
 macro_rules! with_settings {
     ({$($k:ident => $v:expr),*$(,)?}, $body:block) => {{
-        let mut settings = $crate::Settings::new();
+        let mut settings = $crate::Settings::clone_current();
         $(
             settings._private_inner_mut().$k($v);
         )*
