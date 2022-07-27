@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::future::Future;
+use std::mem;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -515,14 +516,39 @@ impl Settings {
     }
 
     /// Binds the settings to the current thread permanently.
+    ///
+    /// This should no longer be used in favor of [`Settings::bind_to_scope`].
+    #[deprecated(since = "0.17.0", note = "Use Settings::bind_to_scope instead.")]
     pub fn bind_to_thread(&self) {
         CURRENT_SETTINGS.with(|x| {
             x.borrow_mut().inner = self.inner.clone();
         })
     }
 
+    /// Binds the settings to the current thread and resets when the drop
+    /// guard is released.
+    ///
+    /// This is the recommen
+    pub fn bind_to_scope(&self) -> impl Drop {
+        CURRENT_SETTINGS.with(|x| {
+            let mut x = x.borrow_mut();
+            let old = mem::replace(&mut x.inner, self.inner.clone());
+            BindDropGuard(Some(old))
+        })
+    }
+
     /// Runs a function with the current settings.
     pub(crate) fn with<R, F: FnOnce(&Settings) -> R>(f: F) -> R {
         CURRENT_SETTINGS.with(|x| f(&*x.borrow()))
+    }
+}
+
+struct BindDropGuard(Option<Arc<ActualSettings>>);
+
+impl Drop for BindDropGuard {
+    fn drop(&mut self) {
+        CURRENT_SETTINGS.with(|x| {
+            x.borrow_mut().inner = self.0.take().unwrap();
+        })
     }
 }

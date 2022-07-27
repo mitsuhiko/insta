@@ -23,6 +23,7 @@ fn test_simple() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_bound_to_thread() {
     let mut map = HashMap::new();
     map.insert("a", "first value");
@@ -40,6 +41,34 @@ fn test_bound_to_thread() {
     c: third value
     d: fourth value
     "###);
+
+    // put defaults back
+    let settings = Settings::new();
+    settings.bind_to_thread();
+}
+
+#[test]
+fn test_bound_to_scope() {
+    let mut map = HashMap::new();
+    map.insert("a", "first value");
+    map.insert("b", "second value");
+    map.insert("c", "third value");
+    map.insert("d", "fourth value");
+
+    {
+        let mut settings = Settings::new();
+        settings.set_sort_maps(true);
+        let _guard = settings.bind_to_scope();
+        assert_yaml_snapshot!(&map, @r###"
+        ---
+        a: first value
+        b: second value
+        c: third value
+        d: fourth value
+        "###);
+    }
+
+    assert!(!Settings::clone_current().sort_maps());
 }
 
 #[test]
