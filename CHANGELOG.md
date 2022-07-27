@@ -8,7 +8,9 @@ All notable changes to insta and cargo-insta are documented here.
   would crash with an out of bounds panic.
 - Added new `filters` feature. (#245)
 - Disallow unnamed snapshots in doctests. (#246)
-- `with_settings!` macro now inherits the former settings rather than resetting.
+- `with_settings!` macro now inherits the former settings rather than resetting. (#249)
+- Added support for `Settings::bind_to_scope` and deprecated
+  `Settings::bind_to_thread`. (#250)
 
 ## 1.16.0
 
