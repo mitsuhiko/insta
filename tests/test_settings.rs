@@ -55,16 +55,20 @@ fn test_bound_to_scope() {
     map.insert("c", "third value");
     map.insert("d", "fourth value");
 
-    let mut settings = Settings::new();
-    settings.set_sort_maps(true);
-    let _guard = settings.bind_to_scope();
-    assert_yaml_snapshot!(&map, @r###"
-    ---
-    a: first value
-    b: second value
-    c: third value
-    d: fourth value
-    "###);
+    {
+        let mut settings = Settings::new();
+        settings.set_sort_maps(true);
+        let _guard = settings.bind_to_scope();
+        assert_yaml_snapshot!(&map, @r###"
+        ---
+        a: first value
+        b: second value
+        c: third value
+        d: fourth value
+        "###);
+    }
+
+    assert!(!Settings::clone_current().sort_maps());
 }
 
 #[test]
