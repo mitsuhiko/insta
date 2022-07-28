@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unrelease
+
+- Added support for nextest. (#242)
+
 ## 0.17.0
 
 - Fixed an issue in `cargo-insta` where sometimes accepting inline snapshots
