@@ -2,7 +2,7 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## Unrelease
+## 0.17.1
 
 - Added support for nextest. (#242)
 - Resolved an issue where inline snapshot tests in doctests refused to
