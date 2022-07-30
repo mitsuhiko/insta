@@ -79,11 +79,15 @@ fn is_doctest(function_name: &str) -> bool {
     function_name.starts_with("rust_out::main::_doctest")
 }
 
-fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String, &'static str> {
+fn detect_snapshot_name(
+    function_name: &str,
+    module_path: &str,
+    inline: bool,
+) -> Result<String, &'static str> {
     let mut name = function_name;
 
     // simplify doctest names
-    if is_doctest(name) {
+    if is_doctest(name) && !inline {
         panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
     }
 
@@ -217,7 +221,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             ReferenceValue::Named(name) => {
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name),
-                    None => detect_snapshot_name(function_name, module_path)
+                    None => detect_snapshot_name(function_name, module_path, false)
                         .unwrap()
                         .into(),
                 };
@@ -236,7 +240,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_file = Some(file);
             }
             ReferenceValue::Inline(contents) => {
-                snapshot_name = detect_snapshot_name(function_name, module_path)
+                snapshot_name = detect_snapshot_name(function_name, module_path, true)
                     .ok()
                     .map(Cow::Owned);
                 let mut pending_file = cargo_workspace.join(assertion_file);
@@ -509,5 +513,10 @@ pub fn assert_snapshot(
 ///
 /// ```should_panic
 /// insta::assert_yaml_snapshot!(vec![1, 2, 3, 4, 5]);
+/// ```
+///
+/// ```
+/// let some_string = "Coucou je suis un joli bug";
+/// insta::assert_snapshot!(some_string, @"Coucou je suis un joli bug");
 /// ```
 const _DOCTEST1: bool = false;
