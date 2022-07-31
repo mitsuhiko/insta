@@ -1,15 +1,19 @@
 #![cfg(feature = "redactions")]
 
-use std::collections::{BTreeMap, HashMap, HashSet};
-
 use insta::_macro_support::Selector;
-use insta::{
-    assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot, sorted_redaction,
-    with_settings, Settings,
-};
-use serde::Serialize;
+#[cfg(feature = "csv")]
+use insta::assert_csv_snapshot;
+#[cfg(feature = "json")]
+use insta::assert_json_snapshot;
+#[cfg(feature = "ron")]
+use insta::assert_ron_snapshot;
+#[cfg(feature = "toml")]
+use insta::assert_toml_snapshot;
+#[cfg(feature = "yaml")]
+use insta::assert_yaml_snapshot;
 
-use similar_asserts::assert_eq;
+use insta::assert_debug_snapshot;
+use serde::Serialize;
 
 #[test]
 fn test_selector_parser() {
@@ -39,6 +43,7 @@ pub struct User {
     extra: String,
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_with_random_value() {
     assert_yaml_snapshot!("user", &User {
@@ -51,6 +56,7 @@ fn test_with_random_value() {
     });
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_with_random_value_inline_callback() {
     assert_yaml_snapshot!("user", &User {
@@ -60,13 +66,14 @@ fn test_with_random_value_inline_callback() {
         extra: "".to_string(),
     }, {
         ".id" => insta::dynamic_redaction(|value, path| {
-            assert_eq!(path.to_string(), ".id");
-            assert_eq!(value.as_u64().unwrap(), 23);
+            similar_asserts::assert_eq!(path.to_string(), ".id");
+            similar_asserts::assert_eq!(value.as_u64().unwrap(), 23);
             "[id]"
         }),
     });
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_with_random_value_and_trailing_comma() {
     assert_yaml_snapshot!("user", &User {
@@ -82,7 +89,7 @@ fn test_with_random_value_and_trailing_comma() {
 #[cfg(feature = "csv")]
 #[test]
 fn test_with_random_value_csv() {
-    insta::assert_csv_snapshot!("user_csv", &User {
+    assert_csv_snapshot!("user_csv", &User {
         id: 44,
         username: "julius_csv".to_string(),
         email: Email("julius@example.com".to_string()),
@@ -95,7 +102,7 @@ fn test_with_random_value_csv() {
 #[cfg(feature = "ron")]
 #[test]
 fn test_with_random_value_ron() {
-    insta::assert_ron_snapshot!("user_ron", &User {
+    assert_ron_snapshot!("user_ron", &User {
         id: 53,
         username: "john_ron".to_string(),
         email: Email("john@example.com".to_string()),
@@ -108,7 +115,7 @@ fn test_with_random_value_ron() {
 #[cfg(feature = "toml")]
 #[test]
 fn test_with_random_value_toml() {
-    insta::assert_toml_snapshot!("user_toml", &User {
+    assert_toml_snapshot!("user_toml", &User {
         id: 53,
         username: "john_ron".to_string(),
         email: Email("john@example.com".to_string()),
@@ -118,6 +125,7 @@ fn test_with_random_value_toml() {
     });
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_with_random_value_json() {
     assert_json_snapshot!("user_json", &User {
@@ -131,9 +139,10 @@ fn test_with_random_value_json() {
     });
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_with_random_value_json_settings() {
-    let mut settings = Settings::new();
+    let mut settings = insta::Settings::new();
     settings.add_redaction(".id", "[id]");
     settings.add_redaction(".extra", "[extra]");
     settings.bind(|| {
@@ -149,12 +158,13 @@ fn test_with_random_value_json_settings() {
     });
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_with_callbacks() {
-    let mut settings = Settings::new();
+    let mut settings = insta::Settings::new();
     settings.add_dynamic_redaction(".id", |value, path| {
-        assert_eq!(path.to_string(), ".id");
-        assert_eq!(value.as_u64().unwrap(), 1234);
+        similar_asserts::assert_eq!(path.to_string(), ".id");
+        similar_asserts::assert_eq!(value.as_u64().unwrap(), 1234);
         "[id]"
     });
     settings.bind(|| {
@@ -170,9 +180,10 @@ fn test_with_callbacks() {
     });
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_with_random_value_json_settings2() {
-    with_settings!({redactions => vec![
+    insta::with_settings!({redactions => vec![
         (".id", "[id]".into()),
         (".extra", "[extra]".into()),
     ]}, {
@@ -187,6 +198,7 @@ fn test_with_random_value_json_settings2() {
     });
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_redact_newtype_struct() {
     #[derive(Serialize)]
@@ -211,6 +223,7 @@ fn test_redact_newtype_struct() {
     "###);
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_redact_newtype_enum() {
     #[derive(Serialize)]
@@ -250,6 +263,7 @@ fn test_redact_newtype_enum() {
     "###);
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_redact_recursive() {
     #[derive(Serialize)]
@@ -276,6 +290,7 @@ fn test_redact_recursive() {
     "###);
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_struct_array_redaction() {
     #[derive(Serialize)]
@@ -304,13 +319,14 @@ fn test_struct_array_redaction() {
         ],
     };
 
-    insta::assert_yaml_snapshot!(vec![checkout], {
+    assert_yaml_snapshot!(vec![checkout], {
         "[]._id" => "[checkout_id]",
         "[].products[]._id" => "[product_id]",
         "[].products[].product_name" => "[product_name]",
     });
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_map_key_redaction() {
     #[derive(Serialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
@@ -321,11 +337,11 @@ fn test_map_key_redaction() {
 
     #[derive(Serialize)]
     struct Foo {
-        hm: HashMap<Key, u32>,
-        btm: BTreeMap<(u32, u32), u32>,
+        hm: std::collections::HashMap<Key, u32>,
+        btm: std::collections::BTreeMap<(u32, u32), u32>,
     }
 
-    let mut hm = HashMap::new();
+    let mut hm = std::collections::HashMap::new();
     hm.insert(
         Key {
             bucket: 1,
@@ -333,26 +349,27 @@ fn test_map_key_redaction() {
         },
         42,
     );
-    let mut btm = BTreeMap::new();
+    let mut btm = std::collections::BTreeMap::new();
     btm.insert((0, 0), 23);
     let foo_value = Foo { hm, btm };
 
-    insta::assert_yaml_snapshot!(foo_value, {
+    assert_yaml_snapshot!(foo_value, {
         ".hm.$key.bucket" => "[bucket]",
         ".btm.$key" => "[key]",
     });
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_ordering() {
     #[derive(Debug, Serialize)]
     pub struct User {
         id: u64,
         username: String,
-        flags: HashSet<String>,
+        flags: std::collections::HashSet<String>,
     }
 
-    let mut settings = Settings::new();
+    let mut settings = insta::Settings::new();
     settings.add_redaction(".id", "[id]");
     settings.sort_selector(".flags");
     settings.bind(|| {
@@ -369,10 +386,11 @@ fn test_ordering() {
     });
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_ordering_newtype_set() {
     #[derive(Debug, Serialize)]
-    pub struct MySet(HashSet<String>);
+    pub struct MySet(std::collections::HashSet<String>);
 
     #[derive(Debug, Serialize)]
     pub struct User {
@@ -391,8 +409,8 @@ fn test_ordering_newtype_set() {
                 .collect()),
         },
         {
-            "." => sorted_redaction(),
-            ".flags" => sorted_redaction()
+            "." => insta::sorted_redaction(),
+            ".flags" => insta::sorted_redaction()
         }
     );
 }

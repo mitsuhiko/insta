@@ -1,6 +1,8 @@
-use insta::{
-    assert_debug_snapshot, assert_display_snapshot, assert_json_snapshot, assert_yaml_snapshot,
-};
+#[cfg(feature = "json")]
+use insta::assert_json_snapshot;
+#[cfg(feature = "yaml")]
+use insta::assert_yaml_snapshot;
+use insta::{assert_debug_snapshot, assert_display_snapshot};
 use std::fmt;
 
 #[test]
@@ -25,11 +27,13 @@ fn test_unnamed_nested_closure() {
     })();
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_yaml_vector() {
     assert_yaml_snapshot!("yaml_vector", vec![1, 2, 3]);
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_unnamed_yaml_vector() {
     assert_yaml_snapshot!(vec![1, 2, 3]);
@@ -37,11 +41,13 @@ fn test_unnamed_yaml_vector() {
     assert_yaml_snapshot!(vec![1, 2, 3, 4, 5]);
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_json_vector() {
     assert_json_snapshot!("json_vector", vec![1, 2, 3]);
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_unnamed_json_vector() {
     assert_json_snapshot!(vec![1, 2, 3]);
@@ -77,8 +83,9 @@ fn test_unnamed_display() {
     assert_display_snapshot!("whatever");
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_u128_json() {
-    let x: u128 = 42;
-    assert_json_snapshot!(&x, @"42");
+    let x: u128 = u128::from(u64::MAX) * 2;
+    assert_json_snapshot!(&x, @"36893488147419103230");
 }

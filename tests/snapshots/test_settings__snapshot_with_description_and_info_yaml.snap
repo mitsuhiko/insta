@@ -1,0 +1,10 @@
+---
+source: tests/test_settings.rs
+description: The snapshot is four integers
+info: "---\nenv:\n  ENVIRONMENT: production\ncmdline:\n  - my-tool\n  - run\n"
+---
+- 1
+- 2
+- 3
+- 4
+

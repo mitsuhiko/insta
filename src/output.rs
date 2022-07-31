@@ -133,8 +133,7 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
         }
 
         if let Some(info) = metadata.private_info() {
-            let out = serde_yaml::to_string(&info).unwrap();
-            println!("{}", out.trim().strip_prefix("---").unwrap().trim_start());
+            println!("{}", info.trim());
             println!("{:─^1$}", "", width);
         }
     }

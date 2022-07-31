@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use once_cell::sync::Lazy;
-use serde::Serialize;
 
 #[cfg(feature = "redactions")]
 use crate::{
@@ -63,7 +62,7 @@ pub struct ActualSettings {
     pub snapshot_suffix: String,
     pub input_file: Option<PathBuf>,
     pub description: Option<String>,
-    pub info: Option<serde_yaml::Value>,
+    pub info: Option<String>,
     pub omit_expression: bool,
     pub prepend_module_to_snapshot: bool,
     #[cfg(feature = "redactions")]
@@ -95,8 +94,8 @@ impl ActualSettings {
         self.description = Some(value.into());
     }
 
-    pub fn info<S: Serialize>(&mut self, value: &S) {
-        self.info = Some(serde_yaml::to_value(value).unwrap());
+    pub fn info(&mut self, value: &str) {
+        self.info = Some(value.to_owned());
     }
 
     pub fn omit_expression(&mut self, value: bool) {
@@ -310,7 +309,7 @@ impl Settings {
     ///
     /// As an example the input paramters to the function that creates the snapshot
     /// can be persisted here.
-    pub fn set_info<S: Serialize>(&mut self, value: &S) {
+    pub fn set_info(&mut self, value: &str) {
         self._private_inner_mut().info(value);
     }
 
@@ -320,8 +319,8 @@ impl Settings {
     }
 
     /// Returns the current info
-    pub(crate) fn info(&self) -> Option<serde_yaml::Value> {
-        self.inner.info.clone()
+    pub(crate) fn info(&self) -> Option<&str> {
+        self.inner.info.as_deref()
     }
 
     /// Returns the current info

@@ -6,8 +6,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::parse;
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
 
 static RUN_ID: Lazy<String> = Lazy::new(|| {
     dbg!(if let Ok(run_id) = env::var("NEXTEST_RUN_ID") {
@@ -18,7 +18,7 @@ static RUN_ID: Lazy<String> = Lazy::new(|| {
     })
 });
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct PendingInlineSnapshot {
     pub run_id: String,
     pub line: u32,
@@ -37,9 +37,15 @@ impl PendingInlineSnapshot {
     }
 
     pub fn load_batch<P: AsRef<Path>>(p: P) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
-        let f = BufReader::new(fs::File::open(p)?);
-        let iter = serde_json::Deserializer::from_reader(f).into_iter::<PendingInlineSnapshot>();
-        let mut rv = iter.collect::<Result<Vec<PendingInlineSnapshot>, _>>()?;
+        let contents = fs::read_to_string(p)?;
+
+        let mut rv: Vec<Self> = contents
+            .lines()
+            .map(|line| {
+                let value = parse::Value::from_json(line)?;
+                Self::from_parse_value(value)
+            })
+            .collect::<Result<_, Box<dyn Error>>>()?;
 
         // remove all but the last run
         if let Some(last_run_id) = rv.last().map(|x| x.run_id.clone()) {
@@ -62,33 +68,77 @@ impl PendingInlineSnapshot {
 
     pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Box<dyn Error>> {
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
-        let mut s = serde_json::to_string(self)?;
+        let mut s = self.as_parse_value()?.as_json();
         s.push('\n');
         f.write_all(s.as_bytes())?;
         Ok(())
     }
+
+    fn from_parse_value(blob: parse::Value) -> Result<PendingInlineSnapshot, Box<dyn Error>> {
+        if let parse::Value::Obj(mut obj) = blob {
+            let run_id = parse::pop_str(&mut obj, "run_id")?;
+            let line = parse::pop_u32(&mut obj, "line")?;
+            let new = match obj.remove("new") {
+                None | Some(parse::Value::Null) => None,
+                Some(non_null) => Some(Snapshot::from_parse_value(non_null)?),
+            };
+            let old = match obj.remove("old") {
+                None | Some(parse::Value::Null) => None,
+                Some(non_null) => Some(Snapshot::from_parse_value(non_null)?),
+            };
+
+            Ok(PendingInlineSnapshot {
+                run_id,
+                line,
+                new,
+                old,
+            })
+        } else {
+            Err(parse::Error::UnexpectedDataType.into())
+        }
+    }
+
+    fn as_parse_value(&self) -> Result<parse::Value, Box<dyn Error>> {
+        let mut obj = parse::Obj::new();
+        obj.insert(
+            "run_id".to_owned(),
+            parse::Value::from(self.run_id.as_str()),
+        );
+        obj.insert("line".to_owned(), parse::Value::from(self.line));
+        obj.insert(
+            "new".to_owned(),
+            match &self.new {
+                Some(snap) => snap.as_parse_value()?,
+                None => parse::Value::Null,
+            },
+        );
+        obj.insert(
+            "old".to_owned(),
+            match &self.old {
+                Some(snap) => snap.as_parse_value()?,
+                None => parse::Value::Null,
+            },
+        );
+
+        Ok(parse::Value::from(obj))
+    }
 }
 
+// TODO: figure out how this acts if we had an old snapshot with `info` that got updated
 /// Snapshot metadata information.
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct MetaData {
     /// The source file (relative to workspace root).
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) source: Option<String>,
     /// The source line if available.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) assertion_line: Option<u32>,
     /// Optional human readable (non formatted) snapshot description.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) description: Option<String>,
     /// Optionally the expression that created the snapshot.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) expression: Option<String>,
     /// An optional arbitrary structured info object.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) info: Option<serde_yaml::Value>,
+    pub(crate) info: Option<String>,
     /// Reference to the input file.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) input_file: Option<String>,
 }
 
@@ -115,8 +165,8 @@ impl MetaData {
 
     /// Returns the embedded info.
     #[doc(hidden)]
-    pub fn private_info(&self) -> Option<&serde_yaml::Value> {
-        self.info.as_ref()
+    pub fn private_info(&self) -> Option<&str> {
+        self.info.as_deref()
     }
 
     /// Returns the relative source path.
@@ -134,13 +184,55 @@ impl MetaData {
     pub fn input_file(&self) -> Option<&str> {
         self.input_file.as_deref()
     }
+
+    fn from_parse_value(blob: parse::Value) -> Result<MetaData, Box<dyn Error>> {
+        if let parse::Value::Obj(mut obj) = blob {
+            let source = parse::pop_nullable_str(&mut obj, "source")?;
+            let assertion_line = parse::pop_nullable_u32(&mut obj, "assertion_line")?;
+            let description = parse::pop_nullable_str(&mut obj, "description")?;
+            let expression = parse::pop_nullable_str(&mut obj, "expression")?;
+            let info = parse::pop_nullable_str(&mut obj, "info")?;
+            let input_file = parse::pop_nullable_str(&mut obj, "input_file")?;
+
+            Ok(MetaData {
+                source,
+                assertion_line,
+                description,
+                expression,
+                info,
+                input_file,
+            })
+        } else {
+            Err(parse::Error::UnexpectedDataType.into())
+        }
+    }
+
+    fn as_parse_value(&self) -> Result<parse::Value, Box<dyn Error>> {
+        let mut obj = parse::Obj::new();
+        if let Some(source) = self.source.as_deref() {
+            obj.insert("source".to_owned(), parse::Value::from(source));
+        }
+        if let Some(line) = self.assertion_line {
+            obj.insert("assertion_line".to_owned(), parse::Value::from(line));
+        }
+        if let Some(description) = self.description.as_deref() {
+            obj.insert("description".to_owned(), parse::Value::from(description));
+        }
+        if let Some(info) = &self.info {
+            obj.insert("info".to_owned(), parse::Value::from(info.as_str()));
+        }
+        if let Some(input_file) = self.input_file.as_deref() {
+            obj.insert("input_file".to_owned(), parse::Value::from(input_file));
+        }
+
+        Ok(parse::Value::from(obj))
+    }
 }
 
 /// A helper to work with stored snapshots.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct Snapshot {
     module_name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     snapshot_name: Option<String>,
     metadata: MetaData,
     snapshot: SnapshotContents,
@@ -166,7 +258,8 @@ impl Snapshot {
                     break;
                 }
             }
-            serde_yaml::from_str(&buf)?
+            let blob = parse::Value::from_yaml(&buf)?;
+            MetaData::from_parse_value(blob)?
         // legacy format
         } else {
             let mut rv = MetaData::default();
@@ -248,6 +341,44 @@ impl Snapshot {
         }
     }
 
+    fn from_parse_value(blob: parse::Value) -> Result<Snapshot, Box<dyn Error>> {
+        if let parse::Value::Obj(mut obj) = blob {
+            let module_name = parse::pop_str(&mut obj, "module_name")?;
+            let snapshot_name = parse::pop_nullable_str(&mut obj, "snapshot_name")?;
+            let metadata = MetaData::from_parse_value(
+                obj.remove("metadata").ok_or(parse::Error::MissingField)?,
+            )?;
+            let snapshot = SnapshotContents(parse::pop_str(&mut obj, "snapshot")?);
+
+            Ok(Snapshot {
+                module_name,
+                snapshot_name,
+                metadata,
+                snapshot,
+            })
+        } else {
+            Err(parse::Error::UnexpectedDataType.into())
+        }
+    }
+
+    fn as_parse_value(&self) -> Result<parse::Value, Box<dyn Error>> {
+        let mut obj = parse::Obj::new();
+        obj.insert(
+            "module_name".to_owned(),
+            parse::Value::from(self.module_name.as_str()),
+        );
+        if let Some(name) = self.snapshot_name.as_deref() {
+            obj.insert("snapshot_name".to_owned(), parse::Value::from(name));
+        }
+        obj.insert("metadata".to_owned(), self.metadata.as_parse_value()?);
+        obj.insert(
+            "snapshot".to_owned(),
+            parse::Value::from(self.snapshot.0.as_str()),
+        );
+
+        Ok(parse::Value::from(obj))
+    }
+
     /// Returns the module name.
     pub fn module_name(&self) -> &str {
         &self.module_name
@@ -283,7 +414,8 @@ impl Snapshot {
             fs::create_dir_all(&folder)?;
         }
         let mut f = fs::File::create(&path)?;
-        serde_yaml::to_writer(&mut f, md)?;
+        let blob = md.as_parse_value()?.as_yaml();
+        f.write_all(blob.as_bytes())?;
         f.write_all(b"---\n")?;
         f.write_all(self.contents_str().as_bytes())?;
         f.write_all(b"\n")?;
@@ -312,7 +444,7 @@ impl Snapshot {
 
 /// The contents of a Snapshot
 // Could be Cow, but I think limited savings
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SnapshotContents(String);
 
 impl SnapshotContents {
