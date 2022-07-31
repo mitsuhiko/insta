@@ -440,8 +440,9 @@ macro_rules! assert_snapshot {
 /// });
 /// ```
 ///
-/// Note: before insta 0.17 this macro used [`Settings::new`] which meant that original
-/// settings were always reset rather than extended.
+/// Note: before insta 0.17 this macro used
+/// [`Settings::new`](crate::Settings::new) which meant that original settings
+/// were always reset rather than extended.
 #[macro_export]
 macro_rules! with_settings {
     ({$($k:ident => $v:expr),*$(,)?}, $body:block) => {{
