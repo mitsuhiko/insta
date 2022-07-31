@@ -212,6 +212,9 @@ impl MetaData {
         if let Some(source) = self.source.as_deref() {
             obj.insert("source".to_owned(), parse::Value::from(source));
         }
+        if let Some(expression) = self.expression.as_deref() {
+            obj.insert("expression".to_owned(), parse::Value::from(expression));
+        }
         if let Some(line) = self.assertion_line {
             obj.insert("assertion_line".to_owned(), parse::Value::from(line));
         }
