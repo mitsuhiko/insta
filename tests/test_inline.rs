@@ -50,8 +50,9 @@ fn test_unnamed_thread_single_line() {
 #[test]
 fn test_newline() {
     // https://github.com/mitsuhiko/insta/issues/39
-    assert_snapshot!("\n", @"
-");
+    assert_snapshot!("\n", @r###"
+
+    "###);
 }
 
 #[cfg(feature = "csv")]
