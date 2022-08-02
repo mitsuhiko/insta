@@ -183,6 +183,7 @@ pub mod internals {
     #[cfg(feature = "filters")]
     pub use crate::filters::Filters;
     pub use crate::runtime::AutoName;
+    pub use crate::settings::SettingsBindDropGuard;
     pub use crate::snapshot::{MetaData, SnapshotContents};
     #[cfg(feature = "redactions")]
     pub use crate::{

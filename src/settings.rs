@@ -544,11 +544,11 @@ impl Settings {
     /// let _guard = settings.bind_to_scope();
     /// // do stuff here
     /// ```
-    pub fn bind_to_scope(&self) -> impl Drop {
+    pub fn bind_to_scope(&self) -> SettingsBindDropGuard {
         CURRENT_SETTINGS.with(|x| {
             let mut x = x.borrow_mut();
             let old = mem::replace(&mut x.inner, self.inner.clone());
-            BindDropGuard(Some(old))
+            SettingsBindDropGuard(Some(old))
         })
     }
 
@@ -558,9 +558,10 @@ impl Settings {
     }
 }
 
-struct BindDropGuard(Option<Arc<ActualSettings>>);
+/// Returned from [`bind_to_scope`](Settings::bind_to_scope)
+pub struct SettingsBindDropGuard(Option<Arc<ActualSettings>>);
 
-impl Drop for BindDropGuard {
+impl Drop for SettingsBindDropGuard {
     fn drop(&mut self) {
         CURRENT_SETTINGS.with(|x| {
             x.borrow_mut().inner = self.0.take().unwrap();
