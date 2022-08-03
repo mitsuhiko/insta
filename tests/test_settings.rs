@@ -1,4 +1,5 @@
 use insta::{assert_yaml_snapshot, with_settings, Settings};
+use similar_asserts::assert_eq;
 use std::collections::HashMap;
 
 #[test]
