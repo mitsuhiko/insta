@@ -214,7 +214,7 @@ impl MetaData {
             fields.push(("source", Content::from(source)));
         }
         if let Some(expression) = self.expression.as_deref() {
-            obj.insert("expression".to_owned(), parse::Value::from(expression));
+            fields.push(("expression", Content::from(expression)));
         }
         if let Some(line) = self.assertion_line {
             fields.push(("assertion_line", Content::from(line)));
