@@ -136,7 +136,7 @@ pub struct MetaData {
     /// Optionally the expression that created the snapshot.
     pub(crate) expression: Option<String>,
     /// An optional arbitrary structured info object.
-    pub(crate) info: Option<String>,
+    pub(crate) info: Option<Content>,
     /// Reference to the input file.
     pub(crate) input_file: Option<String>,
 }
@@ -164,8 +164,8 @@ impl MetaData {
 
     /// Returns the embedded info.
     #[doc(hidden)]
-    pub fn private_info(&self) -> Option<&str> {
-        self.info.as_deref()
+    pub fn private_info(&self) -> Option<&Content> {
+        self.info.as_ref()
     }
 
     /// Returns the relative source path.
@@ -192,7 +192,7 @@ impl MetaData {
             let assertion_line = content::utils::pop_nullable_u32(&mut map, "assertion_line")?;
             let description = content::utils::pop_nullable_str(&mut map, "description")?;
             let expression = content::utils::pop_nullable_str(&mut map, "expression")?;
-            let info = content::utils::pop_nullable_str(&mut map, "info")?;
+            let info = map.remove("info");
             let input_file = content::utils::pop_nullable_str(&mut map, "input_file")?;
 
             Ok(MetaData {
@@ -223,7 +223,7 @@ impl MetaData {
             fields.push(("description", Content::from(description)));
         }
         if let Some(info) = &self.info {
-            fields.push(("info", Content::from(info.as_str())));
+            fields.push(("info", info.to_owned()));
         }
         if let Some(input_file) = self.input_file.as_deref() {
             fields.push(("input_file", Content::from(input_file)));

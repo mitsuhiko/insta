@@ -118,37 +118,41 @@ fn test_snapshot_with_description() {
 }
 
 #[test]
+fn test_snapshot_with_description_and_raw_info() {
+    use insta::internals::Content;
+
+    let raw_info = Content::Map(vec![
+        (
+            Content::from("env"),
+            Content::Seq(vec![
+                Content::from("ENVIRONMENT"),
+                Content::from("production"),
+            ]),
+        ),
+        (
+            Content::from("cmdline"),
+            Content::Seq(vec![Content::from("my-tool"), Content::from("run")]),
+        ),
+    ]);
+    with_settings!({description => "The snapshot is four integers", raw_info => &raw_info}, {
+        assert_debug_snapshot!(vec![1, 2, 3, 4])
+    });
+}
+
+#[cfg(feature = "serialization")]
+#[test]
 fn test_snapshot_with_description_and_info() {
     #[derive(serde::Serialize)]
     pub struct Info {
         env: std::collections::HashMap<&'static str, &'static str>,
         cmdline: Vec<&'static str>,
     }
-    let info = format!(
-        "env: {:?}, cmdline: {:?}",
-        ["ENVIRONMENT", "production"],
-        ["my-tool", "run"]
-    );
-    with_settings!({description => "The snapshot is four integers", info => &info}, {
-        assert_debug_snapshot!(vec![1, 2, 3, 4])
-    });
-}
-
-#[cfg(feature = "yaml")]
-#[test]
-fn test_snapshot_with_description_and_info_yaml() {
-    #[derive(serde::Serialize)]
-    pub struct Info {
-        env: std::collections::HashMap<&'static str, &'static str>,
-        cmdline: Vec<&'static str>,
-    }
-    let info = serde_yaml::to_string(&Info {
+    let info = Info {
         env: From::from([("ENVIRONMENT", "production")]),
         cmdline: vec!["my-tool", "run"],
-    })
-    .unwrap();
+    };
     with_settings!({description => "The snapshot is four integers", info => &info}, {
-        assert_yaml_snapshot!(vec![1, 2, 3, 4])
+        assert_debug_snapshot!(vec![1, 2, 3, 4])
     });
 }
 
