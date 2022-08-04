@@ -6,7 +6,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::parse;
+use crate::content::{self, Content};
+
 use once_cell::sync::Lazy;
 
 static RUN_ID: Lazy<String> = Lazy::new(|| {
@@ -42,8 +43,8 @@ impl PendingInlineSnapshot {
         let mut rv: Vec<Self> = contents
             .lines()
             .map(|line| {
-                let value = parse::Value::from_json(line)?;
-                Self::from_parse_value(value)
+                let value = Content::from_json(line)?;
+                Self::from_content(value)
             })
             .collect::<Result<_, Box<dyn Error>>>()?;
 
@@ -68,23 +69,25 @@ impl PendingInlineSnapshot {
 
     pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Box<dyn Error>> {
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
-        let mut s = self.as_parse_value()?.as_json();
+        let mut s = self.as_content().as_json()?;
         s.push('\n');
         f.write_all(s.as_bytes())?;
         Ok(())
     }
 
-    fn from_parse_value(blob: parse::Value) -> Result<PendingInlineSnapshot, Box<dyn Error>> {
-        if let parse::Value::Obj(mut obj) = blob {
-            let run_id = parse::pop_str(&mut obj, "run_id")?;
-            let line = parse::pop_u32(&mut obj, "line")?;
-            let new = match obj.remove("new") {
-                None | Some(parse::Value::Null) => None,
-                Some(non_null) => Some(Snapshot::from_parse_value(non_null)?),
+    fn from_content(content: Content) -> Result<PendingInlineSnapshot, Box<dyn Error>> {
+        if let Content::Map(map) = content {
+            let mut map = content::utils::into_unordered_struct_fields(map)?;
+
+            let run_id = content::utils::pop_str(&mut map, "run_id")?;
+            let line = content::utils::pop_u32(&mut map, "line")?;
+            let new = match map.remove("new") {
+                None | Some(Content::None) => None,
+                Some(non_null) => Some(Snapshot::from_content(non_null)?),
             };
-            let old = match obj.remove("old") {
-                None | Some(parse::Value::Null) => None,
-                Some(non_null) => Some(Snapshot::from_parse_value(non_null)?),
+            let old = match map.remove("old") {
+                None | Some(Content::None) => None,
+                Some(non_null) => Some(Snapshot::from_content(non_null)?),
             };
 
             Ok(PendingInlineSnapshot {
@@ -94,37 +97,33 @@ impl PendingInlineSnapshot {
                 old,
             })
         } else {
-            Err(parse::Error::UnexpectedDataType.into())
+            Err(content::Error::UnexpectedDataType.into())
         }
     }
 
-    fn as_parse_value(&self) -> Result<parse::Value, Box<dyn Error>> {
-        let mut obj = parse::Obj::new();
-        obj.insert(
-            "run_id".to_owned(),
-            parse::Value::from(self.run_id.as_str()),
-        );
-        obj.insert("line".to_owned(), parse::Value::from(self.line));
-        obj.insert(
-            "new".to_owned(),
+    fn as_content(&self) -> Content {
+        let mut fields = Vec::new();
+        fields.push(("run_id", Content::from(self.run_id.as_str())));
+        fields.push(("line", Content::from(self.line)));
+        fields.push((
+            "new",
             match &self.new {
-                Some(snap) => snap.as_parse_value()?,
-                None => parse::Value::Null,
+                Some(snap) => snap.as_content(),
+                None => Content::None,
             },
-        );
-        obj.insert(
-            "old".to_owned(),
+        ));
+        fields.push((
+            "old",
             match &self.old {
-                Some(snap) => snap.as_parse_value()?,
-                None => parse::Value::Null,
+                Some(snap) => snap.as_content(),
+                None => Content::None,
             },
-        );
+        ));
 
-        Ok(parse::Value::from(obj))
+        Content::Struct("PendingInlineSnapshot", fields)
     }
 }
 
-// TODO: figure out how this acts if we had an old snapshot with `info` that got updated
 /// Snapshot metadata information.
 #[derive(Debug, Default, Clone)]
 pub struct MetaData {
@@ -185,14 +184,16 @@ impl MetaData {
         self.input_file.as_deref()
     }
 
-    fn from_parse_value(blob: parse::Value) -> Result<MetaData, Box<dyn Error>> {
-        if let parse::Value::Obj(mut obj) = blob {
-            let source = parse::pop_nullable_str(&mut obj, "source")?;
-            let assertion_line = parse::pop_nullable_u32(&mut obj, "assertion_line")?;
-            let description = parse::pop_nullable_str(&mut obj, "description")?;
-            let expression = parse::pop_nullable_str(&mut obj, "expression")?;
-            let info = parse::pop_nullable_str(&mut obj, "info")?;
-            let input_file = parse::pop_nullable_str(&mut obj, "input_file")?;
+    fn from_content(content: Content) -> Result<MetaData, Box<dyn Error>> {
+        if let Content::Map(map) = content {
+            let mut map = content::utils::into_unordered_struct_fields(map)?;
+
+            let source = content::utils::pop_nullable_str(&mut map, "source")?;
+            let assertion_line = content::utils::pop_nullable_u32(&mut map, "assertion_line")?;
+            let description = content::utils::pop_nullable_str(&mut map, "description")?;
+            let expression = content::utils::pop_nullable_str(&mut map, "expression")?;
+            let info = content::utils::pop_nullable_str(&mut map, "info")?;
+            let input_file = content::utils::pop_nullable_str(&mut map, "input_file")?;
 
             Ok(MetaData {
                 source,
@@ -203,29 +204,29 @@ impl MetaData {
                 input_file,
             })
         } else {
-            Err(parse::Error::UnexpectedDataType.into())
+            Err(content::Error::UnexpectedDataType.into())
         }
     }
 
-    fn as_parse_value(&self) -> Result<parse::Value, Box<dyn Error>> {
-        let mut obj = parse::Obj::new();
+    fn as_content(&self) -> Content {
+        let mut fields = Vec::new();
         if let Some(source) = self.source.as_deref() {
-            obj.insert("source".to_owned(), parse::Value::from(source));
+            fields.push(("source", Content::from(source)));
         }
         if let Some(line) = self.assertion_line {
-            obj.insert("assertion_line".to_owned(), parse::Value::from(line));
+            fields.push(("assertion_line", Content::from(line)));
         }
         if let Some(description) = self.description.as_deref() {
-            obj.insert("description".to_owned(), parse::Value::from(description));
+            fields.push(("description", Content::from(description)));
         }
         if let Some(info) = &self.info {
-            obj.insert("info".to_owned(), parse::Value::from(info.as_str()));
+            fields.push(("info", Content::from(info.as_str())));
         }
         if let Some(input_file) = self.input_file.as_deref() {
-            obj.insert("input_file".to_owned(), parse::Value::from(input_file));
+            fields.push(("input_file", Content::from(input_file)));
         }
 
-        Ok(parse::Value::from(obj))
+        Content::Struct("MetaData", fields)
     }
 }
 
@@ -258,8 +259,8 @@ impl Snapshot {
                     break;
                 }
             }
-            let blob = parse::Value::from_yaml(&buf)?;
-            MetaData::from_parse_value(blob)?
+            let content = Content::from_yaml(&buf)?;
+            MetaData::from_content(content)?
         // legacy format
         } else {
             let mut rv = MetaData::default();
@@ -341,14 +342,16 @@ impl Snapshot {
         }
     }
 
-    fn from_parse_value(blob: parse::Value) -> Result<Snapshot, Box<dyn Error>> {
-        if let parse::Value::Obj(mut obj) = blob {
-            let module_name = parse::pop_str(&mut obj, "module_name")?;
-            let snapshot_name = parse::pop_nullable_str(&mut obj, "snapshot_name")?;
-            let metadata = MetaData::from_parse_value(
-                obj.remove("metadata").ok_or(parse::Error::MissingField)?,
+    fn from_content(content: Content) -> Result<Snapshot, Box<dyn Error>> {
+        if let Content::Map(map) = content {
+            let mut map = content::utils::into_unordered_struct_fields(map)?;
+
+            let module_name = content::utils::pop_str(&mut map, "module_name")?;
+            let snapshot_name = content::utils::pop_nullable_str(&mut map, "snapshot_name")?;
+            let metadata = MetaData::from_content(
+                map.remove("metadata").ok_or(content::Error::MissingField)?,
             )?;
-            let snapshot = SnapshotContents(parse::pop_str(&mut obj, "snapshot")?);
+            let snapshot = SnapshotContents(content::utils::pop_str(&mut map, "snapshot")?);
 
             Ok(Snapshot {
                 module_name,
@@ -357,26 +360,20 @@ impl Snapshot {
                 snapshot,
             })
         } else {
-            Err(parse::Error::UnexpectedDataType.into())
+            Err(content::Error::UnexpectedDataType.into())
         }
     }
 
-    fn as_parse_value(&self) -> Result<parse::Value, Box<dyn Error>> {
-        let mut obj = parse::Obj::new();
-        obj.insert(
-            "module_name".to_owned(),
-            parse::Value::from(self.module_name.as_str()),
-        );
+    fn as_content(&self) -> Content {
+        let mut fields = Vec::new();
+        fields.push(("module_name", Content::from(self.module_name.as_str())));
         if let Some(name) = self.snapshot_name.as_deref() {
-            obj.insert("snapshot_name".to_owned(), parse::Value::from(name));
+            fields.push(("snapshot_name", Content::from(name)));
         }
-        obj.insert("metadata".to_owned(), self.metadata.as_parse_value()?);
-        obj.insert(
-            "snapshot".to_owned(),
-            parse::Value::from(self.snapshot.0.as_str()),
-        );
+        fields.push(("metadata", self.metadata.as_content()));
+        fields.push(("snapshot", Content::from(self.snapshot.0.as_str())));
 
-        Ok(parse::Value::from(obj))
+        Content::Struct("Content", fields)
     }
 
     /// Returns the module name.
@@ -414,7 +411,7 @@ impl Snapshot {
             fs::create_dir_all(&folder)?;
         }
         let mut f = fs::File::create(&path)?;
-        let blob = md.as_parse_value()?.as_yaml();
+        let blob = md.as_content().as_yaml();
         f.write_all(blob.as_bytes())?;
         f.write_all(b"---\n")?;
         f.write_all(self.contents_str().as_bytes())?;
