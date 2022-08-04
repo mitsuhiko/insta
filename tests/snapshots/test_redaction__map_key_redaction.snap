@@ -1,6 +1,6 @@
 ---
 source: tests/test_redaction.rs
-expression: foo
+expression: foo_value
 ---
 hm:
   ? bucket: "[bucket]"

@@ -1,6 +1,6 @@
 ---
 source: tests/test_redaction.rs
-expression: "&User{id: 122,\n      username: \"jason_doe\".to_string(),\n      email: Email(\"jason@example.com\".to_string()),\n      extra: \"ssn goes here\".to_string(),}"
+expression: "&User {\n        id: 122,\n        username: \"jason_doe\".to_string(),\n        email: Email(\"jason@example.com\".to_string()),\n        extra: \"ssn goes here\".to_string(),\n    }"
 ---
 {
   "id": "[id]",

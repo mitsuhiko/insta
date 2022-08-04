@@ -1,6 +1,6 @@
 ---
 source: tests/test_redaction.rs
-expression: "&User{id: 122,\n      username: \"jason_doe\".to_string(),\n      flags:\n          MySet(vec![\"zzz\".into(), \"foo\".into(), \"aha\".into(),\n                     \"is_admin\".into()].into_iter().collect()),}"
+expression: "&User {\n        id: 122,\n        username: \"jason_doe\".to_string(),\n        flags: MySet(vec![\"zzz\".into(), \"foo\".into(), \"aha\".into(),\n                        \"is_admin\".into()].into_iter().collect()),\n    }"
 ---
 {
   "flags": [
