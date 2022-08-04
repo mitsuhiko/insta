@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 use super::{Content, Error, Result};
 
-use json::{object::Object as JsonObj, JsonValue};
+use dep_json::{object::Object as JsonObj, JsonValue};
 use yaml_rust::{yaml::Hash as YamlObj, Yaml as YamlValue};
 
 type BoxedResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -11,7 +11,7 @@ impl Content {
     // NOTE: Not implemented as `TryFrom<_>` because this is not generic and we want it to remain
     // private
     pub(crate) fn from_json(s: &str) -> BoxedResult<Self> {
-        let blob = json::parse(s)?;
+        let blob = dep_json::parse(s)?;
         Ok(Self::from_json_blob(blob))
     }
 

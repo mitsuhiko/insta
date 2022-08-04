@@ -116,7 +116,7 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
             .current_dir(manifest_dir)
             .output()
             .unwrap();
-            let manifest = json::parse(std::str::from_utf8(&output.stdout).unwrap()).unwrap();
+            let manifest = dep_json::parse(std::str::from_utf8(&output.stdout).unwrap()).unwrap();
             let workspace_root = PathBuf::from(manifest["workspace_root"].as_str().unwrap());
             Arc::new(workspace_root)
         };
