@@ -138,8 +138,10 @@
 //! The following features exist:
 //!
 //! * `csv`: enables CSV support ([`assert_csv_snapshot!`])
+//! * `json`: enables JSON support ([`assert_json_snapshot!`])
 //! * `ron`: enables RON support ([`assert_ron_snapshot!`])
 //! * `toml`: enables TOML support ([`assert_toml_snapshot!`])
+//! * `yaml`: enables YAML support ([`assert_yaml_snapshot!`])
 //! * `redactions`: enables support for redactions
 //! * `filters`: enables support for filters
 //! * `glob`: enables support for globbing ([`glob!`])
