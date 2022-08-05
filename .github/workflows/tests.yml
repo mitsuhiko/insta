@@ -32,7 +32,7 @@ jobs:
         run: make test
 
   build-old-stable:
-    name: Test on 1.51.0
+    name: Check on 1.51.0
     runs-on: ubuntu-latest
 
     steps:
