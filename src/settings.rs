@@ -315,13 +315,19 @@ impl Settings {
     /// can be used to show extended information that can make a reviewer better
     /// understand what the snapshot is supposed to be testing.
     ///
-    /// As an example the input paramters to the function that creates the snapshot
+    /// As an example the input parameters to the function that creates the snapshot
     /// can be persisted here.
+    ///
+    /// This requires the `serialization` feature.  Alternatively you can use
+    /// [`set_raw_info`](Self::set_raw_info) instead.
     #[cfg(feature = "serialization")]
     pub fn set_info<S: Serialize>(&mut self, s: &S) {
         self._private_inner_mut().info(s);
     }
 
+    /// Sets the info from a content object.
+    ///
+    /// This works like [`set_info`](Self::set_info) but does not require `serde`.
     pub fn set_raw_info(&mut self, content: &Content) {
         self._private_inner_mut().raw_info(content);
     }
