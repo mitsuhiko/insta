@@ -30,3 +30,17 @@ jobs:
           override: true
       - name: Test
         run: make test
+
+  build-old-stable:
+    name: Check on 1.51.0
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.51.0
+          profile: minimal
+          override: true
+      - name: Check
+        run: cargo check --no-default-features
