@@ -6,7 +6,7 @@
 [![Build Status](https://github.com/mitsuhiko/insta/workflows/Tests/badge.svg?branch=master)](https://github.com/mitsuhiko/insta/actions?query=workflow%3ATests)
 [![Crates.io](https://img.shields.io/crates/d/insta.svg)](https://crates.io/crates/insta)
 [![License](https://img.shields.io/github/license/mitsuhiko/insta)](https://github.com/mitsuhiko/insta/blob/master/LICENSE)
-[![rustc 1.56.1](https://img.shields.io/badge/rust-1.56.1%2B-orange.svg)](https://img.shields.io/badge/rust-1.56.1%2B-orange.svg)
+[![rustc 1.51.0](https://img.shields.io/badge/rust-1.51.0%2B-orange.svg)](https://img.shields.io/badge/rust-1.51.0%2B-orange.svg)
 [![Documentation](https://docs.rs/insta/badge.svg)](https://docs.rs/insta)
 [![VSCode Extension](https://img.shields.io/visual-studio-marketplace/v/mitsuhiko.insta?label=vscode%20extension)](https://marketplace.visualstudio.com/items?itemName=mitsuhiko.insta)
 
