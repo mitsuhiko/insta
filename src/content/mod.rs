@@ -2,6 +2,7 @@
 
 mod error;
 mod formats;
+mod json;
 #[cfg(feature = "serialization")]
 mod serialization;
 pub(crate) mod utils;

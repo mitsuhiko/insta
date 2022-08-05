@@ -10,7 +10,6 @@ pub enum Error {
     FailedParsingYaml,
     UnexpectedDataType,
     MissingField,
-    UnsupportedDataType,
 }
 
 impl fmt::Display for Error {
@@ -22,7 +21,6 @@ impl fmt::Display for Error {
                 f.write_str("The present data type wasn't what was expected")
             }
             Self::MissingField => f.write_str("A required field was missing"),
-            Self::UnsupportedDataType => f.write_str("Failed converting an unsupported data type"),
         }
     }
 }
