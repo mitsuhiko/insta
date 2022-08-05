@@ -43,7 +43,7 @@ impl PendingInlineSnapshot {
         let mut rv: Vec<Self> = contents
             .lines()
             .map(|line| {
-                let value = Content::from_json(line)?;
+                let value = Content::from_yaml(line)?;
                 Self::from_content(value)
             })
             .collect::<Result<_, Box<dyn Error>>>()?;
