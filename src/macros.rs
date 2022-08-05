@@ -25,8 +25,8 @@ macro_rules! _function_name {
 ///
 /// Example:
 ///
-/// ```no_run,ignore
-/// assert_csv_snapshot!(vec[1, 2, 3]);
+/// ```no_run
+/// insta::assert_csv_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
@@ -68,8 +68,8 @@ macro_rules! assert_csv_snapshot {
 ///
 /// Example:
 ///
-/// ```no_run,ignore
-/// assert_toml_snapshot!(vec[1, 2, 3]);
+/// ```no_run
+/// insta::assert_toml_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
@@ -142,6 +142,7 @@ macro_rules! assert_toml_snapshot {
 /// just use an empty string (`@""`).
 ///
 /// The snapshot name is optional but can be provided as first argument.
+#[cfg(feature = "yaml")]
 #[macro_export]
 macro_rules! assert_yaml_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -225,6 +226,7 @@ macro_rules! assert_ron_snapshot {
 /// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
+#[cfg(feature = "json")]
 #[macro_export]
 macro_rules! assert_json_snapshot {
     ($value:expr, @$snapshot:literal) => {{

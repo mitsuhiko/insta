@@ -6,8 +6,9 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::content::{self, Content};
+
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
 
 static RUN_ID: Lazy<String> = Lazy::new(|| {
     dbg!(if let Ok(run_id) = env::var("NEXTEST_RUN_ID") {
@@ -18,7 +19,7 @@ static RUN_ID: Lazy<String> = Lazy::new(|| {
     })
 });
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct PendingInlineSnapshot {
     pub run_id: String,
     pub line: u32,
@@ -37,9 +38,15 @@ impl PendingInlineSnapshot {
     }
 
     pub fn load_batch<P: AsRef<Path>>(p: P) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
-        let f = BufReader::new(fs::File::open(p)?);
-        let iter = serde_json::Deserializer::from_reader(f).into_iter::<PendingInlineSnapshot>();
-        let mut rv = iter.collect::<Result<Vec<PendingInlineSnapshot>, _>>()?;
+        let contents = fs::read_to_string(p)?;
+
+        let mut rv: Vec<Self> = contents
+            .lines()
+            .map(|line| {
+                let value = Content::from_json(line)?;
+                Self::from_content(value)
+            })
+            .collect::<Result<_, Box<dyn Error>>>()?;
 
         // remove all but the last run
         if let Some(last_run_id) = rv.last().map(|x| x.run_id.clone()) {
@@ -62,33 +69,76 @@ impl PendingInlineSnapshot {
 
     pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Box<dyn Error>> {
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
-        let mut s = serde_json::to_string(self)?;
+        let mut s = self.as_content().as_json()?;
         s.push('\n');
         f.write_all(s.as_bytes())?;
         Ok(())
     }
+
+    fn from_content(content: Content) -> Result<PendingInlineSnapshot, Box<dyn Error>> {
+        if let Content::Map(map) = content {
+            let mut map = content::utils::into_unordered_struct_fields(map)?;
+
+            let run_id = content::utils::pop_str(&mut map, "run_id")?;
+            let line = content::utils::pop_u32(&mut map, "line")?;
+            let new = match map.remove("new") {
+                None | Some(Content::None) => None,
+                Some(non_null) => Some(Snapshot::from_content(non_null)?),
+            };
+            let old = match map.remove("old") {
+                None | Some(Content::None) => None,
+                Some(non_null) => Some(Snapshot::from_content(non_null)?),
+            };
+
+            Ok(PendingInlineSnapshot {
+                run_id,
+                line,
+                new,
+                old,
+            })
+        } else {
+            Err(content::Error::UnexpectedDataType.into())
+        }
+    }
+
+    fn as_content(&self) -> Content {
+        let fields = vec![
+            ("run_id", Content::from(self.run_id.as_str())),
+            ("line", Content::from(self.line)),
+            (
+                "new",
+                match &self.new {
+                    Some(snap) => snap.as_content(),
+                    None => Content::None,
+                },
+            ),
+            (
+                "old",
+                match &self.old {
+                    Some(snap) => snap.as_content(),
+                    None => Content::None,
+                },
+            ),
+        ];
+
+        Content::Struct("PendingInlineSnapshot", fields)
+    }
 }
 
 /// Snapshot metadata information.
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct MetaData {
     /// The source file (relative to workspace root).
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) source: Option<String>,
     /// The source line if available.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) assertion_line: Option<u32>,
     /// Optional human readable (non formatted) snapshot description.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) description: Option<String>,
     /// Optionally the expression that created the snapshot.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) expression: Option<String>,
     /// An optional arbitrary structured info object.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) info: Option<serde_yaml::Value>,
+    pub(crate) info: Option<Content>,
     /// Reference to the input file.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) input_file: Option<String>,
 }
 
@@ -115,7 +165,7 @@ impl MetaData {
 
     /// Returns the embedded info.
     #[doc(hidden)]
-    pub fn private_info(&self) -> Option<&serde_yaml::Value> {
+    pub fn private_info(&self) -> Option<&Content> {
         self.info.as_ref()
     }
 
@@ -134,13 +184,60 @@ impl MetaData {
     pub fn input_file(&self) -> Option<&str> {
         self.input_file.as_deref()
     }
+
+    fn from_content(content: Content) -> Result<MetaData, Box<dyn Error>> {
+        if let Content::Map(map) = content {
+            let mut map = content::utils::into_unordered_struct_fields(map)?;
+
+            let source = content::utils::pop_nullable_str(&mut map, "source")?;
+            let assertion_line = content::utils::pop_nullable_u32(&mut map, "assertion_line")?;
+            let description = content::utils::pop_nullable_str(&mut map, "description")?;
+            let expression = content::utils::pop_nullable_str(&mut map, "expression")?;
+            let info = map.remove("info");
+            let input_file = content::utils::pop_nullable_str(&mut map, "input_file")?;
+
+            Ok(MetaData {
+                source,
+                assertion_line,
+                description,
+                expression,
+                info,
+                input_file,
+            })
+        } else {
+            Err(content::Error::UnexpectedDataType.into())
+        }
+    }
+
+    fn as_content(&self) -> Content {
+        let mut fields = Vec::new();
+        if let Some(source) = self.source.as_deref() {
+            fields.push(("source", Content::from(source)));
+        }
+        if let Some(expression) = self.expression.as_deref() {
+            fields.push(("expression", Content::from(expression)));
+        }
+        if let Some(line) = self.assertion_line {
+            fields.push(("assertion_line", Content::from(line)));
+        }
+        if let Some(description) = self.description.as_deref() {
+            fields.push(("description", Content::from(description)));
+        }
+        if let Some(info) = &self.info {
+            fields.push(("info", info.to_owned()));
+        }
+        if let Some(input_file) = self.input_file.as_deref() {
+            fields.push(("input_file", Content::from(input_file)));
+        }
+
+        Content::Struct("MetaData", fields)
+    }
 }
 
 /// A helper to work with stored snapshots.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct Snapshot {
     module_name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     snapshot_name: Option<String>,
     metadata: MetaData,
     snapshot: SnapshotContents,
@@ -166,7 +263,8 @@ impl Snapshot {
                     break;
                 }
             }
-            serde_yaml::from_str(&buf)?
+            let content = Content::from_yaml(&buf)?;
+            MetaData::from_content(content)?
         // legacy format
         } else {
             let mut rv = MetaData::default();
@@ -248,6 +346,39 @@ impl Snapshot {
         }
     }
 
+    fn from_content(content: Content) -> Result<Snapshot, Box<dyn Error>> {
+        if let Content::Map(map) = content {
+            let mut map = content::utils::into_unordered_struct_fields(map)?;
+
+            let module_name = content::utils::pop_str(&mut map, "module_name")?;
+            let snapshot_name = content::utils::pop_nullable_str(&mut map, "snapshot_name")?;
+            let metadata = MetaData::from_content(
+                map.remove("metadata").ok_or(content::Error::MissingField)?,
+            )?;
+            let snapshot = SnapshotContents(content::utils::pop_str(&mut map, "snapshot")?);
+
+            Ok(Snapshot {
+                module_name,
+                snapshot_name,
+                metadata,
+                snapshot,
+            })
+        } else {
+            Err(content::Error::UnexpectedDataType.into())
+        }
+    }
+
+    fn as_content(&self) -> Content {
+        let mut fields = vec![("module_name", Content::from(self.module_name.as_str()))];
+        if let Some(name) = self.snapshot_name.as_deref() {
+            fields.push(("snapshot_name", Content::from(name)));
+        }
+        fields.push(("metadata", self.metadata.as_content()));
+        fields.push(("snapshot", Content::from(self.snapshot.0.as_str())));
+
+        Content::Struct("Content", fields)
+    }
+
     /// Returns the module name.
     pub fn module_name(&self) -> &str {
         &self.module_name
@@ -283,7 +414,8 @@ impl Snapshot {
             fs::create_dir_all(&folder)?;
         }
         let mut f = fs::File::create(&path)?;
-        serde_yaml::to_writer(&mut f, md)?;
+        let blob = md.as_content().as_yaml();
+        f.write_all(blob.as_bytes())?;
         f.write_all(b"---\n")?;
         f.write_all(self.contents_str().as_bytes())?;
         f.write_all(b"\n")?;
@@ -312,7 +444,7 @@ impl Snapshot {
 
 /// The contents of a Snapshot
 // Could be Cow, but I think limited savings
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SnapshotContents(String);
 
 impl SnapshotContents {

@@ -7,16 +7,16 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use once_cell::sync::Lazy;
-use serde::Serialize;
+#[cfg(feature = "serialization")]
+use serde::{de::value::Error as ValueError, Serialize};
 
-#[cfg(feature = "redactions")]
-use crate::{
-    content::Content,
-    redaction::{dynamic_redaction, sorted_redaction, ContentPath, Redaction, Selector},
-};
-
+use crate::content::Content;
+#[cfg(feature = "serialization")]
+use crate::content::ContentSerializer;
 #[cfg(feature = "filters")]
 use crate::filters::Filters;
+#[cfg(feature = "redactions")]
+use crate::redaction::{dynamic_redaction, sorted_redaction, ContentPath, Redaction, Selector};
 
 static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
     Arc::new(ActualSettings {
@@ -63,7 +63,7 @@ pub struct ActualSettings {
     pub snapshot_suffix: String,
     pub input_file: Option<PathBuf>,
     pub description: Option<String>,
-    pub info: Option<serde_yaml::Value>,
+    pub info: Option<Content>,
     pub omit_expression: bool,
     pub prepend_module_to_snapshot: bool,
     #[cfg(feature = "redactions")]
@@ -95,8 +95,15 @@ impl ActualSettings {
         self.description = Some(value.into());
     }
 
-    pub fn info<S: Serialize>(&mut self, value: &S) {
-        self.info = Some(serde_yaml::to_value(value).unwrap());
+    #[cfg(feature = "serialization")]
+    pub fn info<S: Serialize>(&mut self, s: &S) {
+        let serializer = ContentSerializer::<ValueError>::new();
+        let content = Serialize::serialize(s, serializer).unwrap();
+        self.info = Some(content);
+    }
+
+    pub fn raw_info(&mut self, content: &Content) {
+        self.info = Some(content.to_owned());
     }
 
     pub fn omit_expression(&mut self, value: bool) {
@@ -310,8 +317,13 @@ impl Settings {
     ///
     /// As an example the input paramters to the function that creates the snapshot
     /// can be persisted here.
-    pub fn set_info<S: Serialize>(&mut self, value: &S) {
-        self._private_inner_mut().info(value);
+    #[cfg(feature = "serialization")]
+    pub fn set_info<S: Serialize>(&mut self, s: &S) {
+        self._private_inner_mut().info(s);
+    }
+
+    pub fn set_raw_info(&mut self, content: &Content) {
+        self._private_inner_mut().raw_info(content);
     }
 
     /// Removes the info.
@@ -320,8 +332,8 @@ impl Settings {
     }
 
     /// Returns the current info
-    pub(crate) fn info(&self) -> Option<serde_yaml::Value> {
-        self.inner.info.clone()
+    pub(crate) fn info(&self) -> Option<&Content> {
+        self.inner.info.as_ref()
     }
 
     /// Returns the current info

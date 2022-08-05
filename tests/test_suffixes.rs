@@ -1,3 +1,4 @@
+#[cfg(feature = "json")]
 #[test]
 fn test_basic_suffixes() {
     for value in [1, 2, 3] {

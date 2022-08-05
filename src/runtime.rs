@@ -301,7 +301,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 } else {
                     Some(expr.to_string())
                 },
-                info: settings.info(),
+                info: settings.info().map(ToOwned::to_owned),
                 input_file: settings
                     .input_file()
                     .and_then(|x| self.localize_path(x))
@@ -508,11 +508,16 @@ pub fn assert_snapshot(
 /// Test snapshots in doctests.
 ///
 /// ```
-/// insta::assert_yaml_snapshot!("named", vec![1, 2, 3, 4, 5]);
+/// insta::assert_debug_snapshot!("named", vec![1, 2, 3, 4, 5]);
 /// ```
 ///
 /// ```should_panic
-/// insta::assert_yaml_snapshot!(vec![1, 2, 3, 4, 5]);
+/// insta::assert_debug_snapshot!(vec![1, 2, 3, 4, 5]);
+/// ```
+///
+/// ```
+/// let some_string = "Coucou je suis un joli bug";
+/// insta::assert_snapshot!(some_string, @"Coucou je suis un joli bug");
 /// ```
 ///
 /// ```

@@ -133,7 +133,8 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
         }
 
         if let Some(info) = metadata.private_info() {
-            let out = serde_yaml::to_string(&info).unwrap();
+            let out = info.as_yaml();
+            // TODO: does the yaml output always start with '---'?
             println!("{}", out.trim().strip_prefix("---").unwrap().trim_start());
             println!("{:─^1$}", "", width);
         }

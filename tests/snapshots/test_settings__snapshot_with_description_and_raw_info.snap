@@ -4,7 +4,8 @@ description: The snapshot is four integers
 expression: "vec![1, 2, 3, 4]"
 info:
   env:
-    ENVIRONMENT: production
+    - ENVIRONMENT
+    - production
   cmdline:
     - my-tool
     - run

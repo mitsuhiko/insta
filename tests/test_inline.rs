@@ -1,11 +1,15 @@
 #[cfg(feature = "csv")]
 use insta::assert_csv_snapshot;
+#[cfg(feature = "json")]
+use insta::assert_json_snapshot;
 #[cfg(feature = "ron")]
 use insta::assert_ron_snapshot;
 #[cfg(feature = "toml")]
 use insta::assert_toml_snapshot;
-use insta::{assert_debug_snapshot, assert_json_snapshot, assert_snapshot, assert_yaml_snapshot};
-use serde::Serialize;
+#[cfg(feature = "yaml")]
+use insta::assert_yaml_snapshot;
+
+use insta::{assert_debug_snapshot, assert_snapshot};
 use std::thread;
 
 #[test]
@@ -58,10 +62,10 @@ fn test_newline() {
 #[cfg(feature = "csv")]
 #[test]
 fn test_csv_inline() {
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct Email(String);
 
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct User {
         id: u32,
         username: String,
@@ -81,10 +85,10 @@ fn test_csv_inline() {
 #[cfg(feature = "csv")]
 #[test]
 fn test_csv_inline_multiple_values() {
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct Email(String);
 
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct User {
         id: u32,
         username: String,
@@ -112,10 +116,10 @@ fn test_csv_inline_multiple_values() {
 #[cfg(feature = "ron")]
 #[test]
 fn test_ron_inline() {
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct Email(String);
 
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct User {
         id: u32,
         username: String,
@@ -138,10 +142,10 @@ fn test_ron_inline() {
 #[cfg(feature = "toml")]
 #[test]
 fn test_toml_inline() {
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct Email(String);
 
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct User {
         id: u32,
         username: String,
@@ -159,6 +163,7 @@ fn test_toml_inline() {
     "###);
 }
 
+#[cfg(feature = "json")]
 #[test]
 fn test_json_inline() {
     assert_json_snapshot!(vec!["foo", "bar"], @r###"
@@ -169,9 +174,10 @@ fn test_json_inline() {
     "###);
 }
 
+#[cfg(feature = "yaml")]
 #[test]
 fn test_yaml_inline() {
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct User {
         id: u32,
         username: String,
@@ -190,10 +196,10 @@ fn test_yaml_inline() {
     "###);
 }
 
-#[cfg(feature = "redactions")]
+#[cfg(all(feature = "redactions", feature = "yaml"))]
 #[test]
 fn test_yaml_inline_redacted() {
-    #[derive(Serialize)]
+    #[derive(serde::Serialize)]
     pub struct User {
         id: u32,
         username: String,
