@@ -10,8 +10,6 @@ pub use error::*;
 #[cfg(feature = "serialization")]
 pub use serialization::*;
 
-use std::cmp::Ordering;
-
 /// Represents variable typed content.
 ///
 /// This is used for the serialization system to represent values
@@ -90,27 +88,6 @@ pub enum Content {
         &'static str,
         Vec<(&'static str, Content)>,
     ),
-}
-
-#[derive(PartialEq, PartialOrd, Debug)]
-pub enum Key<'a> {
-    Bool(bool),
-    U64(u64),
-    I64(i64),
-    F64(f64),
-    U128(u128),
-    I128(i128),
-    Str(&'a str),
-    Bytes(&'a [u8]),
-    Other,
-}
-
-impl<'a> Eq for Key<'a> {}
-
-impl<'a> Ord for Key<'a> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Less)
-    }
 }
 
 macro_rules! impl_from {
@@ -225,26 +202,6 @@ impl Content {
         }
     }
 
-    pub(crate) fn as_key(&self) -> Key<'_> {
-        match *self.resolve_inner() {
-            Content::Bool(val) => Key::Bool(val),
-            Content::Char(val) => Key::U64(val as u64),
-            Content::U16(val) => Key::U64(val.into()),
-            Content::U32(val) => Key::U64(val.into()),
-            Content::U64(val) => Key::U64(val),
-            Content::U128(val) => Key::U128(val),
-            Content::I16(val) => Key::I64(val.into()),
-            Content::I32(val) => Key::I64(val.into()),
-            Content::I64(val) => Key::I64(val),
-            Content::I128(val) => Key::I128(val),
-            Content::F32(val) => Key::F64(val.into()),
-            Content::F64(val) => Key::F64(val),
-            Content::String(ref val) => Key::Str(val.as_str()),
-            Content::Bytes(ref val) => Key::Bytes(&val[..]),
-            _ => Key::Other,
-        }
-    }
-
     /// Returns the value as bool
     pub fn as_bool(&self) -> Option<bool> {
         match *self.resolve_inner() {
@@ -354,15 +311,6 @@ impl Content {
             Content::F64(v) => Some(v),
             _ => None,
         }
-    }
-
-    pub(crate) fn sort_maps(&mut self) {
-        self.walk(&mut |content| {
-            if let Content::Map(ref mut items) = content {
-                items.sort_by(|a, b| a.0.as_key().cmp(&b.0.as_key()));
-            }
-            true
-        })
     }
 
     /// Recursively walks the content structure mutably.

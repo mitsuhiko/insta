@@ -102,23 +102,24 @@ impl PendingInlineSnapshot {
     }
 
     fn as_content(&self) -> Content {
-        let mut fields = Vec::new();
-        fields.push(("run_id", Content::from(self.run_id.as_str())));
-        fields.push(("line", Content::from(self.line)));
-        fields.push((
-            "new",
-            match &self.new {
-                Some(snap) => snap.as_content(),
-                None => Content::None,
-            },
-        ));
-        fields.push((
-            "old",
-            match &self.old {
-                Some(snap) => snap.as_content(),
-                None => Content::None,
-            },
-        ));
+        let fields = vec![
+            ("run_id", Content::from(self.run_id.as_str())),
+            ("line", Content::from(self.line)),
+            (
+                "new",
+                match &self.new {
+                    Some(snap) => snap.as_content(),
+                    None => Content::None,
+                },
+            ),
+            (
+                "old",
+                match &self.old {
+                    Some(snap) => snap.as_content(),
+                    None => Content::None,
+                },
+            ),
+        ];
 
         Content::Struct("PendingInlineSnapshot", fields)
     }
@@ -368,8 +369,7 @@ impl Snapshot {
     }
 
     fn as_content(&self) -> Content {
-        let mut fields = Vec::new();
-        fields.push(("module_name", Content::from(self.module_name.as_str())));
+        let mut fields = vec![("module_name", Content::from(self.module_name.as_str()))];
         if let Some(name) = self.snapshot_name.as_deref() {
             fields.push(("snapshot_name", Content::from(name)));
         }

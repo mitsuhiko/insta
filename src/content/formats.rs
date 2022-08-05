@@ -205,7 +205,7 @@ impl Content {
             Self::I8(n) => YamlValue::Integer(i64::from(*n)),
             Self::I16(n) => YamlValue::Integer(i64::from(*n)),
             Self::I32(n) => YamlValue::Integer(i64::from(*n)),
-            Self::I64(n) => YamlValue::Integer(i64::from(*n)),
+            Self::I64(n) => YamlValue::Integer(*n),
             Self::I128(n) => YamlValue::Real(n.to_string()),
             Self::F32(f) => YamlValue::Real(f.to_string()),
             Self::F64(f) => YamlValue::Real(f.to_string()),
