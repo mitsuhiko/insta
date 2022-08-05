@@ -1,5 +1,6 @@
 #[cfg(feature = "yaml")]
 use insta::assert_yaml_snapshot;
+use similar_asserts::assert_eq;
 
 use insta::{assert_debug_snapshot, with_settings, Settings};
 

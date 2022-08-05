@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use regex::Regex;
 
+/// Represents stored filters.
 #[derive(Debug, Default, Clone)]
 pub struct Filters {
     rules: Vec<(Regex, String)>,

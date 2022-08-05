@@ -473,18 +473,22 @@ impl Settings {
     }
 
     /// Runs a function with the current settings bound to the thread.
-    pub fn bind<F: FnOnce()>(&self, f: F) {
-        CURRENT_SETTINGS.with(|x| {
-            let old = {
-                let mut current = x.borrow_mut();
-                let old = current.inner.clone();
-                current.inner = self.inner.clone();
-                old
-            };
-            f();
-            let mut current = x.borrow_mut();
-            current.inner = old;
-        })
+    ///
+    /// This is an alternative to [`bind_to_scope`](Settings::bind_to_scope)
+    /// which does not require holding on to a drop guard.  The return value
+    /// of the closure is passed through.
+    ///
+    /// ```
+    /// # use insta::Settings;
+    /// let mut settings = Settings::clone_current();
+    /// settings.set_sort_maps(true);
+    /// settings.bind(|| {
+    ///     // do stuff here
+    /// });
+    /// ```
+    pub fn bind<F: FnOnce() -> R, R>(&self, f: F) -> R {
+        let _guard = self.bind_to_scope();
+        f()
     }
 
     /// Like `bind` but for futures.
@@ -529,7 +533,7 @@ impl Settings {
 
     /// Binds the settings to the current thread permanently.
     ///
-    /// This should no longer be used in favor of [`Settings::bind_to_scope`].
+    /// This should no longer be used in favor of [`bind_to_scope`](Settings::bind_to_scope).
     #[deprecated(since = "0.17.0", note = "Use Settings::bind_to_scope instead.")]
     pub fn bind_to_thread(&self) {
         CURRENT_SETTINGS.with(|x| {
@@ -540,12 +544,23 @@ impl Settings {
     /// Binds the settings to the current thread and resets when the drop
     /// guard is released.
     ///
-    /// This is the recommen
-    pub fn bind_to_scope(&self) -> impl Drop {
+    /// This is the recommended way to temporarily bind settings and replaces
+    /// the earlier [`bind_to_scope`](Settings::bind_to_scope) and relies on
+    /// drop guards.  An alterantive is [`bind`](Settings::bind) which binds
+    /// for the duration of the block it wraps.
+    ///
+    /// ```
+    /// # use insta::Settings;
+    /// let mut settings = Settings::clone_current();
+    /// settings.set_sort_maps(true);
+    /// let _guard = settings.bind_to_scope();
+    /// // do stuff here
+    /// ```
+    pub fn bind_to_scope(&self) -> SettingsBindDropGuard {
         CURRENT_SETTINGS.with(|x| {
             let mut x = x.borrow_mut();
             let old = mem::replace(&mut x.inner, self.inner.clone());
-            BindDropGuard(Some(old))
+            SettingsBindDropGuard(Some(old))
         })
     }
 
@@ -555,9 +570,10 @@ impl Settings {
     }
 }
 
-struct BindDropGuard(Option<Arc<ActualSettings>>);
+/// Returned from [`bind_to_scope`](Settings::bind_to_scope)
+pub struct SettingsBindDropGuard(Option<Arc<ActualSettings>>);
 
-impl Drop for BindDropGuard {
+impl Drop for SettingsBindDropGuard {
     fn drop(&mut self) {
         CURRENT_SETTINGS.with(|x| {
             x.borrow_mut().inner = self.0.take().unwrap();

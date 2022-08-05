@@ -69,4 +69,4 @@ linked-hash-map = "0.5.6"
 
 [dev-dependencies]
 serde = { version = "1.0.117", features = ["derive"] }
-similar-asserts = "1.2.0"
+similar-asserts = "1.4.2"
