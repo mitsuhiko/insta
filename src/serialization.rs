@@ -43,7 +43,7 @@ pub fn serialize_content(
     match format {
         // #[cfg(feature = "yaml")]
         SerializationFormat::Yaml => {
-            let serialized = serde_yaml::to_string(&_content).unwrap();
+            let serialized = _content.as_yaml();
             match _location {
                 SnapshotLocation::Inline => serialized,
                 SnapshotLocation::File => serialized[4..].to_string(),
@@ -122,4 +122,60 @@ pub fn serialize_value_redacted<S: Serialize>(
         content = selector.redact(content, redaction);
     }
     serialize_content(content, format, location)
+}
+
+#[test]
+fn test_yaml_serialization() {
+    let yaml = serialize_content(
+        Content::Map(vec![
+            (
+                Content::from("env"),
+                Content::Seq(vec![
+                    Content::from("ENVIRONMENT"),
+                    Content::from("production"),
+                ]),
+            ),
+            (
+                Content::from("cmdline"),
+                Content::Seq(vec![Content::from("my-tool"), Content::from("run")]),
+            ),
+        ]),
+        SerializationFormat::Yaml,
+        SnapshotLocation::File,
+    );
+    crate::assert_snapshot!(&yaml, @r###"
+    env:
+      - ENVIRONMENT
+      - production
+    cmdline:
+      - my-tool
+      - run
+    "###);
+
+    let inline_yaml = serialize_content(
+        Content::Map(vec![
+            (
+                Content::from("env"),
+                Content::Seq(vec![
+                    Content::from("ENVIRONMENT"),
+                    Content::from("production"),
+                ]),
+            ),
+            (
+                Content::from("cmdline"),
+                Content::Seq(vec![Content::from("my-tool"), Content::from("run")]),
+            ),
+        ]),
+        SerializationFormat::Yaml,
+        SnapshotLocation::Inline,
+    );
+    crate::assert_snapshot!(&inline_yaml, @r###"
+    ---
+    env:
+      - ENVIRONMENT
+      - production
+    cmdline:
+      - my-tool
+      - run
+    "###);
 }
