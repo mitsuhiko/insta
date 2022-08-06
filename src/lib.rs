@@ -215,7 +215,7 @@ pub mod _macro_support {
     pub use crate::env::get_cargo_workspace;
     pub use crate::runtime::{assert_snapshot, AutoName, ReferenceValue};
 
-    #[cfg(feature = "serde")]
+    #[cfg(feature = "serialization")]
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
 
     #[cfg(feature = "glob")]
