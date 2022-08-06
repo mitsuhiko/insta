@@ -1,6 +1,14 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use crate::content::Content;
+
+pub fn format_float<T: Display>(value: T) -> String {
+    let mut rv = format!("{}", value);
+    if !rv.contains('.') {
+        rv.push_str(".0");
+    }
+    rv
+}
 
 /// Serializes a serializable to JSON.
 pub struct Serializer {
@@ -64,7 +72,7 @@ impl Serializer {
         }
     }
 
-    fn serialize_items(&mut self, items: &[Content]) {
+    fn serialize_array(&mut self, items: &[Content]) {
         self.start_container('[');
         for (idx, item) in items.iter().enumerate() {
             self.write_comma(idx == 0);
@@ -73,7 +81,7 @@ impl Serializer {
         self.end_container(']', items.is_empty());
     }
 
-    fn serialize_fields(&mut self, fields: &[(&str, Content)]) {
+    fn serialize_object(&mut self, fields: &[(&str, Content)]) {
         self.start_container('{');
         for (idx, (key, value)) in fields.iter().enumerate() {
             self.write_comma(idx == 0);
@@ -100,14 +108,14 @@ impl Serializer {
             Content::I128(n) => self.write_str(&n.to_string()),
             Content::F32(f) => {
                 if f.is_finite() {
-                    self.write_str(f.to_string().as_str())
+                    self.write_str(&format_float(f));
                 } else {
                     self.write_str("null")
                 }
             }
             Content::F64(f) => {
                 if f.is_finite() {
-                    self.write_str(f.to_string().as_str())
+                    self.write_str(&format_float(f));
                 } else {
                     self.write_str("null")
                 }
@@ -134,13 +142,13 @@ impl Serializer {
                 self.end_container('}', false);
             }
             Content::Seq(seq) | Content::Tuple(seq) | Content::TupleStruct(_, seq) => {
-                self.serialize_items(seq);
+                self.serialize_array(seq);
             }
             Content::TupleVariant(_, _, variant, seq) => {
                 self.start_container('{');
                 self.write_escaped_str(variant);
                 self.write_colon();
-                self.serialize_items(seq);
+                self.serialize_array(seq);
                 self.end_container('}', false);
             }
             Content::Map(map) => {
@@ -158,13 +166,13 @@ impl Serializer {
                 self.end_container('}', map.is_empty());
             }
             Content::Struct(_, fields) => {
-                self.serialize_fields(fields);
+                self.serialize_object(fields);
             }
             Content::StructVariant(_, _, variant, fields) => {
                 self.start_container('{');
                 self.write_escaped_str(variant);
                 self.write_colon();
-                self.serialize_fields(fields);
+                self.serialize_object(fields);
                 self.end_container('}', false);
             }
         }
@@ -306,6 +314,72 @@ fn test_to_string_pretty() {
       ],
       "cmdline": [],
       "extra": {}
+    }
+    "###);
+}
+
+#[test]
+fn test_to_string_pretty_complex() {
+    let content = Content::Map(vec![
+        (
+            Content::from("is_alive"),
+            Content::NewtypeStruct("Some", Content::from(true).into()),
+        ),
+        (Content::from("empty_array"), Content::Seq(vec![])),
+        (Content::from("empty_object"), Content::Map(vec![])),
+        (Content::from("array"), Content::Seq(vec![true.into()])),
+        (
+            Content::from("object"),
+            Content::Map(vec![("foo".into(), true.into())]),
+        ),
+        (
+            Content::from("array_of_objects"),
+            Content::Seq(vec![Content::Struct(
+                "MyType",
+                vec![
+                    ("foo", Content::from("bar".to_string())),
+                    ("bar", Content::from("xxx".to_string())),
+                ],
+            )]),
+        ),
+        (
+            Content::from("unit_variant"),
+            Content::UnitVariant("Stuff", 0, "value"),
+        ),
+        (Content::from("u128"), Content::U128(42)),
+        (Content::from("f32"), Content::F32(42.0)),
+        (Content::from("f64"), Content::F64(42.0)),
+        (Content::from("null"), Content::None),
+        (
+            Content::from("crazy_string"),
+            Content::String((0u8..=126).map(|x| x as char).collect()),
+        ),
+    ]);
+    let json = to_string_pretty(&content);
+
+    crate::assert_snapshot!(&json, @r###"
+    {
+      "is_alive": true,
+      "empty_array": [],
+      "empty_object": {},
+      "array": [
+        true
+      ],
+      "object": {
+        "foo": true
+      },
+      "array_of_objects": [
+        {
+          "foo": "bar",
+          "bar": "xxx"
+        }
+      ],
+      "unit_variant": "value",
+      "u128": 42,
+      "f32": 42.0,
+      "f64": 42.0,
+      "null": null,
+      "crazy_string": "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
     }
     "###);
 }
