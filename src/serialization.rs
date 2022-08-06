@@ -50,7 +50,7 @@ pub fn serialize_content(
             }
         }
         // #[cfg(feature = "json")]
-        SerializationFormat::Json => serde_json::to_string_pretty(&_content).unwrap(),
+        SerializationFormat::Json => _content.as_json_pretty(),
         #[cfg(feature = "csv")]
         SerializationFormat::Csv => {
             let mut buf = Vec::with_capacity(128);

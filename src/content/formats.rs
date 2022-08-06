@@ -2,11 +2,13 @@ use super::{Content, Error, Result};
 
 use yaml_rust::{yaml::Hash as YamlObj, Yaml as YamlValue};
 
-type BoxedResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 impl Content {
-    pub(crate) fn as_json(&self) -> BoxedResult<String> {
-        Ok(crate::content::json::to_string(self))
+    pub(crate) fn as_json(&self) -> String {
+        crate::content::json::to_string(self)
+    }
+
+    pub(crate) fn as_json_pretty(&self) -> String {
+        crate::content::json::to_string_pretty(self)
     }
 
     // NOTE: Not implemented as `TryFrom<_>` because this is not generic and we want it to remain

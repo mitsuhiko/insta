@@ -1,18 +1,87 @@
+use std::fmt::Write;
+
 use crate::content::Content;
 
 /// Serializes a serializable to JSON.
 pub struct Serializer {
     out: String,
+    pretty: bool,
+    indentation: usize,
 }
 
 impl Serializer {
     /// Creates a new serializer that writes into the given writer.
     pub fn new() -> Serializer {
-        Serializer { out: String::new() }
+        Serializer {
+            out: String::new(),
+            pretty: false,
+            indentation: 0,
+        }
     }
 
     pub fn into_result(self) -> String {
         self.out
+    }
+
+    fn write_indentation(&mut self) {
+        if self.pretty {
+            write!(self.out, "{: ^1$}", "", self.indentation * 2).unwrap();
+        }
+    }
+
+    fn start_container(&mut self, c: char) {
+        self.write_char(c);
+        self.indentation += 1;
+    }
+
+    fn end_container(&mut self, c: char, empty: bool) {
+        self.indentation -= 1;
+        if self.pretty && !empty {
+            self.write_char('\n');
+            self.write_indentation();
+        }
+        self.write_char(c);
+    }
+
+    fn write_comma(&mut self, first: bool) {
+        if self.pretty {
+            if first {
+                self.write_char('\n');
+            } else {
+                self.write_str(",\n");
+            }
+            self.write_indentation();
+        } else if !first {
+            self.write_char(',');
+        }
+    }
+
+    fn write_colon(&mut self) {
+        if self.pretty {
+            self.write_str(": ");
+        } else {
+            self.write_char(':');
+        }
+    }
+
+    fn serialize_items(&mut self, items: &[Content]) {
+        self.start_container('[');
+        for (idx, item) in items.iter().enumerate() {
+            self.write_comma(idx == 0);
+            self.serialize(item);
+        }
+        self.end_container(']', items.is_empty());
+    }
+
+    fn serialize_fields(&mut self, fields: &[(&str, Content)]) {
+        self.start_container('{');
+        for (idx, (key, value)) in fields.iter().enumerate() {
+            self.write_comma(idx == 0);
+            self.write_escaped_str(key);
+            self.write_colon();
+            self.serialize(value);
+        }
+        self.end_container('}', fields.is_empty());
     }
 
     pub fn serialize(&mut self, value: &Content) {
@@ -44,92 +113,59 @@ impl Serializer {
                 }
             }
             Content::Char(c) => self.write_escaped_str(&(*c as u32).to_string()),
-            Content::String(s) => self.write_escaped_str(&s),
+            Content::String(s) => self.write_escaped_str(s),
             Content::Bytes(bytes) => {
-                self.write_char('[');
+                self.start_container('[');
                 for (idx, byte) in bytes.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
+                    self.write_comma(idx == 0);
                     self.write_str(&byte.to_string());
                 }
+                self.start_container(']');
             }
             Content::None | Content::Unit | Content::UnitStruct(_) => self.write_str("null"),
             Content::Some(content) => self.serialize(content),
             Content::UnitVariant(_, _, variant) => self.write_escaped_str(variant),
             Content::NewtypeStruct(_, content) => self.serialize(content),
             Content::NewtypeVariant(_, _, variant, content) => {
-                self.write_char('{');
+                self.start_container('{');
                 self.write_escaped_str(variant);
-                self.write_char(':');
+                self.write_colon();
                 self.serialize(content);
-                self.write_char('}');
+                self.end_container('}', false);
             }
             Content::Seq(seq) | Content::Tuple(seq) | Content::TupleStruct(_, seq) => {
-                self.write_char('[');
-                for (idx, item) in seq.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
-                    self.serialize(item);
-                }
-                self.write_char(']');
+                self.serialize_items(seq);
             }
             Content::TupleVariant(_, _, variant, seq) => {
-                self.write_char('{');
+                self.start_container('{');
                 self.write_escaped_str(variant);
-                self.write_char(':');
-                self.write_char('[');
-                for (idx, item) in seq.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
-                    self.serialize(item);
-                }
-                self.write_char(']');
-                self.write_char('}');
+                self.write_colon();
+                self.serialize_items(seq);
+                self.end_container('}', false);
             }
             Content::Map(map) => {
-                self.write_char('{');
+                self.start_container('{');
                 for (idx, (key, value)) in map.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
+                    self.write_comma(idx == 0);
                     if let Content::String(ref s) = key {
                         self.write_escaped_str(s);
                     } else {
                         panic!("cannot serialize maps without string keys to JSON");
                     }
-                    self.write_char(':');
+                    self.write_colon();
                     self.serialize(value);
                 }
-                self.write_char('}');
+                self.end_container('}', map.is_empty());
             }
             Content::Struct(_, fields) => {
-                self.write_char('{');
-                for (idx, (key, value)) in fields.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
-                    self.write_escaped_str(key);
-                    self.write_char(':');
-                    self.serialize(value);
-                }
-                self.write_char('}');
+                self.serialize_fields(fields);
             }
             Content::StructVariant(_, _, variant, fields) => {
-                self.write_char('{');
+                self.start_container('{');
                 self.write_escaped_str(variant);
-                self.write_char(':');
-                for (idx, (key, value)) in fields.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
-                    self.write_escaped_str(key);
-                    self.write_char(':');
-                    self.serialize(value);
-                }
-                self.write_char('}');
+                self.write_colon();
+                self.serialize_fields(fields);
+                self.end_container('}', false);
             }
         }
     }
@@ -223,4 +259,53 @@ pub fn to_string(value: &Content) -> String {
     let mut ser = Serializer::new();
     ser.serialize(value);
     ser.into_result()
+}
+
+/// Serializes a value to JSON pretty
+pub fn to_string_pretty(value: &Content) -> String {
+    let mut ser = Serializer::new();
+    ser.pretty = true;
+    ser.serialize(value);
+    ser.into_result()
+}
+
+#[test]
+fn test_to_string() {
+    let json = to_string(&Content::Map(vec![
+        (
+            Content::from("environments"),
+            Content::Seq(vec![
+                Content::from("development"),
+                Content::from("production"),
+            ]),
+        ),
+        (Content::from("cmdline"), Content::Seq(vec![])),
+        (Content::from("extra"), Content::Map(vec![])),
+    ]));
+    crate::assert_snapshot!(&json, @r###"{"environments":["development","production"],"cmdline":[],"extra":{}}"###);
+}
+
+#[test]
+fn test_to_string_pretty() {
+    let json = to_string_pretty(&Content::Map(vec![
+        (
+            Content::from("environments"),
+            Content::Seq(vec![
+                Content::from("development"),
+                Content::from("production"),
+            ]),
+        ),
+        (Content::from("cmdline"), Content::Seq(vec![])),
+        (Content::from("extra"), Content::Map(vec![])),
+    ]));
+    crate::assert_snapshot!(&json, @r###"
+    {
+      "environments": [
+        "development",
+        "production"
+      ],
+      "cmdline": [],
+      "extra": {}
+    }
+    "###);
 }
