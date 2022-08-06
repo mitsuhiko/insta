@@ -40,6 +40,7 @@ thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings
 
 /// Represents stored redactions.
 #[cfg(feature = "redactions")]
+#[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 #[derive(Clone, Default)]
 pub struct Redactions(Vec<(Selector<'static>, Arc<Redaction>)>);
 
@@ -365,6 +366,7 @@ impl Settings {
     /// Note that this only applies to snapshots that undergo serialization
     /// (eg: does not work for `assert_debug_snapshot!`.)
     #[cfg(feature = "redactions")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub fn add_redaction<R: Into<Redaction>>(&mut self, selector: &str, replacement: R) {
         self._private_inner_mut().redactions.0.push((
             Selector::parse(selector).unwrap().make_static(),
@@ -380,6 +382,7 @@ impl Settings {
     ///
     /// This is a shortcut to `add_redaction(selector, dynamic_redaction(...))`;
     #[cfg(feature = "redactions")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub fn add_dynamic_redaction<I, F>(&mut self, selector: &str, func: F)
     where
         I: Into<Content>,
@@ -392,6 +395,7 @@ impl Settings {
     ///
     /// This is a shortcut to `add_redaction(selector, sorted_redaction())`.
     #[cfg(feature = "redactions")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub fn sort_selector(&mut self, selector: &str) {
         self.add_redaction(selector, sorted_redaction());
     }
@@ -400,18 +404,21 @@ impl Settings {
     ///
     /// The default set is empty.
     #[cfg(feature = "redactions")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub fn set_redactions<R: Into<Redactions>>(&mut self, redactions: R) {
         self._private_inner_mut().redactions(redactions);
     }
 
     /// Removes all redactions.
     #[cfg(feature = "redactions")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub fn clear_redactions(&mut self) {
         self._private_inner_mut().redactions.0.clear();
     }
 
     /// Iterate over the redactions.
     #[cfg(feature = "redactions")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub(crate) fn iter_redactions(&self) -> impl Iterator<Item = (&Selector, &Redaction)> {
         self.inner
             .redactions
@@ -440,6 +447,7 @@ impl Settings {
     /// # }
     /// ```
     #[cfg(feature = "filters")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filters")))]
     pub fn add_filter<S: Into<String>>(&mut self, regex: &str, replacement: S) {
         self._private_inner_mut().filters.add(regex, replacement);
     }
@@ -448,18 +456,21 @@ impl Settings {
     ///
     /// The default set is empty.
     #[cfg(feature = "filters")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filters")))]
     pub fn set_filters<F: Into<Filters>>(&mut self, filters: F) {
         self._private_inner_mut().filters(filters);
     }
 
     /// Removes all filters.
     #[cfg(feature = "filters")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filters")))]
     pub fn clear_filters(&mut self) {
         self._private_inner_mut().filters.clear();
     }
 
     /// Returns the current filters
     #[cfg(feature = "filters")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filters")))]
     pub(crate) fn filters(&self) -> &Filters {
         &self.inner.filters
     }

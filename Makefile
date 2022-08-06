@@ -4,7 +4,7 @@ build:
 	@cargo build --all-features
 
 doc:
-	@cargo doc --all-features
+	@RUSTC_BOOTSTRAP=1 RUSTDOCFLAGS="--cfg=docsrs" cargo doc --no-deps --all-features
 
 test: cargotest cargo-insta-tests
 

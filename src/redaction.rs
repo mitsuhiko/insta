@@ -23,6 +23,7 @@ impl SelectorParseError {
 /// This can be converted into a string with `to_string` to see a stringified
 /// path that the selector matched.
 #[derive(Clone, Debug)]
+#[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 pub struct ContentPath<'a>(&'a [PathItem]);
 
 impl<'a> fmt::Display for ContentPath<'a> {
@@ -48,6 +49,7 @@ impl<'a> fmt::Display for ContentPath<'a> {
 /// Replaces a value with another one.
 
 /// Represents a redaction.
+#[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 pub enum Redaction {
     /// Static redaction with new content.
     Static(Content),
@@ -121,6 +123,7 @@ impl<'a> From<&'a [u8]> for Redaction {
 ///     "[uuid]"
 /// }));
 /// ```
+#[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 pub fn dynamic_redaction<I, F>(func: F) -> Redaction
 where
     I: Into<Content>,
@@ -142,6 +145,7 @@ where
 /// # let mut settings = Settings::new();
 /// settings.add_redaction(".flags", sorted_redaction());
 /// ```
+#[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 pub fn sorted_redaction() -> Redaction {
     fn sort(mut value: Content, _path: ContentPath) -> Content {
         match value.resolve_inner_mut() {

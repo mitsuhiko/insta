@@ -35,6 +35,7 @@ macro_rules! _function_name {
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "csv")]
+#[cfg_attr(docsrs, doc(cfg(feature = "csv")))]
 #[macro_export]
 macro_rules! assert_csv_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -78,6 +79,7 @@ macro_rules! assert_csv_snapshot {
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "toml")]
+#[cfg_attr(docsrs, doc(cfg(feature = "toml")))]
 #[macro_export]
 macro_rules! assert_toml_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -148,6 +150,7 @@ macro_rules! assert_toml_snapshot {
     deprecated(note = "assert_yaml_snapshot! will require the \"yaml\" feature. \
         Add the \"yaml\" feature to your Cargo.toml to silence this warning.")
 )]
+#[cfg_attr(docsrs, doc(cfg(feature = "yaml")))]
 #[macro_export]
 macro_rules! assert_yaml_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -191,6 +194,7 @@ macro_rules! assert_yaml_snapshot {
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "ron")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ron")))]
 #[macro_export]
 macro_rules! assert_ron_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -237,6 +241,7 @@ macro_rules! assert_ron_snapshot {
     deprecated(note = "assert_json_snapshot! will require the \"json\" feature. \
         Add the \"json\" feature to your Cargo.toml to silence this warning.")
 )]
+#[cfg_attr(docsrs, doc(cfg(feature = "json")))]
 #[macro_export]
 macro_rules! assert_json_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -470,6 +475,7 @@ macro_rules! with_settings {
 ///
 /// The closure is passed the path to the file.
 #[cfg(feature = "glob")]
+#[cfg_attr(docsrs, doc(cfg(feature = "glob")))]
 #[macro_export]
 macro_rules! glob {
     ($glob:expr, $closure:expr) => {{

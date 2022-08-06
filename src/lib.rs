@@ -60,19 +60,32 @@
 //!
 //! This crate exports multiple macros for snapshot testing:
 //!
-//! - `assert_snapshot!` for comparing basic string snapshots.
-//! - `assert_debug_snapshot!` for comparing `Debug` outputs of values.
-//! - `assert_display_snapshot!` for comparing `Display` outputs of values.
-//! - `assert_csv_snapshot!` for comparing CSV serialized output of
-//!   types implementing `serde::Serialize`. (requires the `csv` feature)
-//! - `assert_toml_snapshot!` for comparing TOML serialized output of
-//!   types implementing `serde::Serialize`. (requires the `toml` feature)
-//! - `assert_yaml_snapshot!` for comparing YAML serialized
-//!   output of types implementing `serde::Serialize`.
-//! - `assert_ron_snapshot!` for comparing RON serialized output of
-//!   types implementing `serde::Serialize`. (requires the `ron` feature)
-//! - `assert_json_snapshot!` for comparing JSON serialized output of
-//!   types implementing `serde::Serialize`.
+//! - [`assert_snapshot!`] for comparing basic string snapshots.
+//! - [`assert_debug_snapshot!`] for comparing [`Debug`] outputs of values.
+//! - [`assert_display_snapshot!`] for comparing [`Display`](std::fmt::Display) outputs of values.
+//!
+//! The following macros require the use of [`Serialize`](serde::Serialize):
+//!
+#![cfg_attr(
+    feature = "csv",
+    doc = "- [`assert_csv_snapshot!`] for comparing CSV serialized output. (requires the `csv` feature)"
+)]
+#![cfg_attr(
+    feature = "toml",
+    doc = "- [`assert_toml_snapshot!`] for comparing TOML serialized output. (requires the `toml` feature)"
+)]
+#![cfg_attr(
+    feature = "yaml",
+    doc = "- [`assert_yaml_snapshot!`] for comparing YAML serialized output. (requires the `yaml` feature)"
+)]
+#![cfg_attr(
+    feature = "ron",
+    doc = "- [`assert_ron_snapshot!`] for comparing RON serialized output. (requires the `ron` feature)"
+)]
+#![cfg_attr(
+    feature = "json",
+    doc = "- [`assert_json_snapshot!`] for comparing JSON serialized output. (requires the `json` feature)"
+)]
 //!
 //! For macros that work with `serde::Serialize` this crate also permits
 //! redacting of partial values.  See [redactions in the documentation](https://insta.rs/docs/redactions/)
@@ -137,20 +150,35 @@
 //!
 //! The following features exist:
 //!
-//! * `csv`: enables CSV support ([`assert_csv_snapshot!`])
-//! * `json`: enables JSON support ([`assert_json_snapshot!`])
-//! * `ron`: enables RON support ([`assert_ron_snapshot!`])
-//! * `toml`: enables TOML support ([`assert_toml_snapshot!`])
-//! * `yaml`: enables YAML support ([`assert_yaml_snapshot!`])
+//! * `csv`: enables CSV support
+//! * `json`: enables JSON support
+//! * `ron`: enables RON support
+//! * `toml`: enables TOML support
+//! * `yaml`: enables YAML support
 //! * `redactions`: enables support for redactions
 //! * `filters`: enables support for filters
 //! * `glob`: enables support for globbing ([`glob!`])
 //! * `colors`: enables color output (enabled by default)
 //!
+//! For legacy reasons the `json` and `yaml` features are enabled by default
+//! in limited capacity.  You will receive a deprecation warning if you are
+//! not opting into them but for now the macros will continue to function.
+//!
+//! # Dependencies
+//!
+//! `insta` tries to be light in dependencies but this is tricky to accomplish
+//! given what it tries to do.  By default it currently depends on `serde` for
+//! the [`assert_toml_snapshot!`] and [`assert_yaml_snapshot!`] macros.  In
+//! the future this default dependencies will be removed.  To already benefit
+//! from this optimization you can disable the default features and manually
+//! opt into what you want.
+//!
 //! # Settings
 //!
 //! There are some settings that can be changed on a per-thread (and thus
 //! per-test) basis.  For more information see [Settings].
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 #[macro_use]
 mod macros;
 mod content;

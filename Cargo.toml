@@ -16,6 +16,7 @@ exclude = [
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["colors", "legacy_default_serialization"]

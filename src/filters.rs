@@ -4,6 +4,7 @@ use regex::Regex;
 
 /// Represents stored filters.
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(docsrs, doc(cfg(feature = "filters")))]
 pub struct Filters {
     rules: Vec<(Regex, String)>,
 }
