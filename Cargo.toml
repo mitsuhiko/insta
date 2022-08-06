@@ -18,7 +18,7 @@ exclude = [
 all-features = true
 
 [features]
-default = ["colors"]
+default = ["colors", "legacy_default_serialization"]
 
 # when the redactions feature is enabled values can be redacted in serialized
 # snapshots.
@@ -47,6 +47,13 @@ json = ["serde_json", "serialization"]
 ron = ["dep_ron", "serialization"]
 toml = ["dep_toml", "serialization"]
 yaml = ["serde_yaml", "serialization"]
+
+# legacy support.  This is turned on by default for a single release and turns
+# on the assert_json_snapshot! and assert_yaml_snapshot! macros by default.
+# This will be phased out.  Use the "json" and "yaml" features instead.
+# If you already want to benefit of the leaner defaults, turn off the default
+# features and opt into what you want manually (you probably want to turn on "colors").
+legacy_default_serialization = ["serde_json", "serde_yaml", "serialization"]
 
 [dependencies]
 dep_csv = { package = "csv", version = "1.1.4", optional = true }
