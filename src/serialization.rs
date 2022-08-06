@@ -11,9 +11,7 @@ pub enum SerializationFormat {
     Ron,
     #[cfg(feature = "toml")]
     Toml,
-    // #[cfg(feature = "yaml")]
     Yaml,
-    // #[cfg(feature = "json")]
     Json,
 }
 
@@ -23,34 +21,32 @@ pub enum SnapshotLocation {
 }
 
 pub fn serialize_content(
-    mut _content: Content,
+    mut content: Content,
     format: SerializationFormat,
-    _location: SnapshotLocation,
+    location: SnapshotLocation,
 ) -> String {
-    _content = Settings::with(|settings| {
+    content = Settings::with(|settings| {
         if settings.sort_maps() {
-            _content.sort_maps();
+            content.sort_maps();
         }
         #[cfg(feature = "redactions")]
         {
             for (selector, redaction) in settings.iter_redactions() {
-                _content = selector.redact(_content, redaction);
+                content = selector.redact(content, redaction);
             }
         }
-        _content
+        content
     });
 
     match format {
-        // #[cfg(feature = "yaml")]
         SerializationFormat::Yaml => {
-            let serialized = _content.as_yaml();
-            match _location {
+            let serialized = content.as_yaml();
+            match location {
                 SnapshotLocation::Inline => serialized,
                 SnapshotLocation::File => serialized[4..].to_string(),
             }
         }
-        // #[cfg(feature = "json")]
-        SerializationFormat::Json => serde_json::to_string_pretty(&_content).unwrap(),
+        SerializationFormat::Json => content.as_json_pretty(),
         #[cfg(feature = "csv")]
         SerializationFormat::Csv => {
             let mut buf = Vec::with_capacity(128);
@@ -58,12 +54,12 @@ pub fn serialize_content(
                 let mut writer = dep_csv::Writer::from_writer(&mut buf);
                 // if the top-level content we're serializing is a vector we
                 // want to serialize it multiple times once for each item.
-                if let Some(content_slice) = _content.as_slice() {
+                if let Some(content_slice) = content.as_slice() {
                     for content in content_slice {
                         writer.serialize(content).unwrap();
                     }
                 } else {
-                    writer.serialize(&_content).unwrap();
+                    writer.serialize(&content).unwrap();
                 }
                 writer.flush().unwrap();
             }
@@ -85,12 +81,12 @@ pub fn serialize_content(
                 dep_ron::options::Options::default(),
             )
             .unwrap();
-            _content.serialize(&mut serializer).unwrap();
+            content.serialize(&mut serializer).unwrap();
             String::from_utf8(buf).unwrap()
         }
         #[cfg(feature = "toml")]
         SerializationFormat::Toml => {
-            let mut rv = dep_toml::to_string_pretty(&_content).unwrap();
+            let mut rv = dep_toml::to_string_pretty(&content).unwrap();
             if rv.ends_with('\n') {
                 rv.truncate(rv.len() - 1);
             }

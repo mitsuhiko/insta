@@ -69,7 +69,7 @@ impl PendingInlineSnapshot {
 
     pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Box<dyn Error>> {
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
-        let mut s = self.as_content().as_json()?;
+        let mut s = self.as_content().as_json();
         s.push('\n');
         f.write_all(s.as_bytes())?;
         Ok(())

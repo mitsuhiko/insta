@@ -44,7 +44,7 @@ backtrace = []
 # TODO: This could be cleaner by using "dep:csv" without renaming the dep, but
 # this technique allows for a lower MSRV
 csv = ["dep_csv", "serialization"]
-json = ["serde_json", "serialization"]
+json = ["serialization"]
 ron = ["dep_ron", "serialization"]
 toml = ["dep_toml", "serialization"]
 yaml = ["serialization"]
@@ -54,7 +54,7 @@ yaml = ["serialization"]
 # This will be phased out.  Use the "json" and "yaml" features instead.
 # If you already want to benefit of the leaner defaults, turn off the default
 # features and opt into what you want manually (you probably want to turn on "colors").
-legacy_default_serialization = ["serde_json", "serialization"]
+legacy_default_serialization = ["serialization"]
 
 [dependencies]
 dep_csv = { package = "csv", version = "1.1.4", optional = true }
@@ -70,7 +70,6 @@ once_cell = "1.9.0"
 regex = { version = "1.6.0", default-features = false, optional = true, features = ["std", "unicode"] }
 yaml-rust = "0.4.5"
 serde = { version = "1.0.117", optional = true }
-serde_json = { version = "1.0.59", optional = true }
 linked-hash-map = "0.5.6"
 
 [dev-dependencies]

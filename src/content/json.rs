@@ -1,135 +1,179 @@
+use std::fmt::{Display, Write};
+
 use crate::content::Content;
+
+pub fn format_float<T: Display>(value: T) -> String {
+    let mut rv = format!("{}", value);
+    if !rv.contains('.') {
+        rv.push_str(".0");
+    }
+    rv
+}
 
 /// Serializes a serializable to JSON.
 pub struct Serializer {
     out: String,
+    pretty: bool,
+    indentation: usize,
 }
 
 impl Serializer {
     /// Creates a new serializer that writes into the given writer.
     pub fn new() -> Serializer {
-        Serializer { out: String::new() }
+        Serializer {
+            out: String::new(),
+            pretty: false,
+            indentation: 0,
+        }
     }
 
     pub fn into_result(self) -> String {
         self.out
     }
 
+    fn write_indentation(&mut self) {
+        if self.pretty {
+            write!(self.out, "{: ^1$}", "", self.indentation * 2).unwrap();
+        }
+    }
+
+    fn start_container(&mut self, c: char) {
+        self.write_char(c);
+        self.indentation += 1;
+    }
+
+    fn end_container(&mut self, c: char, empty: bool) {
+        self.indentation -= 1;
+        if self.pretty && !empty {
+            self.write_char('\n');
+            self.write_indentation();
+        }
+        self.write_char(c);
+    }
+
+    fn write_comma(&mut self, first: bool) {
+        if self.pretty {
+            if first {
+                self.write_char('\n');
+            } else {
+                self.write_str(",\n");
+            }
+            self.write_indentation();
+        } else if !first {
+            self.write_char(',');
+        }
+    }
+
+    fn write_colon(&mut self) {
+        if self.pretty {
+            self.write_str(": ");
+        } else {
+            self.write_char(':');
+        }
+    }
+
+    fn serialize_array(&mut self, items: &[Content]) {
+        self.start_container('[');
+        for (idx, item) in items.iter().enumerate() {
+            self.write_comma(idx == 0);
+            self.serialize(item);
+        }
+        self.end_container(']', items.is_empty());
+    }
+
+    fn serialize_object(&mut self, fields: &[(&str, Content)]) {
+        self.start_container('{');
+        for (idx, (key, value)) in fields.iter().enumerate() {
+            self.write_comma(idx == 0);
+            self.write_escaped_str(key);
+            self.write_colon();
+            self.serialize(value);
+        }
+        self.end_container('}', fields.is_empty());
+    }
+
     pub fn serialize(&mut self, value: &Content) {
         match value {
             Content::Bool(true) => self.write_str("true"),
             Content::Bool(false) => self.write_str("false"),
-            Content::U8(n) => self.write_str(&n.to_string()),
-            Content::U16(n) => self.write_str(&n.to_string()),
-            Content::U32(n) => self.write_str(&n.to_string()),
-            Content::U64(n) => self.write_str(&n.to_string()),
-            Content::U128(n) => self.write_str(&n.to_string()),
-            Content::I8(n) => self.write_str(&n.to_string()),
-            Content::I16(n) => self.write_str(&n.to_string()),
-            Content::I32(n) => self.write_str(&n.to_string()),
-            Content::I64(n) => self.write_str(&n.to_string()),
-            Content::I128(n) => self.write_str(&n.to_string()),
+            Content::U8(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U16(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U32(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U64(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U128(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I8(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I16(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I32(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I64(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I128(n) => write!(self.out, "{}", n).unwrap(),
             Content::F32(f) => {
                 if f.is_finite() {
-                    self.write_str(f.to_string().as_str())
+                    self.write_str(&format_float(f));
                 } else {
                     self.write_str("null")
                 }
             }
             Content::F64(f) => {
                 if f.is_finite() {
-                    self.write_str(f.to_string().as_str())
+                    self.write_str(&format_float(f));
                 } else {
                     self.write_str("null")
                 }
             }
-            Content::Char(c) => self.write_escaped_str(&(*c as u32).to_string()),
-            Content::String(s) => self.write_escaped_str(&s),
+            Content::Char(c) => self.write_escaped_str(&(*c).to_string()),
+            Content::String(s) => self.write_escaped_str(s),
             Content::Bytes(bytes) => {
-                self.write_char('[');
+                self.start_container('[');
                 for (idx, byte) in bytes.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
+                    self.write_comma(idx == 0);
                     self.write_str(&byte.to_string());
                 }
+                self.end_container(']', bytes.is_empty());
             }
             Content::None | Content::Unit | Content::UnitStruct(_) => self.write_str("null"),
             Content::Some(content) => self.serialize(content),
             Content::UnitVariant(_, _, variant) => self.write_escaped_str(variant),
             Content::NewtypeStruct(_, content) => self.serialize(content),
             Content::NewtypeVariant(_, _, variant, content) => {
-                self.write_char('{');
+                self.start_container('{');
                 self.write_escaped_str(variant);
-                self.write_char(':');
+                self.write_colon();
                 self.serialize(content);
-                self.write_char('}');
+                self.end_container('}', false);
             }
             Content::Seq(seq) | Content::Tuple(seq) | Content::TupleStruct(_, seq) => {
-                self.write_char('[');
-                for (idx, item) in seq.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
-                    self.serialize(item);
-                }
-                self.write_char(']');
+                self.serialize_array(seq);
             }
             Content::TupleVariant(_, _, variant, seq) => {
-                self.write_char('{');
+                self.start_container('{');
                 self.write_escaped_str(variant);
-                self.write_char(':');
-                self.write_char('[');
-                for (idx, item) in seq.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
-                    self.serialize(item);
-                }
-                self.write_char(']');
-                self.write_char('}');
+                self.write_colon();
+                self.serialize_array(seq);
+                self.end_container('}', false);
             }
             Content::Map(map) => {
-                self.write_char('{');
+                self.start_container('{');
                 for (idx, (key, value)) in map.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
+                    self.write_comma(idx == 0);
                     if let Content::String(ref s) = key {
                         self.write_escaped_str(s);
                     } else {
                         panic!("cannot serialize maps without string keys to JSON");
                     }
-                    self.write_char(':');
+                    self.write_colon();
                     self.serialize(value);
                 }
-                self.write_char('}');
+                self.end_container('}', map.is_empty());
             }
             Content::Struct(_, fields) => {
-                self.write_char('{');
-                for (idx, (key, value)) in fields.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
-                    self.write_escaped_str(key);
-                    self.write_char(':');
-                    self.serialize(value);
-                }
-                self.write_char('}');
+                self.serialize_object(fields);
             }
             Content::StructVariant(_, _, variant, fields) => {
-                self.write_char('{');
+                self.start_container('{');
                 self.write_escaped_str(variant);
-                self.write_char(':');
-                for (idx, (key, value)) in fields.iter().enumerate() {
-                    if idx > 0 {
-                        self.write_char(',');
-                    }
-                    self.write_escaped_str(key);
-                    self.write_char(':');
-                    self.serialize(value);
-                }
-                self.write_char('}');
+                self.write_colon();
+                self.serialize_object(fields);
+                self.end_container('}', false);
             }
         }
     }
@@ -223,4 +267,148 @@ pub fn to_string(value: &Content) -> String {
     let mut ser = Serializer::new();
     ser.serialize(value);
     ser.into_result()
+}
+
+/// Serializes a value to JSON pretty
+pub fn to_string_pretty(value: &Content) -> String {
+    let mut ser = Serializer::new();
+    ser.pretty = true;
+    ser.serialize(value);
+    ser.into_result()
+}
+
+#[test]
+fn test_to_string() {
+    let json = to_string(&Content::Map(vec![
+        (
+            Content::from("environments"),
+            Content::Seq(vec![
+                Content::from("development"),
+                Content::from("production"),
+            ]),
+        ),
+        (Content::from("cmdline"), Content::Seq(vec![])),
+        (Content::from("extra"), Content::Map(vec![])),
+    ]));
+    crate::assert_snapshot!(&json, @r###"{"environments":["development","production"],"cmdline":[],"extra":{}}"###);
+}
+
+#[test]
+fn test_to_string_pretty() {
+    let json = to_string_pretty(&Content::Map(vec![
+        (
+            Content::from("environments"),
+            Content::Seq(vec![
+                Content::from("development"),
+                Content::from("production"),
+            ]),
+        ),
+        (Content::from("cmdline"), Content::Seq(vec![])),
+        (Content::from("extra"), Content::Map(vec![])),
+    ]));
+    crate::assert_snapshot!(&json, @r###"
+    {
+      "environments": [
+        "development",
+        "production"
+      ],
+      "cmdline": [],
+      "extra": {}
+    }
+    "###);
+}
+
+#[test]
+fn test_to_string_pretty_complex() {
+    let content = Content::Map(vec![
+        (
+            Content::from("is_alive"),
+            Content::NewtypeStruct("Some", Content::from(true).into()),
+        ),
+        (Content::from("empty_array"), Content::Seq(vec![])),
+        (Content::from("empty_object"), Content::Map(vec![])),
+        (Content::from("array"), Content::Seq(vec![true.into()])),
+        (
+            Content::from("object"),
+            Content::Map(vec![("foo".into(), true.into())]),
+        ),
+        (
+            Content::from("array_of_objects"),
+            Content::Seq(vec![Content::Struct(
+                "MyType",
+                vec![
+                    ("foo", Content::from("bar".to_string())),
+                    ("bar", Content::from("xxx".to_string())),
+                ],
+            )]),
+        ),
+        (
+            Content::from("unit_variant"),
+            Content::UnitVariant("Stuff", 0, "value"),
+        ),
+        (Content::from("u8"), Content::U8(8)),
+        (Content::from("u16"), Content::U16(16)),
+        (Content::from("u32"), Content::U32(32)),
+        (Content::from("u64"), Content::U64(64)),
+        (Content::from("u128"), Content::U128(128)),
+        (Content::from("i8"), Content::I8(8)),
+        (Content::from("i16"), Content::I16(16)),
+        (Content::from("i32"), Content::I32(32)),
+        (Content::from("i64"), Content::I64(64)),
+        (Content::from("i128"), Content::I128(128)),
+        (Content::from("f32"), Content::F32(32.0)),
+        (Content::from("f64"), Content::F64(64.0)),
+        (Content::from("char"), Content::Char('A')),
+        (Content::from("bytes"), Content::Bytes(b"hehe".to_vec())),
+        (Content::from("null"), Content::None),
+        (Content::from("unit"), Content::Unit),
+        (
+            Content::from("crazy_string"),
+            Content::String((0u8..=126).map(|x| x as char).collect()),
+        ),
+    ]);
+    let json = to_string_pretty(&content);
+
+    crate::assert_snapshot!(&json, @r###"
+    {
+      "is_alive": true,
+      "empty_array": [],
+      "empty_object": {},
+      "array": [
+        true
+      ],
+      "object": {
+        "foo": true
+      },
+      "array_of_objects": [
+        {
+          "foo": "bar",
+          "bar": "xxx"
+        }
+      ],
+      "unit_variant": "value",
+      "u8": 8,
+      "u16": 16,
+      "u32": 32,
+      "u64": 64,
+      "u128": 128,
+      "i8": 8,
+      "i16": 16,
+      "i32": 32,
+      "i64": 64,
+      "i128": 128,
+      "f32": 32.0,
+      "f64": 64.0,
+      "char": "A",
+      "bytes": [
+        104,
+        101,
+        104,
+        101
+      ],
+      "null": null,
+      "unit": null,
+      "crazy_string": "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+    }
+    "###);
 }
