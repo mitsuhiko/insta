@@ -96,16 +96,16 @@ impl Serializer {
         match value {
             Content::Bool(true) => self.write_str("true"),
             Content::Bool(false) => self.write_str("false"),
-            Content::U8(n) => self.write_str(&n.to_string()),
-            Content::U16(n) => self.write_str(&n.to_string()),
-            Content::U32(n) => self.write_str(&n.to_string()),
-            Content::U64(n) => self.write_str(&n.to_string()),
-            Content::U128(n) => self.write_str(&n.to_string()),
-            Content::I8(n) => self.write_str(&n.to_string()),
-            Content::I16(n) => self.write_str(&n.to_string()),
-            Content::I32(n) => self.write_str(&n.to_string()),
-            Content::I64(n) => self.write_str(&n.to_string()),
-            Content::I128(n) => self.write_str(&n.to_string()),
+            Content::U8(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U16(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U32(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U64(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U128(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I8(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I16(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I32(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I64(n) => write!(self.out, "{}", n).unwrap(),
+            Content::I128(n) => write!(self.out, "{}", n).unwrap(),
             Content::F32(f) => {
                 if f.is_finite() {
                     self.write_str(&format_float(f));
