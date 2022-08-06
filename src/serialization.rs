@@ -11,9 +11,9 @@ pub enum SerializationFormat {
     Ron,
     #[cfg(feature = "toml")]
     Toml,
-    #[cfg(feature = "yaml")]
+    // #[cfg(feature = "yaml")]
     Yaml,
-    #[cfg(feature = "json")]
+    // #[cfg(feature = "json")]
     Json,
 }
 
@@ -41,7 +41,7 @@ pub fn serialize_content(
     });
 
     match format {
-        #[cfg(feature = "yaml")]
+        // #[cfg(feature = "yaml")]
         SerializationFormat::Yaml => {
             let serialized = serde_yaml::to_string(&_content).unwrap();
             match _location {
@@ -49,7 +49,7 @@ pub fn serialize_content(
                 SnapshotLocation::File => serialized[4..].to_string(),
             }
         }
-        #[cfg(feature = "json")]
+        // #[cfg(feature = "json")]
         SerializationFormat::Json => serde_json::to_string_pretty(&_content).unwrap(),
         #[cfg(feature = "csv")]
         SerializationFormat::Csv => {

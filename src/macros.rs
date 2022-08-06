@@ -142,7 +142,12 @@ macro_rules! assert_toml_snapshot {
 /// just use an empty string (`@""`).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-#[cfg(feature = "yaml")]
+#[cfg(feature = "serialization")]
+#[cfg_attr(
+    not(feature = "yaml"),
+    deprecated(note = "assert_yaml_snapshot! will require the \"yaml\" feature. \
+        Add the \"yaml\" feature to your Cargo.toml to silence this warning.")
+)]
 #[macro_export]
 macro_rules! assert_yaml_snapshot {
     ($value:expr, @$snapshot:literal) => {{
@@ -226,7 +231,12 @@ macro_rules! assert_ron_snapshot {
 /// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-#[cfg(feature = "json")]
+#[cfg(feature = "serialization")]
+#[cfg_attr(
+    not(feature = "json"),
+    deprecated(note = "assert_json_snapshot! will require the \"json\" feature. \
+        Add the \"json\" feature to your Cargo.toml to silence this warning.")
+)]
 #[macro_export]
 macro_rules! assert_json_snapshot {
     ($value:expr, @$snapshot:literal) => {{
