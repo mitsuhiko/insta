@@ -7,6 +7,10 @@ All notable changes to insta and cargo-insta are documented here.
 - `Settings::bind` now can return a result.
 - Expose the drop guard type of `bind_to_scope`.
 
+## 0.17.2
+
+- Remove an accidentaly debug print output.
+
 ## 0.17.1
 
 - Added support for nextest. (#242)
