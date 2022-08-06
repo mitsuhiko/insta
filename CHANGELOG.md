@@ -6,6 +6,10 @@ All notable changes to insta and cargo-insta are documented here.
 
 - `Settings::bind` now can return a result.
 - Expose the drop guard type of `bind_to_scope`.
+- The `serde` dependency is now optional.  While still enabled by default
+  users need to opt into `yaml` and `json` features explicitly to regain
+  support for it.  To avoid the default `serde` dependency the default
+  features just need to be disabled. (#255)
 
 ## 0.17.2
 
