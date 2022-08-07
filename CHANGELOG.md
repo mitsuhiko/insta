@@ -10,7 +10,8 @@ All notable changes to insta and cargo-insta are documented here.
   users need to opt into `yaml` and `json` features explicitly to regain
   support for it. To avoid the default `serde` dependency the default
   features just need to be disabled. (#255)
-- Removed unused `backtrace` and `serialization` features.
+- Removed unused `serialization` features.
+- Deprecated unused `backtrace` feature.
 
 ## 0.17.2
 

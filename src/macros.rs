@@ -412,7 +412,12 @@ macro_rules! assert_snapshot {
     ($name:expr, $value:expr) => {
         $crate::assert_snapshot!($name, $value, stringify!($value))
     };
-    ($name:expr, $value:expr, $debug_expr:expr) => {
+    ($name:expr, $value:expr, $debug_expr:expr) => {{
+        // This use does not do anything.  It exists purely to trigger a deprecation warning
+        // for the "backtrace" feature if enabled.
+        #[allow(unused)]
+        use $crate::deprecated_backtrace_support::*;
+
         $crate::_macro_support::assert_snapshot(
             // Creates a ReferenceValue::Named variant
             $name.into(),
@@ -425,7 +430,7 @@ macro_rules! assert_snapshot {
             $debug_expr,
         )
         .unwrap()
-    };
+    }};
     ($value:expr) => {
         $crate::assert_snapshot!($crate::_macro_support::AutoName, $value, stringify!($value))
     };
