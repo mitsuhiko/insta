@@ -548,16 +548,6 @@ impl Settings {
         BindingFuture(self.inner.clone(), future)
     }
 
-    /// Binds the settings to the current thread permanently.
-    ///
-    /// This should no longer be used in favor of [`bind_to_scope`](Settings::bind_to_scope).
-    #[deprecated(since = "0.17.0", note = "Use Settings::bind_to_scope instead.")]
-    pub fn bind_to_thread(&self) {
-        CURRENT_SETTINGS.with(|x| {
-            x.borrow_mut().inner = self.inner.clone();
-        })
-    }
-
     /// Binds the settings to the current thread and resets when the drop
     /// guard is released.
     ///

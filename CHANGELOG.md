@@ -12,6 +12,7 @@ All notable changes to insta and cargo-insta are documented here.
   features just need to be disabled. (#255)
 - Removed unused `serialization` features.
 - Deprecated unused `backtrace` feature.
+- Removed deprecated `Settings::bind_to_thread`.
 
 ## 0.17.2
 
