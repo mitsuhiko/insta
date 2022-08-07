@@ -140,7 +140,7 @@ fn test_snapshot_with_description_and_raw_info() {
     });
 }
 
-#[cfg(feature = "serialization")]
+#[cfg(feature = "serde")]
 #[test]
 fn test_snapshot_with_description_and_info() {
     #[derive(serde::Serialize)]

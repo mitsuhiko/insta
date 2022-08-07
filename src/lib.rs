@@ -49,7 +49,9 @@
 //! if the result is okay.  By default the new snapshots are stored next
 //! to the old ones with the extra `.new` extension.  Once you are satisfied
 //! move the new files over.  To simplify this workflow you can use
-//! `cargo insta review` which will let you interactively review them:
+//! `cargo insta review` (requires
+//! [`cargo-insta`](https://crates.io/crates/cargo-insta)) which will let you
+//! interactively review them:
 //!
 //! ```text
 //! $ cargo test
@@ -64,7 +66,7 @@
 //! - [`assert_debug_snapshot!`] for comparing [`Debug`] outputs of values.
 //! - [`assert_display_snapshot!`] for comparing [`Display`](std::fmt::Display) outputs of values.
 //!
-//! The following macros require the use of [`Serialize`](serde::Serialize):
+//! The following macros require the use of serde's [`Serialize`](serde::Serialize):
 //!
 #![cfg_attr(
     feature = "csv",
@@ -87,9 +89,9 @@
     doc = "- [`assert_json_snapshot!`] for comparing JSON serialized output. (requires the `json` feature)"
 )]
 //!
-//! For macros that work with `serde::Serialize` this crate also permits
-//! redacting of partial values.  See [redactions in the documentation](https://insta.rs/docs/redactions/)
-//! for more information.
+//! For macros that work with [`serde`] this crate also permits redacting of
+//! partial values.  See [redactions in the
+//! documentation](https://insta.rs/docs/redactions/) for more information.
 //!
 //! # Snapshot updating
 //!
@@ -150,11 +152,11 @@
 //!
 //! The following features exist:
 //!
-//! * `csv`: enables CSV support
-//! * `json`: enables JSON support
-//! * `ron`: enables RON support
-//! * `toml`: enables TOML support
-//! * `yaml`: enables YAML support
+//! * `csv`: enables CSV support (via serde)
+//! * `json`: enables JSON support (via serde)
+//! * `ron`: enables RON support (via serde)
+//! * `toml`: enables TOML support (via serde)
+//! * `yaml`: enables YAML support (via serde)
 //! * `redactions`: enables support for redactions
 //! * `filters`: enables support for filters
 //! * `glob`: enables support for globbing ([`glob!`])
@@ -163,6 +165,9 @@
 //! For legacy reasons the `json` and `yaml` features are enabled by default
 //! in limited capacity.  You will receive a deprecation warning if you are
 //! not opting into them but for now the macros will continue to function.
+//!
+//! Enabling any of the serde based formats enables the hidden `serde` feature
+//! which gates some serde specific APIs such as [`Settings::set_info`].
 //!
 //! # Dependencies
 //!
@@ -185,7 +190,7 @@ mod content;
 mod env;
 mod output;
 mod runtime;
-#[cfg(feature = "serialization")]
+#[cfg(feature = "serde")]
 mod serialization;
 mod settings;
 mod snapshot;
@@ -243,7 +248,7 @@ pub mod _macro_support {
     pub use crate::env::get_cargo_workspace;
     pub use crate::runtime::{assert_snapshot, AutoName, ReferenceValue};
 
-    #[cfg(feature = "serialization")]
+    #[cfg(feature = "serde")]
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
 
     #[cfg(feature = "glob")]

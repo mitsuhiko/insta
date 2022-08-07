@@ -18,7 +18,7 @@ cargotest:
 	@cargo test
 	@cargo test --all-features
 	@cargo test --no-default-features
-	@cargo test --features redactions,backtrace -- --test-threads 1
+	@cargo test --features redactions -- --test-threads 1
 	@cd cargo-insta; cargo test
 
 check-minver:
@@ -26,7 +26,7 @@ check-minver:
 	@cargo minimal-versions check
 	@cargo minimal-versions check --all-features
 	@cargo minimal-versions check --no-default-features
-	@cargo minimal-versions check --features redactions,backtrace
+	@cargo minimal-versions check --features redactions
 
 format:
 	@rustup component add rustfmt 2> /dev/null

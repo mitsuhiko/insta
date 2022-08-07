@@ -270,6 +270,7 @@ pub fn to_string(value: &Content) -> String {
 }
 
 /// Serializes a value to JSON pretty
+#[allow(unused)]
 pub fn to_string_pretty(value: &Content) -> String {
     let mut ser = Serializer::new();
     ser.pretty = true;

@@ -23,7 +23,7 @@ default = ["colors", "legacy_default_serialization"]
 
 # when the redactions feature is enabled values can be redacted in serialized
 # snapshots.
-redactions = ["pest", "pest_derive", "serialization"]
+redactions = ["pest", "pest_derive", "serde"]
 
 # Enables support for running filters on snapshot
 filters = ["regex"]
@@ -34,27 +34,21 @@ glob = ["walkdir", "globset"]
 # Color support
 colors = ["console"]
 
-# This feature is now just always enabled because we use yaml internally now.
-serialization = ["serde"]
-
-# This feature is no longer used as snapshot name detection was changed.
-backtrace = []
-
 # Serialization formats
 # TODO: This could be cleaner by using "dep:csv" without renaming the dep, but
 # this technique allows for a lower MSRV
-csv = ["dep_csv", "serialization"]
-json = ["serialization"]
-ron = ["dep_ron", "serialization"]
-toml = ["dep_toml", "serialization"]
-yaml = ["serialization"]
+csv = ["dep_csv", "serde"]
+json = ["serde"]
+ron = ["dep_ron", "serde"]
+toml = ["dep_toml", "serde"]
+yaml = ["serde"]
 
 # legacy support.  This is turned on by default for a single release and turns
 # on the assert_json_snapshot! and assert_yaml_snapshot! macros by default.
 # This will be phased out.  Use the "json" and "yaml" features instead.
 # If you already want to benefit of the leaner defaults, turn off the default
 # features and opt into what you want manually (you probably want to turn on "colors").
-legacy_default_serialization = ["serialization"]
+legacy_default_serialization = ["serde"]
 
 [dependencies]
 dep_csv = { package = "csv", version = "1.1.4", optional = true }

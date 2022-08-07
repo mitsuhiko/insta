@@ -41,7 +41,7 @@ instead of separate files. This is accomplished by the companion
 ## Editor Support
 
 For looking at `.snap` files there is a [vscode extension](https://github.com/mitsuhiko/insta/tree/master/vscode-insta)
-which can syntax highlight snapshot files, review snapshots and more.  It can be installed from the
+which can syntax highlight snapshot files, review snapshots and more. It can be installed from the
 marketplace: [view on marketplace](https://marketplace.visualstudio.com/items?itemName=mitsuhiko.insta).
 
 ![jump to definition](https://raw.githubusercontent.com/mitsuhiko/insta/master/vscode-insta/images/jump-to-definition.gif)
@@ -49,7 +49,19 @@ marketplace: [view on marketplace](https://marketplace.visualstudio.com/items?it
 ## Diffing
 
 Insta uses [`similar`](https://github.com/mitsuhiko/similar) for all its diffing
-operations.  You can use it independently of insta.
+operations. You can use it independently of insta. You can use the
+[`similar-asserts`](https://github.com/mitsuhiko/similar-asserts) crate to get
+inline diffs for the standard `assert_eq!` macro to achieve insta like diffs
+for regular comparisons:
+
+```
+use similar_asserts::assert_eq;
+
+fn main() {
+    let reference = vec![1, 2, 3, 4];
+    assert_eq!(reference, (0..4).collect::<Vec<_>>());
+}
+```
 
 ## Sponsor
 

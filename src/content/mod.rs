@@ -9,13 +9,13 @@
 
 mod error;
 pub mod json;
-#[cfg(feature = "serialization")]
+#[cfg(feature = "serde")]
 mod serialization;
 pub(crate) mod utils;
 pub mod yaml;
 
 pub use error::*;
-#[cfg(feature = "serialization")]
+#[cfg(feature = "serde")]
 pub use serialization::*;
 
 /// Represents variable typed content.

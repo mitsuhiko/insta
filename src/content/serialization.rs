@@ -57,6 +57,7 @@ impl Content {
     }
 }
 
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl Serialize for Content {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

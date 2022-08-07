@@ -144,7 +144,7 @@ macro_rules! assert_toml_snapshot {
 /// just use an empty string (`@""`).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-#[cfg(feature = "serialization")]
+#[cfg(feature = "serde")]
 #[cfg_attr(
     not(feature = "yaml"),
     deprecated(note = "assert_yaml_snapshot! will require the \"yaml\" feature. \
@@ -235,7 +235,7 @@ macro_rules! assert_ron_snapshot {
 /// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
-#[cfg(feature = "serialization")]
+#[cfg(feature = "serde")]
 #[cfg_attr(
     not(feature = "json"),
     deprecated(note = "assert_json_snapshot! will require the \"json\" feature. \
