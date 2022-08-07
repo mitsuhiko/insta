@@ -54,7 +54,7 @@ operations. You can use it independently of insta. You can use the
 inline diffs for the standard `assert_eq!` macro to achieve insta like diffs
 for regular comparisons:
 
-```
+```rust
 use similar_asserts::assert_eq;
 
 fn main() {
