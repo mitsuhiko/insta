@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
-use super::{Content, Error, Result};
+use crate::content::{Content, Error, Result};
 
 pub fn into_unordered_struct_fields(
     map: Vec<(Content, Content)>,

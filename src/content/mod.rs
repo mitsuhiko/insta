@@ -1,11 +1,18 @@
-//! this module is based on the content module in serde::private::ser
+//! This module implements a generic `Content` type that can hold
+//! runtime typed data.
+//!
+//! It's modelled after serde's data format but it's in fact possible to use
+//! this independently of serde.  The `yaml` and `json` support implemented
+//! here works without serde.  Only `yaml` has an implemented parser but since
+//! YAML is a superset of JSON insta instead currently parses JSON via the
+//! YAML implementation.
 
 mod error;
-mod formats;
-mod json;
+pub mod json;
 #[cfg(feature = "serialization")]
 mod serialization;
 pub(crate) mod utils;
+pub mod yaml;
 
 pub use error::*;
 #[cfg(feature = "serialization")]

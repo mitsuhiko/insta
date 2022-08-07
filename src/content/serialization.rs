@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
-use super::Content;
+use crate::content::Content;
 
 use serde::{ser, Serialize, Serializer};
 

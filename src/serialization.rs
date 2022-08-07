@@ -1,7 +1,7 @@
 use serde::de::value::Error as ValueError;
 use serde::Serialize;
 
-use crate::content::{Content, ContentSerializer};
+use crate::content::{json, yaml, Content, ContentSerializer};
 use crate::settings::Settings;
 
 pub enum SerializationFormat {
@@ -40,13 +40,13 @@ pub fn serialize_content(
 
     match format {
         SerializationFormat::Yaml => {
-            let serialized = content.as_yaml();
+            let serialized = yaml::to_string(&content);
             match location {
                 SnapshotLocation::Inline => serialized,
                 SnapshotLocation::File => serialized[4..].to_string(),
             }
         }
-        SerializationFormat::Json => content.as_json_pretty(),
+        SerializationFormat::Json => json::to_string_pretty(&content),
         #[cfg(feature = "csv")]
         SerializationFormat::Csv => {
             let mut buf = Vec::with_capacity(128);

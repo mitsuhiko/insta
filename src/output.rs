@@ -2,6 +2,7 @@ use std::{path::Path, time::Duration};
 
 use similar::{Algorithm, ChangeTag, TextDiff};
 
+use crate::content::yaml;
 use crate::snapshot::{MetaData, Snapshot};
 use crate::utils::{format_rust_expression, style, term_width};
 
@@ -133,7 +134,7 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
         }
 
         if let Some(info) = metadata.private_info() {
-            let out = info.as_yaml();
+            let out = yaml::to_string(info);
             // TODO: does the yaml output always start with '---'?
             println!("{}", out.trim().strip_prefix("---").unwrap().trim_start());
             println!("{:─^1$}", "", width);

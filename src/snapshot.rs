@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::content::{self, Content};
+use crate::content::{self, json, yaml, Content};
 
 use once_cell::sync::Lazy;
 
@@ -43,7 +43,7 @@ impl PendingInlineSnapshot {
         let mut rv: Vec<Self> = contents
             .lines()
             .map(|line| {
-                let value = Content::from_yaml(line)?;
+                let value = yaml::parse_str(line)?;
                 Self::from_content(value)
             })
             .collect::<Result<_, Box<dyn Error>>>()?;
@@ -69,7 +69,7 @@ impl PendingInlineSnapshot {
 
     pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Box<dyn Error>> {
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
-        let mut s = self.as_content().as_json();
+        let mut s = json::to_string(&self.as_content());
         s.push('\n');
         f.write_all(s.as_bytes())?;
         Ok(())
@@ -263,7 +263,7 @@ impl Snapshot {
                     break;
                 }
             }
-            let content = Content::from_yaml(&buf)?;
+            let content = yaml::parse_str(&buf)?;
             MetaData::from_content(content)?
         // legacy format
         } else {
@@ -414,7 +414,7 @@ impl Snapshot {
             fs::create_dir_all(&folder)?;
         }
         let mut f = fs::File::create(&path)?;
-        let blob = md.as_content().as_yaml();
+        let blob = yaml::to_string(&md.as_content());
         f.write_all(blob.as_bytes())?;
         f.write_all(b"---\n")?;
         f.write_all(self.contents_str().as_bytes())?;

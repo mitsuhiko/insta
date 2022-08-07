@@ -1,6 +1,6 @@
 use std::{error, fmt, result};
 
-use super::Content;
+use crate::content::Content;
 
 pub type Result<T> = result::Result<T, Error>;
 
