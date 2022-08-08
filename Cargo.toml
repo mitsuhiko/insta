@@ -19,7 +19,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["colors", "__private_legacy_default_serialization"]
+default = ["colors"]
 
 # when the redactions feature is enabled values can be redacted in serialized
 # snapshots.
@@ -42,21 +42,6 @@ json = ["serde"]
 ron = ["dep_ron", "serde"]
 toml = ["dep_toml", "serde"]
 yaml = ["serde"]
-
-# legacy support.  This is turned on by default for a single release and turns
-# on the assert_json_snapshot! and assert_yaml_snapshot! macros by default.
-# This will be phased out.  Use the "json" and "yaml" features instead.
-# If you already want to benefit of the leaner defaults, turn off the default
-# features and opt into what you want manually (you probably want to turn on "colors").
-__private_legacy_default_serialization = ["serde"]
-
-# This is a deprecated and unused feature.  The first feature is what was available
-# in teh past and should no longer be used.  The second feature exists to hide the
-# warning when testing with all features is enabled.  Both those features will go
-# away soon.
-backtrace = []
-serialization = []
-__private_hide_feature_deprecation_warning = []
 
 [dependencies]
 dep_csv = { package = "csv", version = "1.1.4", optional = true }

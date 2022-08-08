@@ -274,39 +274,3 @@ pub mod _macro_support {
         redaction::Redaction, redaction::Selector, serialization::serialize_value_redacted,
     };
 }
-
-// These are hidden modules that exists to emit a deprecation warning when the
-// "backtrace" / "serialization" features are enabled.  It's used by the
-// `assert_snapshot!` macro.
-#[doc(hidden)]
-#[cfg_attr(
-    all(
-        feature = "backtrace",
-        not(feature = "__private_hide_feature_deprecation_warning")
-    ),
-    deprecated(
-        note = "You are using insta with the deprecated \"backtrace\" feature. \
-        Remove this feature from your Cargo.toml as it will go away in future insta versions. \
-        The functionality provided by this feature is now available out of the box."
-    )
-)]
-pub mod deprecated_backtrace_support {
-    pub const _BACKTRACE_DUMMY: usize = 0;
-}
-
-#[doc(hidden)]
-#[cfg_attr(
-    all(
-        feature = "serialization",
-        not(feature = "__private_hide_feature_deprecation_warning")
-    ),
-    deprecated(
-        note = "You are using insta with the deprecated \"serialization\" feature. \
-        Remove this feature from your Cargo.toml as it will go away in future insta versions. \
-        The functionality provided by this feature is now available when you use one of the \
-        serialization features such as \"yaml\", \"json\" or similar."
-    )
-)]
-pub mod deprecated_serialization_support {
-    pub const _SERIALIZATION_DUMMY: usize = 0;
-}
