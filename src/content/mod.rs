@@ -7,15 +7,37 @@
 //! YAML is a superset of JSON insta instead currently parses JSON via the
 //! YAML implementation.
 
-mod error;
 pub mod json;
 #[cfg(feature = "serde")]
 mod serialization;
 pub mod yaml;
 
-pub use error::*;
 #[cfg(feature = "serde")]
 pub use serialization::*;
+
+use std::fmt;
+
+/// An internal error type for content related errors.
+#[derive(Debug)]
+pub enum Error {
+    FailedParsingYaml,
+    UnexpectedDataType,
+    MissingField,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::FailedParsingYaml => f.write_str("Failed parsing the provided YAML text"),
+            Self::UnexpectedDataType => {
+                f.write_str("The present data type wasn't what was expected")
+            }
+            Self::MissingField => f.write_str("A required field was missing"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 /// Represents variable typed content.
 ///

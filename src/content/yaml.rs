@@ -1,8 +1,8 @@
-use crate::content::{Content, Error, Result};
+use crate::content::{Content, Error};
 
 use yaml_rust::{yaml::Hash as YamlObj, Yaml as YamlValue};
 
-pub fn parse_str(s: &str) -> Result<Content> {
+pub fn parse_str(s: &str) -> Result<Content, Error> {
     let mut blobs =
         yaml_rust::YamlLoader::load_from_str(s).map_err(|_| Error::FailedParsingYaml)?;
 
@@ -12,7 +12,7 @@ pub fn parse_str(s: &str) -> Result<Content> {
     }
 }
 
-fn from_yaml_blob(blob: YamlValue) -> Result<Content> {
+fn from_yaml_blob(blob: YamlValue) -> Result<Content, Error> {
     match blob {
         YamlValue::Null => Ok(Content::None),
         YamlValue::Boolean(b) => Ok(Content::from(b)),
@@ -23,14 +23,17 @@ fn from_yaml_blob(blob: YamlValue) -> Result<Content> {
         }
         YamlValue::String(s) => Ok(Content::from(s)),
         YamlValue::Array(seq) => {
-            let seq = seq.into_iter().map(from_yaml_blob).collect::<Result<_>>()?;
+            let seq = seq
+                .into_iter()
+                .map(from_yaml_blob)
+                .collect::<Result<_, Error>>()?;
             Ok(Content::Seq(seq))
         }
         YamlValue::Hash(obj) => {
             let obj = obj
                 .into_iter()
                 .map(|(k, v)| Ok((from_yaml_blob(k)?, from_yaml_blob(v)?)))
-                .collect::<Result<_>>()?;
+                .collect::<Result<_, Error>>()?;
             Ok(Content::Map(obj))
         }
         YamlValue::BadValue | YamlValue::Alias(_) => Err(Error::FailedParsingYaml),
