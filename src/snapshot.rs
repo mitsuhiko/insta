@@ -226,14 +226,14 @@ impl MetaData {
         if let Some(source) = self.source.as_deref() {
             fields.push(("source", Content::from(source)));
         }
-        if let Some(expression) = self.expression.as_deref() {
-            fields.push(("expression", Content::from(expression)));
-        }
         if let Some(line) = self.assertion_line {
             fields.push(("assertion_line", Content::from(line)));
         }
         if let Some(description) = self.description.as_deref() {
             fields.push(("description", Content::from(description)));
+        }
+        if let Some(expression) = self.expression.as_deref() {
+            fields.push(("expression", Content::from(expression)));
         }
         if let Some(info) = &self.info {
             fields.push(("info", info.to_owned()));
