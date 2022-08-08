@@ -182,6 +182,21 @@
 //!
 //! There are some settings that can be changed on a per-thread (and thus
 //! per-test) basis.  For more information see [Settings].
+//!
+//! # Optional: Faster Runs
+//!
+//! Insta benefits from being compiled in release mode, even as dev dependency.  It
+//! will compile slightly slower once, but use less memory, have faster diffs and
+//! just generally be more fun to use.  To achieve that, opt `insta` and `similar`
+//! (the diffing library) into higher optimization in your `Cargo.toml`:
+//!
+//! ```yaml
+//! [profile.dev.package.insta]
+//! opt-level = 3
+//!
+//! [profile.dev.package.similar]
+//! opt-level = 3
+//! ```
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[macro_use]
