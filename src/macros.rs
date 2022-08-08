@@ -104,6 +104,8 @@ macro_rules! assert_toml_snapshot {
 
 /// Asserts a `Serialize` snapshot in YAML format.
 ///
+/// **Feature:** `yaml` (to be disabled by default)
+///
 /// The value needs to implement the `serde::Serialize` trait and the snapshot
 /// will be serialized in YAML format.  This does mean that unlike the debug
 /// snapshot variant the type of the value does not appear in the output.
@@ -218,6 +220,8 @@ macro_rules! assert_ron_snapshot {
 }
 
 /// Asserts a `Serialize` snapshot in JSON format.
+///
+/// **Feature:** `json` (to be disabled by default)
 ///
 /// This works exactly like [`assert_yaml_snapshot!`] but serializes in JSON format.
 /// This is normally not recommended because it makes diffs less reliable, but it can

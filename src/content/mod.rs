@@ -11,7 +11,6 @@ mod error;
 pub mod json;
 #[cfg(feature = "serde")]
 mod serialization;
-pub(crate) mod utils;
 pub mod yaml;
 
 pub use error::*;

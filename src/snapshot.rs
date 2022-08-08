@@ -77,22 +77,24 @@ impl PendingInlineSnapshot {
 
     fn from_content(content: Content) -> Result<PendingInlineSnapshot, Box<dyn Error>> {
         if let Content::Map(map) = content {
-            let mut map = content::utils::into_unordered_struct_fields(map)?;
+            let mut run_id = None;
+            let mut line = None;
+            let mut old = None;
+            let mut new = None;
 
-            let run_id = content::utils::pop_str(&mut map, "run_id")?;
-            let line = content::utils::pop_u32(&mut map, "line")?;
-            let new = match map.remove("new") {
-                None | Some(Content::None) => None,
-                Some(non_null) => Some(Snapshot::from_content(non_null)?),
-            };
-            let old = match map.remove("old") {
-                None | Some(Content::None) => None,
-                Some(non_null) => Some(Snapshot::from_content(non_null)?),
-            };
+            for (key, value) in map.into_iter() {
+                match key.as_str() {
+                    Some("run_id") => run_id = value.as_str().map(|x| x.to_string()),
+                    Some("line") => line = value.as_u64().map(|x| x as u32),
+                    Some("old") if !value.is_nil() => old = Some(Snapshot::from_content(value)?),
+                    Some("new") if !value.is_nil() => new = Some(Snapshot::from_content(value)?),
+                    _ => {}
+                }
+            }
 
             Ok(PendingInlineSnapshot {
-                run_id,
-                line,
+                run_id: run_id.ok_or(content::Error::MissingField)?,
+                line: line.ok_or(content::Error::MissingField)?,
                 new,
                 old,
             })
@@ -187,14 +189,24 @@ impl MetaData {
 
     fn from_content(content: Content) -> Result<MetaData, Box<dyn Error>> {
         if let Content::Map(map) = content {
-            let mut map = content::utils::into_unordered_struct_fields(map)?;
+            let mut source = None;
+            let mut assertion_line = None;
+            let mut description = None;
+            let mut expression = None;
+            let mut info = None;
+            let mut input_file = None;
 
-            let source = content::utils::pop_nullable_str(&mut map, "source")?;
-            let assertion_line = content::utils::pop_nullable_u32(&mut map, "assertion_line")?;
-            let description = content::utils::pop_nullable_str(&mut map, "description")?;
-            let expression = content::utils::pop_nullable_str(&mut map, "expression")?;
-            let info = map.remove("info");
-            let input_file = content::utils::pop_nullable_str(&mut map, "input_file")?;
+            for (key, value) in map.into_iter() {
+                match key.as_str() {
+                    Some("source") => source = value.as_str().map(|x| x.to_string()),
+                    Some("assertion_line") => assertion_line = value.as_u64().map(|x| x as u32),
+                    Some("description") => description = value.as_str().map(Into::into),
+                    Some("expression") => expression = value.as_str().map(Into::into),
+                    Some("info") if !value.is_nil() => info = Some(value),
+                    Some("input_file") => input_file = value.as_str().map(Into::into),
+                    _ => {}
+                }
+            }
 
             Ok(MetaData {
                 source,
@@ -348,20 +360,33 @@ impl Snapshot {
 
     fn from_content(content: Content) -> Result<Snapshot, Box<dyn Error>> {
         if let Content::Map(map) = content {
-            let mut map = content::utils::into_unordered_struct_fields(map)?;
+            let mut module_name = None;
+            let mut snapshot_name = None;
+            let mut metadata = None;
+            let mut snapshot = None;
 
-            let module_name = content::utils::pop_str(&mut map, "module_name")?;
-            let snapshot_name = content::utils::pop_nullable_str(&mut map, "snapshot_name")?;
-            let metadata = MetaData::from_content(
-                map.remove("metadata").ok_or(content::Error::MissingField)?,
-            )?;
-            let snapshot = SnapshotContents(content::utils::pop_str(&mut map, "snapshot")?);
+            for (key, value) in map.into_iter() {
+                match key.as_str() {
+                    Some("module_name") => module_name = value.as_str().map(|x| x.to_string()),
+                    Some("snapshot_name") => snapshot_name = value.as_str().map(|x| x.to_string()),
+                    Some("metadata") => metadata = Some(MetaData::from_content(value)?),
+                    Some("snapshot") => {
+                        snapshot = Some(SnapshotContents(
+                            value
+                                .as_str()
+                                .ok_or(content::Error::UnexpectedDataType)?
+                                .to_string(),
+                        ))
+                    }
+                    _ => {}
+                }
+            }
 
             Ok(Snapshot {
-                module_name,
+                module_name: module_name.ok_or(content::Error::MissingField)?,
                 snapshot_name,
-                metadata,
-                snapshot,
+                metadata: metadata.ok_or(content::Error::MissingField)?,
+                snapshot: snapshot.ok_or(content::Error::MissingField)?,
             })
         } else {
             Err(content::Error::UnexpectedDataType.into())
