@@ -58,15 +58,15 @@ pub fn term_width() -> usize {
 }
 
 /// Converts a path into a string that can be persisted.
-pub fn path_to_storage<P: AsRef<Path>>(path: P) -> String {
+pub fn path_to_storage(path: &Path) -> String {
     #[cfg(windows)]
     {
-        path.as_ref().to_str().unwrap().replace('\\', "/")
+        path.to_str().unwrap().replace('\\', "/")
     }
 
     #[cfg(not(windows))]
     {
-        path.as_ref().to_string_lossy().into()
+        path.to_string_lossy().into()
     }
 }
 

@@ -33,8 +33,8 @@ impl fmt::Debug for FilePatcher {
 }
 
 impl FilePatcher {
-    pub fn open<P: AsRef<Path>>(p: P) -> Result<FilePatcher, Box<dyn Error>> {
-        let filename = p.as_ref().to_path_buf();
+    pub fn open(p: &Path) -> Result<FilePatcher, Box<dyn Error>> {
+        let filename = p.to_path_buf();
         let contents = fs::read_to_string(p)?;
         let source = syn::parse_file(&contents)?;
         let lines: Vec<String> = contents.lines().map(|x| x.into()).collect();

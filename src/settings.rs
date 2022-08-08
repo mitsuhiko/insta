@@ -368,9 +368,14 @@ impl Settings {
     #[cfg(feature = "redactions")]
     #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub fn add_redaction<R: Into<Redaction>>(&mut self, selector: &str, replacement: R) {
+        self.add_redaction_impl(selector, replacement.into())
+    }
+
+    #[cfg(feature = "redactions")]
+    fn add_redaction_impl(&mut self, selector: &str, replacement: Redaction) {
         self._private_inner_mut().redactions.0.push((
             Selector::parse(selector).unwrap().make_static(),
-            Arc::new(replacement.into()),
+            Arc::new(replacement),
         ));
     }
 

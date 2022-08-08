@@ -37,7 +37,7 @@ impl PendingInlineSnapshot {
         }
     }
 
-    pub fn load_batch<P: AsRef<Path>>(p: P) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
+    pub fn load_batch(p: &Path) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
         let contents = fs::read_to_string(p)?;
 
         let mut rv: Vec<Self> = contents
@@ -56,10 +56,7 @@ impl PendingInlineSnapshot {
         Ok(rv)
     }
 
-    pub fn save_batch<P: AsRef<Path>>(
-        p: P,
-        batch: &[PendingInlineSnapshot],
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn save_batch(p: &Path, batch: &[PendingInlineSnapshot]) -> Result<(), Box<dyn Error>> {
         fs::remove_file(&p).ok();
         for snap in batch {
             snap.save(&p)?;
@@ -67,7 +64,7 @@ impl PendingInlineSnapshot {
         Ok(())
     }
 
-    pub fn save<P: AsRef<Path>>(&self, p: P) -> Result<(), Box<dyn Error>> {
+    pub fn save(&self, p: &Path) -> Result<(), Box<dyn Error>> {
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
         let mut s = json::to_string(&self.as_content());
         s.push('\n');
@@ -257,8 +254,8 @@ pub struct Snapshot {
 
 impl Snapshot {
     /// Loads a snapshot from a file.
-    pub fn from_file<P: AsRef<Path>>(p: P) -> Result<Snapshot, Box<dyn Error>> {
-        let mut f = BufReader::new(fs::File::open(p.as_ref())?);
+    pub fn from_file(p: &Path) -> Result<Snapshot, Box<dyn Error>> {
+        let mut f = BufReader::new(fs::File::open(p)?);
         let mut buf = String::new();
 
         f.read_line(&mut buf)?;
@@ -312,7 +309,6 @@ impl Snapshot {
         }
 
         let module_name = p
-            .as_ref()
             .file_name()
             .unwrap()
             .to_str()
@@ -323,7 +319,6 @@ impl Snapshot {
             .to_string();
 
         let snapshot_name = p
-            .as_ref()
             .file_name()
             .unwrap()
             .to_str()
@@ -429,12 +424,7 @@ impl Snapshot {
         &self.snapshot.0
     }
 
-    fn save_with_metadata<P: AsRef<Path>>(
-        &self,
-        path: P,
-        md: &MetaData,
-    ) -> Result<(), Box<dyn Error>> {
-        let path = path.as_ref();
+    fn save_with_metadata(&self, path: &Path, md: &MetaData) -> Result<(), Box<dyn Error>> {
         if let Some(folder) = path.parent() {
             fs::create_dir_all(&folder)?;
         }
@@ -449,7 +439,7 @@ impl Snapshot {
 
     /// Saves the snapshot.
     #[doc(hidden)]
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+    pub fn save(&self, path: &Path) -> Result<(), Box<dyn Error>> {
         // we do not want to retain the assertion line on the metadata when storing
         // as a regular snapshot.
         if self.metadata.assertion_line.is_some() {
@@ -462,7 +452,7 @@ impl Snapshot {
     }
 
     /// Same as `save` but also holds information only relevant for `.new` files.
-    pub(crate) fn save_new<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn save_new(&self, path: &Path) -> Result<(), Box<dyn Error>> {
         self.save_with_metadata(path, &self.metadata)
     }
 }

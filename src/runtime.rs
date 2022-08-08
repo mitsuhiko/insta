@@ -293,7 +293,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             self.module_path.replace("::", "__"),
             self.snapshot_name.as_ref().map(|x| x.to_string()),
             Settings::with(|settings| MetaData {
-                source: Some(path_to_storage(self.assertion_file)),
+                source: Some(path_to_storage(Path::new(self.assertion_file))),
                 assertion_line: Some(self.assertion_line),
                 description: settings.description().map(Into::into),
                 expression: if settings.omit_expression() {
@@ -305,7 +305,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 input_file: settings
                     .input_file()
                     .and_then(|x| self.localize_path(x))
-                    .map(path_to_storage),
+                    .map(|x| path_to_storage(&x)),
             }),
             contents,
         )
