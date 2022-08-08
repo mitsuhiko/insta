@@ -12,7 +12,7 @@ _(unreleased)_
   users need to opt into `yaml` and `json` features explicitly to regain
   support for it. To avoid the default `serde` dependency the default
   features just need to be disabled. (#255)
-- Removed unused `serialization` features.
+- Deprecated unused `serialization` features.
 - Deprecated unused `backtrace` feature.
 - Removed deprecated `Settings::bind_to_thread`.
 

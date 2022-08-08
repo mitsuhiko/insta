@@ -55,7 +55,8 @@ __private_legacy_default_serialization = ["serde"]
 # warning when testing with all features is enabled.  Both those features will go
 # away soon.
 backtrace = []
-__private_hide_backtrace_deprecation_warning = []
+serialization = []
+__private_hide_feature_deprecation_warning = []
 
 [dependencies]
 dep_csv = { package = "csv", version = "1.1.4", optional = true }

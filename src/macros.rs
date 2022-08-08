@@ -418,9 +418,12 @@ macro_rules! assert_snapshot {
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {{
         // This use does not do anything.  It exists purely to trigger a deprecation warning
-        // for the "backtrace" feature if enabled.
+        // for the features if enabled.
         #[allow(unused)]
-        use $crate::deprecated_backtrace_support::*;
+        {
+            use $crate::deprecated_backtrace_support::*;
+            use $crate::deprecated_serialization_support::*;
+        }
 
         $crate::_macro_support::assert_snapshot(
             // Creates a ReferenceValue::Named variant
