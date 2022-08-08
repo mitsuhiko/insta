@@ -2,9 +2,9 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## 0.18.0
+## 1.18.0
 
-*(unreleased)*
+_(unreleased)_
 
 - `Settings::bind` now can return a result.
 - Expose the drop guard type of `bind_to_scope`.
@@ -16,17 +16,24 @@ All notable changes to insta and cargo-insta are documented here.
 - Deprecated unused `backtrace` feature.
 - Removed deprecated `Settings::bind_to_thread`.
 
-## 0.17.2
+**Breaking Changes / Upgrading:** If you are upgrading to serde 1.18.0 you will
+receive deprecating warnings if you are using the `assert_yaml_snapshot!` and
+`assert_json_snapshot!` macros. These macros will continue to function in the
+future but they will require explicit opting into the `yaml` and `json` features.
+To silence the warning add them to your `insta` dependency. Additionally the
+`backtrace` feature was deprecated. It is no longer needed so just remove it.
+
+## 1.17.2
 
 - Remove an accidentaly debug print output.
 
-## 0.17.1
+## 1.17.1
 
 - Added support for nextest. (#242)
 - Resolved an issue where inline snapshot tests in doctests refused to
   work. (#252)
 
-## 0.17.0
+## 1.17.0
 
 - Fixed an issue in `cargo-insta` where sometimes accepting inline snapshots
   would crash with an out of bounds panic.
