@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.18.1
+
+- Fixed a regression in the JSON serialization format with newtypes and
+  tuple variants. (#270)
+
 ## 1.18.0
 
 - `Settings::bind` now can return a result.
