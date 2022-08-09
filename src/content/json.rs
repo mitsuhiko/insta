@@ -136,6 +136,7 @@ impl Serializer {
             Content::NewtypeStruct(_, content) => self.serialize(content),
             Content::NewtypeVariant(_, _, variant, content) => {
                 self.start_container('{');
+                self.write_comma(true);
                 self.write_escaped_str(variant);
                 self.write_colon();
                 self.serialize(content);
@@ -146,6 +147,7 @@ impl Serializer {
             }
             Content::TupleVariant(_, _, variant, seq) => {
                 self.start_container('{');
+                self.write_comma(true);
                 self.write_escaped_str(variant);
                 self.write_colon();
                 self.serialize_array(seq);
@@ -170,6 +172,7 @@ impl Serializer {
             }
             Content::StructVariant(_, _, variant, fields) => {
                 self.start_container('{');
+                self.write_comma(true);
                 self.write_escaped_str(variant);
                 self.write_colon();
                 self.serialize_object(fields);
@@ -326,6 +329,42 @@ fn test_to_string_pretty_complex() {
             Content::from("is_alive"),
             Content::NewtypeStruct("Some", Content::from(true).into()),
         ),
+        (
+            Content::from("newtype_variant"),
+            Content::NewtypeVariant(
+                "Foo",
+                0,
+                "variant_a",
+                Box::new(Content::Struct(
+                    "VariantA",
+                    vec![
+                        ("field_a", Content::String("value_a".into())),
+                        ("field_b", 42u32.into()),
+                    ],
+                )),
+            ),
+        ),
+        (
+            Content::from("struct_variant"),
+            Content::StructVariant(
+                "Foo",
+                0,
+                "variant_b",
+                vec![
+                    ("field_a", Content::String("value_a".into())),
+                    ("field_b", 42u32.into()),
+                ],
+            ),
+        ),
+        (
+            Content::from("tuple_variant"),
+            Content::TupleVariant(
+                "Foo",
+                0,
+                "variant_c",
+                vec![(Content::String("value_a".into())), (42u32.into())],
+            ),
+        ),
         (Content::from("empty_array"), Content::Seq(vec![])),
         (Content::from("empty_object"), Content::Map(vec![])),
         (Content::from("array"), Content::Seq(vec![true.into()])),
@@ -373,6 +412,24 @@ fn test_to_string_pretty_complex() {
     crate::assert_snapshot!(&json, @r###"
     {
       "is_alive": true,
+      "newtype_variant": {
+        "variant_a": {
+          "field_a": "value_a",
+          "field_b": 42
+        }
+      },
+      "struct_variant": {
+        "variant_b": {
+          "field_a": "value_a",
+          "field_b": 42
+        }
+      },
+      "tuple_variant": {
+        "variant_c": [
+          "value_a",
+          42
+        ]
+      },
       "empty_array": [],
       "empty_object": {},
       "array": [

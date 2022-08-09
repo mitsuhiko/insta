@@ -9,6 +9,11 @@ All notable changes to insta and cargo-insta are documented here.
 - `assert_json_snapshot!` and `assert_yaml_snapshot!` now require
   the `json` and `yaml` feature respectively.
 
+## 1.18.1
+
+- Fixed a regression in the JSON serialization format with newtypes and
+  tuple variants. (#270)
+
 ## 1.18.0
 
 - `Settings::bind` now can return a result.
