@@ -11,6 +11,10 @@ All notable changes to insta and cargo-insta are documented here.
 - `assert_json_snapshot!` and `assert_yaml_snapshot!` now require
   the `json` and `yaml` feature respectively.
 
+## 1.18.2
+
+- Avoid the use of `#[allow(unused)]` in the macro. (#271)
+
 ## 1.18.1
 
 - Fixed a regression in the JSON serialization format with newtypes and
