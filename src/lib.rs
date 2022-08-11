@@ -291,7 +291,7 @@ pub mod _macro_support {
     )
 )]
 pub mod deprecated_backtrace_support {
-    pub const _BACKTRACE_DUMMY: usize = 0;
+    pub fn backtrace_dummy() {}
 }
 
 #[doc(hidden)]
@@ -308,5 +308,5 @@ pub mod deprecated_backtrace_support {
     )
 )]
 pub mod deprecated_serialization_support {
-    pub const _SERIALIZATION_DUMMY: usize = 0;
+    pub fn serialization_dummy() {}
 }

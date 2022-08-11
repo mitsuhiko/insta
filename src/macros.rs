@@ -418,11 +418,13 @@ macro_rules! assert_snapshot {
     };
     ($name:expr, $value:expr, $debug_expr:expr) => {{
         // This use does not do anything.  It exists purely to trigger a deprecation warning
-        // for the features if enabled.
-        #[allow(unused)]
+        // for the features if enabled.  The dummy function calls exist so that we do not
+        // need to use `#[allow(unused)]` (https://github.com/mitsuhiko/insta/issues/271)
         {
             use $crate::deprecated_backtrace_support::*;
             use $crate::deprecated_serialization_support::*;
+            backtrace_dummy();
+            serialization_dummy();
         }
 
         $crate::_macro_support::assert_snapshot(
