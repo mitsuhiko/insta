@@ -207,7 +207,7 @@ impl Content {
     /// Returns the value as bytes
     pub fn as_bytes(&self) -> Option<&[u8]> {
         match self.resolve_inner() {
-            Content::Bytes(ref b) => Some(&*b),
+            Content::Bytes(ref b) => Some(b),
             _ => None,
         }
     }

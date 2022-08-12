@@ -227,7 +227,7 @@ impl PathItem {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Segment<'a> {
     DeepWildcard,
     Wildcard,

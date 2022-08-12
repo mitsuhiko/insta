@@ -442,9 +442,7 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
         }
         panic!(
             "snapshot assertion for '{}' failed in line {}",
-            ctx.snapshot_name
-                .as_ref()
-                .map_or("unnamed snapshot", |x| &*x),
+            ctx.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),
             ctx.assertion_line
         );
     }

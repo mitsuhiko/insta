@@ -59,7 +59,7 @@ impl PendingInlineSnapshot {
     pub fn save_batch(p: &Path, batch: &[PendingInlineSnapshot]) -> Result<(), Box<dyn Error>> {
         fs::remove_file(&p).ok();
         for snap in batch {
-            snap.save(&p)?;
+            snap.save(p)?;
         }
         Ok(())
     }
