@@ -10,6 +10,8 @@ All notable changes to insta and cargo-insta are documented here.
 - Removed `serialization` feature.
 - `assert_json_snapshot!` and `assert_yaml_snapshot!` now require
   the `json` and `yaml` feature respectively.
+- Doctests now emit a warning that inline snapshot updating is
+  not supported (#272)
 
 ## 1.18.2
 

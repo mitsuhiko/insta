@@ -83,11 +83,12 @@ fn detect_snapshot_name(
     function_name: &str,
     module_path: &str,
     inline: bool,
+    is_doctest: bool,
 ) -> Result<String, &'static str> {
     let mut name = function_name;
 
     // simplify doctest names
-    if is_doctest(name) && !inline {
+    if is_doctest && !inline {
         panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
     }
 
@@ -148,12 +149,12 @@ fn add_suffix_to_snapshot_name(name: Cow<'_, str>) -> Cow<'_, str> {
 }
 
 fn get_snapshot_filename(
-    function_name: &str,
     module_path: &str,
     assertion_file: &str,
     snapshot_name: &str,
     cargo_workspace: &Path,
     base: &str,
+    is_doctest: bool,
 ) -> PathBuf {
     let root = Path::new(cargo_workspace);
     let base = Path::new(base);
@@ -164,7 +165,7 @@ fn get_snapshot_filename(
                 use std::fmt::Write;
                 let mut f = String::new();
                 if settings.prepend_module_to_snapshot() {
-                    if is_doctest(function_name) {
+                    if is_doctest {
                         write!(
                             &mut f,
                             "doctest_{}__",
@@ -200,6 +201,7 @@ struct SnapshotAssertionContext<'a> {
     pending_snapshots_path: Option<PathBuf>,
     assertion_file: &'a str,
     assertion_line: u32,
+    is_doctest: bool,
 }
 
 impl<'a> SnapshotAssertionContext<'a> {
@@ -216,22 +218,23 @@ impl<'a> SnapshotAssertionContext<'a> {
         let mut snapshot_file = None;
         let mut old_snapshot = None;
         let mut pending_snapshots_path = None;
+        let is_doctest = is_doctest(function_name);
 
         match refval {
             ReferenceValue::Named(name) => {
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name),
-                    None => detect_snapshot_name(function_name, module_path, false)
+                    None => detect_snapshot_name(function_name, module_path, false, is_doctest)
                         .unwrap()
                         .into(),
                 };
                 let file = get_snapshot_filename(
-                    function_name,
                     module_path,
                     assertion_file,
                     &name,
                     &cargo_workspace,
                     assertion_file,
+                    is_doctest,
                 );
                 if fs::metadata(&file).is_ok() {
                     old_snapshot = Some(Snapshot::from_file(&file)?);
@@ -240,7 +243,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_file = Some(file);
             }
             ReferenceValue::Inline(contents) => {
-                snapshot_name = detect_snapshot_name(function_name, module_path, true)
+                snapshot_name = detect_snapshot_name(function_name, module_path, true, is_doctest)
                     .ok()
                     .map(Cow::Owned);
                 let mut pending_file = cargo_workspace.join(assertion_file);
@@ -271,6 +274,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             pending_snapshots_path,
             assertion_file,
             assertion_line,
+            is_doctest,
         })
     }
 
@@ -361,9 +365,12 @@ impl<'a> SnapshotAssertionContext<'a> {
                 } else if should_print {
                     elog!(
                         "{}",
-                        style("error: cannot update inline snapshots in-place")
-                            .red()
-                            .bold(),
+                        style(
+                            "error: cannot update inline snapshots in-place \
+                        (https://github.com/mitsuhiko/insta/issues/272)"
+                        )
+                        .red()
+                        .bold(),
                     );
                 }
             }
@@ -377,6 +384,15 @@ impl<'a> SnapshotAssertionContext<'a> {
                             "{} {}",
                             style("stored new snapshot").green(),
                             style(new_path.display()).cyan().underlined(),
+                        );
+                    }
+                } else if self.is_doctest {
+                    if should_print {
+                        elog!(
+                            "{}",
+                            style("warning: cannot update inline snapshots in doctests")
+                                .red()
+                                .bold(),
                         );
                     }
                 } else {
@@ -422,7 +438,9 @@ fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) 
 
 /// Finalizes the assertion based on the update result.
 fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpdate) {
-    if update_result == SnapshotUpdate::NewFile && get_output_behavior() != OutputBehavior::Nothing
+    if update_result == SnapshotUpdate::NewFile
+        && get_output_behavior() != OutputBehavior::Nothing
+        && !ctx.is_doctest
     {
         println!(
             "{hint}",
