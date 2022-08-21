@@ -467,7 +467,27 @@ macro_rules! with_settings {
 
 /// Executes a closure for all input files matching a glob.
 ///
-/// The closure is passed the path to the file.
+/// The closure is passed the path to the file.  You can use [`std::fs::read_to_string`]
+/// or similar functions to load the file and process it.
+///
+/// ```
+/// # use insta::{assert_snapshot, glob, Settings};
+/// # let mut settings = Settings::clone_current();
+/// # settings.set_allow_empty_glob(true);
+/// # let _dropguard = settings.bind_to_scope();
+/// use std::fs;
+///
+/// glob!("inputs/*.txt", |path| {
+///     let input = fs::read_to_string(path).unwrap();
+///     assert_snapshot!(input.to_uppercase());
+/// });
+/// ```
+///
+/// The `INSTA_GLOB_FILTER` environment variable can be set to only execute certain files.
+/// The format of the filter is a semicolon separated filter.  For instance by setting
+/// `INSTA_GLOB_FILTER` to `foo-*txt;bar-*.txt` only files starting with `foo-` or `bar-`
+/// end ending in `.txt` will be executed.  When using `cargo-insta` the `--glob-filter`
+/// option can be used instead.
 #[cfg(feature = "glob")]
 #[cfg_attr(docsrs, doc(cfg(feature = "glob")))]
 #[macro_export]
