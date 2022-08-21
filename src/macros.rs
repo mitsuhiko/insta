@@ -471,7 +471,10 @@ macro_rules! with_settings {
 /// or similar functions to load the file and process it.
 ///
 /// ```
-/// # use insta::{assert_snapshot, glob};
+/// # use insta::{assert_snapshot, glob, Settings};
+/// # let mut settings = Settings::clone_current();
+/// # settings.set_allow_empty_glob(true);
+/// # let _dropguard = settings.bind_to_scope();
 /// use std::fs;
 ///
 /// glob!("inputs/*.txt", |path| {
