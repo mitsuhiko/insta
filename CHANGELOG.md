@@ -12,6 +12,8 @@ All notable changes to insta and cargo-insta are documented here.
   the `json` and `yaml` feature respectively.
 - Doctests now emit a warning that inline snapshot updating is
   not supported (#272)
+- Added support for `INSTA_GLOB_FILTER` to skip over tests expanded
+  from a glob. (#274)
 
 ## 1.18.2
 
