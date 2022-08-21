@@ -140,6 +140,9 @@ pub struct TestCommand {
     /// Delete unreferenced snapshots after the test run.
     #[structopt(long)]
     pub delete_unreferenced_snapshots: bool,
+    /// Filters to apply to the insta glob feature.
+    #[structopt(long)]
+    pub glob_filter: Vec<String>,
     /// Do not pass the quiet flag (`-q`) to tests.
     #[structopt(short = "Q", long)]
     pub no_quiet: bool,
@@ -558,6 +561,22 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     if cmd.force_update_snapshots {
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
     }
+
+    let glob_filter =
+        cmd.glob_filter
+            .iter()
+            .map(|x| x.as_str())
+            .fold(String::new(), |mut s, item| {
+                if !s.is_empty() {
+                    s.push(';');
+                }
+                s.push_str(item);
+                s
+            });
+    if !glob_filter.is_empty() {
+        proc.env("INSTA_GLOB_FILTER", glob_filter);
+    }
+
     if cmd.release {
         proc.arg("--release");
     }
