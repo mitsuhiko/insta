@@ -4,8 +4,6 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.19.0
 
-*(unreleased)*
-
 - Removed `backtrace` feature.
 - Removed `serialization` feature.
 - `assert_json_snapshot!` and `assert_yaml_snapshot!` now require
