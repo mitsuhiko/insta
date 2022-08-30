@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::env;
 use std::error::Error;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -428,12 +428,41 @@ impl Snapshot {
         if let Some(folder) = path.parent() {
             fs::create_dir_all(&folder)?;
         }
-        let mut f = fs::File::create(&path)?;
+
+        // create a new snap file
+        let f;
+        #[cfg(not(feature = "compression"))]
+        {
+            // in the given path if no compression
+            f = fs::File::create(&path)?;
+        };
+        #[cfg(feature = "compression")]
+        {
+            // in a temp file if compression enabled
+            f = tempfile::tempfile()?;
+        }
+
+        let mut file_buffer = BufWriter::new(f);
+
         let blob = yaml::to_string(&md.as_content());
-        f.write_all(blob.as_bytes())?;
-        f.write_all(b"---\n")?;
-        f.write_all(self.contents_str().as_bytes())?;
-        f.write_all(b"\n")?;
+        file_buffer.write_all(blob.as_bytes())?;
+        file_buffer.write_all(b"---\n")?;
+        file_buffer.write_all(self.contents_str().as_bytes())?;
+        file_buffer.write_all(b"\n")?;
+
+        file_buffer.flush()?;
+
+        #[cfg(feature = "compression")]
+        {
+            // compresss the snap file if compression is enabled
+            let f = fs::File::open(&path)?;
+            let mut snap_file_content = BufReader::new(f);
+
+            let compressed_file_path = format!("{}.xz", path.to_string_lossy());
+            let mut compressed_file = BufWriter::new(fs::File::create(compressed_file_path)?);
+            lzma_rs::lzma2_compress(&mut snap_file_content, &mut compressed_file)?;
+        }
+
         Ok(())
     }
 
