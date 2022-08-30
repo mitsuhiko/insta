@@ -255,7 +255,30 @@ pub struct Snapshot {
 impl Snapshot {
     /// Loads a snapshot from a file.
     pub fn from_file(p: &Path) -> Result<Snapshot, Box<dyn Error>> {
-        let mut f = BufReader::new(fs::File::open(p)?);
+        // get the snap file
+        let snap_f;
+        #[cfg(feature = "compression")]
+        {
+            // a temp file if compression enabled
+            snap_f = tempfile::tempfile()?;
+        }
+        #[cfg(not(feature = "compression"))]
+        {
+            // the snap file itself if no compression
+            snap_f = fs::File::open(&p)?;
+        };
+
+        // decompress the xz file to a temp snap file
+        #[cfg(feature = "compression")]
+        {
+            let compressed_file_path = format!("{}.xz", p.to_string_lossy());
+            let mut compressed_file = BufReader::new(fs::File::open(compressed_file_path)?);
+
+            let mut decomp = BufWriter::new(snap_f.try_clone()?);
+            lzma_rs::xz_decompress(&mut compressed_file, &mut decomp)?;
+        };
+
+        let mut f = BufReader::new(snap_f);
         let mut buf = String::new();
 
         f.read_line(&mut buf)?;
