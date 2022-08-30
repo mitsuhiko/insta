@@ -276,7 +276,7 @@ impl Snapshot {
                 Ok(compressed_file) => {
                     let mut compressed_file_buffer = BufReader::new(compressed_file);
 
-                    let mut decomp = BufWriter::new(snap_f.try_clone()?);
+                    let mut decomp = BufWriter::new(&snap_f);
                     lzma_rs::xz_decompress(&mut compressed_file_buffer, &mut decomp)?;
                 }
                 Err(err) => {
@@ -298,7 +298,13 @@ impl Snapshot {
                             ),
                         )));
                     }
-                    return Err(Box::new(err));
+                    return Err(Box::new(std::io::Error::new(
+                        err.kind(),
+                        format!(
+                            "Failed to open the compressed file {} {}",
+                            compressed_file_path, err
+                        ),
+                    )));
                 }
             }
         };
@@ -503,8 +509,7 @@ impl Snapshot {
         #[cfg(feature = "compression")]
         {
             // compresss the snap file if compression is enabled
-            let f = fs::File::open(&path)?;
-            let mut snap_file_content = BufReader::new(f);
+            let mut snap_file_content = BufReader::new(fs::File::open(&path)?);
 
             let compressed_file_path = format!("{}.xz", path.to_string_lossy());
             let mut compressed_file = BufWriter::new(fs::File::create(compressed_file_path)?);
