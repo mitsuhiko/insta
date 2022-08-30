@@ -272,10 +272,35 @@ impl Snapshot {
         #[cfg(feature = "compression")]
         {
             let compressed_file_path = format!("{}.xz", p.to_string_lossy());
-            let mut compressed_file = BufReader::new(fs::File::open(compressed_file_path)?);
+            match fs::File::open(&compressed_file_path) {
+                Ok(compressed_file) => {
+                    let mut compressed_file_buffer = BufReader::new(compressed_file);
 
-            let mut decomp = BufWriter::new(snap_f.try_clone()?);
-            lzma_rs::xz_decompress(&mut compressed_file, &mut decomp)?;
+                    let mut decomp = BufWriter::new(snap_f.try_clone()?);
+                    lzma_rs::xz_decompress(&mut compressed_file_buffer, &mut decomp)?;
+                }
+                Err(err) => {
+                    if err.kind() == std::io::ErrorKind::NotFound {
+                        if p.exists() {
+                            return Err(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                format!(
+                                    "The snapshot file {} exists, but it is not compressed. Please remove this file and re-generate the compressed snapshot file",
+                                    p.to_string_lossy()
+                                ),
+                            )));
+                        }
+                        return Err(Box::new(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            format!(
+                                "The compressed snapshot file {} does not exist",
+                                compressed_file_path
+                            ),
+                        )));
+                    }
+                    return Err(Box::new(err));
+                }
+            }
         };
 
         let mut f = BufReader::new(snap_f);
