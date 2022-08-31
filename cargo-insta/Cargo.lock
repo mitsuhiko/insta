@@ -81,7 +81,7 @@ checksum = "ae44d1a3d5a19df61dd0c8beb138458ac2a53a7ac09eba97d55592540004306b"
 
 [[package]]
 name = "cargo-insta"
-version = "1.19.0"
+version = "1.19.1"
 dependencies = [
  "console",
  "ignore",
@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.19.0"
+version = "1.19.1"
 dependencies = [
  "console",
  "linked-hash-map",
