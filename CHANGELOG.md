@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.19.1
+
+- Added support for numeric keys in JSON which regressed in 0.18.0. (#281)
+
 ## 1.19.0
 
 - Removed `backtrace` feature.
