@@ -157,8 +157,13 @@ impl Serializer {
                 self.start_container('{');
                 for (idx, (key, value)) in map.iter().enumerate() {
                     self.write_comma(idx == 0);
-                    if let Content::String(ref s) = key {
+                    let real_key = key.resolve_inner();
+                    if let Content::String(ref s) = real_key {
                         self.write_escaped_str(s);
+                    } else if let Some(num) = real_key.as_i64() {
+                        self.write_escaped_str(&num.to_string());
+                    } else if let Some(num) = real_key.as_i128() {
+                        self.write_escaped_str(&num.to_string());
                     } else {
                         panic!("cannot serialize maps without string keys to JSON");
                     }
@@ -318,6 +323,21 @@ fn test_to_string_pretty() {
       ],
       "cmdline": [],
       "extra": {}
+    }
+    "###);
+}
+
+#[test]
+fn test_to_string_num_keys() {
+    let content = Content::Map(vec![
+        (Content::from(42u32), Content::from(true)),
+        (Content::from(-23i32), Content::from(false)),
+    ]);
+    let json = to_string_pretty(&content);
+    crate::assert_snapshot!(&json, @r###"
+    {
+      "42": true,
+      "-23": false
     }
     "###);
 }
