@@ -150,6 +150,9 @@ pub struct TestCommand {
     // Sets raw to true so that `--` is required
     #[structopt(name = "cargo_options", raw(true))]
     pub cargo_options: Vec<String>,
+    /// Picks the test runner.
+    #[structopt(long)]
+    pub test_runner: Option<String>,
 }
 
 #[derive(StructOpt, Debug)]
@@ -497,9 +500,56 @@ fn make_deletion_walker(loc: &LocationInfo, package: Option<&str>) -> Walk {
         .build()
 }
 
+enum TestRunner {
+    CargoTest,
+    Nextest,
+}
+
+fn detect_test_runner(preference: Option<&str>) -> Result<TestRunner, Box<dyn Error>> {
+    // fall back to INSTA_TEST_RUNNER env var if no preference is given
+    let preference = preference
+        .map(Cow::Borrowed)
+        .or_else(|| env::var("INSTA_TEST_RUNNER").ok().map(Cow::Owned))
+        .unwrap_or(Cow::Borrowed("auto"));
+
+    // if preference is auto check if "cargo nextest" executes the help page with status code 0
+    match &preference as &str {
+        "auto" => Ok(
+            if std::process::Command::new("cargo")
+                .arg("nextest")
+                .arg("--help")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map_or(false, |x| x.success())
+            {
+                TestRunner::Nextest
+            } else {
+                TestRunner::CargoTest
+            },
+        ),
+        "cargo-test" => Ok(TestRunner::CargoTest),
+        "nextest" => Ok(TestRunner::Nextest),
+        _ => Err(err_msg("invalid test runner preference")),
+    }
+}
+
 fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
-    let mut proc = process::Command::new(get_cargo());
-    proc.arg("test");
+    let test_runner = detect_test_runner(cmd.test_runner.as_deref())?;
+
+    let mut proc = match test_runner {
+        TestRunner::CargoTest => {
+            let mut proc = process::Command::new(get_cargo());
+            proc.arg("test");
+            proc
+        }
+        TestRunner::Nextest => {
+            let mut proc = process::Command::new(get_cargo());
+            proc.arg("nextest");
+            proc.arg("run");
+            proc
+        }
+    };
 
     // when unreferenced snapshots should be deleted we need to instruct
     // insta to dump referenced snapshots somewhere.
@@ -581,7 +631,9 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         proc.arg("--release");
     }
     if let Some(n) = cmd.jobs {
-        proc.arg(format!("--jobs={}", n));
+        // use -j instead of --jobs since both nextest and cargo test use it
+        proc.arg("-j");
+        proc.arg(n.to_string());
     }
     if let Some(ref features) = cmd.features {
         proc.arg("--features");
@@ -597,7 +649,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     proc.arg(color);
     proc.args(cmd.cargo_options);
 
-    if !cmd.no_quiet {
+    if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
         proc.arg("--");
         proc.arg("-q");
     }
