@@ -438,7 +438,21 @@ fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) 
 
 /// Finalizes the assertion based on the update result.
 fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpdate) {
-    if update_result == SnapshotUpdate::NewFile
+    // if we are in glob mode, we want to adjust the finalization
+    // so that we do not show the hints immediately.
+    let multi_assert = {
+        #[cfg(feature = "glob")]
+        {
+            !crate::glob::GLOB_STACK.lock().unwrap().is_empty()
+        }
+        #[cfg(not(feature = "glob"))]
+        {
+            false
+        }
+    };
+
+    if !multi_assert
+        && update_result == SnapshotUpdate::NewFile
         && get_output_behavior() != OutputBehavior::Nothing
         && !ctx.is_doctest
     {
@@ -449,7 +463,7 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
     }
 
     if update_result != SnapshotUpdate::InPlace && !force_pass() {
-        if get_output_behavior() != OutputBehavior::Nothing {
+        if !multi_assert && get_output_behavior() != OutputBehavior::Nothing {
             println!(
                 "{hint}",
                 hint = style(
@@ -458,6 +472,30 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
                 .dim(),
             );
         }
+
+        // if we are in glob mode, count the failures and print the
+        // errors instead of panicking.  The glob will then panic at
+        // the end.
+        #[cfg(feature = "glob")]
+        {
+            let mut stack = crate::glob::GLOB_STACK.lock().unwrap();
+            if let Some(glob_collector) = stack.last_mut() {
+                glob_collector.failed += 1;
+                if update_result == SnapshotUpdate::NewFile
+                    && get_output_behavior() != OutputBehavior::Nothing
+                {
+                    glob_collector.show_insta_hint = true;
+                }
+                eprintln!(
+                    "snapshot assertion from glob for '{}' failed in line {}",
+                    ctx.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),
+                    ctx.assertion_line
+                );
+                eprintln!();
+                return;
+            }
+        }
+
         panic!(
             "snapshot assertion for '{}' failed in line {}",
             ctx.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),

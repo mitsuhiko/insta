@@ -1,11 +1,22 @@
 use std::env;
 use std::path::Path;
+use std::sync::Mutex;
 
 use globset::{GlobBuilder, GlobMatcher};
 use once_cell::sync::Lazy;
 use walkdir::WalkDir;
 
 use crate::settings::Settings;
+use crate::utils::style;
+
+pub(crate) struct GlobCollector {
+    pub(crate) failed: usize,
+    pub(crate) show_insta_hint: bool,
+}
+
+// the glob stack holds failure count + an indication if cargo insta review
+// should be run.
+pub(crate) static GLOB_STACK: Lazy<Mutex<Vec<GlobCollector>>> = Lazy::new(Mutex::default);
 
 static GLOB_FILTER: Lazy<Vec<GlobMatcher>> = Lazy::new(|| {
     env::var("INSTA_GLOB_FILTER")
@@ -34,6 +45,11 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
     let mut glob_found_matches = false;
     let mut settings = Settings::clone_current();
 
+    GLOB_STACK.lock().unwrap().push(GlobCollector {
+        failed: 0,
+        show_insta_hint: false,
+    });
+
     for file in walker {
         let file = file.unwrap();
         let path = file.path();
@@ -58,7 +74,21 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
         });
     }
 
+    let top = GLOB_STACK.lock().unwrap().pop().unwrap();
     if !glob_found_matches && !settings.allow_empty_glob() {
         panic!("the glob! macro did not match any files.");
+    }
+    if top.failed > 0 {
+        if top.show_insta_hint {
+            println!(
+                "{hint}",
+                hint = style("To update snapshots run `cargo insta review`").dim(),
+            );
+        }
+        panic!(
+            "glob! resulted in {} snapshot assertion failure{}s",
+            top.failed,
+            if top.failed == 1 { "" } else { "s" },
+        );
     }
 }
