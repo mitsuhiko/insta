@@ -513,23 +513,9 @@ fn detect_test_runner(preference: Option<&str>) -> Result<TestRunner, Box<dyn Er
         .or_else(|| env::var("INSTA_TEST_RUNNER").ok().map(Cow::Owned))
         .unwrap_or(Cow::Borrowed("auto"));
 
-    // if preference is auto check if "cargo nextest" executes the help page with status code 0
     match &preference as &str {
-        "auto" => Ok(
-            if std::process::Command::new("cargo")
-                .arg("nextest")
-                .arg("--help")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-                .map_or(false, |x| x.success())
-            {
-                TestRunner::Nextest
-            } else {
-                TestRunner::CargoTest
-            },
-        ),
-        "cargo-test" => Ok(TestRunner::CargoTest),
+        // auto for now defaults to cargo-test still
+        "auto" | "cargo-test" => Ok(TestRunner::CargoTest),
         "nextest" => Ok(TestRunner::Nextest),
         _ => Err(err_msg("invalid test runner preference")),
     }
