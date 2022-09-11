@@ -488,6 +488,11 @@ macro_rules! with_settings {
 /// `INSTA_GLOB_FILTER` to `foo-*txt;bar-*.txt` only files starting with `foo-` or `bar-`
 /// end ending in `.txt` will be executed.  When using `cargo-insta` the `--glob-filter`
 /// option can be used instead.
+///
+/// Another effect of the globbing system is that snapshot failures within the glob macro
+/// are deferred until the end of of it.  In other words this means that each snapshot
+/// assertion within the `glob!` block are reported.  It can be disabled by setting
+/// `INSTA_GLOB_FAIL_FAST` environment variable to `1`.
 #[cfg(feature = "glob")]
 #[cfg_attr(docsrs, doc(cfg(feature = "glob")))]
 #[macro_export]
