@@ -436,22 +436,38 @@ fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) 
     }
 }
 
+#[cfg(feature = "glob")]
+macro_rules! print_or_panic {
+    ($fail_fast:expr, $($tokens:tt)*) => {{
+        if ($fail_fast) {
+            eprintln!($($tokens)*);
+            eprintln!();
+        } else {
+            panic!($($tokens)*);
+        }
+    }}
+}
+
 /// Finalizes the assertion based on the update result.
 fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpdate) {
     // if we are in glob mode, we want to adjust the finalization
     // so that we do not show the hints immediately.
-    let multi_assert = {
+    let fail_fast = {
         #[cfg(feature = "glob")]
         {
-            !crate::glob::GLOB_STACK.lock().unwrap().is_empty()
+            if let Some(top) = crate::glob::GLOB_STACK.lock().unwrap().last() {
+                top.fail_fast
+            } else {
+                true
+            }
         }
         #[cfg(not(feature = "glob"))]
         {
-            false
+            true
         }
     };
 
-    if !multi_assert
+    if fail_fast
         && update_result == SnapshotUpdate::NewFile
         && get_output_behavior() != OutputBehavior::Nothing
         && !ctx.is_doctest
@@ -463,7 +479,7 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
     }
 
     if update_result != SnapshotUpdate::InPlace && !force_pass() {
-        if !multi_assert && get_output_behavior() != OutputBehavior::Nothing {
+        if fail_fast && get_output_behavior() != OutputBehavior::Nothing {
             println!(
                 "{hint}",
                 hint = style(
@@ -486,12 +502,13 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
                 {
                     glob_collector.show_insta_hint = true;
                 }
-                eprintln!(
+
+                print_or_panic!(
+                    fail_fast,
                     "snapshot assertion from glob for '{}' failed in line {}",
                     ctx.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),
                     ctx.assertion_line
                 );
-                eprintln!();
                 return;
             }
         }

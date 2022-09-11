@@ -10,6 +10,7 @@ use crate::settings::Settings;
 use crate::utils::style;
 
 pub(crate) struct GlobCollector {
+    pub(crate) fail_fast: bool,
     pub(crate) failed: usize,
     pub(crate) show_insta_hint: bool,
 }
@@ -48,6 +49,7 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
     GLOB_STACK.lock().unwrap().push(GlobCollector {
         failed: 0,
         show_insta_hint: false,
+        fail_fast: std::env::var("INSTA_GLOB_FAIL_FAST").as_deref() == Ok("1"),
     });
 
     for file in walker {
@@ -78,6 +80,7 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
     if !glob_found_matches && !settings.allow_empty_glob() {
         panic!("the glob! macro did not match any files.");
     }
+
     if top.failed > 0 {
         if top.show_insta_hint {
             println!(
