@@ -548,9 +548,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         proc.arg("--manifest-path");
         proc.arg(manifest_path);
     }
-    if cmd.fail_fast {
-        proc.env("INSTA_GLOB_FAIL_FAST", "1");
-    } else {
+    if !cmd.fail_fast {
         proc.arg("--no-fail-fast");
     }
     if !cmd.no_force_pass {

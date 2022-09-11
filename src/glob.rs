@@ -88,6 +88,12 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
                 hint = style("To update snapshots run `cargo insta review`").dim(),
             );
         }
+        if top.failed > 1 {
+            println!(
+                "{hint}",
+                hint = style("To enable fast failing for glob! export INSTA_GLOB_FAIL_FAST=1 as environment variable.").dim()
+            );
+        }
         panic!(
             "glob! resulted in {} snapshot assertion failure{}s",
             top.failed,

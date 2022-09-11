@@ -439,7 +439,7 @@ fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) 
 #[cfg(feature = "glob")]
 macro_rules! print_or_panic {
     ($fail_fast:expr, $($tokens:tt)*) => {{
-        if ($fail_fast) {
+        if (!$fail_fast) {
             eprintln!($($tokens)*);
             eprintln!();
         } else {

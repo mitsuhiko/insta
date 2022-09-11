@@ -491,7 +491,8 @@ macro_rules! with_settings {
 ///
 /// Another effect of the globbing system is that snapshot failures within the glob macro
 /// are deferred until the end of of it.  In other words this means that each snapshot
-/// assertion within the `glob!` block are reported.
+/// assertion within the `glob!` block are reported.  It can be disabled by setting
+/// `INSTA_GLOB_FAIL_FAST` environment variable to `1`.
 #[cfg(feature = "glob")]
 #[cfg_attr(docsrs, doc(cfg(feature = "glob")))]
 #[macro_export]
