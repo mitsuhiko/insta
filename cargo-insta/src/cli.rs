@@ -150,6 +150,9 @@ pub struct TestCommand {
     // Sets raw to true so that `--` is required
     #[structopt(name = "cargo_options", raw(true))]
     pub cargo_options: Vec<String>,
+    /// Picks the test runner.
+    #[structopt(long)]
+    pub test_runner: Option<String>,
 }
 
 #[derive(StructOpt, Debug)]
@@ -497,24 +500,28 @@ fn make_deletion_walker(loc: &LocationInfo, package: Option<&str>) -> Walk {
         .build()
 }
 
+#[derive(Clone, Copy)]
+enum TestRunner {
+    CargoTest,
+    Nextest,
+}
+
+fn detect_test_runner(preference: Option<&str>) -> Result<TestRunner, Box<dyn Error>> {
+    // fall back to INSTA_TEST_RUNNER env var if no preference is given
+    let preference = preference
+        .map(Cow::Borrowed)
+        .or_else(|| env::var("INSTA_TEST_RUNNER").ok().map(Cow::Owned))
+        .unwrap_or(Cow::Borrowed("auto"));
+
+    match &preference as &str {
+        // auto for now defaults to cargo-test still
+        "auto" | "cargo-test" => Ok(TestRunner::CargoTest),
+        "nextest" => Ok(TestRunner::Nextest),
+        _ => Err(err_msg("invalid test runner preference")),
+    }
+}
+
 fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
-    let mut proc = process::Command::new(get_cargo());
-    proc.arg("test");
-
-    // when unreferenced snapshots should be deleted we need to instruct
-    // insta to dump referenced snapshots somewhere.
-    let snapshot_ref_file = if cmd.delete_unreferenced_snapshots {
-        let snapshot_ref_file = env::temp_dir().join(Uuid::new_v4().to_string());
-        proc.env("INSTA_SNAPSHOT_REFERENCES_FILE", &snapshot_ref_file);
-        Some(snapshot_ref_file)
-    } else {
-        None
-    };
-
-    // if INSTA_UPDATE is set as environment variable we're using it to
-    // override some arguments.  The logic is is quite weird because we
-    // don't support all of the same values and we also want to override
-    // it through the command line switches.
     match env::var("INSTA_UPDATE").ok().as_deref() {
         Some("auto") | Some("new") => {}
         Some("always") => {
@@ -537,70 +544,9 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         }
     }
 
-    if cmd.target_args.all {
-        proc.arg("--all");
-    }
-    if let Some(ref pkg) = cmd.package {
-        proc.arg("--package");
-        proc.arg(pkg);
-    }
-    if let Some(ref manifest_path) = cmd.target_args.manifest_path {
-        proc.arg("--manifest-path");
-        proc.arg(manifest_path);
-    }
-    if !cmd.fail_fast {
-        proc.arg("--no-fail-fast");
-    }
-    if !cmd.no_force_pass {
-        proc.env("INSTA_FORCE_PASS", "1");
-    }
-    proc.env(
-        "INSTA_UPDATE",
-        if cmd.accept_unseen { "unseen" } else { "new" },
-    );
-    if cmd.force_update_snapshots {
-        proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
-    }
+    let test_runner = detect_test_runner(cmd.test_runner.as_deref())?;
 
-    let glob_filter =
-        cmd.glob_filter
-            .iter()
-            .map(|x| x.as_str())
-            .fold(String::new(), |mut s, item| {
-                if !s.is_empty() {
-                    s.push(';');
-                }
-                s.push_str(item);
-                s
-            });
-    if !glob_filter.is_empty() {
-        proc.env("INSTA_GLOB_FILTER", glob_filter);
-    }
-
-    if cmd.release {
-        proc.arg("--release");
-    }
-    if let Some(n) = cmd.jobs {
-        proc.arg(format!("--jobs={}", n));
-    }
-    if let Some(ref features) = cmd.features {
-        proc.arg("--features");
-        proc.arg(features);
-    }
-    if cmd.all_features {
-        proc.arg("--all-features");
-    }
-    if cmd.no_default_features {
-        proc.arg("--no-default-features");
-    }
-    proc.arg("--color");
-    proc.arg(color);
-    proc.args(cmd.cargo_options);
-
-    if !cmd.no_quiet {
-        proc.arg("--");
-        proc.arg("-q");
-    }
+    let (mut proc, snapshot_ref_file) = prepare_test_runner(test_runner, &cmd, color, &[], None)?;
 
     if !cmd.keep_pending {
         process_snapshots(
@@ -614,8 +560,21 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     }
 
     let status = proc.status()?;
+    let mut success = status.success();
 
-    if !status.success() {
+    // nextest currently cannot run doctests, run them with regular tests
+    if matches!(test_runner, TestRunner::Nextest) {
+        let (mut proc, _) = prepare_test_runner(
+            TestRunner::CargoTest,
+            &cmd,
+            color,
+            &["--doc"],
+            snapshot_ref_file.as_deref(),
+        )?;
+        success = success && proc.status()?.success();
+    }
+
+    if !success {
         if cmd.review {
             eprintln!(
                 "{} non snapshot tests failed, skipping review",
@@ -716,6 +675,105 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn prepare_test_runner<'snapshot_ref>(
+    test_runner: TestRunner,
+    cmd: &TestCommand,
+    color: &str,
+    extra_args: &[&str],
+    snapshot_ref_file: Option<&'snapshot_ref Path>,
+) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>), Box<dyn Error>> {
+    let mut proc = match test_runner {
+        TestRunner::CargoTest => {
+            let mut proc = process::Command::new(get_cargo());
+            proc.arg("test");
+            proc
+        }
+        TestRunner::Nextest => {
+            let mut proc = process::Command::new(get_cargo());
+            proc.arg("nextest");
+            proc.arg("run");
+            proc
+        }
+    };
+    let snapshot_ref_file = if cmd.delete_unreferenced_snapshots {
+        match snapshot_ref_file {
+            Some(path) => Some(Cow::Borrowed(path)),
+            None => {
+                let snapshot_ref_file = env::temp_dir().join(Uuid::new_v4().to_string());
+                proc.env("INSTA_SNAPSHOT_REFERENCES_FILE", &snapshot_ref_file);
+                Some(Cow::Owned(snapshot_ref_file))
+            }
+        }
+    } else {
+        None
+    };
+    if cmd.target_args.all {
+        proc.arg("--all");
+    }
+    if let Some(ref pkg) = cmd.package {
+        proc.arg("--package");
+        proc.arg(pkg);
+    }
+    if let Some(ref manifest_path) = cmd.target_args.manifest_path {
+        proc.arg("--manifest-path");
+        proc.arg(manifest_path);
+    }
+    if !cmd.fail_fast {
+        proc.arg("--no-fail-fast");
+    }
+    if !cmd.no_force_pass {
+        proc.env("INSTA_FORCE_PASS", "1");
+    }
+    proc.env(
+        "INSTA_UPDATE",
+        if cmd.accept_unseen { "unseen" } else { "new" },
+    );
+    if cmd.force_update_snapshots {
+        proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
+    }
+    let glob_filter =
+        cmd.glob_filter
+            .iter()
+            .map(|x| x.as_str())
+            .fold(String::new(), |mut s, item| {
+                if !s.is_empty() {
+                    s.push(';');
+                }
+                s.push_str(item);
+                s
+            });
+    if !glob_filter.is_empty() {
+        proc.env("INSTA_GLOB_FILTER", glob_filter);
+    }
+    if cmd.release {
+        proc.arg("--release");
+    }
+    if let Some(n) = cmd.jobs {
+        // use -j instead of --jobs since both nextest and cargo test use it
+        proc.arg("-j");
+        proc.arg(n.to_string());
+    }
+    if let Some(ref features) = cmd.features {
+        proc.arg("--features");
+        proc.arg(features);
+    }
+    if cmd.all_features {
+        proc.arg("--all-features");
+    }
+    if cmd.no_default_features {
+        proc.arg("--no-default-features");
+    }
+    proc.arg("--color");
+    proc.arg(color);
+    proc.args(&cmd.cargo_options);
+    proc.args(extra_args);
+    if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
+        proc.arg("--");
+        proc.arg("-q");
+    }
+    Ok((proc, snapshot_ref_file))
 }
 
 fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Error>> {
