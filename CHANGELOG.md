@@ -4,6 +4,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.20.0
 
+- `cargo insta` now supports nextest as test runner. (#285)
 - The `glob!` macro now defers failures by default. (#284)
 
 ## 1.19.1
