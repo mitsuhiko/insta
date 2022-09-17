@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-insta"
-version = "1.19.1"
+version = "1.20.0"
 dependencies = [
  "console",
  "ignore",
@@ -195,7 +195,7 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.19.1"
+version = "1.20.0"
 dependencies = [
  "console",
  "linked-hash-map",
