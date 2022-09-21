@@ -13,6 +13,7 @@ pub enum SerializationFormat {
     Toml,
     Yaml,
     Json,
+    JsonPretty,
 }
 
 pub enum SnapshotLocation {
@@ -46,7 +47,8 @@ pub fn serialize_content(
                 SnapshotLocation::File => serialized[4..].to_string(),
             }
         }
-        SerializationFormat::Json => json::to_string_pretty(&content),
+        SerializationFormat::Json => json::to_string(&content),
+        SerializationFormat::JsonPretty => json::to_string_pretty(&content),
         #[cfg(feature = "csv")]
         SerializationFormat::Csv => {
             let mut buf = Vec::with_capacity(128);

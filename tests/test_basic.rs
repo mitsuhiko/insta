@@ -1,8 +1,8 @@
-#[cfg(feature = "json")]
-use insta::assert_json_snapshot;
 #[cfg(feature = "yaml")]
 use insta::assert_yaml_snapshot;
 use insta::{assert_debug_snapshot, assert_display_snapshot};
+#[cfg(feature = "json")]
+use insta::{assert_json_pretty_snapshot, assert_json_snapshot};
 use std::fmt;
 
 #[test]
@@ -53,6 +53,20 @@ fn test_unnamed_json_vector() {
     assert_json_snapshot!(vec![1, 2, 3]);
     assert_json_snapshot!(vec![1, 2, 3, 4]);
     assert_json_snapshot!(vec![1, 2, 3, 4, 5]);
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn test_json_pretty_vector() {
+    assert_json_pretty_snapshot!("json_pretty_vector", vec![1, 2, 3]);
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn test_unnamed_json_pretty_vector() {
+    assert_json_pretty_snapshot!(vec![1, 2, 3]);
+    assert_json_pretty_snapshot!(vec![1, 2, 3, 4]);
+    assert_json_pretty_snapshot!(vec![1, 2, 3, 4, 5]);
 }
 
 mod nested {

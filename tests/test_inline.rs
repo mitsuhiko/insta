@@ -166,12 +166,7 @@ fn test_toml_inline() {
 #[cfg(feature = "json")]
 #[test]
 fn test_json_inline() {
-    assert_json_snapshot!(vec!["foo", "bar"], @r###"
-    [
-      "foo",
-      "bar"
-    ]
-    "###);
+    assert_json_snapshot!(vec!["foo", "bar"], @r###"["foo","bar"]"###);
 }
 
 #[cfg(feature = "yaml")]

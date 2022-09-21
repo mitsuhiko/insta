@@ -215,6 +215,7 @@ macro_rules! assert_ron_snapshot {
 }
 
 /// Asserts a `Serialize` snapshot in JSON format.
+/// See also [`assert_json_pretty_snapshot`].
 ///
 /// **Feature:** `json` (to be disabled by default)
 ///
@@ -255,6 +256,51 @@ macro_rules! assert_json_snapshot {
     }};
     ($value:expr) => {{
         $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Json);
+    }};
+}
+
+/// Asserts a `Serialize` snapshot in JSON pretty format.
+/// See also [`assert_json_snapshot`].
+///
+/// **Feature:** `json` (to be disabled by default)
+///
+/// This works exactly like [`assert_yaml_snapshot!`] but serializes in JSON format.
+/// This is normally not recommended because it makes diffs less reliable, but it can
+/// be useful for certain specialized situations.
+///
+/// Example:
+///
+/// ```no_run
+/// # use insta::*;
+/// assert_json_snapshot!(vec![1, 2, 3]);
+/// ```
+///
+/// The third argument to the macro can be an object expression for redaction.
+/// It's in the form `{ selector => replacement }`.  For more information
+/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+///
+/// The snapshot name is optional but can be provided as first argument.
+#[cfg(feature = "json")]
+#[cfg_attr(docsrs, doc(cfg(feature = "json")))]
+#[macro_export]
+macro_rules! assert_json_pretty_snapshot {
+    ($value:expr, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot!($value, JsonPretty, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, JsonPretty, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, JsonPretty);
+    }};
+    ($name:expr, $value:expr) => {{
+        $crate::_assert_serialized_snapshot!(Some($name), $value, JsonPretty);
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, JsonPretty);
+    }};
+    ($value:expr) => {{
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, JsonPretty);
     }};
 }
 
