@@ -2,6 +2,10 @@ use std::fmt::{Display, Write};
 
 use crate::content::Content;
 
+/// The maximum number of characters to print in a single line
+/// when [`to_string_pretty`] is used.
+const COMPACT_MAX_CHARS: usize = 120;
+
 pub fn format_float<T: Display>(value: T) -> String {
     let mut rv = format!("{}", value);
     if !rv.contains('.') {
@@ -10,10 +14,17 @@ pub fn format_float<T: Display>(value: T) -> String {
     rv
 }
 
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum Format {
+    Condensed,
+    SingleLine,
+    Pretty,
+}
+
 /// Serializes a serializable to JSON.
 pub struct Serializer {
     out: String,
-    pretty: bool,
+    format: Format,
     indentation: usize,
 }
 
@@ -22,7 +33,7 @@ impl Serializer {
     pub fn new() -> Serializer {
         Serializer {
             out: String::new(),
-            pretty: false,
+            format: Format::Condensed,
             indentation: 0,
         }
     }
@@ -32,7 +43,7 @@ impl Serializer {
     }
 
     fn write_indentation(&mut self) {
-        if self.pretty {
+        if self.format == Format::Pretty {
             write!(self.out, "{: ^1$}", "", self.indentation * 2).unwrap();
         }
     }
@@ -44,7 +55,7 @@ impl Serializer {
 
     fn end_container(&mut self, c: char, empty: bool) {
         self.indentation -= 1;
-        if self.pretty && !empty {
+        if self.format == Format::Pretty && !empty {
             self.write_char('\n');
             self.write_indentation();
         }
@@ -52,23 +63,32 @@ impl Serializer {
     }
 
     fn write_comma(&mut self, first: bool) {
-        if self.pretty {
-            if first {
-                self.write_char('\n');
-            } else {
-                self.write_str(",\n");
+        match self.format {
+            Format::Pretty => {
+                if first {
+                    self.write_char('\n');
+                } else {
+                    self.write_str(",\n");
+                }
+                self.write_indentation();
             }
-            self.write_indentation();
-        } else if !first {
-            self.write_char(',');
+            Format::Condensed => {
+                if !first {
+                    self.write_char(',');
+                }
+            }
+            Format::SingleLine => {
+                if !first {
+                    self.write_str(", ");
+                }
+            }
         }
     }
 
     fn write_colon(&mut self) {
-        if self.pretty {
-            self.write_str(": ");
-        } else {
-            self.write_char(':');
+        match self.format {
+            Format::Pretty | Format::SingleLine => self.write_str(": "),
+            Format::Condensed => self.write_char(':'),
         }
     }
 
@@ -277,11 +297,27 @@ pub fn to_string(value: &Content) -> String {
     ser.into_result()
 }
 
+/// Serializes a value to JSON in single-line format.
+pub fn to_string_compact(value: &Content) -> String {
+    let mut ser = Serializer::new();
+    ser.format = Format::SingleLine;
+    ser.serialize(value);
+    let rv = ser.into_result();
+    // this is pretty wasteful as we just format twice
+    // but it's acceptable for the way this is used in
+    // insta.
+    if rv.chars().count() > COMPACT_MAX_CHARS {
+        to_string_pretty(value)
+    } else {
+        rv
+    }
+}
+
 /// Serializes a value to JSON pretty
 #[allow(unused)]
 pub fn to_string_pretty(value: &Content) -> String {
     let mut ser = Serializer::new();
-    ser.pretty = true;
+    ser.format = Format::Pretty;
     ser.serialize(value);
     ser.into_result()
 }

@@ -104,7 +104,7 @@ macro_rules! assert_toml_snapshot {
 
 /// Asserts a `Serialize` snapshot in YAML format.
 ///
-/// **Feature:** `yaml` (to be disabled by default)
+/// **Feature:** `yaml`
 ///
 /// The value needs to implement the `serde::Serialize` trait and the snapshot
 /// will be serialized in YAML format.  This does mean that unlike the debug
@@ -216,7 +216,7 @@ macro_rules! assert_ron_snapshot {
 
 /// Asserts a `Serialize` snapshot in JSON format.
 ///
-/// **Feature:** `json` (to be disabled by default)
+/// **Feature:** `json`
 ///
 /// This works exactly like [`assert_yaml_snapshot!`] but serializes in JSON format.
 /// This is normally not recommended because it makes diffs less reliable, but it can
@@ -255,6 +255,51 @@ macro_rules! assert_json_snapshot {
     }};
     ($value:expr) => {{
         $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Json);
+    }};
+}
+
+/// Asserts a `Serialize` snapshot in compact JSON format.
+///
+/// **Feature:** `json`
+///
+/// This works exactly like [`assert_json_snapshot!`] but serializes into a single
+/// line for as long as the output is less than 120 characters.  This can be useful
+/// in cases where you are working with small result outputs but comes at the cost
+/// of slightly worse diffing behavior.
+///
+/// Example:
+///
+/// ```no_run
+/// # use insta::*;
+/// assert_compact_json_snapshot!(vec![1, 2, 3]);
+/// ```
+///
+/// The third argument to the macro can be an object expression for redaction.
+/// It's in the form `{ selector => replacement }`.  For more information
+/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+///
+/// The snapshot name is optional but can be provided as first argument.
+#[cfg(feature = "json")]
+#[cfg_attr(docsrs, doc(cfg(feature = "json")))]
+#[macro_export]
+macro_rules! assert_compact_json_snapshot {
+    ($value:expr, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot!($value, JsonCompact, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, JsonCompact, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, JsonCompact);
+    }};
+    ($name:expr, $value:expr) => {{
+        $crate::_assert_serialized_snapshot!(Some($name), $value, JsonCompact);
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, JsonCompact);
+    }};
+    ($value:expr) => {{
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, JsonCompact);
     }};
 }
 
