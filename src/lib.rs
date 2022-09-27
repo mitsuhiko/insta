@@ -248,7 +248,9 @@ pub mod internals {
 #[doc(hidden)]
 pub mod _cargo_insta_support {
     pub use crate::{
-        output::print_snapshot_diff, snapshot::PendingInlineSnapshot, snapshot::SnapshotContents,
+        output::{print_snapshot, print_snapshot_diff},
+        snapshot::PendingInlineSnapshot,
+        snapshot::SnapshotContents,
     };
 }
 

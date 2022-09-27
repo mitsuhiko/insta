@@ -73,6 +73,34 @@ pub fn print_snapshot_diff(
     print_changeset(old_contents, new_contents, new.metadata(), show_info);
 }
 
+/// Prints the snapshot not as diff.
+pub fn print_snapshot(
+    workspace_root: &Path,
+    new: &Snapshot,
+    snapshot_file: Option<&Path>,
+    mut line: Option<u32>,
+    show_info: bool,
+) {
+    // default to old assertion line from snapshot.
+    if line.is_none() {
+        line = new.metadata().assertion_line();
+    }
+
+    print_snapshot_summary(workspace_root, new, snapshot_file, line);
+    let new_contents = new.contents_str();
+
+    let width = term_width();
+    if show_info {
+        print_info(new.metadata(), width);
+    }
+    println!("Snapshot Contents:");
+    println!("──────┬{:─^1$}", "", width.saturating_sub(13));
+    for (idx, line) in new_contents.lines().enumerate() {
+        println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
+    }
+    println!("──────┴{:─^1$}", "", width.saturating_sub(13),);
+}
+
 pub fn print_snapshot_diff_with_title(
     workspace_root: &Path,
     new_snapshot: &Snapshot,
@@ -127,22 +155,7 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
     print_line(width);
 
     if show_info {
-        if let Some(expr) = metadata.expression() {
-            println!("Expression: {}", style(format_rust_expression(expr)));
-            print_line(width);
-        }
-
-        if let Some(descr) = metadata.description() {
-            println!("{}", descr);
-            print_line(width);
-        }
-
-        if let Some(info) = metadata.private_info() {
-            let out = yaml::to_string(info);
-            // TODO: does the yaml output always start with '---'?
-            println!("{}", out.trim().strip_prefix("---").unwrap().trim_start());
-            print_line(width);
-        }
+        print_info(metadata, width);
     }
 
     if !old.is_empty() {
@@ -221,4 +234,21 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
     }
 
     println!("────────────┴{:─^1$}", "", width.saturating_sub(13),);
+}
+
+fn print_info(metadata: &MetaData, width: usize) {
+    if let Some(expr) = metadata.expression() {
+        println!("Expression: {}", style(format_rust_expression(expr)));
+        print_line(width);
+    }
+    if let Some(descr) = metadata.description() {
+        println!("{}", descr);
+        print_line(width);
+    }
+    if let Some(info) = metadata.private_info() {
+        let out = yaml::to_string(info);
+        // TODO: does the yaml output always start with '---'?
+        println!("{}", out.trim().strip_prefix("---").unwrap().trim_start());
+        print_line(width);
+    }
 }

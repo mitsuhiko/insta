@@ -9,7 +9,7 @@ use std::{io, process};
 use console::{set_colors_enabled, style, Key, Term};
 use ignore::{Walk, WalkBuilder};
 use insta::Snapshot;
-use insta::_cargo_insta_support::print_snapshot_diff;
+use insta::_cargo_insta_support::{print_snapshot, print_snapshot_diff};
 use serde::Serialize;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
@@ -58,6 +58,9 @@ pub enum Command {
     /// Print a summary of all pending snapshots.
     #[structopt(name = "pending-snapshots")]
     PendingSnapshots(PendingSnapshotsCommand),
+    /// Shows a specific snapshot
+    #[structopt(name = "show")]
+    Show(ShowCommand),
 }
 
 #[derive(StructOpt, Debug, Clone)]
@@ -163,6 +166,15 @@ pub struct PendingSnapshotsCommand {
     /// Changes the output from human readable to JSON.
     #[structopt(long)]
     pub as_json: bool,
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(rename_all = "kebab-case")]
+pub struct ShowCommand {
+    #[structopt(flatten)]
+    pub target_args: TargetArgs,
+    /// The path to the snapshot file.
+    pub path: PathBuf,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -776,6 +788,13 @@ fn prepare_test_runner<'snapshot_ref>(
     Ok((proc, snapshot_ref_file))
 }
 
+fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
+    let loc = handle_target_args(&cmd.target_args)?;
+    let snapshot = Snapshot::from_file(&cmd.path)?;
+    print_snapshot(&loc.workspace_root, &snapshot, Some(&cmd.path), None, true);
+    Ok(())
+}
+
 fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args)?;
     let mut snapshot_containers = load_snapshot_containers(&loc)?;
@@ -827,6 +846,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         Command::Accept(cmd) => process_snapshots(cmd, Some(Operation::Accept)),
         Command::Reject(cmd) => process_snapshots(cmd, Some(Operation::Reject)),
         Command::Test(cmd) => test_run(cmd, color),
+        Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
 }
