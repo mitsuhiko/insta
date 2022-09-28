@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.21.0
+
+- Fixed an issue that broke support for older rust versions. (#292)
+- Added `cargo insta show` command to render a snapshot.
+- Added support for compact JSON snapshots. (#288)
+
 ## 1.20.0
 
 - `cargo insta` now supports nextest as test runner. (#285)
