@@ -4,12 +4,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::{env, fs};
 
-use once_cell::sync::Lazy;
-
 use crate::utils::is_ci;
 
-static WORKSPACES: Lazy<Mutex<BTreeMap<String, Arc<PathBuf>>>> =
-    Lazy::new(|| Mutex::new(BTreeMap::new()));
+lazy_static::lazy_static! {
+    static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
+}
 
 /// How snapshots are supposed to be updated
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
