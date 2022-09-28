@@ -8,16 +8,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::content::{self, json, yaml, Content};
 
-use once_cell::sync::Lazy;
-
-static RUN_ID: Lazy<String> = Lazy::new(|| {
-    if let Ok(run_id) = env::var("NEXTEST_RUN_ID") {
-        run_id
-    } else {
-        let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        format!("{}-{}", d.as_secs(), d.subsec_nanos())
-    }
-});
+lazy_static::lazy_static! {
+    static ref RUN_ID: String = {
+        if let Ok(run_id) = env::var("NEXTEST_RUN_ID") {
+            run_id
+        } else {
+            let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+            format!("{}-{}", d.as_secs(), d.subsec_nanos())
+        }
+    };
+}
 
 #[derive(Debug)]
 pub struct PendingInlineSnapshot {

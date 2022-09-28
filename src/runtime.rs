@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::{Arc, Mutex};
 
-use once_cell::sync::Lazy;
-
 use crate::env::{
     force_pass, force_update_snapshots, get_cargo_workspace, get_output_behavior,
     get_snapshot_update_behavior, memoize_snapshot_file, OutputBehavior, SnapshotUpdate,
@@ -18,10 +16,12 @@ use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
 use crate::utils::{path_to_storage, style};
 
-static TEST_NAME_COUNTERS: Lazy<Mutex<BTreeMap<String, usize>>> =
-    Lazy::new(|| Mutex::new(BTreeMap::new()));
-static TEST_NAME_CLASH_DETECTION: Lazy<Mutex<BTreeMap<String, bool>>> =
-    Lazy::new(|| Mutex::new(BTreeMap::new()));
+lazy_static::lazy_static! {
+    static ref TEST_NAME_COUNTERS: Mutex<BTreeMap<String, usize>> =
+        Mutex::new(BTreeMap::new());
+    static ref TEST_NAME_CLASH_DETECTION: Mutex<BTreeMap<String, bool>> =
+        Mutex::new(BTreeMap::new());
+}
 
 // This macro is basically eprintln but without being captured and
 // hidden by the test runner.

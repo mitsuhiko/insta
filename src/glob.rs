@@ -3,7 +3,6 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use globset::{GlobBuilder, GlobMatcher};
-use once_cell::sync::Lazy;
 use walkdir::WalkDir;
 
 use crate::settings::Settings;
@@ -17,22 +16,26 @@ pub(crate) struct GlobCollector {
 
 // the glob stack holds failure count + an indication if cargo insta review
 // should be run.
-pub(crate) static GLOB_STACK: Lazy<Mutex<Vec<GlobCollector>>> = Lazy::new(Mutex::default);
+lazy_static::lazy_static! {
+    pub(crate) static ref GLOB_STACK: Mutex<Vec<GlobCollector>> = Mutex::default();
+}
 
-static GLOB_FILTER: Lazy<Vec<GlobMatcher>> = Lazy::new(|| {
-    env::var("INSTA_GLOB_FILTER")
-        .unwrap_or_default()
-        .split(';')
-        .filter(|x| !x.is_empty())
-        .filter_map(|filter| {
-            GlobBuilder::new(filter)
-                .case_insensitive(true)
-                .build()
-                .ok()
-                .map(|x| x.compile_matcher())
-        })
-        .collect()
-});
+lazy_static::lazy_static! {
+    static ref GLOB_FILTER: Vec<GlobMatcher> = {
+        env::var("INSTA_GLOB_FILTER")
+            .unwrap_or_default()
+            .split(';')
+            .filter(|x| !x.is_empty())
+            .filter_map(|filter| {
+                GlobBuilder::new(filter)
+                    .case_insensitive(true)
+                    .build()
+                    .ok()
+                    .map(|x| x.compile_matcher())
+            })
+            .collect()
+    };
+}
 
 pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
     let glob = GlobBuilder::new(pattern)
