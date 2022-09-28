@@ -88,6 +88,10 @@
     feature = "json",
     doc = "- [`assert_json_snapshot!`] for comparing JSON serialized output. (requires the `json` feature)"
 )]
+#![cfg_attr(
+    feature = "json",
+    doc = "- [`assert_compact_json_snapshot!`] for comparing JSON serialized output while preferring single-line formatting. (requires the `json` feature)"
+)]
 //!
 //! For macros that work with [`serde`] this crate also permits redacting of
 //! partial values.  See [redactions in the
