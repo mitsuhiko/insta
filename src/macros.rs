@@ -214,6 +214,48 @@ macro_rules! assert_ron_snapshot {
     }};
 }
 
+/// Asserts a `Serialize` snapshot in postcard format.
+///
+/// **Feature:** `postcard` (disabled by default)
+///
+/// This macro serializes data in a binary format via [postcard](https://github.com/jamesmunns/postcard).
+///
+/// Example:
+///
+/// ```no_run
+/// # use insta::*;
+/// assert_postcard_snapshot!(vec![1, 2, 3]);
+/// ```
+///
+/// The third argument to the macro can be an object expression for redaction.
+/// It's in the form `{ selector => replacement }`.  For more information
+/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+///
+/// The snapshot name is optional but can be provided as first argument.
+#[cfg(feature = "postcard")]
+#[cfg_attr(docsrs, doc(cfg(feature = "postcard")))]
+#[macro_export]
+macro_rules! assert_postcard_snapshot {
+    ($value:expr, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot!($value, Postcard, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Postcard, @$snapshot);
+    }};
+    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Postcard);
+    }};
+    ($name:expr, $value:expr) => {{
+        $crate::_assert_serialized_snapshot!(Some($name), $value, Postcard);
+    }};
+    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Postcard);
+    }};
+    ($value:expr) => {{
+        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Postcard);
+    }};
+}
+
 /// Asserts a `Serialize` snapshot in JSON format.
 ///
 /// **Feature:** `json`

@@ -11,6 +11,8 @@ pub enum SerializationFormat {
     Ron,
     #[cfg(feature = "toml")]
     Toml,
+    #[cfg(feature = "postcard")]
+    Postcard,
     Yaml,
     Json,
     JsonCompact,
@@ -93,6 +95,12 @@ pub fn serialize_content(
                 rv.truncate(rv.len() - 1);
             }
             rv
+        }
+        #[cfg(feature = "postcard")]
+        SerializationFormat::Postcard => {
+            let data = dep_postcard::to_allocvec(&content).unwrap();
+            let data_string = format!("{:?}", data);
+            data_string
         }
     }
 }
