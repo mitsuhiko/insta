@@ -149,13 +149,13 @@ pub struct TestCommand {
     /// Do not pass the quiet flag (`-q`) to tests.
     #[structopt(short = "Q", long)]
     pub no_quiet: bool,
-    /// Options passed to cargo test
-    // Sets raw to true so that `--` is required
-    #[structopt(name = "cargo_options", raw(true))]
-    pub cargo_options: Vec<String>,
     /// Picks the test runner.
     #[structopt(long)]
     pub test_runner: Option<String>,
+    /// Options passed to cargo test
+    // Sets raw to true so that `--` is required
+    #[structopt(name = "CARGO_TEST_ARGS", raw(true))]
+    pub cargo_options: Vec<String>,
 }
 
 #[derive(StructOpt, Debug)]
@@ -779,11 +779,18 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     proc.arg("--color");
     proc.arg(color);
-    proc.args(&cmd.cargo_options);
     proc.args(extra_args);
+    let mut dashdash = false;
     if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
         proc.arg("--");
         proc.arg("-q");
+        dashdash = true;
+    }
+    if !cmd.cargo_options.is_empty() {
+        if !dashdash {
+            proc.arg("--");
+        }
+        proc.args(&cmd.cargo_options);
     }
     Ok((proc, snapshot_ref_file))
 }
