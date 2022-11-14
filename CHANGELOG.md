@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.21.1
+
+- Fix incorrect handling of extra args to `cargo insta test`.
+
 ## 1.21.0
 
 - Fixed an issue that broke support for older rust versions. (#292)
