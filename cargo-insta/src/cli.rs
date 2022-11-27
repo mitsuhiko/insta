@@ -77,6 +77,9 @@ pub struct TargetArgs {
     pub extensions: Vec<String>,
     /// Work on all packages in the workspace
     #[structopt(long)]
+    pub workspace: bool,
+    /// Alias for --workspace (deprecated)
+    #[structopt(long)]
     pub all: bool,
     /// Also walk into ignored paths.
     #[structopt(long)]
@@ -101,6 +104,27 @@ pub struct ProcessCommand {
 pub struct TestCommand {
     #[structopt(flatten)]
     pub target_args: TargetArgs,
+    /// Test only this package's library unit tests
+    #[structopt(long)]
+    pub lib: bool,
+    /// Test only the specified binary
+    #[structopt(long)]
+    pub bin: Option<String>,
+    /// Test all binaries
+    #[structopt(long)]
+    pub bins: bool,
+    /// Test only the specified example
+    #[structopt(long)]
+    pub example: Option<String>,
+    /// Test all examples
+    #[structopt(long)]
+    pub examples: bool,
+    /// Test only the specified test target
+    #[structopt(long)]
+    pub test: Option<String>,
+    /// Test all tests
+    #[structopt(long)]
+    pub tests: bool,
     /// Package to run tests for
     #[structopt(short = "p", long)]
     pub package: Option<String>,
@@ -320,7 +344,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
         })
     } else {
         let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
-        let packages = find_packages(&metadata, target_args.all)?;
+        let packages = find_packages(&metadata, target_args.all || target_args.workspace)?;
         Ok(LocationInfo {
             workspace_root: metadata.workspace_root().to_path_buf(),
             packages: Some(packages),
@@ -721,8 +745,32 @@ fn prepare_test_runner<'snapshot_ref>(
     } else {
         None
     };
-    if cmd.target_args.all {
+    if cmd.target_args.all || cmd.target_args.workspace {
         proc.arg("--all");
+    }
+    if cmd.lib {
+        proc.arg("--lib");
+    }
+    if let Some(ref bin) = cmd.bin {
+        proc.arg("--bin");
+        proc.arg(bin);
+    }
+    if cmd.bins {
+        proc.arg("--bins");
+    }
+    if let Some(ref example) = cmd.example {
+        proc.arg("--example");
+        proc.arg(example);
+    }
+    if cmd.examples {
+        proc.arg("--examples");
+    }
+    if let Some(ref test) = cmd.test {
+        proc.arg("--test");
+        proc.arg(test);
+    }
+    if cmd.tests {
+        proc.arg("--tests");
     }
     if let Some(ref pkg) = cmd.package {
         proc.arg("--package");
