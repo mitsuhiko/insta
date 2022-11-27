@@ -3,6 +3,7 @@ use insta::assert_json_snapshot;
 #[cfg(feature = "yaml")]
 use insta::assert_yaml_snapshot;
 use insta::{assert_debug_snapshot, assert_display_snapshot};
+use std::collections::HashMap;
 use std::fmt;
 
 #[test]
@@ -88,4 +89,18 @@ fn test_unnamed_display() {
 fn test_u128_json() {
     let x: u128 = u128::from(u64::MAX) * 2;
     assert_json_snapshot!(&x, @"36893488147419103230");
+}
+
+#[cfg(feature = "yaml")]
+#[test]
+fn insta_sort_order() {
+    let mut m = HashMap::new();
+    m.insert((1, 3), 4);
+    m.insert((2, 3), 4);
+    m.insert((1, 4), 4);
+    m.insert((3, 3), 4);
+    m.insert((9, 3), 4);
+    insta::with_settings!({sort_maps =>true}, {
+        insta::assert_yaml_snapshot!(m);
+    });
 }

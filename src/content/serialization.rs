@@ -50,7 +50,15 @@ impl Content {
     pub(crate) fn sort_maps(&mut self) {
         self.walk(&mut |content| {
             if let Content::Map(ref mut items) = content {
-                items.sort_by(|a, b| a.0.as_key().cmp(&b.0.as_key()));
+                // try to compare by key first, if that fails compare by the
+                // object value.  That way some values normalize, and if we
+                // can't normalize we still have a stable order.
+                items.sort_by(|a, b| match (a.0.as_key(), b.0.as_key()) {
+                    (Key::Other, _) | (_, Key::Other) => {
+                        a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal)
+                    }
+                    (ref a, ref b) => a.cmp(b),
+                })
             }
             true
         })
