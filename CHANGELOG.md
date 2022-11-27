@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.21.2
+
+- Added missing parameters to `cargo insta test`. (#305)
+- Fixed a sorting issue in hash maps for compound keys. (#304)
+
 ## 1.21.1
 
 - Fix incorrect handling of extra args to `cargo insta test`.
