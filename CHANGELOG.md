@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.22.0
+
+- Added support for rendering some invisibles in diffs.  This now also
+  should make sure that ANSI sequences in strings are no longer screwing
+  up the terminal output. (#308)
+
 ## 1.21.2
 
 - Added missing parameters to `cargo insta test`. (#305)
