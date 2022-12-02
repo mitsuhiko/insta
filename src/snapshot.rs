@@ -57,7 +57,7 @@ impl PendingInlineSnapshot {
     }
 
     pub fn save_batch(p: &Path, batch: &[PendingInlineSnapshot]) -> Result<(), Box<dyn Error>> {
-        fs::remove_file(&p).ok();
+        fs::remove_file(p).ok();
         for snap in batch {
             snap.save(p)?;
         }
@@ -426,9 +426,9 @@ impl Snapshot {
 
     fn save_with_metadata(&self, path: &Path, md: &MetaData) -> Result<(), Box<dyn Error>> {
         if let Some(folder) = path.parent() {
-            fs::create_dir_all(&folder)?;
+            fs::create_dir_all(folder)?;
         }
-        let mut f = fs::File::create(&path)?;
+        let mut f = fs::File::create(path)?;
         let blob = yaml::to_string(&md.as_content());
         f.write_all(blob.as_bytes())?;
         f.write_all(b"---\n")?;
@@ -604,9 +604,8 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
                 }
             }
             if let Some(remainder) = line.get(indentation..) {
-                if remainder.starts_with('⋮') {
-                    // 3 because '⋮' is three utf-8 bytes long
-                    buf.push_str(&remainder[3..]);
+                if let Some(rest) = remainder.strip_prefix('⋮') {
+                    buf.push_str(rest);
                     buf.push('\n');
                 } else if remainder.trim().is_empty() {
                     continue;

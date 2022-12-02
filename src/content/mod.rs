@@ -224,11 +224,7 @@ impl Content {
 
     /// Returns true if the value is nil.
     pub fn is_nil(&self) -> bool {
-        if let Content::None | Content::Unit = self.resolve_inner() {
-            true
-        } else {
-            false
-        }
+        matches!(self.resolve_inner(), Content::None | Content::Unit)
     }
 
     /// Returns the value as bool

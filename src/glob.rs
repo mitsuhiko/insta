@@ -71,7 +71,7 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
             continue;
         }
 
-        settings.set_input_file(&path);
+        settings.set_input_file(path);
         settings.set_snapshot_suffix(path.file_name().unwrap().to_str().unwrap());
 
         settings.bind(|| {

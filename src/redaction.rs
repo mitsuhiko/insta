@@ -6,7 +6,7 @@ use std::fmt;
 use crate::content::Content;
 
 #[derive(Debug)]
-pub struct SelectorParseError(pest::error::Error<Rule>);
+pub struct SelectorParseError(Box<pest::error::Error<Rule>>);
 
 impl SelectorParseError {
     /// Return the column of where the error occurred.
@@ -244,6 +244,7 @@ pub struct Selector<'a> {
 impl<'a> Selector<'a> {
     pub fn parse(selector: &'a str) -> Result<Selector<'a>, SelectorParseError> {
         let pair = SelectParser::parse(Rule::selectors, selector)
+            .map_err(Box::new)
             .map_err(SelectorParseError)?
             .next()
             .unwrap();
@@ -262,11 +263,13 @@ impl<'a> Selector<'a> {
                     Rule::wildcard => Segment::Wildcard,
                     Rule::deep_wildcard => {
                         if have_deep_wildcard {
-                            return Err(SelectorParseError(pest::error::Error::new_from_span(
-                                pest::error::ErrorVariant::CustomError {
-                                    message: "deep wildcard used twice".into(),
-                                },
-                                segment_pair.as_span(),
+                            return Err(SelectorParseError(Box::new(
+                                pest::error::Error::new_from_span(
+                                    pest::error::ErrorVariant::CustomError {
+                                        message: "deep wildcard used twice".into(),
+                                    },
+                                    segment_pair.as_span(),
+                                ),
                             )));
                         }
                         have_deep_wildcard = true;

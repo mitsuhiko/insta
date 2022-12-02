@@ -579,7 +579,7 @@ impl Settings {
 
     /// Runs a function with the current settings.
     pub(crate) fn with<R, F: FnOnce(&Settings) -> R>(f: F) -> R {
-        CURRENT_SETTINGS.with(|x| f(&*x.borrow()))
+        CURRENT_SETTINGS.with(|x| f(&x.borrow()))
     }
 }
 
