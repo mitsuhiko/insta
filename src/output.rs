@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::{path::Path, time::Duration};
 
 use similar::{Algorithm, ChangeTag, TextDiff};
@@ -146,7 +147,77 @@ fn print_line(width: usize) {
     println!("{:─^1$}", "", width);
 }
 
+fn trailing_newline(s: &str) -> &str {
+    if s.ends_with("\r\n") {
+        "\r\n"
+    } else if s.ends_with('\r') {
+        "\r"
+    } else if s.ends_with('\n') {
+        "\n"
+    } else {
+        ""
+    }
+}
+
+fn detect_newlines(s: &str) -> (bool, bool, bool) {
+    let mut last_char = None;
+    let mut detected_crlf = false;
+    let mut detected_cr = false;
+    let mut detected_lf = false;
+
+    for c in s.chars() {
+        if c == '\n' {
+            if last_char.take() == Some('\r') {
+                detected_crlf = true;
+            } else {
+                detected_lf = true;
+            }
+        }
+        if last_char == Some('\r') {
+            detected_cr = true;
+        }
+        last_char = Some(c);
+    }
+    if last_char == Some('\r') {
+        detected_cr = true;
+    }
+
+    (detected_cr, detected_crlf, detected_lf)
+}
+
+fn newlines_matter(left: &str, right: &str) -> bool {
+    if trailing_newline(left) != trailing_newline(right) {
+        return true;
+    }
+
+    let (cr1, crlf1, lf1) = detect_newlines(left);
+    let (cr2, crlf2, lf2) = detect_newlines(right);
+
+    !matches!(
+        (cr1 || cr2, crlf1 || crlf2, lf1 || lf2),
+        (false, false, false) | (true, false, false) | (false, true, false) | (false, false, true)
+    )
+}
+
+fn render_invisible(s: &str, newlines_matter: bool) -> Cow<'_, str> {
+    if newlines_matter || s.find(&['\x1b', '\x07', '\x08', '\x7f'][..]).is_some() {
+        Cow::Owned(
+            s.replace('\r', "␍\r")
+                .replace('\n', "␊\n")
+                .replace("␍\r␊\n", "␍␊\r\n")
+                .replace('\x07', "␇")
+                .replace('\x08', "␈")
+                .replace('\x1b', "␛")
+                .replace('\x7f', "␡"),
+        )
+    } else {
+        Cow::Borrowed(s)
+    }
+}
+
 pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: bool) {
+    let newlines_matter = newlines_matter(old, new);
+
     let width = term_width();
     let diff = TextDiff::configure()
         .algorithm(Algorithm::Patience)
@@ -160,10 +231,8 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
 
     if !old.is_empty() {
         println!("{}", style("-old snapshot").red());
-        println!("{}", style("+new results").green());
-    } else {
-        println!("{}", style("+new results").green());
     }
+    println!("{}", style("+new results").green());
 
     println!("────────────┬{:─^1$}", "", width.saturating_sub(13));
     let mut has_changes = false;
@@ -183,6 +252,7 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
                             style("+").green(),
                         );
                         for &(emphasized, change) in change.values() {
+                            let change = render_invisible(change, newlines_matter);
                             if emphasized {
                                 print!("{}", style(change).green().underlined());
                             } else {
@@ -199,6 +269,7 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
                             style("-").red(),
                         );
                         for &(emphasized, change) in change.values() {
+                            let change = render_invisible(change, newlines_matter);
                             if emphasized {
                                 print!("{}", style(change).red().underlined());
                             } else {
@@ -213,6 +284,7 @@ pub fn print_changeset(old: &str, new: &str, metadata: &MetaData, show_info: boo
                             style(change.new_index().unwrap()).cyan().dim().bold(),
                         );
                         for &(_, change) in change.values() {
+                            let change = render_invisible(change, newlines_matter);
                             print!("{}", style(change).dim());
                         }
                     }
@@ -251,4 +323,12 @@ fn print_info(metadata: &MetaData, width: usize) {
         println!("{}", out.trim().strip_prefix("---").unwrap().trim_start());
         print_line(width);
     }
+}
+
+#[test]
+fn test_invisible() {
+    assert_eq!(
+        render_invisible("\r\n\x1b\r\x07\x08\x7f\n", true),
+        "␍␊\r\n␛␍\r␇␈␡␊\n"
+    );
 }
