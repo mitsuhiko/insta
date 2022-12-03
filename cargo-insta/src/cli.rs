@@ -149,6 +149,9 @@ pub struct TestCommand {
     /// Do not activate the `default` feature
     #[structopt(long)]
     pub no_default_features: bool,
+    /// Build for the target triple
+    #[structopt(long)]
+    pub target: Option<String>,
     /// Follow up with review.
     #[structopt(long)]
     pub review: bool,
@@ -824,6 +827,10 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if cmd.no_default_features {
         proc.arg("--no-default-features");
+    }
+    if let Some(ref target) = cmd.target {
+        proc.arg("--target");
+        proc.arg(target);
     }
     proc.arg("--color");
     proc.arg(color);

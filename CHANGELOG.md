@@ -8,6 +8,7 @@ All notable changes to insta and cargo-insta are documented here.
   should make sure that ANSI sequences in strings are no longer screwing
   up the terminal output. (#308)
 - Prevent inline snapshots to be used in loops. (#307)
+- Support the `--target` option to `cargo insta test`. (#309)
 
 ## 1.21.2
 
