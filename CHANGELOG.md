@@ -9,6 +9,9 @@ All notable changes to insta and cargo-insta are documented here.
   up the terminal output. (#308)
 - Prevent inline snapshots to be used in loops. (#307)
 - Support the `--target` option to `cargo insta test`. (#309)
+- Globbing now adds directories as disambiguators into the snapshot
+  suffixes. This allows patterns such as `foo/*/*.txt` without
+  creating conflicts. (#310)
 
 ## 1.21.2
 
