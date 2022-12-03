@@ -9,6 +9,14 @@ fn test_basic_globbing() {
 }
 
 #[test]
+fn test_basic_globbing_nested() {
+    insta::glob!("inputs-nested/*/*.txt", |path| {
+        let contents = std::fs::read_to_string(path).unwrap();
+        insta::assert_snapshot!(&contents);
+    });
+}
+
+#[test]
 fn test_globs_follow_links() {
     insta::glob!("link-to-inputs/*.txt", |path| {
         let contents = std::fs::read_to_string(path).unwrap();
