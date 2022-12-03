@@ -278,3 +278,11 @@ fn test_compact_json() {
     ]
     "###);
 }
+
+#[test]
+#[should_panic = "Insta does not allow inline snapshot assertions in loops"]
+fn test_inline_test_in_loop() {
+    for i in 0..10 {
+        assert_snapshot!(i.to_string(), @"0");
+    }
+}

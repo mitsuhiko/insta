@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;
 use std::io::Write;
@@ -21,6 +21,8 @@ lazy_static::lazy_static! {
         Mutex::new(BTreeMap::new());
     static ref TEST_NAME_CLASH_DETECTION: Mutex<BTreeMap<String, bool>> =
         Mutex::new(BTreeMap::new());
+    static ref INLINE_DUPLICATES: Mutex<BTreeSet<String>> =
+        Mutex::new(BTreeSet::new());
 }
 
 // This macro is basically eprintln but without being captured and
@@ -243,6 +245,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_file = Some(file);
             }
             ReferenceValue::Inline(contents) => {
+                prevent_inline_duplicate(function_name, assertion_file, assertion_line);
                 snapshot_name = detect_snapshot_name(function_name, module_path, true, is_doctest)
                     .ok()
                     .map(Cow::Owned);
@@ -409,6 +412,17 @@ impl<'a> SnapshotAssertionContext<'a> {
 
         Ok(snapshot_update)
     }
+}
+
+fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion_line: u32) {
+    let key = format!("{}|{}|{}", function_name, assertion_file, assertion_line);
+    let mut set = INLINE_DUPLICATES.lock().unwrap();
+    if set.contains(&key) {
+        // drop the lock so we don't poison it
+        drop(set);
+        panic!("Insta does not allow inline snapshot assertions in loops");
+    }
+    set.insert(key);
 }
 
 /// This prints the information about the snapshot
