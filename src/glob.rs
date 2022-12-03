@@ -127,22 +127,19 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
 fn find_common_prefix(sorted_paths: &[PathBuf]) -> Option<&Path> {
     let first = sorted_paths.first()?;
     let last = sorted_paths.last()?;
-    let mut prefix_len = 0;
-    for (a, b) in first.components().zip(last.components()) {
-        if a == b {
-            prefix_len += 1;
-        } else {
-            break;
-        }
-    }
+    let prefix_len = first
+        .components()
+        .zip(last.components())
+        .take_while(|(a, b)| a == b)
+        .count();
 
     if prefix_len == 0 {
         None
     } else {
-        let mut components = first.components();
+        let mut prefix = first.components();
         for _ in 0..first.components().count() - prefix_len {
-            components.next_back();
+            prefix.next_back();
         }
-        Some(components.as_path())
+        Some(prefix.as_path())
     }
 }
