@@ -47,7 +47,6 @@ pub fn to_string(content: &Content) -> String {
     let mut emitter = yaml_rust::YamlEmitter::new(&mut buf);
     emitter.dump(&yaml_blob).unwrap();
 
-    buf.push('\n');
     buf
 }
 
