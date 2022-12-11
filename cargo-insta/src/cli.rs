@@ -21,6 +21,9 @@ use crate::cargo::{
 };
 use crate::utils::{err_msg, QuietExit};
 
+const IGNORE_MESSAGE: &str =
+    "some paths are ignored, use --no-ignore if you have snapshots in ignored paths.";
+
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -392,8 +395,13 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
     if snapshot_count == 0 {
         if !cmd.quiet {
             println!("{}: no snapshots to review", style("done").bold());
+            if !loc.no_ignore {
+                println!("{}: {}", style("warning").yellow().bold(), IGNORE_MESSAGE);
+            }
         }
         return Ok(());
+    } else if !loc.no_ignore {
+        println!("{}: {}", style("info").bold(), IGNORE_MESSAGE);
     }
 
     let mut accepted = vec![];
@@ -706,10 +714,16 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 style(snapshot_count).yellow(),
                 if snapshot_count != 1 { "s" } else { "" }
             );
+            if !loc.no_ignore {
+                println!("      {}", IGNORE_MESSAGE);
+            }
             eprintln!("use `cargo insta review` to review snapshots");
             return Err(QuietExit(1).into());
         } else {
             println!("{}: no snapshots to review", style("info").bold());
+            if !loc.no_ignore {
+                println!("{}: {}", style("warning").yellow().bold(), IGNORE_MESSAGE);
+            }
         }
     }
 
