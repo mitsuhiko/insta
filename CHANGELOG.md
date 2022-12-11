@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.23.0
+
+- Add a hint if snapshots might be skipped. (#314)
+- Avoid extra newline in YAML snapshots. (#311)
+
 ## 1.22.0
 
 - Added support for rendering some invisibles in diffs.  This now also
