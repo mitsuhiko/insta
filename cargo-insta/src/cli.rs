@@ -400,8 +400,6 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
             }
         }
         return Ok(());
-    } else if !loc.no_ignore {
-        println!("{}: {}", style("info").bold(), IGNORE_MESSAGE);
     }
 
     let mut accepted = vec![];
