@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::{env, fs};
 
@@ -17,20 +18,17 @@ pub fn get_tool_config(manifest_dir: &str) -> Arc<ToolConfig> {
     if let Some(rv) = configs.get(manifest_dir) {
         return rv.clone();
     }
-    let config = Arc::new(ToolConfig::load(manifest_dir));
+    let config = Arc::new(ToolConfig::from_manifest_dir(manifest_dir));
     configs.insert(manifest_dir.to_string(), config.clone());
     config
 }
 
-/// How snapshots are supposed to be updated
+/// The test runner to use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SnapshotUpdateBehavior {
-    /// Snapshots are updated in-place
-    InPlace,
-    /// Snapshots are placed in a new file with a .new suffix
-    NewFile,
-    /// Snapshots are not updated at all.
-    NoUpdate,
+pub enum TestRunner {
+    Auto,
+    CargoTest,
+    Nextest,
 }
 
 /// Controls how information is supposed to be displayed.
@@ -47,7 +45,7 @@ pub enum OutputBehavior {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum SnapshotUpdateSetting {
+pub enum SnapshotUpdate {
     Always,
     Auto,
     Unseen,
@@ -61,16 +59,22 @@ pub struct ToolConfig {
     force_update_snapshots: bool,
     force_pass: bool,
     output: OutputBehavior,
-    snapshot_update: SnapshotUpdateSetting,
+    snapshot_update: SnapshotUpdate,
+    test_runner: TestRunner,
     #[allow(unused)]
     glob_fail_fast: bool,
 }
 
 impl ToolConfig {
     /// Loads the tool config for a specific manifest.
-    pub fn load(manifest_dir: &str) -> ToolConfig {
-        let cargo_workspace = get_cargo_workspace(manifest_dir);
-        let path = cargo_workspace.join(".config/insta.yaml");
+    pub fn from_manifest_dir(manifest_dir: &str) -> ToolConfig {
+        ToolConfig::from_workspace(&get_cargo_workspace(manifest_dir))
+    }
+
+    /// Loads the tool config from a cargo workspace.
+    pub fn from_workspace(workspace_dir: &Path) -> ToolConfig {
+        // TODO: make this return a result for better error reporting in cargo-insta
+        let path = workspace_dir.join(".config/insta.yaml");
         let values = match fs::read_to_string(path) {
             Ok(s) => yaml::parse_str(&s).expect("failed to deserialize tool config"),
             Err(err) if matches!(err.kind(), io::ErrorKind::NotFound) => {
@@ -123,13 +127,24 @@ impl ToolConfig {
                 Ok(val) => val,
             };
             match val {
-                "auto" => SnapshotUpdateSetting::Auto,
-                "always" | "1" => SnapshotUpdateSetting::Always,
-                "new" => SnapshotUpdateSetting::New,
-                "unseen" => SnapshotUpdateSetting::Unseen,
-                "no" => SnapshotUpdateSetting::No,
+                "auto" => SnapshotUpdate::Auto,
+                "always" | "1" => SnapshotUpdate::Always,
+                "new" => SnapshotUpdate::New,
+                "unseen" => SnapshotUpdate::Unseen,
+                "no" => SnapshotUpdate::No,
                 _ => panic!("invalid value for INSTA_UPDATE"),
             }
+        };
+
+        let test_runner = {
+            let env_var = env::var("INSTA_TEST_RUNNER");
+            TestRunner::from_str(match env_var.as_deref() {
+                Err(_) | Ok("") => resolve(&values, &["test", "runner"])
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("auto"),
+                Ok(val) => val,
+            })
+            .expect("invalid value for INSTA_TEST_RUNNER")
         };
 
         let glob_fail_fast = match env::var("INSTA_GLOB_FAIL_FAST").as_deref() {
@@ -146,6 +161,7 @@ impl ToolConfig {
             force_pass,
             output,
             snapshot_update,
+            test_runner,
             glob_fail_fast,
         }
     }
@@ -166,32 +182,53 @@ impl ToolConfig {
     }
 
     /// Returns the intended snapshot update behavior.
-    pub fn snapshot_update_behavior(&self, unseen: bool) -> SnapshotUpdateBehavior {
-        match self.snapshot_update {
-            SnapshotUpdateSetting::Always => SnapshotUpdateBehavior::InPlace,
-            SnapshotUpdateSetting::Auto => {
-                if is_ci() {
-                    SnapshotUpdateBehavior::NoUpdate
-                } else {
-                    SnapshotUpdateBehavior::NewFile
-                }
-            }
-            SnapshotUpdateSetting::Unseen => {
-                if unseen {
-                    SnapshotUpdateBehavior::NewFile
-                } else {
-                    SnapshotUpdateBehavior::InPlace
-                }
-            }
-            SnapshotUpdateSetting::New => SnapshotUpdateBehavior::NewFile,
-            SnapshotUpdateSetting::No => SnapshotUpdateBehavior::NoUpdate,
-        }
+    pub fn snapshot_update(&self) -> SnapshotUpdate {
+        self.snapshot_update
+    }
+
+    /// Returns the intended test runner
+    pub fn test_runner(&self) -> TestRunner {
+        self.test_runner
     }
 
     /// Returns the value of glob_fail_fast
     #[allow(unused)]
     pub fn glob_fail_fast(&self) -> bool {
         self.glob_fail_fast
+    }
+}
+
+/// How snapshots are supposed to be updated
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SnapshotUpdateBehavior {
+    /// Snapshots are updated in-place
+    InPlace,
+    /// Snapshots are placed in a new file with a .new suffix
+    NewFile,
+    /// Snapshots are not updated at all.
+    NoUpdate,
+}
+
+/// Returns the intended snapshot update behavior.
+pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> SnapshotUpdateBehavior {
+    match tool_config.snapshot_update {
+        SnapshotUpdate::Always => SnapshotUpdateBehavior::InPlace,
+        SnapshotUpdate::Auto => {
+            if is_ci() {
+                SnapshotUpdateBehavior::NoUpdate
+            } else {
+                SnapshotUpdateBehavior::NewFile
+            }
+        }
+        SnapshotUpdate::Unseen => {
+            if unseen {
+                SnapshotUpdateBehavior::NewFile
+            } else {
+                SnapshotUpdateBehavior::InPlace
+            }
+        }
+        SnapshotUpdate::New => SnapshotUpdateBehavior::NewFile,
+        SnapshotUpdate::No => SnapshotUpdateBehavior::NoUpdate,
     }
 }
 
@@ -232,6 +269,19 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
         };
         workspaces.insert(manifest_dir.to_string(), path.clone());
         path
+    }
+}
+
+impl FromStr for TestRunner {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<TestRunner, ()> {
+        match value {
+            "auto" => Ok(TestRunner::Auto),
+            "cargo-test" => Ok(TestRunner::CargoTest),
+            "nextest" => Ok(TestRunner::Nextest),
+            _ => Err(()),
+        }
     }
 }
 

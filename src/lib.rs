@@ -205,6 +205,11 @@
 //!   update: "auto" | "always" | "new" | "unseen" | "no"
 //!   # also set by INSTA_GLOB_FAIL_FAST
 //!   glob_fail_fast: true/false
+//!
+//! # these are used by cargo insta test
+//! test:
+//!   # also set by INSTA_TEST_RUNNER
+//!   runner: "auto" | "cargo-test" | "nextest"
 //! ```
 //!
 //! # Optional: Faster Runs
@@ -271,6 +276,7 @@ pub mod internals {
 // exported for cargo-insta only
 #[doc(hidden)]
 pub mod _cargo_insta_support {
+    pub use crate::env::{OutputBehavior, SnapshotUpdate, TestRunner, ToolConfig};
     pub use crate::{
         output::{print_snapshot, print_snapshot_diff},
         snapshot::PendingInlineSnapshot,

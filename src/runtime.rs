@@ -8,8 +8,8 @@ use std::str;
 use std::sync::{Arc, Mutex};
 
 use crate::env::{
-    get_cargo_workspace, get_tool_config, memoize_snapshot_file, OutputBehavior,
-    SnapshotUpdateBehavior, ToolConfig,
+    get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
+    OutputBehavior, SnapshotUpdateBehavior, ToolConfig,
 };
 use crate::output::{print_snapshot_diff_with_title, print_snapshot_summary_with_title};
 use crate::settings::Settings;
@@ -351,7 +351,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             .as_ref()
             .map_or(false, |x| fs::metadata(x).is_ok());
         let should_print = self.tool_config.output_behavior() != OutputBehavior::Nothing;
-        let snapshot_update = self.tool_config.snapshot_update_behavior(unseen);
+        let snapshot_update = snapshot_update_behavior(&self.tool_config, unseen);
 
         match snapshot_update {
             SnapshotUpdateBehavior::InPlace => {
