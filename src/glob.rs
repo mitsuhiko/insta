@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use globset::{GlobBuilder, GlobMatcher};
 use walkdir::WalkDir;
 
+use crate::env::get_tool_config;
 use crate::settings::Settings;
 use crate::utils::style;
 
@@ -37,7 +38,7 @@ lazy_static::lazy_static! {
     };
 }
 
-pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
+pub fn glob_exec<F: FnMut(&Path)>(manifest_dir: &str, base: &Path, pattern: &str, mut f: F) {
     let glob = GlobBuilder::new(pattern)
         .case_insensitive(true)
         .literal_separator(true)
@@ -52,7 +53,7 @@ pub fn glob_exec<F: FnMut(&Path)>(base: &Path, pattern: &str, mut f: F) {
     GLOB_STACK.lock().unwrap().push(GlobCollector {
         failed: 0,
         show_insta_hint: false,
-        fail_fast: std::env::var("INSTA_GLOB_FAIL_FAST").as_deref() == Ok("1"),
+        fail_fast: get_tool_config(manifest_dir).glob_fail_fast(),
     });
 
     // step 1: collect all matching files

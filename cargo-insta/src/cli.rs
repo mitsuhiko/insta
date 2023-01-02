@@ -9,7 +9,9 @@ use std::{io, process};
 use console::{set_colors_enabled, style, Key, Term};
 use ignore::{Walk, WalkBuilder};
 use insta::Snapshot;
-use insta::_cargo_insta_support::{print_snapshot, print_snapshot_diff};
+use insta::_cargo_insta_support::{
+    print_snapshot, print_snapshot_diff, SnapshotUpdate, TestRunner, ToolConfig,
+};
 use serde::Serialize;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
@@ -304,6 +306,7 @@ enum SnapshotKey<'a> {
 }
 
 struct LocationInfo<'a> {
+    tool_config: ToolConfig,
     workspace_root: PathBuf,
     packages: Option<Vec<Package>>,
     exts: Vec<&'a str>,
@@ -343,6 +346,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
 
     if let Some(workspace_root) = workspace_root {
         Ok(LocationInfo {
+            tool_config: ToolConfig::from_workspace(&workspace_root),
             workspace_root: workspace_root.to_owned(),
             packages: None,
             exts,
@@ -352,6 +356,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
         let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
         let packages = find_packages(&metadata, target_args.all || target_args.workspace)?;
         Ok(LocationInfo {
+            tool_config: ToolConfig::from_workspace(metadata.workspace_root()),
             workspace_root: metadata.workspace_root().to_path_buf(),
             packages: Some(packages),
             exts,
@@ -384,16 +389,20 @@ fn load_snapshot_containers<'a>(
     Ok(snapshot_containers)
 }
 
-fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), Box<dyn Error>> {
+fn process_snapshots(
+    quiet: bool,
+    snapshot_filter: Option<&[String]>,
+    loc: LocationInfo<'_>,
+    op: Option<Operation>,
+) -> Result<(), Box<dyn Error>> {
     let term = Term::stdout();
 
-    let loc = handle_target_args(&cmd.target_args)?;
     let mut snapshot_containers = load_snapshot_containers(&loc)?;
 
     let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum();
 
     if snapshot_count == 0 {
-        if !cmd.quiet {
+        if !quiet {
             println!("{}: no snapshots to review", style("done").bold());
             if !loc.no_ignore {
                 println!("{}: {}", style("warning").yellow().bold(), IGNORE_MESSAGE);
@@ -413,7 +422,7 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
         let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
         for snapshot_ref in snapshot_container.iter_snapshots() {
             // if a filter is provided, check if the snapshot reference is included
-            if let Some(ref filter) = cmd.snapshot_filter {
+            if let Some(ref filter) = snapshot_filter {
                 let key = if let Some(line) = snapshot_ref.line {
                     format!("{}:{}", target_file.display(), line)
                 } else {
@@ -462,7 +471,7 @@ fn process_snapshots(cmd: ProcessCommand, op: Option<Operation>) -> Result<(), B
         term.clear_screen()?;
     }
 
-    if !cmd.quiet {
+    if !quiet {
         println!("{}", style("insta review finished").bold());
         if !accepted.is_empty() {
             println!("{}:", style("accepted").green());
@@ -545,63 +554,36 @@ fn make_deletion_walker(loc: &LocationInfo, package: Option<&str>) -> Walk {
         .build()
 }
 
-#[derive(Clone, Copy)]
-enum TestRunner {
-    CargoTest,
-    Nextest,
-}
-
-fn detect_test_runner(preference: Option<&str>) -> Result<TestRunner, Box<dyn Error>> {
-    // fall back to INSTA_TEST_RUNNER env var if no preference is given
-    let preference = preference
-        .map(Cow::Borrowed)
-        .or_else(|| env::var("INSTA_TEST_RUNNER").ok().map(Cow::Owned))
-        .unwrap_or(Cow::Borrowed("auto"));
-
-    match &preference as &str {
-        // auto for now defaults to cargo-test still
-        "auto" | "cargo-test" => Ok(TestRunner::CargoTest),
-        "nextest" => Ok(TestRunner::Nextest),
-        _ => Err(err_msg("invalid test runner preference")),
-    }
-}
-
 fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
-    match env::var("INSTA_UPDATE").ok().as_deref() {
-        Some("auto") | Some("new") => {}
-        Some("always") => {
+    let loc = handle_target_args(&cmd.target_args)?;
+    match loc.tool_config.snapshot_update() {
+        SnapshotUpdate::Auto | SnapshotUpdate::New | SnapshotUpdate::No => {}
+        SnapshotUpdate::Always => {
             if !cmd.accept && !cmd.accept_unseen && !cmd.review {
                 cmd.review = false;
                 cmd.accept = true;
             }
         }
-        Some("unseen") => {
+        SnapshotUpdate::Unseen => {
             if !cmd.accept {
                 cmd.accept_unseen = true;
                 cmd.review = true;
                 cmd.accept = false;
             }
         }
-        // silently ignored always
-        None | Some("") | Some("no") => {}
-        _ => {
-            return Err(err_msg("invalid value for INSTA_UPDATE"));
-        }
     }
 
-    let test_runner = detect_test_runner(cmd.test_runner.as_deref())?;
+    let test_runner = match cmd.test_runner {
+        Some(ref test_runner) => test_runner
+            .parse()
+            .map_err(|_| err_msg("invalid test runner preference"))?,
+        None => loc.tool_config.test_runner(),
+    };
 
     let (mut proc, snapshot_ref_file) = prepare_test_runner(test_runner, &cmd, color, &[], None)?;
 
     if !cmd.keep_pending {
-        process_snapshots(
-            ProcessCommand {
-                target_args: cmd.target_args.clone(),
-                snapshot_filter: None,
-                quiet: true,
-            },
-            Some(Operation::Reject),
-        )?;
+        process_snapshots(true, None, loc, Some(Operation::Reject))?;
     }
 
     let status = proc.status()?;
@@ -690,11 +672,9 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
 
     if cmd.review || cmd.accept {
         process_snapshots(
-            ProcessCommand {
-                target_args: cmd.target_args.clone(),
-                snapshot_filter: None,
-                quiet: false,
-            },
+            false,
+            None,
+            handle_target_args(&cmd.target_args)?,
             if cmd.accept {
                 Some(Operation::Accept)
             } else {
@@ -736,7 +716,7 @@ fn prepare_test_runner<'snapshot_ref>(
     snapshot_ref_file: Option<&'snapshot_ref Path>,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>), Box<dyn Error>> {
     let mut proc = match test_runner {
-        TestRunner::CargoTest => {
+        TestRunner::CargoTest | TestRunner::Auto => {
             let mut proc = process::Command::new(get_cargo());
             proc.arg("test");
             proc
@@ -916,9 +896,24 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     let color = opts.color.as_ref().map(|x| x.as_str()).unwrap_or("auto");
     handle_color(color)?;
     match opts.command {
-        Command::Review(cmd) => process_snapshots(cmd, None),
-        Command::Accept(cmd) => process_snapshots(cmd, Some(Operation::Accept)),
-        Command::Reject(cmd) => process_snapshots(cmd, Some(Operation::Reject)),
+        Command::Review(cmd) => process_snapshots(
+            cmd.quiet,
+            cmd.snapshot_filter.as_deref(),
+            handle_target_args(&cmd.target_args)?,
+            None,
+        ),
+        Command::Accept(cmd) => process_snapshots(
+            cmd.quiet,
+            cmd.snapshot_filter.as_deref(),
+            handle_target_args(&cmd.target_args)?,
+            Some(Operation::Accept),
+        ),
+        Command::Reject(cmd) => process_snapshots(
+            cmd.quiet,
+            cmd.snapshot_filter.as_deref(),
+            handle_target_args(&cmd.target_args)?,
+            Some(Operation::Reject),
+        ),
         Command::Test(cmd) => test_run(cmd, color),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
