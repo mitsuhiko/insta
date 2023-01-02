@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Added an insta tool config (`.config/insta.yaml`) to change the
+  behavior of insta and cargo-insta. (#322)
+
 ## 1.23.0
 
 - Add a hint if snapshots might be skipped. (#314)
