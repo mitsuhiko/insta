@@ -185,7 +185,27 @@
 //! # Settings
 //!
 //! There are some settings that can be changed on a per-thread (and thus
-//! per-test) basis.  For more information see [Settings].
+//! per-test) basis.  For more information see [Settings].  Additionally
+//! there is a insta [tool config](#tool-config) for global settings.
+//!
+//! # Tool Config
+//!
+//! Insta will load a file `.config/insta.yaml` with settings that change the
+//! behavior of insta between runs.  The following config variables exist:
+//!
+//! ```yaml
+//! behavior:
+//!   # also set by INSTA_FORCE_UPDATE
+//!   force_update: true/false
+//!   # also set by INSTA_FORCE_PASS
+//!   force_pass: true/false
+//!   # also set by INSTA_OUTPUT
+//!   output: "diff" | "summary" | "minimal" | "none"
+//!   # also set by INSTA_UPDATE
+//!   update: "auto" | "always" | "new" | "unseen" | "no"
+//!   # also set by INSTA_GLOB_FAIL_FAST
+//!   glob_fail_fast: true/false
+//! ```
 //!
 //! # Optional: Faster Runs
 //!
