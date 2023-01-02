@@ -8,8 +8,8 @@ use std::str;
 use std::sync::{Arc, Mutex};
 
 use crate::env::{
-    force_pass, force_update_snapshots, get_cargo_workspace, get_output_behavior,
-    get_snapshot_update_behavior, memoize_snapshot_file, OutputBehavior, SnapshotUpdate,
+    get_cargo_workspace, get_tool_config, memoize_snapshot_file, OutputBehavior, SnapshotUpdate,
+    ToolConfig,
 };
 use crate::output::{print_snapshot_diff_with_title, print_snapshot_summary_with_title};
 use crate::settings::Settings;
@@ -195,6 +195,7 @@ fn get_snapshot_filename(
 
 #[derive(Debug)]
 struct SnapshotAssertionContext<'a> {
+    tool_config: Arc<ToolConfig>,
     cargo_workspace: Arc<PathBuf>,
     module_path: &'a str,
     snapshot_name: Option<Cow<'a, str>>,
@@ -215,6 +216,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         assertion_file: &'a str,
         assertion_line: u32,
     ) -> Result<SnapshotAssertionContext<'a>, Box<dyn Error>> {
+        let tool_config = get_tool_config(manifest_dir);
         let cargo_workspace = get_cargo_workspace(manifest_dir);
         let snapshot_name;
         let mut snapshot_file = None;
@@ -269,6 +271,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         };
 
         Ok(SnapshotAssertionContext {
+            tool_config,
             cargo_workspace,
             module_path,
             snapshot_name,
@@ -347,8 +350,8 @@ impl<'a> SnapshotAssertionContext<'a> {
             .snapshot_file
             .as_ref()
             .map_or(false, |x| fs::metadata(x).is_ok());
-        let should_print = get_output_behavior() != OutputBehavior::Nothing;
-        let snapshot_update = get_snapshot_update_behavior(unseen);
+        let should_print = self.tool_config.get_output_behavior() != OutputBehavior::Nothing;
+        let snapshot_update = self.tool_config.get_snapshot_update_behavior(unseen);
 
         match snapshot_update {
             SnapshotUpdate::InPlace => {
@@ -427,7 +430,7 @@ fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion
 
 /// This prints the information about the snapshot
 fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) {
-    match get_output_behavior() {
+    match ctx.tool_config.get_output_behavior() {
         OutputBehavior::Summary => {
             print_snapshot_summary_with_title(
                 ctx.cargo_workspace.as_path(),
@@ -483,7 +486,7 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
 
     if fail_fast
         && update_result == SnapshotUpdate::NewFile
-        && get_output_behavior() != OutputBehavior::Nothing
+        && ctx.tool_config.get_output_behavior() != OutputBehavior::Nothing
         && !ctx.is_doctest
     {
         println!(
@@ -492,8 +495,8 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
         );
     }
 
-    if update_result != SnapshotUpdate::InPlace && !force_pass() {
-        if fail_fast && get_output_behavior() != OutputBehavior::Nothing {
+    if update_result != SnapshotUpdate::InPlace && !ctx.tool_config.force_pass() {
+        if fail_fast && ctx.tool_config.get_output_behavior() != OutputBehavior::Nothing {
             println!(
                 "{hint}",
                 hint = style(
@@ -512,7 +515,7 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
             if let Some(glob_collector) = stack.last_mut() {
                 glob_collector.failed += 1;
                 if update_result == SnapshotUpdate::NewFile
-                    && get_output_behavior() != OutputBehavior::Nothing
+                    && ctx.tool_config.get_output_behavior() != OutputBehavior::Nothing
                 {
                     glob_collector.show_insta_hint = true;
                 }
@@ -560,6 +563,7 @@ pub fn assert_snapshot(
         assertion_file,
         assertion_line,
     )?;
+    let tool_config = get_tool_config(manifest_dir);
 
     // apply filters if they are available
     #[cfg(feature = "filters")]
@@ -577,7 +581,7 @@ pub fn assert_snapshot(
     if ctx.old_snapshot.as_ref().map(|x| x.contents()) == Some(new_snapshot.contents()) {
         ctx.cleanup_passing()?;
 
-        if force_update_snapshots() {
+        if tool_config.force_update_snapshots() {
             ctx.update_snapshot(new_snapshot)?;
         }
     // otherwise print information and update snapshots.
