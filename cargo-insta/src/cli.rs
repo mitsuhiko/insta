@@ -10,7 +10,8 @@ use console::{set_colors_enabled, style, Key, Term};
 use ignore::{Walk, WalkBuilder};
 use insta::Snapshot;
 use insta::_cargo_insta_support::{
-    print_snapshot, print_snapshot_diff, SnapshotUpdate, TestRunner, ToolConfig,
+    is_ci, print_snapshot, print_snapshot_diff, SnapshotUpdate, TestRunner, ToolConfig,
+    UnreferencedSnapshots,
 };
 use serde::Serialize;
 use structopt::clap::AppSettings;
@@ -172,8 +173,11 @@ pub struct TestCommand {
     /// Update all snapshots even if they are still matching.
     #[structopt(long)]
     pub force_update_snapshots: bool,
-    /// Delete unreferenced snapshots after the test run.
+    /// Controls what happens with unreferenced snapshots.
     #[structopt(long)]
+    pub unreferenced: Option<String>,
+    /// Delete unreferenced snapshots after the test run.
+    #[structopt(long, hidden = true)]
     pub delete_unreferenced_snapshots: bool,
     /// Filters to apply to the insta glob feature.
     #[structopt(long)]
@@ -402,7 +406,7 @@ fn load_snapshot_containers<'a>(
 fn process_snapshots(
     quiet: bool,
     snapshot_filter: Option<&[String]>,
-    loc: LocationInfo<'_>,
+    loc: &LocationInfo<'_>,
     op: Option<Operation>,
 ) -> Result<(), Box<dyn Error>> {
     let term = Term::stdout();
@@ -590,6 +594,11 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         cmd.review = true;
     }
 
+    // Legacy command
+    if cmd.delete_unreferenced_snapshots {
+        cmd.unreferenced = Some("delete".into());
+    }
+
     let test_runner = match cmd.test_runner {
         Some(ref test_runner) => test_runner
             .parse()
@@ -597,10 +606,18 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         None => loc.tool_config.test_runner(),
     };
 
-    let (mut proc, snapshot_ref_file) = prepare_test_runner(test_runner, &cmd, color, &[], None)?;
+    let unreferenced = match cmd.unreferenced {
+        Some(ref value) => value
+            .parse()
+            .map_err(|_| err_msg("invalid value for --unreferenced"))?,
+        None => loc.tool_config.test_unreferenced(),
+    };
+
+    let (mut proc, snapshot_ref_file) =
+        prepare_test_runner(test_runner, unreferenced, &cmd, color, &[], None)?;
 
     if !cmd.keep_pending {
-        process_snapshots(true, None, loc, Some(Operation::Reject))?;
+        process_snapshots(true, None, &loc, Some(Operation::Reject))?;
     }
 
     let status = proc.status()?;
@@ -610,6 +627,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     if matches!(test_runner, TestRunner::Nextest) {
         let (mut proc, _) = prepare_test_runner(
             TestRunner::CargoTest,
+            unreferenced,
             &cmd,
             color,
             &["--doc"],
@@ -633,65 +651,16 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         return Err(QuietExit(1).into());
     }
 
-    // delete unreferenced snapshots if we were instructed to do so
+    // handle unreferenced snapshots if we were instructed to do so
     if let Some(ref path) = snapshot_ref_file {
-        let mut files = HashSet::new();
-        match fs::read_to_string(path) {
-            Ok(s) => {
-                for line in s.lines() {
-                    if let Ok(path) = fs::canonicalize(line) {
-                        files.insert(path);
-                    }
-                }
-            }
-            Err(err) => {
-                // if the file was not created, no test referenced
-                // snapshots.
-                if err.kind() != io::ErrorKind::NotFound {
-                    return Err(err.into());
-                }
-            }
-        }
-
-        if let Ok(loc) = handle_target_args(&cmd.target_args) {
-            let mut deleted_any = false;
-            for entry in make_deletion_walker(&loc, cmd.package.as_deref()) {
-                let rel_path = match entry {
-                    Ok(ref entry) => entry.path(),
-                    _ => continue,
-                };
-                if !rel_path.is_file()
-                    || !rel_path
-                        .file_name()
-                        .map_or(false, |x| x.to_str().unwrap_or("").ends_with(".snap"))
-                {
-                    continue;
-                }
-
-                if let Ok(path) = fs::canonicalize(rel_path) {
-                    if !files.contains(&path) {
-                        if !deleted_any {
-                            eprintln!("{}: deleted unreferenced snapshots:", style("info").bold());
-                            deleted_any = true;
-                        }
-                        eprintln!("  {}", rel_path.display());
-                        fs::remove_file(path).ok();
-                    }
-                }
-            }
-            if !deleted_any {
-                eprintln!("{}: no unreferenced snapshots found", style("info").bold());
-            }
-        }
-
-        fs::remove_file(&path).ok();
+        handle_unreferenced_snapshots(path, &loc, unreferenced, cmd.package.as_deref())?;
     }
 
     if cmd.review || cmd.accept {
         process_snapshots(
             false,
             None,
-            handle_target_args(&cmd.target_args)?,
+            &handle_target_args(&cmd.target_args)?,
             if cmd.accept {
                 Some(Operation::Accept)
             } else {
@@ -720,8 +689,103 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn handle_unreferenced_snapshots(
+    path: &Cow<Path>,
+    loc: &LocationInfo<'_>,
+    unreferenced: UnreferencedSnapshots,
+    package: Option<&str>,
+) -> Result<(), Box<dyn Error>> {
+    enum Action {
+        Delete,
+        Reject,
+        Warn,
+    }
+
+    let action = match unreferenced {
+        UnreferencedSnapshots::Auto => {
+            if is_ci() {
+                Action::Reject
+            } else {
+                Action::Delete
+            }
+        }
+        UnreferencedSnapshots::Reject => Action::Reject,
+        UnreferencedSnapshots::Delete => Action::Delete,
+        UnreferencedSnapshots::Warn => Action::Warn,
+        UnreferencedSnapshots::Ignore => return Ok(()),
+    };
+
+    let mut files = HashSet::new();
+    match fs::read_to_string(path) {
+        Ok(s) => {
+            for line in s.lines() {
+                if let Ok(path) = fs::canonicalize(line) {
+                    files.insert(path);
+                }
+            }
+        }
+        Err(err) => {
+            // if the file was not created, no test referenced
+            // snapshots.
+            if err.kind() != io::ErrorKind::NotFound {
+                return Err(err.into());
+            }
+        }
+    }
+
+    let mut encountered_any = false;
+    for entry in make_deletion_walker(&loc, package) {
+        let rel_path = match entry {
+            Ok(ref entry) => entry.path(),
+            _ => continue,
+        };
+        if !rel_path.is_file()
+            || !rel_path
+                .file_name()
+                .map_or(false, |x| x.to_str().unwrap_or("").ends_with(".snap"))
+        {
+            continue;
+        }
+
+        if let Ok(path) = fs::canonicalize(rel_path) {
+            if files.contains(&path) {
+                continue;
+            }
+            if !encountered_any {
+                match action {
+                    Action::Delete => {
+                        eprintln!("{}: deleted unreferenced snapshots:", style("info").bold());
+                    }
+                    _ => {
+                        eprintln!(
+                            "{}: encountered unreferenced snapshots:",
+                            style("warning").bold()
+                        );
+                    }
+                }
+                encountered_any = true;
+            }
+            eprintln!("  {}", rel_path.display());
+            if matches!(action, Action::Delete) {
+                fs::remove_file(path).ok();
+            }
+        }
+    }
+
+    fs::remove_file(&path).ok();
+
+    if !encountered_any {
+        eprintln!("{}: no unreferenced snapshots found", style("info").bold());
+    } else if matches!(action, Action::Reject) {
+        return Err(err_msg("aborting because of unreferenced snapshots"));
+    }
+
+    Ok(())
+}
+
 fn prepare_test_runner<'snapshot_ref>(
     test_runner: TestRunner,
+    unreferenced: UnreferencedSnapshots,
     cmd: &TestCommand,
     color: &str,
     extra_args: &[&str],
@@ -740,7 +804,8 @@ fn prepare_test_runner<'snapshot_ref>(
             proc
         }
     };
-    let snapshot_ref_file = if cmd.delete_unreferenced_snapshots {
+
+    let snapshot_ref_file = if unreferenced != UnreferencedSnapshots::Ignore {
         match snapshot_ref_file {
             Some(path) => Some(Cow::Borrowed(path)),
             None => {
@@ -933,7 +998,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             process_snapshots(
                 cmd.quiet,
                 cmd.snapshot_filter.as_deref(),
-                handle_target_args(&cmd.target_args)?,
+                &handle_target_args(&cmd.target_args)?,
                 match opts.command {
                     Command::Review(_) => None,
                     Command::Accept(_) => Some(Operation::Accept),
