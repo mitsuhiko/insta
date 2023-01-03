@@ -45,6 +45,18 @@ pub enum OutputBehavior {
     Nothing,
 }
 
+/// Unreferenced snapshots flag
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(feature = "_cargo_insta_internal")]
+pub enum UnreferencedSnapshots {
+    Auto,
+    Reject,
+    Delete,
+    Warn,
+    Ignore,
+}
+
+/// Snapshot update flag
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SnapshotUpdate {
     Always,
@@ -59,6 +71,8 @@ pub enum Error {
     Deserialize(crate::content::Error),
     Io(std::io::Error),
     Env(&'static str),
+    #[allow(unused)]
+    Config(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -66,7 +80,8 @@ impl fmt::Display for Error {
         match self {
             Error::Deserialize(_) => write!(f, "failed to deserialize tool config"),
             Error::Io(_) => write!(f, "io error while reading tool config"),
-            Error::Env(msg) => write!(f, "invalid value for env var '{}'", msg),
+            Error::Env(var) => write!(f, "invalid value for env var '{}'", var),
+            Error::Config(var) => write!(f, "invalid value for config '{}'", var),
         }
     }
 }
@@ -76,7 +91,7 @@ impl std::error::Error for Error {
         match self {
             Error::Deserialize(ref err) => Some(err),
             Error::Io(ref err) => Some(err),
-            Error::Env(_) => None,
+            _ => None,
         }
     }
 }
@@ -92,6 +107,8 @@ pub struct ToolConfig {
     glob_fail_fast: bool,
     #[cfg(feature = "_cargo_insta_internal")]
     test_runner: TestRunner,
+    #[cfg(feature = "_cargo_insta_internal")]
+    test_unreferenced: UnreferencedSnapshots,
     #[cfg(feature = "_cargo_insta_internal")]
     auto_review: bool,
     #[cfg(feature = "_cargo_insta_internal")]
@@ -196,6 +213,14 @@ impl ToolConfig {
                 .map_err(|_| Error::Env("INSTA_TEST_RUNNER"))?
             },
             #[cfg(feature = "_cargo_insta_internal")]
+            test_unreferenced: {
+                resolve(&cfg, &["test", "unreferenced"])
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("ignore")
+                    .parse::<UnreferencedSnapshots>()
+                    .map_err(|_| Error::Config("unreferenced"))?
+            },
+            #[cfg(feature = "_cargo_insta_internal")]
             auto_review: resolve(&cfg, &["test", "auto_review"])
                 .and_then(|x| x.as_bool())
                 .unwrap_or(false),
@@ -246,6 +271,10 @@ impl ToolConfig {
     /// Returns the intended test runner
     pub fn test_runner(&self) -> TestRunner {
         self.test_runner
+    }
+
+    pub fn test_unreferenced(&self) -> UnreferencedSnapshots {
+        self.test_unreferenced
     }
 
     /// Returns the auto review flag.
@@ -350,6 +379,22 @@ impl std::str::FromStr for TestRunner {
             "auto" => Ok(TestRunner::Auto),
             "cargo-test" => Ok(TestRunner::CargoTest),
             "nextest" => Ok(TestRunner::Nextest),
+            _ => Err(()),
+        }
+    }
+}
+
+#[cfg(feature = "_cargo_insta_internal")]
+impl std::str::FromStr for UnreferencedSnapshots {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<UnreferencedSnapshots, ()> {
+        match value {
+            "auto" => Ok(UnreferencedSnapshots::Auto),
+            "reject" | "error" => Ok(UnreferencedSnapshots::Reject),
+            "delete" => Ok(UnreferencedSnapshots::Delete),
+            "warn" => Ok(UnreferencedSnapshots::Warn),
+            "ignore" => Ok(UnreferencedSnapshots::Ignore),
             _ => Err(()),
         }
     }

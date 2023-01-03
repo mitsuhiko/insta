@@ -9,6 +9,10 @@ All notable changes to insta and cargo-insta are documented here.
 - Renamed `--no-ignore` to `--include-ignored`.
 - Added `--include-hidden` to instruct insta to also walk into
   hidden paths.
+- Added new `--unreferenced` option to `cargo-insta test` which allows
+  fine tuning of what should happen with unreferenced files.  It's now
+  possible to ignore (default), warn, reject or delete unreferenced
+  snapshots. (#328)
 
 ## 1.23.0
 
