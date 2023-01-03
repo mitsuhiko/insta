@@ -391,7 +391,7 @@ impl std::str::FromStr for UnreferencedSnapshots {
     fn from_str(value: &str) -> Result<UnreferencedSnapshots, ()> {
         match value {
             "auto" => Ok(UnreferencedSnapshots::Auto),
-            "reject" => Ok(UnreferencedSnapshots::Reject),
+            "reject" | "error" => Ok(UnreferencedSnapshots::Reject),
             "delete" => Ok(UnreferencedSnapshots::Delete),
             "warn" => Ok(UnreferencedSnapshots::Warn),
             "ignore" => Ok(UnreferencedSnapshots::Ignore),
