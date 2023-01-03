@@ -190,8 +190,10 @@
 //!
 //! # Tool Config
 //!
-//! Insta will load a file `.config/insta.yaml` with settings that change the
-//! behavior of insta between runs.  The following config variables exist:
+//! Insta will load a YAML config file with settings that change the behavior of
+//! insta between runs.  It's loaded from any of the following locations:
+//! `.config/insta.yaml`, `insta.yaml` and `.insta.yaml` from the workspace
+//! root.  The following config options exist:
 //!
 //! ```yaml
 //! behavior:
