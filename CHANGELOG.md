@@ -13,6 +13,8 @@ All notable changes to insta and cargo-insta are documented here.
   fine tuning of what should happen with unreferenced files.  It's now
   possible to ignore (default), warn, reject or delete unreferenced
   snapshots. (#328)
+- Resolved an error message about doc tests when using nextest with
+  test targeting. (#317)
 
 ## 1.23.0
 

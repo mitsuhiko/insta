@@ -613,7 +613,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         None => loc.tool_config.test_unreferenced(),
     };
 
-    let (mut proc, snapshot_ref_file) =
+    let (mut proc, snapshot_ref_file, prevents_doc_run) =
         prepare_test_runner(test_runner, unreferenced, &cmd, color, &[], None)?;
 
     if !cmd.keep_pending {
@@ -624,8 +624,8 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     let mut success = status.success();
 
     // nextest currently cannot run doctests, run them with regular tests
-    if matches!(test_runner, TestRunner::Nextest) {
-        let (mut proc, _) = prepare_test_runner(
+    if matches!(test_runner, TestRunner::Nextest) && !prevents_doc_run {
+        let (mut proc, _, _) = prepare_test_runner(
             TestRunner::CargoTest,
             unreferenced,
             &cmd,
@@ -790,7 +790,7 @@ fn prepare_test_runner<'snapshot_ref>(
     color: &str,
     extra_args: &[&str],
     snapshot_ref_file: Option<&'snapshot_ref Path>,
-) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>), Box<dyn Error>> {
+) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
     let mut proc = match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
             let mut proc = process::Command::new(get_cargo());
@@ -817,32 +817,40 @@ fn prepare_test_runner<'snapshot_ref>(
     } else {
         None
     };
+    let mut prevents_doc_run = false;
     if cmd.target_args.all || cmd.target_args.workspace {
         proc.arg("--all");
     }
     if cmd.lib {
         proc.arg("--lib");
+        prevents_doc_run = true;
     }
     if let Some(ref bin) = cmd.bin {
         proc.arg("--bin");
         proc.arg(bin);
+        prevents_doc_run = true;
     }
     if cmd.bins {
         proc.arg("--bins");
+        prevents_doc_run = true;
     }
     if let Some(ref example) = cmd.example {
         proc.arg("--example");
         proc.arg(example);
+        prevents_doc_run = true;
     }
     if cmd.examples {
         proc.arg("--examples");
+        prevents_doc_run = true;
     }
     if let Some(ref test) = cmd.test {
         proc.arg("--test");
         proc.arg(test);
+        prevents_doc_run = true;
     }
     if cmd.tests {
         proc.arg("--tests");
+        prevents_doc_run = true;
     }
     if let Some(ref pkg) = cmd.package {
         proc.arg("--package");
@@ -916,7 +924,7 @@ fn prepare_test_runner<'snapshot_ref>(
         }
         proc.args(&cmd.cargo_options);
     }
-    Ok((proc, snapshot_ref_file))
+    Ok((proc, snapshot_ref_file, prevents_doc_run))
 }
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
