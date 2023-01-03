@@ -2,7 +2,7 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## Unreleased
+## 1.24.0
 
 - Added an insta tool config (`.config/insta.yaml`) to change the
   behavior of insta and cargo-insta. (#322)
