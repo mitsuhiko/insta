@@ -185,15 +185,12 @@
 //! # Settings
 //!
 //! There are some settings that can be changed on a per-thread (and thus
-//! per-test) basis.  For more information see [Settings].  Additionally
-//! there is a insta [tool config](#tool-config) for global settings.
+//! per-test) basis.  For more information see [Settings].
 //!
-//! # Tool Config
-//!
-//! Insta will load a YAML config file with settings that change the behavior of
-//! insta between runs.  It's loaded from any of the following locations:
-//! `.config/insta.yaml`, `insta.yaml` and `.insta.yaml` from the workspace
-//! root.  The following config options exist:
+//! Additionally Insta will load a YAML config file with settings that change
+//! the behavior of insta between runs.  It's loaded from any of the following
+//! locations: `.config/insta.yaml`, `insta.yaml` and `.insta.yaml` from the
+//! workspace root.  The following config options exist:
 //!
 //! ```yaml
 //! behavior:
