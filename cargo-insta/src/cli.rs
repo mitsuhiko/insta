@@ -23,9 +23,6 @@ use crate::cargo::{
 };
 use crate::utils::{err_msg, QuietExit};
 
-const INCLUDE_IGNORED_HINT: &str =
-    "some paths are ignored, use --include-ignored if you have snapshots in ignored paths.";
-
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -316,6 +313,13 @@ struct LocationInfo<'a> {
     find_flags: FindFlags,
 }
 
+fn get_find_flags(tool_config: &ToolConfig, target_args: &TargetArgs) -> FindFlags {
+    FindFlags {
+        include_ignored: target_args.include_ignored || tool_config.review_include_ignored(),
+        include_hidden: target_args.include_hidden || tool_config.review_include_hidden(),
+    }
+}
+
 fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<dyn Error>> {
     let mut exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
     if exts.is_empty() {
@@ -347,27 +351,25 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
         (None, None) => (None, None),
     };
 
-    let find_flags = FindFlags {
-        include_ignored: target_args.include_ignored,
-        include_hidden: target_args.include_hidden,
-    };
     if let Some(workspace_root) = workspace_root {
+        let tool_config = ToolConfig::from_workspace(&workspace_root)?;
         Ok(LocationInfo {
-            tool_config: ToolConfig::from_workspace(&workspace_root)?,
             workspace_root: workspace_root.to_owned(),
             packages: None,
             exts,
-            find_flags,
+            find_flags: get_find_flags(&tool_config, target_args),
+            tool_config,
         })
     } else {
         let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
         let packages = find_packages(&metadata, target_args.all || target_args.workspace)?;
+        let tool_config = ToolConfig::from_workspace(metadata.workspace_root())?;
         Ok(LocationInfo {
-            tool_config: ToolConfig::from_workspace(metadata.workspace_root())?,
             workspace_root: metadata.workspace_root().to_path_buf(),
             packages: Some(packages),
             exts,
-            find_flags,
+            find_flags: get_find_flags(&tool_config, target_args),
+            tool_config,
         })
     }
 }
@@ -412,13 +414,7 @@ fn process_snapshots(
     if snapshot_count == 0 {
         if !quiet {
             println!("{}: no snapshots to review", style("done").bold());
-            if !loc.find_flags.include_ignored {
-                println!(
-                    "{}: {}",
-                    style("warning").yellow().bold(),
-                    INCLUDE_IGNORED_HINT
-                );
-            }
+            show_ignore_hint(loc.find_flags);
         }
         return Ok(());
     }
@@ -717,13 +713,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
             return Err(QuietExit(1).into());
         } else {
             println!("{}: no snapshots to review", style("info").bold());
-            if !loc.find_flags.include_ignored {
-                println!(
-                    "{}: {}",
-                    style("warning").yellow().bold(),
-                    INCLUDE_IGNORED_HINT
-                );
-            }
+            show_ignore_hint(loc.find_flags);
         }
     }
 
@@ -904,6 +894,27 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     }
 
     Ok(())
+}
+
+fn show_ignore_hint(find_flags: FindFlags) {
+    let (args, paths) = match (find_flags.include_ignored, find_flags.include_hidden) {
+        (true, true) => return,
+        (true, false) => ("--include-ignored", "ignored"),
+        (false, true) => ("--include-hidden", "hidden"),
+        (false, false) => (
+            "--include-ignored and --include-hidden",
+            "ignored or hidden",
+        ),
+    };
+
+    println!(
+        "{}: {}",
+        style("warning").yellow().bold(),
+        format_args!(
+            "some paths are not picked up by cargo insta, use {} if you have snapshots in {} paths.",
+            args, paths,
+        )
+    );
 }
 
 pub fn run() -> Result<(), Box<dyn Error>> {

@@ -96,6 +96,10 @@ pub struct ToolConfig {
     auto_review: bool,
     #[cfg(feature = "_cargo_insta_internal")]
     auto_accept_unseen: bool,
+    #[cfg(feature = "_cargo_insta_internal")]
+    review_include_ignored: bool,
+    #[cfg(feature = "_cargo_insta_internal")]
+    review_include_hidden: bool,
 }
 
 impl ToolConfig {
@@ -199,6 +203,14 @@ impl ToolConfig {
             auto_accept_unseen: resolve(&cfg, &["test", "auto_accept_unseen"])
                 .and_then(|x| x.as_bool())
                 .unwrap_or(false),
+            #[cfg(feature = "_cargo_insta_internal")]
+            review_include_hidden: resolve(&cfg, &["review", "include_hidden"])
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false),
+            #[cfg(feature = "_cargo_insta_internal")]
+            review_include_ignored: resolve(&cfg, &["test", "include_ignored"])
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false),
         })
     }
 
@@ -244,6 +256,14 @@ impl ToolConfig {
     /// Returns the auto accept unseen flag.
     pub fn auto_accept_unseen(&self) -> bool {
         self.auto_accept_unseen
+    }
+
+    pub fn review_include_hidden(&self) -> bool {
+        self.review_include_hidden
+    }
+
+    pub fn review_include_ignored(&self) -> bool {
+        self.review_include_ignored
     }
 }
 
