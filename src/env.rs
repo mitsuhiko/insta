@@ -71,6 +71,7 @@ pub enum Error {
     Deserialize(crate::content::Error),
     Io(std::io::Error),
     Env(&'static str),
+    #[allow(unused)]
     Config(&'static str),
 }
 
