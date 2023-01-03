@@ -75,6 +75,7 @@ pub fn print_snapshot_diff(
 }
 
 /// Prints the snapshot not as diff.
+#[cfg(feature = "_cargo_insta_internal")]
 pub fn print_snapshot(
     workspace_root: &Path,
     new: &Snapshot,

@@ -37,6 +37,7 @@ impl PendingInlineSnapshot {
         }
     }
 
+    #[cfg(feature = "_cargo_insta_internal")]
     pub fn load_batch(p: &Path) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
         let contents = fs::read_to_string(p)?;
 
@@ -56,6 +57,7 @@ impl PendingInlineSnapshot {
         Ok(rv)
     }
 
+    #[cfg(feature = "_cargo_insta_internal")]
     pub fn save_batch(p: &Path, batch: &[PendingInlineSnapshot]) -> Result<(), Box<dyn Error>> {
         fs::remove_file(p).ok();
         for snap in batch {
@@ -72,6 +74,7 @@ impl PendingInlineSnapshot {
         Ok(())
     }
 
+    #[cfg(feature = "_cargo_insta_internal")]
     fn from_content(content: Content) -> Result<PendingInlineSnapshot, Box<dyn Error>> {
         if let Content::Map(map) = content {
             let mut run_id = None;
@@ -353,6 +356,7 @@ impl Snapshot {
         }
     }
 
+    #[cfg(feature = "_cargo_insta_internal")]
     fn from_content(content: Content) -> Result<Snapshot, Box<dyn Error>> {
         if let Content::Map(map) = content {
             let mut module_name = None;

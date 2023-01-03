@@ -1,9 +1,8 @@
 use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use std::{env, fs};
+use std::{env, fmt, fs};
 
 use crate::content::{yaml, Content};
 use crate::utils::is_ci;
@@ -18,12 +17,14 @@ pub fn get_tool_config(manifest_dir: &str) -> Arc<ToolConfig> {
     if let Some(rv) = configs.get(manifest_dir) {
         return rv.clone();
     }
-    let config = Arc::new(ToolConfig::from_manifest_dir(manifest_dir));
+    let config =
+        Arc::new(ToolConfig::from_manifest_dir(manifest_dir).expect("failed to load tool config"));
     configs.insert(manifest_dir.to_string(), config.clone());
     config
 }
 
 /// The test runner to use.
+#[cfg(feature = "_cargo_insta_internal")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TestRunner {
     Auto,
@@ -53,6 +54,33 @@ pub enum SnapshotUpdate {
     No,
 }
 
+#[derive(Debug)]
+pub enum Error {
+    Deserialize(crate::content::Error),
+    Io(std::io::Error),
+    Env(&'static str),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Deserialize(_) => write!(f, "failed to deserialize tool config"),
+            Error::Io(_) => write!(f, "io error while reading tool config"),
+            Error::Env(msg) => write!(f, "invalid value for env var '{}'", msg),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Deserialize(ref err) => Some(err),
+            Error::Io(ref err) => Some(err),
+            Error::Env(_) => None,
+        }
+    }
+}
+
 /// Represents a tool configuration.
 #[derive(Debug)]
 pub struct ToolConfig {
@@ -60,110 +88,101 @@ pub struct ToolConfig {
     force_pass: bool,
     output: OutputBehavior,
     snapshot_update: SnapshotUpdate,
+    #[cfg(feature = "_cargo_insta_internal")]
     test_runner: TestRunner,
-    #[allow(unused)]
+    #[cfg(feature = "glob")]
     glob_fail_fast: bool,
 }
 
 impl ToolConfig {
     /// Loads the tool config for a specific manifest.
-    pub fn from_manifest_dir(manifest_dir: &str) -> ToolConfig {
+    pub fn from_manifest_dir(manifest_dir: &str) -> Result<ToolConfig, Error> {
         ToolConfig::from_workspace(&get_cargo_workspace(manifest_dir))
     }
 
     /// Loads the tool config from a cargo workspace.
-    pub fn from_workspace(workspace_dir: &Path) -> ToolConfig {
-        // TODO: make this return a result for better error reporting in cargo-insta
+    pub fn from_workspace(workspace_dir: &Path) -> Result<ToolConfig, Error> {
         let path = workspace_dir.join(".config/insta.yaml");
         let values = match fs::read_to_string(path) {
-            Ok(s) => yaml::parse_str(&s).expect("failed to deserialize tool config"),
+            Ok(s) => yaml::parse_str(&s).map_err(Error::Deserialize)?,
             Err(err) if matches!(err.kind(), io::ErrorKind::NotFound) => {
                 Content::Map(Default::default())
             }
-            Err(err) => panic!("failed to read tool config: {}", err),
+            Err(err) => return Err(Error::Io(err)),
         };
 
-        let force_update_snapshots = match env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
-            Err(_) | Ok("") => resolve(&values, &["behavior", "force_update"])
-                .and_then(|x| x.as_bool())
-                .unwrap_or(false),
-            Ok("0") => false,
-            Ok("1") => true,
-            _ => panic!("invalid value for INSTA_FORCE_UPDATE_SNAPSHOTS"),
-        };
-
-        let force_pass = match env::var("INSTA_FORCE_PASS").as_deref() {
-            Err(_) | Ok("") => resolve(&values, &["behavior", "force_pass"])
-                .and_then(|x| x.as_bool())
-                .unwrap_or(false),
-            Ok("0") => false,
-            Ok("1") => true,
-            _ => panic!("invalid value for INSTA_FORCE_PASS"),
-        };
-
-        let output = {
-            let env_var = env::var("INSTA_OUTPUT");
-            let val = match env_var.as_deref() {
-                Err(_) | Ok("") => resolve(&values, &["behavior", "output"])
-                    .and_then(|x| x.as_str())
-                    .unwrap_or("diff"),
-                Ok(val) => val,
-            };
-            match val {
-                "diff" => OutputBehavior::Diff,
-                "summary" => OutputBehavior::Summary,
-                "minimal" => OutputBehavior::Minimal,
-                "none" => OutputBehavior::Nothing,
-                _ => panic!("invalid value for INSTA_OUTPUT"),
-            }
-        };
-
-        let snapshot_update = {
-            let env_var = env::var("INSTA_UPDATE");
-            let val = match env_var.as_deref() {
-                Err(_) | Ok("") => resolve(&values, &["behavior", "update"])
-                    .and_then(|x| x.as_str())
-                    .unwrap_or("auto"),
-                Ok(val) => val,
-            };
-            match val {
-                "auto" => SnapshotUpdate::Auto,
-                "always" | "1" => SnapshotUpdate::Always,
-                "new" => SnapshotUpdate::New,
-                "unseen" => SnapshotUpdate::Unseen,
-                "no" => SnapshotUpdate::No,
-                _ => panic!("invalid value for INSTA_UPDATE"),
-            }
-        };
-
-        let test_runner = {
-            let env_var = env::var("INSTA_TEST_RUNNER");
-            TestRunner::from_str(match env_var.as_deref() {
-                Err(_) | Ok("") => resolve(&values, &["test", "runner"])
-                    .and_then(|x| x.as_str())
-                    .unwrap_or("auto"),
-                Ok(val) => val,
-            })
-            .expect("invalid value for INSTA_TEST_RUNNER")
-        };
-
-        let glob_fail_fast = match env::var("INSTA_GLOB_FAIL_FAST").as_deref() {
-            Err(_) | Ok("") => resolve(&values, &["behavior", "glob_fail_fast"])
-                .and_then(|x| x.as_bool())
-                .unwrap_or(false),
-            Ok("1") => true,
-            Ok("0") => false,
-            _ => panic!("invalid value for INSTA_GLOB_FAIL_FAST"),
-        };
-
-        ToolConfig {
-            force_update_snapshots,
-            force_pass,
-            output,
-            snapshot_update,
-            test_runner,
-            glob_fail_fast,
-        }
+        Ok(ToolConfig {
+            force_update_snapshots: match env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
+                Err(_) | Ok("") => resolve(&values, &["behavior", "force_update"])
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+                Ok("0") => false,
+                Ok("1") => true,
+                _ => return Err(Error::Env("INSTA_FORCE_UPDATE_SNAPSHOTS")),
+            },
+            force_pass: match env::var("INSTA_FORCE_PASS").as_deref() {
+                Err(_) | Ok("") => resolve(&values, &["behavior", "force_pass"])
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+                Ok("0") => false,
+                Ok("1") => true,
+                _ => return Err(Error::Env("INSTA_FORCE_PASS")),
+            },
+            output: {
+                let env_var = env::var("INSTA_OUTPUT");
+                let val = match env_var.as_deref() {
+                    Err(_) | Ok("") => resolve(&values, &["behavior", "output"])
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("diff"),
+                    Ok(val) => val,
+                };
+                match val {
+                    "diff" => OutputBehavior::Diff,
+                    "summary" => OutputBehavior::Summary,
+                    "minimal" => OutputBehavior::Minimal,
+                    "none" => OutputBehavior::Nothing,
+                    _ => return Err(Error::Env("INSTA_OUTPUT")),
+                }
+            },
+            snapshot_update: {
+                let env_var = env::var("INSTA_UPDATE");
+                let val = match env_var.as_deref() {
+                    Err(_) | Ok("") => resolve(&values, &["behavior", "update"])
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("auto"),
+                    Ok(val) => val,
+                };
+                match val {
+                    "auto" => SnapshotUpdate::Auto,
+                    "always" | "1" => SnapshotUpdate::Always,
+                    "new" => SnapshotUpdate::New,
+                    "unseen" => SnapshotUpdate::Unseen,
+                    "no" => SnapshotUpdate::No,
+                    _ => return Err(Error::Env("INSTA_UPDATE")),
+                }
+            },
+            #[cfg(feature = "_cargo_insta_internal")]
+            test_runner: {
+                let env_var = env::var("INSTA_TEST_RUNNER");
+                match env_var.as_deref() {
+                    Err(_) | Ok("") => resolve(&values, &["test", "runner"])
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("auto"),
+                    Ok(val) => val,
+                }
+                .parse::<TestRunner>()
+                .map_err(|_| Error::Env("INSTA_TEST_RUNNER"))?
+            },
+            #[cfg(feature = "glob")]
+            glob_fail_fast: match env::var("INSTA_GLOB_FAIL_FAST").as_deref() {
+                Err(_) | Ok("") => resolve(&values, &["behavior", "glob_fail_fast"])
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+                Ok("1") => true,
+                Ok("0") => false,
+                _ => return Err(Error::Env("INSTA_GLOB_FAIL_FAST")),
+            },
+        })
     }
 
     /// Is insta told to force update snapshots?
@@ -187,12 +206,13 @@ impl ToolConfig {
     }
 
     /// Returns the intended test runner
+    #[cfg(feature = "_cargo_insta_internal")]
     pub fn test_runner(&self) -> TestRunner {
         self.test_runner
     }
 
     /// Returns the value of glob_fail_fast
-    #[allow(unused)]
+    #[cfg(feature = "glob")]
     pub fn glob_fail_fast(&self) -> bool {
         self.glob_fail_fast
     }
@@ -211,7 +231,7 @@ pub enum SnapshotUpdateBehavior {
 
 /// Returns the intended snapshot update behavior.
 pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> SnapshotUpdateBehavior {
-    match tool_config.snapshot_update {
+    match tool_config.snapshot_update() {
         SnapshotUpdate::Always => SnapshotUpdateBehavior::InPlace,
         SnapshotUpdate::Auto => {
             if is_ci() {
@@ -272,7 +292,8 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
     }
 }
 
-impl FromStr for TestRunner {
+#[cfg(feature = "_cargo_insta_internal")]
+impl std::str::FromStr for TestRunner {
     type Err = ();
 
     fn from_str(value: &str) -> Result<TestRunner, ()> {

@@ -43,6 +43,9 @@ ron = ["dep_ron", "serde"]
 toml = ["dep_toml", "serde"]
 yaml = ["serde"]
 
+# internal feature exclusive to cargo-insta
+_cargo_insta_internal = []
+
 [dependencies]
 dep_csv = { package = "csv", version = "1.1.4", optional = true }
 console = { version = "0.15.2", optional = true, default-features = false }

@@ -346,7 +346,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
 
     if let Some(workspace_root) = workspace_root {
         Ok(LocationInfo {
-            tool_config: ToolConfig::from_workspace(&workspace_root),
+            tool_config: ToolConfig::from_workspace(&workspace_root)?,
             workspace_root: workspace_root.to_owned(),
             packages: None,
             exts,
@@ -356,7 +356,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
         let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
         let packages = find_packages(&metadata, target_args.all || target_args.workspace)?;
         Ok(LocationInfo {
-            tool_config: ToolConfig::from_workspace(metadata.workspace_root()),
+            tool_config: ToolConfig::from_workspace(metadata.workspace_root())?,
             workspace_root: metadata.workspace_root().to_path_buf(),
             packages: Some(packages),
             exts,
@@ -896,24 +896,19 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     let color = opts.color.as_ref().map(|x| x.as_str()).unwrap_or("auto");
     handle_color(color)?;
     match opts.command {
-        Command::Review(cmd) => process_snapshots(
-            cmd.quiet,
-            cmd.snapshot_filter.as_deref(),
-            handle_target_args(&cmd.target_args)?,
-            None,
-        ),
-        Command::Accept(cmd) => process_snapshots(
-            cmd.quiet,
-            cmd.snapshot_filter.as_deref(),
-            handle_target_args(&cmd.target_args)?,
-            Some(Operation::Accept),
-        ),
-        Command::Reject(cmd) => process_snapshots(
-            cmd.quiet,
-            cmd.snapshot_filter.as_deref(),
-            handle_target_args(&cmd.target_args)?,
-            Some(Operation::Reject),
-        ),
+        Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
+            process_snapshots(
+                cmd.quiet,
+                cmd.snapshot_filter.as_deref(),
+                handle_target_args(&cmd.target_args)?,
+                match opts.command {
+                    Command::Review(_) => None,
+                    Command::Accept(_) => Some(Operation::Accept),
+                    Command::Reject(_) => Some(Operation::Reject),
+                    _ => unreachable!(),
+                },
+            )
+        }
         Command::Test(cmd) => test_run(cmd, color),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),

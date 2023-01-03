@@ -275,8 +275,11 @@ pub mod internals {
 
 // exported for cargo-insta only
 #[doc(hidden)]
+#[cfg(feature = "_cargo_insta_internal")]
 pub mod _cargo_insta_support {
-    pub use crate::env::{OutputBehavior, SnapshotUpdate, TestRunner, ToolConfig};
+    pub use crate::env::{
+        Error as ToolConfigError, OutputBehavior, SnapshotUpdate, TestRunner, ToolConfig,
+    };
     pub use crate::{
         output::{print_snapshot, print_snapshot_diff},
         snapshot::PendingInlineSnapshot,
