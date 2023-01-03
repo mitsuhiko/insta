@@ -107,7 +107,7 @@ impl ToolConfig {
     /// Loads the tool config from a cargo workspace.
     pub fn from_workspace(workspace_dir: &Path) -> Result<ToolConfig, Error> {
         let mut cfg = None;
-        for choice in [".config/insta.yaml", "insta.yaml", ".insta.yaml"] {
+        for choice in &[".config/insta.yaml", "insta.yaml", ".insta.yaml"] {
             let path = workspace_dir.join(choice);
             match fs::read_to_string(path) {
                 Ok(s) => {
