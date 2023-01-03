@@ -216,6 +216,13 @@
 //!   auto_review: true/false
 //!   # automatically assume --accept-unseen was passed to cargo insta test
 //!   auto_accept_unseen: true/false
+//!
+//! # these are used by cargo insta review
+//! review:
+//!   # also look for snapshots in ignored folders
+//!   include_ignored: true / false
+//!   # also look for snapshots in hidden folders
+//!   include_hidden: true / false
 //! ```
 //!
 //! # Optional: Faster Runs

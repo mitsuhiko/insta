@@ -18,13 +18,10 @@ use structopt::StructOpt;
 use uuid::Uuid;
 
 use crate::cargo::{
-    find_packages, find_snapshots, get_cargo, get_package_metadata, Operation, Package,
+    find_packages, find_snapshots, get_cargo, get_package_metadata, FindFlags, Operation, Package,
     SnapshotContainer,
 };
 use crate::utils::{err_msg, QuietExit};
-
-const IGNORE_MESSAGE: &str =
-    "some paths are ignored, use --no-ignore if you have snapshots in ignored paths.";
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -87,8 +84,11 @@ pub struct TargetArgs {
     #[structopt(long)]
     pub all: bool,
     /// Also walk into ignored paths.
+    #[structopt(long, alias = "no-ignore")]
+    pub include_ignored: bool,
+    /// Also include hidden paths.
     #[structopt(long)]
-    pub no_ignore: bool,
+    pub include_hidden: bool,
 }
 
 #[derive(StructOpt, Debug)]
@@ -310,7 +310,14 @@ struct LocationInfo<'a> {
     workspace_root: PathBuf,
     packages: Option<Vec<Package>>,
     exts: Vec<&'a str>,
-    no_ignore: bool,
+    find_flags: FindFlags,
+}
+
+fn get_find_flags(tool_config: &ToolConfig, target_args: &TargetArgs) -> FindFlags {
+    FindFlags {
+        include_ignored: target_args.include_ignored || tool_config.review_include_ignored(),
+        include_hidden: target_args.include_hidden || tool_config.review_include_hidden(),
+    }
 }
 
 fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<dyn Error>> {
@@ -345,22 +352,24 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
     };
 
     if let Some(workspace_root) = workspace_root {
+        let tool_config = ToolConfig::from_workspace(&workspace_root)?;
         Ok(LocationInfo {
-            tool_config: ToolConfig::from_workspace(&workspace_root)?,
             workspace_root: workspace_root.to_owned(),
             packages: None,
             exts,
-            no_ignore: target_args.no_ignore,
+            find_flags: get_find_flags(&tool_config, target_args),
+            tool_config,
         })
     } else {
         let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
         let packages = find_packages(&metadata, target_args.all || target_args.workspace)?;
+        let tool_config = ToolConfig::from_workspace(metadata.workspace_root())?;
         Ok(LocationInfo {
-            tool_config: ToolConfig::from_workspace(metadata.workspace_root())?,
             workspace_root: metadata.workspace_root().to_path_buf(),
             packages: Some(packages),
             exts,
-            no_ignore: target_args.no_ignore,
+            find_flags: get_find_flags(&tool_config, target_args),
+            tool_config,
         })
     }
 }
@@ -372,7 +381,8 @@ fn load_snapshot_containers<'a>(
     match loc.packages {
         Some(ref packages) => {
             for package in packages.iter() {
-                for snapshot_container in package.iter_snapshot_containers(&loc.exts, loc.no_ignore)
+                for snapshot_container in
+                    package.iter_snapshot_containers(&loc.exts, loc.find_flags)
                 {
                     snapshot_containers.push((snapshot_container?, Some(package)));
                 }
@@ -380,7 +390,7 @@ fn load_snapshot_containers<'a>(
         }
         None => {
             for snapshot_container in
-                find_snapshots(loc.workspace_root.clone(), &loc.exts, loc.no_ignore)
+                find_snapshots(loc.workspace_root.clone(), &loc.exts, loc.find_flags)
             {
                 snapshot_containers.push((snapshot_container?, None));
             }
@@ -404,9 +414,7 @@ fn process_snapshots(
     if snapshot_count == 0 {
         if !quiet {
             println!("{}: no snapshots to review", style("done").bold());
-            if !loc.no_ignore {
-                println!("{}: {}", style("warning").yellow().bold(), IGNORE_MESSAGE);
-            }
+            show_ignore_hint(loc.find_flags);
         }
         return Ok(());
     }
@@ -701,16 +709,11 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 style(snapshot_count).yellow(),
                 if snapshot_count != 1 { "s" } else { "" }
             );
-            if !loc.no_ignore {
-                println!("      {}", IGNORE_MESSAGE);
-            }
             eprintln!("use `cargo insta review` to review snapshots");
             return Err(QuietExit(1).into());
         } else {
             println!("{}: no snapshots to review", style("info").bold());
-            if !loc.no_ignore {
-                println!("{}: {}", style("warning").yellow().bold(), IGNORE_MESSAGE);
-            }
+            show_ignore_hint(loc.find_flags);
         }
     }
 
@@ -891,6 +894,27 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     }
 
     Ok(())
+}
+
+fn show_ignore_hint(find_flags: FindFlags) {
+    let (args, paths) = match (find_flags.include_ignored, find_flags.include_hidden) {
+        (true, true) => return,
+        (true, false) => ("--include-ignored", "ignored"),
+        (false, true) => ("--include-hidden", "hidden"),
+        (false, false) => (
+            "--include-ignored and --include-hidden",
+            "ignored or hidden",
+        ),
+    };
+
+    println!(
+        "{}: {}",
+        style("warning").yellow().bold(),
+        format_args!(
+            "some paths are not picked up by cargo insta, use {} if you have snapshots in {} paths.",
+            args, paths,
+        )
+    );
 }
 
 pub fn run() -> Result<(), Box<dyn Error>> {
