@@ -573,6 +573,15 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         }
     }
 
+    // the tool config can also indicate that --accept-unseen should be picked
+    // automatically unless instructed otherwise.
+    if loc.tool_config.auto_accept_unseen() && !cmd.accept && !cmd.review {
+        cmd.accept_unseen = true;
+    }
+    if loc.tool_config.auto_review() && !cmd.review && !cmd.accept {
+        cmd.review = true;
+    }
+
     let test_runner = match cmd.test_runner {
         Some(ref test_runner) => test_runner
             .parse()

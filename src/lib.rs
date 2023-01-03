@@ -212,6 +212,10 @@
 //! test:
 //!   # also set by INSTA_TEST_RUNNER
 //!   runner: "auto" | "cargo-test" | "nextest"
+//!   # automatically assume --review was passed to cargo insta test
+//!   auto_review: true/false
+//!   # automatically assume --accept-unseen was passed to cargo insta test
+//!   auto_accept_unseen: true/false
 //! ```
 //!
 //! # Optional: Faster Runs

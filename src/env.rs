@@ -92,6 +92,10 @@ pub struct ToolConfig {
     glob_fail_fast: bool,
     #[cfg(feature = "_cargo_insta_internal")]
     test_runner: TestRunner,
+    #[cfg(feature = "_cargo_insta_internal")]
+    auto_review: bool,
+    #[cfg(feature = "_cargo_insta_internal")]
+    auto_accept_unseen: bool,
 }
 
 impl ToolConfig {
@@ -187,6 +191,14 @@ impl ToolConfig {
                 .parse::<TestRunner>()
                 .map_err(|_| Error::Env("INSTA_TEST_RUNNER"))?
             },
+            #[cfg(feature = "_cargo_insta_internal")]
+            auto_review: resolve(&cfg, &["test", "auto_review"])
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false),
+            #[cfg(feature = "_cargo_insta_internal")]
+            auto_accept_unseen: resolve(&cfg, &["test", "auto_accept_unseen"])
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false),
         })
     }
 
@@ -210,16 +222,28 @@ impl ToolConfig {
         self.snapshot_update
     }
 
-    /// Returns the intended test runner
-    #[cfg(feature = "_cargo_insta_internal")]
-    pub fn test_runner(&self) -> TestRunner {
-        self.test_runner
-    }
-
     /// Returns the value of glob_fail_fast
     #[cfg(feature = "glob")]
     pub fn glob_fail_fast(&self) -> bool {
         self.glob_fail_fast
+    }
+}
+
+#[cfg(feature = "_cargo_insta_internal")]
+impl ToolConfig {
+    /// Returns the intended test runner
+    pub fn test_runner(&self) -> TestRunner {
+        self.test_runner
+    }
+
+    /// Returns the auto review flag.
+    pub fn auto_review(&self) -> bool {
+        self.auto_review
+    }
+
+    /// Returns the auto accept unseen flag.
+    pub fn auto_accept_unseen(&self) -> bool {
+        self.auto_accept_unseen
     }
 }
 
