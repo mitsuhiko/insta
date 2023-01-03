@@ -6,6 +6,9 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Added an insta tool config (`.config/insta.yaml`) to change the
   behavior of insta and cargo-insta. (#322)
+- Renamed `--no-ignore` to `--include-ignored`.
+- Added `--include-hidden` to instruct insta to also walk into
+  hidden paths.
 
 ## 1.23.0
 

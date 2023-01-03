@@ -247,16 +247,22 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct FindFlags {
+    pub include_ignored: bool,
+    pub include_hidden: bool,
+}
+
 pub fn find_snapshots<'a>(
     root: PathBuf,
     extensions: &'a [&'a str],
-    no_ignore: bool,
+    flags: FindFlags,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
     let mut builder = WalkBuilder::new(root.clone());
-    builder
-        .hidden(false)
-        .standard_filters(!no_ignore)
-        .filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
+    builder.standard_filters(!flags.include_ignored);
+    if !flags.include_hidden {
+        builder.filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
+    }
 
     let mut override_builder = OverrideBuilder::new(&root);
     override_builder
@@ -311,7 +317,7 @@ impl Package {
     pub fn iter_snapshot_containers<'a>(
         &self,
         extensions: &'a [&'a str],
-        no_ignore: bool,
+        find_flags: FindFlags,
     ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
         let mut roots = Vec::new();
 
@@ -353,7 +359,7 @@ impl Package {
 
         reduced_roots
             .into_iter()
-            .flat_map(move |root| find_snapshots(root, extensions, no_ignore))
+            .flat_map(move |root| find_snapshots(root, extensions, find_flags))
     }
 }
 
