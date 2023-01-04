@@ -260,7 +260,9 @@ pub fn find_snapshots<'a>(
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
     let mut builder = WalkBuilder::new(root.clone());
     builder.standard_filters(!flags.include_ignored);
-    if !flags.include_hidden {
+    if flags.include_hidden {
+        builder.hidden(false);
+    } else {
         builder.filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
     }
 
