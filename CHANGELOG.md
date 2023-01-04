@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.24.1
+
+- Fix non working `--include-hidden` flag (#331)
+- Fix incorrect mapping of `review.include_ignored` (#330) 
+
 ## 1.24.0
 
 - Added an insta tool config (`.config/insta.yaml`) to change the
