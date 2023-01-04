@@ -1,13 +1,11 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::error::Error;
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
-use ignore::{Walk, WalkBuilder};
 use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, print_snapshot, print_snapshot_diff, SnapshotUpdate, TestRunner, ToolConfig,
@@ -21,7 +19,7 @@ use uuid::Uuid;
 use crate::cargo::{find_packages, get_cargo, get_package_metadata, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
-use crate::walk::{find_snapshots, FindFlags};
+use crate::walk::{find_snapshots, make_deletion_walker, FindFlags};
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -292,22 +290,6 @@ fn handle_color(color: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "snake_case", tag = "type")]
-enum SnapshotKey<'a> {
-    NamedSnapshot {
-        path: &'a Path,
-    },
-    InlineSnapshot {
-        path: &'a Path,
-        line: u32,
-        name: Option<&'a str>,
-        old_snapshot: Option<&'a str>,
-        new_snapshot: &'a str,
-        expression: Option<&'a str>,
-    },
-}
-
 struct LocationInfo<'a> {
     tool_config: ToolConfig,
     workspace_root: PathBuf,
@@ -500,64 +482,6 @@ fn process_snapshots(
     Ok(())
 }
 
-fn make_deletion_walker(loc: &LocationInfo, package: Option<&str>) -> Walk {
-    let roots: HashSet<_> = match loc.packages {
-        Some(ref packages) => packages
-            .iter()
-            .filter_map(|x| {
-                // filter out packages we did not ask for.
-                if let Some(only_package) = package {
-                    if x.name() != only_package {
-                        return None;
-                    }
-                }
-                x.manifest_path().parent().unwrap().canonicalize().ok()
-            })
-            .collect(),
-        None => {
-            let mut hs = HashSet::new();
-            hs.insert(loc.workspace_root.clone());
-            hs
-        }
-    };
-
-    WalkBuilder::new(&loc.workspace_root)
-        .filter_entry(move |entry| {
-            // we only filter down for directories
-            if !entry.file_type().map_or(false, |x| x.is_dir()) {
-                return true;
-            }
-
-            let canonicalized = match entry.path().canonicalize() {
-                Ok(path) => path,
-                Err(_) => return true,
-            };
-
-            // We always want to skip target even if it was not excluded by
-            // ignore files.
-            if entry.path().file_name() == Some(&OsStr::new("target"))
-                && roots.contains(canonicalized.parent().unwrap())
-            {
-                return false;
-            }
-
-            // do not enter crates which are not in the list of known roots
-            // of the workspace.
-            if !roots.contains(&canonicalized)
-                && entry
-                    .path()
-                    .join("Cargo.toml")
-                    .metadata()
-                    .map_or(false, |x| x.is_file())
-            {
-                return false;
-            }
-
-            true
-        })
-        .build()
-}
-
 fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args)?;
     match loc.tool_config.snapshot_update() {
@@ -726,7 +650,7 @@ fn handle_unreferenced_snapshots(
     }
 
     let mut encountered_any = false;
-    for entry in make_deletion_walker(&loc, package) {
+    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.as_deref(), package) {
         let rel_path = match entry {
             Ok(ref entry) => entry.path(),
             _ => continue,
@@ -927,6 +851,22 @@ fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
 }
 
 fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Error>> {
+    #[derive(Serialize, Debug)]
+    #[serde(rename_all = "snake_case", tag = "type")]
+    enum SnapshotKey<'a> {
+        NamedSnapshot {
+            path: &'a Path,
+        },
+        InlineSnapshot {
+            path: &'a Path,
+            line: u32,
+            name: Option<&'a str>,
+            old_snapshot: Option<&'a str>,
+            new_snapshot: &'a str,
+            expression: Option<&'a str>,
+        },
+    }
+
     let loc = handle_target_args(&cmd.target_args)?;
     let mut snapshot_containers = load_snapshot_containers(&loc)?;
 
