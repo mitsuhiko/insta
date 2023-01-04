@@ -233,7 +233,7 @@ impl ToolConfig {
                 .and_then(|x| x.as_bool())
                 .unwrap_or(false),
             #[cfg(feature = "_cargo_insta_internal")]
-            review_include_ignored: resolve(&cfg, &["test", "include_ignored"])
+            review_include_ignored: resolve(&cfg, &["review", "include_ignored"])
                 .and_then(|x| x.as_bool())
                 .unwrap_or(false),
         })
