@@ -13,8 +13,10 @@
 //! For more information see [the insta crate documentation](https://docs.rs/insta).
 mod cargo;
 mod cli;
+mod container;
 mod inline;
 mod utils;
+mod walk;
 
 use console::style;
 

@@ -18,11 +18,10 @@ use structopt::clap::AppSettings;
 use structopt::StructOpt;
 use uuid::Uuid;
 
-use crate::cargo::{
-    find_packages, find_snapshots, get_cargo, get_package_metadata, FindFlags, Operation, Package,
-    SnapshotContainer,
-};
+use crate::cargo::{find_packages, get_cargo, get_package_metadata, Package};
+use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
+use crate::walk::{find_snapshots, FindFlags};
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -382,22 +381,15 @@ fn load_snapshot_containers<'a>(
     loc: &'a LocationInfo,
 ) -> Result<Vec<(SnapshotContainer, Option<&'a Package>)>, Box<dyn Error>> {
     let mut snapshot_containers = vec![];
-    match loc.packages {
-        Some(ref packages) => {
-            for package in packages.iter() {
-                for snapshot_container in
-                    package.iter_snapshot_containers(&loc.exts, loc.find_flags)
-                {
-                    snapshot_containers.push((snapshot_container?, Some(package)));
-                }
+    if let Some(ref packages) = loc.packages {
+        for package in packages.iter() {
+            for snapshot_container in package.iter_snapshot_containers(&loc.exts, loc.find_flags) {
+                snapshot_containers.push((snapshot_container?, Some(package)));
             }
         }
-        None => {
-            for snapshot_container in
-                find_snapshots(loc.workspace_root.clone(), &loc.exts, loc.find_flags)
-            {
-                snapshot_containers.push((snapshot_container?, None));
-            }
+    } else {
+        for snapshot_container in find_snapshots(&loc.workspace_root, &loc.exts, loc.find_flags) {
+            snapshot_containers.push((snapshot_container?, None));
         }
     }
     Ok(snapshot_containers)
