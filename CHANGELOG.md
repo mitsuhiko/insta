@@ -2,6 +2,15 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.25.0
+
+- Added a way to disable the undiscoverable snapshots warning.  By
+  setting the `review.warn_undiscovered` config key to `false` a
+  warning is never printed. (#334)
+- Force updating snapshots will now not overwrite files that did not
+  change.  This improves the behavior for situations if that behavior
+  is preferred as a default choice. (#335)
+
 ## 1.24.1
 
 - Fix non working `--include-hidden` flag (#331)
