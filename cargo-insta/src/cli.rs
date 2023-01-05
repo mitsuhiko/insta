@@ -19,7 +19,7 @@ use uuid::Uuid;
 use crate::cargo::{find_packages, get_cargo, get_package_metadata, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
-use crate::walk::{find_snapshots, make_deletion_walker, FindFlags};
+use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -361,20 +361,31 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
 
 fn load_snapshot_containers<'a>(
     loc: &'a LocationInfo,
-) -> Result<Vec<(SnapshotContainer, Option<&'a Package>)>, Box<dyn Error>> {
+) -> Result<
+    (
+        Vec<(SnapshotContainer, Option<&'a Package>)>,
+        HashSet<PathBuf>,
+    ),
+    Box<dyn Error>,
+> {
+    let mut roots = HashSet::new();
     let mut snapshot_containers = vec![];
     if let Some(ref packages) = loc.packages {
         for package in packages.iter() {
-            for snapshot_container in package.iter_snapshot_containers(&loc.exts, loc.find_flags) {
-                snapshot_containers.push((snapshot_container?, Some(package)));
+            for root in package.find_snapshot_roots() {
+                roots.insert(root.clone());
+                for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
+                    snapshot_containers.push((snapshot_container?, Some(package)));
+                }
             }
         }
     } else {
+        roots.insert(loc.workspace_root.clone());
         for snapshot_container in find_snapshots(&loc.workspace_root, &loc.exts, loc.find_flags) {
             snapshot_containers.push((snapshot_container?, None));
         }
     }
-    Ok(snapshot_containers)
+    Ok((snapshot_containers, roots))
 }
 
 fn process_snapshots(
@@ -385,14 +396,16 @@ fn process_snapshots(
 ) -> Result<(), Box<dyn Error>> {
     let term = Term::stdout();
 
-    let mut snapshot_containers = load_snapshot_containers(&loc)?;
+    let (mut snapshot_containers, roots) = load_snapshot_containers(&loc)?;
 
     let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum();
 
     if snapshot_count == 0 {
         if !quiet {
             println!("{}: no snapshots to review", style("done").bold());
-            show_ignore_hint(loc.find_flags);
+            if loc.tool_config.review_warn_undiscovered() {
+                show_undiscovered_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
+            }
         }
         return Ok(());
     }
@@ -584,8 +597,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
             },
         )?
     } else {
-        let loc = handle_target_args(&cmd.target_args)?;
-        let snapshot_containers = load_snapshot_containers(&loc)?;
+        let (snapshot_containers, roots) = load_snapshot_containers(&loc)?;
         let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum::<usize>();
         if snapshot_count > 0 {
             eprintln!(
@@ -598,7 +610,9 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
             return Err(QuietExit(1).into());
         } else {
             println!("{}: no snapshots to review", style("info").bold());
-            show_ignore_hint(loc.find_flags);
+            if loc.tool_config.review_warn_undiscovered() {
+                show_undiscovered_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
+            }
         }
     }
 
@@ -868,7 +882,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     }
 
     let loc = handle_target_args(&cmd.target_args)?;
-    let mut snapshot_containers = load_snapshot_containers(&loc)?;
+    let (mut snapshot_containers, _) = load_snapshot_containers(&loc)?;
 
     for (snapshot_container, _package) in snapshot_containers.iter_mut() {
         let target_file = snapshot_container.target_file().to_path_buf();
@@ -901,22 +915,65 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     Ok(())
 }
 
-fn show_ignore_hint(find_flags: FindFlags) {
+fn show_undiscovered_hint(
+    find_flags: FindFlags,
+    snapshot_containers: &[(SnapshotContainer, Option<&Package>)],
+    roots: &HashSet<PathBuf>,
+    extensions: &[&str],
+) {
+    // there is nothing to do if we already search everything.
+    if find_flags.include_hidden && find_flags.include_ignored {
+        return;
+    }
+
+    let mut found_extra = false;
+    let found_snapshots = snapshot_containers
+        .iter()
+        .filter_map(|x| x.0.snapshot_file())
+        .collect::<HashSet<_>>();
+
+    for root in roots {
+        for snapshot in make_snapshot_walker(
+            root,
+            extensions,
+            FindFlags {
+                include_ignored: true,
+                include_hidden: true,
+            },
+        )
+        .filter_map(|e| e.ok())
+        .filter(|x| {
+            let fname = x.file_name().to_string_lossy();
+            fname.ends_with(".snap.new") || fname.ends_with(".pending-snap")
+        }) {
+            if !found_snapshots.contains(snapshot.path()) {
+                found_extra = true;
+                break;
+            }
+        }
+    }
+
+    // we did not find any extra snapshots
+    if !found_extra {
+        return;
+    }
+
     let (args, paths) = match (find_flags.include_ignored, find_flags.include_hidden) {
-        (true, true) => return,
         (true, false) => ("--include-ignored", "ignored"),
         (false, true) => ("--include-hidden", "hidden"),
         (false, false) => (
             "--include-ignored and --include-hidden",
             "ignored or hidden",
         ),
+        (true, true) => unreachable!(),
     };
 
     println!(
         "{}: {}",
         style("warning").yellow().bold(),
         format_args!(
-            "some paths are not picked up by cargo insta, use {} if you have snapshots in {} paths.",
+            "found undiscovered snapshots in some paths which are not picked up by cargo \
+            insta. Use {} if you have snapshots in {} paths.",
             args, paths,
         )
     );

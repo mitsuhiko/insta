@@ -117,6 +117,8 @@ pub struct ToolConfig {
     review_include_ignored: bool,
     #[cfg(feature = "_cargo_insta_internal")]
     review_include_hidden: bool,
+    #[cfg(feature = "_cargo_insta_internal")]
+    review_warn_undiscovered: bool,
 }
 
 impl ToolConfig {
@@ -236,6 +238,10 @@ impl ToolConfig {
             review_include_ignored: resolve(&cfg, &["review", "include_ignored"])
                 .and_then(|x| x.as_bool())
                 .unwrap_or(false),
+            #[cfg(feature = "_cargo_insta_internal")]
+            review_warn_undiscovered: resolve(&cfg, &["review", "warn_undiscovered"])
+                .and_then(|x| x.as_bool())
+                .unwrap_or(true),
         })
     }
 
@@ -293,6 +299,10 @@ impl ToolConfig {
 
     pub fn review_include_ignored(&self) -> bool {
         self.review_include_ignored
+    }
+
+    pub fn review_warn_undiscovered(&self) -> bool {
+        self.review_warn_undiscovered
     }
 }
 

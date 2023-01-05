@@ -220,6 +220,9 @@
 //!   include_ignored: true / false
 //!   # also look for snapshots in hidden folders
 //!   include_hidden: true / false
+//!   # show a warning if undiscovered (ignored or hidden) snapshots are found.
+//!   # defaults to true but creates a performance hit.
+//!   warn_undiscovered: true / false
 //! ```
 //!
 //! # Optional: Faster Runs

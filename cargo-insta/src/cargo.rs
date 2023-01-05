@@ -7,9 +7,7 @@ use std::process;
 
 use serde::Deserialize;
 
-use crate::container::SnapshotContainer;
 use crate::utils::err_msg;
-use crate::walk::{find_snapshots, FindFlags};
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Target {
@@ -57,11 +55,7 @@ impl Package {
         &self.version
     }
 
-    pub fn iter_snapshot_containers<'a>(
-        &self,
-        extensions: &'a [&'a str],
-        find_flags: FindFlags,
-    ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
+    pub fn find_snapshot_roots<'a>(&self) -> Vec<PathBuf> {
         let mut roots = Vec::new();
 
         // the manifest path's parent is always a snapshot container.  For
@@ -101,8 +95,6 @@ impl Package {
         }
 
         reduced_roots
-            .into_iter()
-            .flat_map(move |root| find_snapshots(&root, extensions, find_flags))
     }
 }
 
