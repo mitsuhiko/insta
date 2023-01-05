@@ -403,7 +403,9 @@ fn process_snapshots(
     if snapshot_count == 0 {
         if !quiet {
             println!("{}: no snapshots to review", style("done").bold());
-            show_ignore_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
+            if loc.tool_config.review_warn_undiscovered() {
+                show_undiscovered_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
+            }
         }
         return Ok(());
     }
@@ -595,7 +597,6 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
             },
         )?
     } else {
-        let loc = handle_target_args(&cmd.target_args)?;
         let (snapshot_containers, roots) = load_snapshot_containers(&loc)?;
         let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum::<usize>();
         if snapshot_count > 0 {
@@ -609,7 +610,9 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
             return Err(QuietExit(1).into());
         } else {
             println!("{}: no snapshots to review", style("info").bold());
-            show_ignore_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
+            if loc.tool_config.review_warn_undiscovered() {
+                show_undiscovered_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
+            }
         }
     }
 
@@ -912,7 +915,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     Ok(())
 }
 
-fn show_ignore_hint(
+fn show_undiscovered_hint(
     find_flags: FindFlags,
     snapshot_containers: &[(SnapshotContainer, Option<&Package>)],
     roots: &HashSet<PathBuf>,
@@ -969,7 +972,8 @@ fn show_ignore_hint(
         "{}: {}",
         style("warning").yellow().bold(),
         format_args!(
-            "found snapshots in some paths which are not picked up by cargo insta, use {} if you have snapshots in {} paths.",
+            "found undiscovered snapshots in some paths which are not picked up by cargo \
+            insta. Use {} if you have snapshots in {} paths.",
             args, paths,
         )
     );
