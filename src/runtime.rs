@@ -356,8 +356,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         match snapshot_update {
             SnapshotUpdateBehavior::InPlace => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
-                    new_snapshot.save(snapshot_file)?;
-                    if should_print {
+                    let saved = new_snapshot.save(snapshot_file)?;
+                    if should_print && saved {
                         elog!(
                             "{} {}",
                             if unseen {
@@ -382,15 +382,14 @@ impl<'a> SnapshotAssertionContext<'a> {
             }
             SnapshotUpdateBehavior::NewFile => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
-                    let mut new_path = snapshot_file.to_path_buf();
-                    new_path.set_extension("snap.new");
-                    new_snapshot.save_new(&new_path)?;
-                    if should_print {
-                        elog!(
-                            "{} {}",
-                            style("stored new snapshot").green(),
-                            style(new_path.display()).cyan().underlined(),
-                        );
+                    if let Some(new_path) = new_snapshot.save_new(snapshot_file)? {
+                        if should_print {
+                            elog!(
+                                "{} {}",
+                                style("stored new snapshot").green(),
+                                style(new_path.display()).cyan().underlined(),
+                            );
+                        }
                     }
                 } else if self.is_doctest {
                     if should_print {
@@ -401,7 +400,19 @@ impl<'a> SnapshotAssertionContext<'a> {
                                 .bold(),
                         );
                     }
-                } else {
+
+                // special case for pending inline snapshots.  Here we really only want
+                // to write the contents if the snapshot contents changed as the metadata
+                // is not retained for inline snapshots.  This used to have different
+                // behavior in the past where we did indeed want to rewrite the snapshots
+                // entirely since we used to change the canonical snapshot format, but now
+                // this is significantly less likely to happen and seeing hundreds of unchanged
+                // inline snapshots in the review screen is not a lot of fun.
+                } else if self
+                    .old_snapshot
+                    .as_ref()
+                    .map_or(true, |x| x.contents() != new_snapshot.contents())
+                {
                     PendingInlineSnapshot::new(
                         Some(new_snapshot),
                         self.old_snapshot.clone(),

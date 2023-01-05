@@ -244,6 +244,17 @@ impl MetaData {
 
         Content::Struct("MetaData", fields)
     }
+
+    /// Trims the metadata for persistence.
+    fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
+        if self.assertion_line.is_some() {
+            let mut rv = self.clone();
+            rv.assertion_line = None;
+            Cow::Owned(rv)
+        } else {
+            Cow::Borrowed(self)
+        }
+    }
 }
 
 /// A helper to work with stored snapshots.
@@ -428,36 +439,64 @@ impl Snapshot {
         &self.snapshot.0
     }
 
-    fn save_with_metadata(&self, path: &Path, md: &MetaData) -> Result<(), Box<dyn Error>> {
+    fn serialize_snapshot(&self, md: &MetaData) -> String {
+        let mut buf = yaml::to_string(&md.as_content());
+        buf.push_str("---\n");
+        buf.push_str(self.contents_str());
+        buf.push('\n');
+        buf
+    }
+
+    fn save_with_metadata(
+        &self,
+        path: &Path,
+        ref_file: Option<&Path>,
+        md: &MetaData,
+    ) -> Result<bool, Box<dyn Error>> {
         if let Some(folder) = path.parent() {
             fs::create_dir_all(folder)?;
         }
-        let mut f = fs::File::create(path)?;
-        let blob = yaml::to_string(&md.as_content());
-        f.write_all(blob.as_bytes())?;
-        f.write_all(b"---\n")?;
-        f.write_all(self.contents_str().as_bytes())?;
-        f.write_all(b"\n")?;
-        Ok(())
+
+        let serialized_snapshot = self.serialize_snapshot(md);
+
+        // check the reference file for contents.  Note that we always want to
+        // compare snapshots that were trimmed to persistence here.
+        if let Ok(old) = fs::read_to_string(ref_file.unwrap_or(path)) {
+            let persisted = match md.trim_for_persistence() {
+                Cow::Owned(trimmed) => Cow::Owned(self.serialize_snapshot(&trimmed)),
+                Cow::Borrowed(_) => Cow::Borrowed(&serialized_snapshot),
+            };
+            if old == persisted.as_str() {
+                return Ok(false);
+            }
+        }
+
+        fs::write(path, serialized_snapshot)?;
+        Ok(true)
     }
 
     /// Saves the snapshot.
+    ///
+    /// Returns `true` if the snapshot was saved.  This will return `false` if there
+    /// was already a snapshot with matching contents.
     #[doc(hidden)]
-    pub fn save(&self, path: &Path) -> Result<(), Box<dyn Error>> {
-        // we do not want to retain the assertion line on the metadata when storing
-        // as a regular snapshot.
-        if self.metadata.assertion_line.is_some() {
-            let mut metadata = self.metadata.clone();
-            metadata.assertion_line = None;
-            self.save_with_metadata(path, &metadata)
-        } else {
-            self.save_with_metadata(path, &self.metadata)
-        }
+    pub fn save(&self, path: &Path) -> Result<bool, Box<dyn Error>> {
+        self.save_with_metadata(path, None, &self.metadata.trim_for_persistence())
     }
 
-    /// Same as `save` but also holds information only relevant for `.new` files.
-    pub(crate) fn save_new(&self, path: &Path) -> Result<(), Box<dyn Error>> {
-        self.save_with_metadata(path, &self.metadata)
+    /// Same as `save` but instead of writing a normal snapshot file this will write
+    /// a `.snap.new` file with additional information.
+    ///
+    /// If the existing snapshot matches the new file, then `None` is returned, otherwise
+    /// the name of the new snapshot file.
+    pub(crate) fn save_new(&self, path: &Path) -> Result<Option<PathBuf>, Box<dyn Error>> {
+        let mut new_path = path.to_path_buf();
+        new_path.set_extension("snap.new");
+        if self.save_with_metadata(&new_path, Some(path), &self.metadata)? {
+            Ok(Some(new_path))
+        } else {
+            Ok(None)
+        }
     }
 }
 
