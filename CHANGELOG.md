@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.26.0
+
+- Make canonicalization in `glob!` optional to better support WASI.
+
 ## 1.25.0
 
 - Added a way to disable the undiscoverable snapshots warning.  By

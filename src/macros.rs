@@ -547,8 +547,10 @@ macro_rules! glob {
             .join(file!())
             .parent()
             .unwrap()
-            .canonicalize()
-            .unwrap_or_else(|e| panic!("failed to canonicalize insta::glob! base path: {}", e));
+            .to_path_buf();
+        // we try to canonicalize but on some platforms (eg: wasm) that might not work, so
+        // we instead silently fall back.
+        let base = base.canonicalize().unwrap_or_else(|_| base);
         $crate::_macro_support::glob_exec(env!("CARGO_MANIFEST_DIR"), &base, $glob, $closure);
     }};
 }
