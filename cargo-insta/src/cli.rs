@@ -32,9 +32,9 @@ use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, Fi
     global_setting = AppSettings::DontCollapseArgsInUsage
 )]
 pub struct Opts {
-    /// Coloring: auto, always, never
-    #[structopt(long, global = true, value_name = "WHEN")]
-    pub color: Option<String>,
+    /// Coloring
+    #[structopt(long, global = true, value_name = "WHEN", default_value="auto", possible_values=&["auto", "always", "never"])]
+    pub color: String,
 
     #[structopt(subcommand)]
     pub command: Command,
@@ -984,8 +984,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
     let opts = Opts::from_iter(args);
 
-    let color = opts.color.as_ref().map(|x| x.as_str()).unwrap_or("auto");
-    handle_color(color)?;
+    handle_color(&opts.color)?;
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
             process_snapshots(
@@ -1000,7 +999,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 },
             )
         }
-        Command::Test(cmd) => test_run(cmd, color),
+        Command::Test(cmd) => test_run(cmd, &opts.color),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
