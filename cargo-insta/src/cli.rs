@@ -41,7 +41,10 @@ pub struct Opts {
 }
 
 #[derive(StructOpt, Debug)]
-#[structopt(bin_name = "cargo insta")]
+#[structopt(
+    bin_name = "cargo insta",
+    after_help = "For the online documentation of the latest version, see https://insta.rs/docs/cli/."
+)]
 pub enum Command {
     /// Interactively review snapshots
     #[structopt(name = "review", alias = "verify")]
