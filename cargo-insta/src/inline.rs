@@ -57,10 +57,18 @@ impl FilePatcher {
     pub fn add_snapshot_macro(&mut self, line: usize) -> bool {
         match self.find_snapshot_macro(line) {
             Some(snapshot) => {
-                assert!(self
+                // this can happen if multiple snapshots were added in one
+                // iteration of a loop.  In that case we want to ignore the
+                // duplicate
+                //
+                // See https://github.com/mitsuhiko/insta/issues/340
+                if self
                     .inline_snapshots
                     .last()
-                    .map_or(true, |x| x.end.0 <= line));
+                    .map_or(false, |x| x.end.0 > line)
+                {
+                    return false;
+                }
                 self.inline_snapshots.push(snapshot);
                 true
             }
