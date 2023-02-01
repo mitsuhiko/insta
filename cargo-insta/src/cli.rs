@@ -171,8 +171,8 @@ pub struct TestCommand {
     #[structopt(long)]
     pub force_update_snapshots: bool,
     /// Controls what happens with unreferenced snapshots.
-    #[structopt(long)]
-    pub unreferenced: Option<String>,
+    #[structopt(long, default_value="ignore", possible_values=&["ignore", "warn", "reject", "delete", "auto"])]
+    pub unreferenced: String,
     /// Delete unreferenced snapshots after the test run.
     #[structopt(long, hidden = true)]
     pub delete_unreferenced_snapshots: bool,
@@ -525,7 +525,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
 
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
-        cmd.unreferenced = Some("delete".into());
+        cmd.unreferenced = "delete".into();
     }
 
     let test_runner = match cmd.test_runner {
@@ -535,12 +535,10 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         None => loc.tool_config.test_runner(),
     };
 
-    let unreferenced = match cmd.unreferenced {
-        Some(ref value) => value
-            .parse()
-            .map_err(|_| err_msg("invalid value for --unreferenced"))?,
-        None => loc.tool_config.test_unreferenced(),
-    };
+    let unreferenced = cmd
+        .unreferenced
+        .parse()
+        .map_err(|_| err_msg("invalid value for --unreferenced"))?;
 
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
         prepare_test_runner(test_runner, unreferenced, &cmd, color, &[], None)?;
