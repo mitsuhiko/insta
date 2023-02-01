@@ -183,8 +183,8 @@ pub struct TestCommand {
     #[structopt(short = "Q", long)]
     pub no_quiet: bool,
     /// Picks the test runner.
-    #[structopt(long)]
-    pub test_runner: Option<String>,
+    #[structopt(long, default_value="auto", possible_values=&["auto", "cargo-test", "nextest"])]
+    pub test_runner: String,
     /// Options passed to cargo test
     // Sets raw to true so that `--` is required
     #[structopt(name = "CARGO_TEST_ARGS", raw(true))]
@@ -528,12 +528,10 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         cmd.unreferenced = "delete".into();
     }
 
-    let test_runner = match cmd.test_runner {
-        Some(ref test_runner) => test_runner
-            .parse()
-            .map_err(|_| err_msg("invalid test runner preference"))?,
-        None => loc.tool_config.test_runner(),
-    };
+    let test_runner = cmd
+        .test_runner
+        .parse()
+        .map_err(|_| err_msg("invalid test runner preference"))?;
 
     let unreferenced = cmd
         .unreferenced
