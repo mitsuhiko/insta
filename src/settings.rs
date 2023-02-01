@@ -426,11 +426,7 @@ impl Settings {
     #[cfg(feature = "redactions")]
     #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub(crate) fn iter_redactions(&self) -> impl Iterator<Item = (&Selector, &Redaction)> {
-        self.inner
-            .redactions
-            .0
-            .iter()
-            .map(|&(ref a, ref b)| (a, &**b))
+        self.inner.redactions.0.iter().map(|(a, b)| (a, &**b))
     }
 
     /// Adds a new filter.
