@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.27.0
+
+- Fix an issue where the inline snapshot patcher could panic in
+  certain situations. (#341)
+
 ## 1.26.0
 
 - Make canonicalization in `glob!` optional to better support WASI.
