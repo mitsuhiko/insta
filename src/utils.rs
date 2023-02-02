@@ -8,7 +8,11 @@ use std::{
 
 /// Are we running in in a CI environment?
 pub fn is_ci() -> bool {
-    env::var("CI").is_ok() || env::var("TF_BUILD").is_ok()
+    match env::var("CI").ok().as_deref() {
+        Some("false") | Some("0") | Some("") => false,
+        None => env::var("TF_BUILD").is_ok(),
+        Some(_) => true,
+    }
 }
 
 #[cfg(feature = "colors")]

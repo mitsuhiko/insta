@@ -167,6 +167,9 @@ pub struct TestCommand {
     /// Accept all new (previously unseen).
     #[structopt(long)]
     pub accept_unseen: bool,
+    /// Instructs the test command to just assert.
+    #[structopt(long)]
+    pub check: bool,
     /// Do not reject pending snapshots before run.
     #[structopt(long)]
     pub keep_pending: bool,
@@ -501,7 +504,12 @@ fn process_snapshots(
 fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args)?;
     match loc.tool_config.snapshot_update() {
-        SnapshotUpdate::Auto | SnapshotUpdate::New | SnapshotUpdate::No => {}
+        SnapshotUpdate::Auto => {
+            if is_ci() {
+                cmd.check = true;
+            }
+        }
+        SnapshotUpdate::New | SnapshotUpdate::No => {}
         SnapshotUpdate::Always => {
             if !cmd.accept && !cmd.accept_unseen && !cmd.review {
                 cmd.review = false;
@@ -515,6 +523,12 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 cmd.accept = false;
             }
         }
+    }
+
+    // --check always implies --no-force-pass as otherwise this command does not
+    // make a lot of sense.
+    if cmd.check {
+        cmd.no_force_pass = true
     }
 
     // the tool config can also indicate that --accept-unseen should be picked
@@ -797,7 +811,11 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     proc.env(
         "INSTA_UPDATE",
-        if cmd.accept_unseen { "unseen" } else { "new" },
+        match (cmd.check, cmd.accept_unseen) {
+            (true, _) => "no",
+            (_, true) => "unseen",
+            (_, false) => "new",
+        },
     );
     if cmd.force_update_snapshots {
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
