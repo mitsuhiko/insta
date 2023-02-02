@@ -10,7 +10,9 @@ test: cargotest cargo-insta-tests
 
 cargo-insta-tests:
 	@echo "CARGO-INSTA INTEGRATION TESTS"
-	@cd cargo-insta/integration-tests; cargo run
+	# Turn off CI flag so that cargo insta test behaves as we expect
+	# under normal operation
+	@cd cargo-insta/integration-tests; CI=0 cargo run
 
 cargotest:
 	@echo "CARGO TESTS"
