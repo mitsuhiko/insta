@@ -32,16 +32,19 @@ use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, Fi
     global_setting = AppSettings::DontCollapseArgsInUsage
 )]
 pub struct Opts {
-    /// Coloring: auto, always, never
-    #[structopt(long, global = true, value_name = "WHEN")]
-    pub color: Option<String>,
+    /// Coloring
+    #[structopt(long, global = true, value_name = "WHEN", default_value="auto", possible_values=&["auto", "always", "never"])]
+    pub color: String,
 
     #[structopt(subcommand)]
     pub command: Command,
 }
 
 #[derive(StructOpt, Debug)]
-#[structopt(bin_name = "cargo insta")]
+#[structopt(
+    bin_name = "cargo insta",
+    after_help = "For the online documentation of the latest version, see https://insta.rs/docs/cli/."
+)]
 pub enum Command {
     /// Interactively review snapshots
     #[structopt(name = "review", alias = "verify")]
@@ -171,8 +174,8 @@ pub struct TestCommand {
     #[structopt(long)]
     pub force_update_snapshots: bool,
     /// Controls what happens with unreferenced snapshots.
-    #[structopt(long)]
-    pub unreferenced: Option<String>,
+    #[structopt(long, default_value="ignore", possible_values=&["ignore", "warn", "reject", "delete", "auto"])]
+    pub unreferenced: String,
     /// Delete unreferenced snapshots after the test run.
     #[structopt(long, hidden = true)]
     pub delete_unreferenced_snapshots: bool,
@@ -183,8 +186,8 @@ pub struct TestCommand {
     #[structopt(short = "Q", long)]
     pub no_quiet: bool,
     /// Picks the test runner.
-    #[structopt(long)]
-    pub test_runner: Option<String>,
+    #[structopt(long, default_value="auto", possible_values=&["auto", "cargo-test", "nextest"])]
+    pub test_runner: String,
     /// Options passed to cargo test
     // Sets raw to true so that `--` is required
     #[structopt(name = "CARGO_TEST_ARGS", raw(true))]
@@ -525,22 +528,18 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
 
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
-        cmd.unreferenced = Some("delete".into());
+        cmd.unreferenced = "delete".into();
     }
 
-    let test_runner = match cmd.test_runner {
-        Some(ref test_runner) => test_runner
-            .parse()
-            .map_err(|_| err_msg("invalid test runner preference"))?,
-        None => loc.tool_config.test_runner(),
-    };
+    let test_runner = cmd
+        .test_runner
+        .parse()
+        .map_err(|_| err_msg("invalid test runner preference"))?;
 
-    let unreferenced = match cmd.unreferenced {
-        Some(ref value) => value
-            .parse()
-            .map_err(|_| err_msg("invalid value for --unreferenced"))?,
-        None => loc.tool_config.test_unreferenced(),
-    };
+    let unreferenced = cmd
+        .unreferenced
+        .parse()
+        .map_err(|_| err_msg("invalid value for --unreferenced"))?;
 
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
         prepare_test_runner(test_runner, unreferenced, &cmd, color, &[], None)?;
@@ -988,8 +987,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
     let opts = Opts::from_iter(args);
 
-    let color = opts.color.as_ref().map(|x| x.as_str()).unwrap_or("auto");
-    handle_color(color)?;
+    handle_color(&opts.color)?;
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
             process_snapshots(
@@ -1004,7 +1002,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 },
             )
         }
-        Command::Test(cmd) => test_run(cmd, color),
+        Command::Test(cmd) => test_run(cmd, &opts.color),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
