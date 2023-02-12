@@ -295,7 +295,7 @@ pub mod _cargo_insta_support {
             Error as ToolConfigError, OutputBehavior, SnapshotUpdate, TestRunner, ToolConfig,
             UnreferencedSnapshots,
         },
-        output::{print_snapshot, print_snapshot_diff},
+        output::{print_snapshot, SnapshotPrinter},
         snapshot::PendingInlineSnapshot,
         snapshot::SnapshotContents,
         utils::is_ci,
@@ -311,7 +311,7 @@ pub use crate::redaction::{dynamic_redaction, sorted_redaction};
 pub mod _macro_support {
     pub use crate::content::Content;
     pub use crate::env::get_cargo_workspace;
-    pub use crate::runtime::{assert_snapshot, AutoName, ReferenceValue};
+    pub use crate::runtime::{assert_snapshot, with_allow_duplicates, AutoName, ReferenceValue};
 
     #[cfg(feature = "serde")]
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};

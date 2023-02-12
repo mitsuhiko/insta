@@ -554,3 +554,26 @@ macro_rules! glob {
         $crate::_macro_support::glob_exec(env!("CARGO_MANIFEST_DIR"), &base, $glob, $closure);
     }};
 }
+
+/// Utility macro to create a multi-snapshot run where all snapshots match.
+///
+/// Within this block, insta will allow an assertion to be run twice (even inline) without
+/// generating another snapshot.  Instead it will assert that snapshot expressions visited
+/// more than once are matching.
+///
+/// ```rust
+/// insta::allow_duplicates! {
+///     for x in (0..10).step_by(2) {
+///         let is_even = x % 2 == 0;
+///         insta::assert_debug_snapshot!(is_even, @"true");
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! allow_duplicates {
+    ($($x:tt)*) => {
+        $crate::_macro_support::with_allow_duplicates(|| {
+            $($x)*
+        })
+    }
+}
