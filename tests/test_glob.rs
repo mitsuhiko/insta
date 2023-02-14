@@ -1,5 +1,7 @@
 #![cfg(feature = "glob")]
 
+mod glob_submodule;
+
 #[test]
 fn test_basic_globbing() {
     insta::glob!("inputs/*.txt", |path| {

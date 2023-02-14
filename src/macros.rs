@@ -538,19 +538,41 @@ macro_rules! with_settings {
 /// are deferred until the end of of it.  In other words this means that each snapshot
 /// assertion within the `glob!` block are reported.  It can be disabled by setting
 /// `INSTA_GLOB_FAIL_FAST` environment variable to `1`.
+///
+/// A three-argument version of this macro allows specifying a base directory
+/// for the glob to start in. This allows globbing in arbitrary directories,
+/// including parent directories:
+///
+/// ```
+/// # use insta::{assert_snapshot, glob, Settings};
+/// # let mut settings = Settings::clone_current();
+/// # settings.set_allow_empty_glob(true);
+/// # let _dropguard = settings.bind_to_scope();
+/// use std::fs;
+///
+/// glob!("../test_data", "inputs/*.txt", |path| {
+///     let input = fs::read_to_string(path).unwrap();
+///     assert_snapshot!(input.to_uppercase());
+/// });
+/// ```
 #[cfg(feature = "glob")]
 #[cfg_attr(docsrs, doc(cfg(feature = "glob")))]
 #[macro_export]
 macro_rules! glob {
-    ($glob:expr, $closure:expr) => {{
+    ($base_path:expr, $glob:expr, $closure:expr) => {{
+        use std::path::Path;
         let base = $crate::_macro_support::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"))
-            .join(file!())
-            .parent()
-            .unwrap()
+            .join(Path::new(file!()).parent().unwrap())
+            .join($base_path)
             .to_path_buf();
+
         // we try to canonicalize but on some platforms (eg: wasm) that might not work, so
         // we instead silently fall back.
         let base = base.canonicalize().unwrap_or_else(|_| base);
         $crate::_macro_support::glob_exec(env!("CARGO_MANIFEST_DIR"), &base, $glob, $closure);
+    }};
+
+    ($glob:expr, $closure:expr) => {{
+        insta::glob!(".", $glob, $closure)
     }};
 }
