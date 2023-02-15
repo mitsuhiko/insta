@@ -295,7 +295,7 @@ pub mod _cargo_insta_support {
             Error as ToolConfigError, OutputBehavior, SnapshotUpdate, TestRunner, ToolConfig,
             UnreferencedSnapshots,
         },
-        output::{print_snapshot, SnapshotPrinter},
+        output::SnapshotPrinter,
         snapshot::PendingInlineSnapshot,
         snapshot::SnapshotContents,
         utils::is_ci,
