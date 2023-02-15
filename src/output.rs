@@ -80,7 +80,11 @@ impl<'a> SnapshotPrinter<'a> {
 
     fn print_snapshot_diff(&self) {
         self.print_snapshot_summary();
-        self.print_changeset();
+        if self.show_diff {
+            self.print_changeset();
+        } else {
+            self.print_snapshot();
+        }
     }
 
     fn print_snapshot_summary(&self) {
@@ -94,6 +98,23 @@ impl<'a> SnapshotPrinter<'a> {
 
     fn print_info(&self) {
         print_info(self.new_snapshot.metadata());
+    }
+
+    fn print_snapshot(&self) {
+        print_line(term_width());
+
+        let new_contents = self.new_snapshot.contents_str();
+
+        let width = term_width();
+        if self.show_info {
+            self.print_info();
+        }
+        println!("Snapshot Contents:");
+        println!("──────┬{:─^1$}", "", width.saturating_sub(13));
+        for (idx, line) in new_contents.lines().enumerate() {
+            println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
+        }
+        println!("──────┴{:─^1$}", "", width.saturating_sub(13),);
     }
 
     fn print_changeset(&self) {
@@ -243,35 +264,6 @@ pub fn print_snapshot_summary(
     if let Some(ref value) = snapshot.metadata().input_file() {
         println!("Input file: {}", style(value).cyan());
     }
-}
-
-/// Prints the snapshot not as diff.
-#[cfg(feature = "_cargo_insta_internal")]
-pub fn print_snapshot(
-    workspace_root: &Path,
-    new: &Snapshot,
-    snapshot_file: Option<&Path>,
-    mut line: Option<u32>,
-    show_info: bool,
-) {
-    // default to old assertion line from snapshot.
-    if line.is_none() {
-        line = new.metadata().assertion_line();
-    }
-
-    print_snapshot_summary(workspace_root, new, snapshot_file, line);
-    let new_contents = new.contents_str();
-
-    let width = term_width();
-    if show_info {
-        print_info(new.metadata());
-    }
-    println!("Snapshot Contents:");
-    println!("──────┬{:─^1$}", "", width.saturating_sub(13));
-    for (idx, line) in new_contents.lines().enumerate() {
-        println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
-    }
-    println!("──────┴{:─^1$}", "", width.saturating_sub(13),);
 }
 
 fn print_line(width: usize) {

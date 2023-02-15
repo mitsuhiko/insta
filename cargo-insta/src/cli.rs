@@ -8,8 +8,7 @@ use std::{io, process};
 use console::{set_colors_enabled, style, Key, Term};
 use insta::Snapshot;
 use insta::_cargo_insta_support::{
-    is_ci, print_snapshot, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
-    UnreferencedSnapshots,
+    is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
 use serde::Serialize;
 use structopt::clap::AppSettings;
@@ -228,6 +227,7 @@ fn query_snapshot(
     n: usize,
     snapshot_file: Option<&Path>,
     show_info: &mut bool,
+    show_diff: &mut bool,
 ) -> Result<Operation, Box<dyn Error>> {
     loop {
         term.clear_screen()?;
@@ -250,6 +250,8 @@ fn query_snapshot(
         printer.set_snapshot_file(snapshot_file);
         printer.set_line(line);
         printer.set_show_info(*show_info);
+        printer.set_show_diff(*show_diff);
+        printer.print();
 
         println!();
         println!(
@@ -273,6 +275,12 @@ fn query_snapshot(
             if *show_info { "hide" } else { "show" },
             style("toggles extended snapshot info").dim()
         );
+        println!(
+            "  {} {} diff  {}",
+            style("d").cyan().bold(),
+            if *show_diff { "hide" } else { "show" },
+            style("toggle snapshot diff").dim()
+        );
 
         loop {
             match term.read_key()? {
@@ -281,6 +289,10 @@ fn query_snapshot(
                 Key::Char('s') | Key::Char(' ') => return Ok(Operation::Skip),
                 Key::Char('i') => {
                     *show_info = !*show_info;
+                    break;
+                }
+                Key::Char('d') => {
+                    *show_diff = !*show_diff;
                     break;
                 }
                 _ => {}
@@ -424,6 +436,7 @@ fn process_snapshots(
     let mut skipped = vec![];
     let mut num = 0;
     let mut show_info = true;
+    let mut show_diff = true;
 
     for (snapshot_container, package) in snapshot_containers.iter_mut() {
         let target_file = snapshot_container.target_file().to_path_buf();
@@ -456,6 +469,7 @@ fn process_snapshots(
                     snapshot_count,
                     snapshot_file.as_ref().map(|x| x.as_path()),
                     &mut show_info,
+                    &mut show_diff,
                 )?,
             };
             match op {
@@ -880,7 +894,11 @@ fn prepare_test_runner<'snapshot_ref>(
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args)?;
     let snapshot = Snapshot::from_file(&cmd.path)?;
-    print_snapshot(&loc.workspace_root, &snapshot, Some(&cmd.path), None, true);
+    let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
+    printer.set_snapshot_file(Some(&cmd.path));
+    printer.set_show_info(true);
+    printer.set_show_diff(false);
+    printer.print();
     Ok(())
 }
 
