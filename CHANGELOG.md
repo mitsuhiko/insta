@@ -7,6 +7,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Added `allow_duplicates!` to enable multiple assertions for a
   single snapshot. (#346)
 - Ensure that expressions formatted with `rustfmt` use unix newlines.
+- Added a way to disable diffing in review. (#348)
 
 ## 1.27.0
 
