@@ -100,7 +100,7 @@ pub fn format_rust_expression(value: &str) -> Cow<'_, str> {
                 let end = output.stdout.len() - SUFFIX.len();
                 return std::str::from_utf8(&output.stdout[start..end])
                     .unwrap()
-                    .to_owned()
+                    .replace("\r\n", "\n")
                     .into();
             }
         }
