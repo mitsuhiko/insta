@@ -8,7 +8,7 @@ use std::{io, process};
 use console::{set_colors_enabled, style, Key, Term};
 use insta::Snapshot;
 use insta::_cargo_insta_support::{
-    is_ci, print_snapshot, print_snapshot_diff, SnapshotUpdate, TestRunner, ToolConfig,
+    is_ci, print_snapshot, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
     UnreferencedSnapshots,
 };
 use serde::Serialize;
@@ -246,7 +246,10 @@ fn query_snapshot(
             pkg_version,
         );
 
-        print_snapshot_diff(workspace_root, new, old, snapshot_file, line, *show_info);
+        let mut printer = SnapshotPrinter::new(workspace_root, old, new);
+        printer.set_snapshot_file(snapshot_file);
+        printer.set_line(line);
+        printer.set_show_info(*show_info);
 
         println!();
         println!(

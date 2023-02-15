@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;
@@ -11,7 +12,7 @@ use crate::env::{
     get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
     OutputBehavior, SnapshotUpdateBehavior, ToolConfig,
 };
-use crate::output::{print_snapshot_diff_with_title, print_snapshot_summary_with_title};
+use crate::output::SnapshotPrinter;
 use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
 use crate::utils::{path_to_storage, style};
@@ -23,6 +24,10 @@ lazy_static::lazy_static! {
         Mutex::new(BTreeMap::new());
     static ref INLINE_DUPLICATES: Mutex<BTreeSet<String>> =
         Mutex::new(BTreeSet::new());
+}
+
+thread_local! {
+    static RECORDED_DUPLICATES: RefCell<Vec<BTreeMap<String, Snapshot>>> = RefCell::default()
 }
 
 // This macro is basically eprintln but without being captured and
@@ -126,6 +131,12 @@ fn detect_snapshot_name(
         }
     }
 
+    // The rest of the code just deals with duplicates, which we in some
+    // cases do not want to guard against.
+    if allow_duplicates() {
+        return Ok(name.to_string());
+    }
+
     // if the snapshot name clashes we need to increment a counter.
     // we really do not care about poisoning here.
     let mut counters = TEST_NAME_COUNTERS.lock().unwrap_or_else(|x| x.into_inner());
@@ -200,6 +211,7 @@ struct SnapshotAssertionContext<'a> {
     module_path: &'a str,
     snapshot_name: Option<Cow<'a, str>>,
     snapshot_file: Option<PathBuf>,
+    duplication_key: Option<String>,
     old_snapshot: Option<Snapshot>,
     pending_snapshots_path: Option<PathBuf>,
     assertion_file: &'a str,
@@ -219,6 +231,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         let tool_config = get_tool_config(manifest_dir);
         let cargo_workspace = get_cargo_workspace(manifest_dir);
         let snapshot_name;
+        let mut duplication_key = None;
         let mut snapshot_file = None;
         let mut old_snapshot = None;
         let mut pending_snapshots_path = None;
@@ -232,6 +245,9 @@ impl<'a> SnapshotAssertionContext<'a> {
                         .unwrap()
                         .into(),
                 };
+                if allow_duplicates() {
+                    duplication_key = Some(format!("named:{}|{}", module_path, name));
+                }
                 let file = get_snapshot_filename(
                     module_path,
                     assertion_file,
@@ -247,7 +263,14 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_file = Some(file);
             }
             ReferenceValue::Inline(contents) => {
-                prevent_inline_duplicate(function_name, assertion_file, assertion_line);
+                if allow_duplicates() {
+                    duplication_key = Some(format!(
+                        "inline:{}|{}|{}",
+                        function_name, assertion_file, assertion_line
+                    ));
+                } else {
+                    prevent_inline_duplicate(function_name, assertion_file, assertion_line);
+                }
                 snapshot_name = detect_snapshot_name(function_name, module_path, true, is_doctest)
                     .ok()
                     .map(Cow::Owned);
@@ -280,6 +303,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             pending_snapshots_path,
             assertion_file,
             assertion_line,
+            duplication_key,
             is_doctest,
         })
     }
@@ -441,24 +465,22 @@ fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion
 
 /// This prints the information about the snapshot
 fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) {
+    let mut printer = SnapshotPrinter::new(
+        ctx.cargo_workspace.as_path(),
+        ctx.old_snapshot.as_ref(),
+        new_snapshot,
+    );
+    printer.set_line(Some(ctx.assertion_line));
+    printer.set_snapshot_file(ctx.snapshot_file.as_deref());
+    printer.set_title(Some("Snapshot Summary"));
+    printer.set_show_info(true);
     match ctx.tool_config.output_behavior() {
         OutputBehavior::Summary => {
-            print_snapshot_summary_with_title(
-                ctx.cargo_workspace.as_path(),
-                new_snapshot,
-                ctx.old_snapshot.as_ref(),
-                ctx.assertion_line,
-                ctx.snapshot_file.as_deref(),
-            );
+            printer.print();
         }
         OutputBehavior::Diff => {
-            print_snapshot_diff_with_title(
-                ctx.cargo_workspace.as_path(),
-                new_snapshot,
-                ctx.old_snapshot.as_ref(),
-                ctx.assertion_line,
-                ctx.snapshot_file.as_deref(),
-            );
+            printer.set_show_diff(true);
+            printer.print();
         }
         _ => {}
     }
@@ -549,6 +571,56 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
     }
 }
 
+fn record_snapshot_duplicate(
+    results: &mut BTreeMap<String, Snapshot>,
+    snapshot: &Snapshot,
+    ctx: &SnapshotAssertionContext,
+) {
+    let key = ctx.duplication_key.as_deref().unwrap();
+    if let Some(prev_snapshot) = results.get(key) {
+        if prev_snapshot.contents() != snapshot.contents() {
+            println!("Snapshots in allow-duplicates block do not match.");
+            let mut printer =
+                SnapshotPrinter::new(ctx.cargo_workspace.as_path(), Some(prev_snapshot), snapshot);
+            printer.set_line(Some(ctx.assertion_line));
+            printer.set_snapshot_file(ctx.snapshot_file.as_deref());
+            printer.set_title(Some("Differences in Block"));
+            printer.set_snapshot_hints("previous assertion", "current assertion");
+            if ctx.tool_config.output_behavior() == OutputBehavior::Diff {
+                printer.set_show_diff(true);
+            }
+            printer.print();
+            panic!(
+                "snapshot assertion for '{}' failed in line {}. Result \
+                    does not match previous snapshot in allow-duplicates block.",
+                ctx.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),
+                ctx.assertion_line
+            );
+        }
+    } else {
+        results.insert(key.to_string(), snapshot.clone());
+    }
+}
+
+/// Do we allow recording of duplicates?
+fn allow_duplicates() -> bool {
+    RECORDED_DUPLICATES.with(|x| !x.borrow().is_empty())
+}
+
+/// Helper function to support perfect duplicate detection.
+pub fn with_allow_duplicates<R, F>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    RECORDED_DUPLICATES.with(|x| x.borrow_mut().push(BTreeMap::new()));
+    let rv = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    RECORDED_DUPLICATES.with(|x| x.borrow_mut().pop().unwrap());
+    match rv {
+        Ok(rv) => rv,
+        Err(payload) => std::panic::resume_unwind(payload),
+    }
+}
+
 /// This function is invoked from the macros to run the main assertion logic.
 ///
 /// This will create the assertion context, run the main logic to assert
@@ -587,6 +659,15 @@ pub fn assert_snapshot(
     if let Some(ref snapshot_file) = ctx.snapshot_file {
         memoize_snapshot_file(snapshot_file);
     }
+
+    // If we allow assertion with duplicates, we record the duplicate now.  This will
+    // in itself fail the assertion if the previous visit of the same assertion macro
+    // did not yield the same result.
+    RECORDED_DUPLICATES.with(|x| {
+        if let Some(results) = x.borrow_mut().last_mut() {
+            record_snapshot_duplicate(results, &new_snapshot, &ctx);
+        }
+    });
 
     // pass if the snapshots are missing
     if ctx.old_snapshot.as_ref().map(|x| x.contents()) == Some(new_snapshot.contents()) {
