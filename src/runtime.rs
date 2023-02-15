@@ -458,7 +458,10 @@ fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion
     if set.contains(&key) {
         // drop the lock so we don't poison it
         drop(set);
-        panic!("Insta does not allow inline snapshot assertions in loops");
+        panic!(
+            "Insta does not allow inline snapshot assertions in loops. \
+            Wrap your assertions in allow_duplicates! to change this."
+        );
     }
     set.insert(key);
 }

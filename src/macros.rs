@@ -555,11 +555,11 @@ macro_rules! glob {
     }};
 }
 
-/// Utility macro to create a multi-snapshot run where all snapshots match.
+/// Utility macro to permit a multi-snapshot run where all snapshots match.
 ///
-/// Within this block, insta will allow an assertion to be run twice (even inline) without
-/// generating another snapshot.  Instead it will assert that snapshot expressions visited
-/// more than once are matching.
+/// Within this block, insta will allow an assertion to be run more than once
+/// (even inline) without generating another snapshot.  Instead it will assert
+/// that snapshot expressions visited more than once are matching.
 ///
 /// ```rust
 /// insta::allow_duplicates! {
@@ -569,6 +569,10 @@ macro_rules! glob {
 ///     }
 /// }
 /// ```
+///
+/// The first snapshot assertion will be used as a gold master and every further
+/// assertion will be checked against it.  If they don't match the assertion will
+/// fail.
 #[macro_export]
 macro_rules! allow_duplicates {
     ($($x:tt)*) => {
