@@ -8,6 +8,8 @@ All notable changes to insta and cargo-insta are documented here.
   single snapshot. (#346)
 - Ensure that expressions formatted with `rustfmt` use unix newlines.
 - Added a way to disable diffing in review. (#348)
+- Added three argument version of `glob!` to set a different base
+  path. (#347)
 
 ## 1.27.0
 
