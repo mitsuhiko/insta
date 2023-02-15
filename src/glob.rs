@@ -39,6 +39,15 @@ lazy_static::lazy_static! {
 }
 
 pub fn glob_exec<F: FnMut(&Path)>(manifest_dir: &str, base: &Path, pattern: &str, mut f: F) {
+    // If settings.allow_empty_glob() == true and `base` doesn't exist, skip
+    // everything. This is necessary as `base` is user-controlled via `glob!/3`
+    // and may not exist.
+    let mut settings = Settings::clone_current();
+
+    if settings.allow_empty_glob() && !base.exists() {
+        return;
+    }
+
     let glob = GlobBuilder::new(pattern)
         .case_insensitive(true)
         .literal_separator(true)
@@ -48,7 +57,6 @@ pub fn glob_exec<F: FnMut(&Path)>(manifest_dir: &str, base: &Path, pattern: &str
 
     let walker = WalkDir::new(base).follow_links(true);
     let mut glob_found_matches = false;
-    let mut settings = Settings::clone_current();
 
     GLOB_STACK.lock().unwrap().push(GlobCollector {
         failed: 0,
