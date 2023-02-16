@@ -166,6 +166,27 @@ pub fn sorted_redaction() -> Redaction {
     dynamic_redaction(sort)
 }
 
+/// Creates a redaction that rounds floating point numbers to a given
+/// number of decimal places.
+///
+/// ```rust
+/// # use insta::{Settings, rounded_redaction};
+/// # let mut settings = Settings::new();
+/// settings.add_redaction(".sum", rounded_redaction(2));
+/// ```
+#[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
+pub fn rounded_redaction(decimals: usize) -> Redaction {
+    dynamic_redaction(move |value: Content, _path: ContentPath| -> Content {
+        let f = match value.resolve_inner() {
+            Content::F32(f) => *f as f64,
+            Content::F64(f) => *f,
+            _ => return value,
+        };
+        let x = 10f64.powf(decimals as f64);
+        Content::F64((f * x).round() / x)
+    })
+}
+
 impl Redaction {
     /// Performs the redaction of the value at the given path.
     fn redact(&self, value: Content, path: &[PathItem]) -> Content {

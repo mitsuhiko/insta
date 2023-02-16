@@ -414,3 +414,25 @@ fn test_ordering_newtype_set() {
         }
     );
 }
+
+#[cfg(feature = "json")]
+#[test]
+fn test_rounded_redaction() {
+    #[derive(Debug, Serialize)]
+    pub struct MyPoint {
+        x: f64,
+        y: f64,
+    }
+
+    assert_json_snapshot!(
+        "rounded_redaction",
+        &MyPoint {
+            x: 1.0 / 3.0,
+            y: 6.0 / 3.0,
+        },
+        {
+            ".x" => insta::rounded_redaction(4),
+            ".y" => insta::rounded_redaction(4),
+        }
+    );
+}

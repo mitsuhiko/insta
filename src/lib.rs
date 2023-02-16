@@ -304,7 +304,7 @@ pub mod _cargo_insta_support {
 
 // useful for redactions
 #[cfg(feature = "redactions")]
-pub use crate::redaction::{dynamic_redaction, sorted_redaction};
+pub use crate::redaction::{dynamic_redaction, rounded_redaction, sorted_redaction};
 
 // these are here to make the macros work
 #[doc(hidden)]
