@@ -1,6 +1,6 @@
 [package]
 name = "cargo-insta"
-version = "1.26.0"
+version = "1.28.0"
 license = "Apache-2.0"
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
 description = "A review tool for the insta snapshot testing library for Rust"
@@ -12,7 +12,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-insta = { version = "=1.26.0", path = "..", features = ["json", "yaml", "redactions", "_cargo_insta_internal"] }
+insta = { version = "=1.28.0", path = "..", features = ["json", "yaml", "redactions", "_cargo_insta_internal"] }
 console = "0.15.4"
 structopt = { version = "0.3.26", default-features = false }
 serde = { version = "1.0.117", features = ["derive"] }

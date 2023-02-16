@@ -10,7 +10,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Added a way to disable diffing in review. (#348)
 - Added three argument version of `glob!` to set a different base
   path. (#347)
-- Added `rounded_redaction` to truncate floating point values.
+- Added `rounded_redaction` to truncate floating point values. (#350)
 
 ## 1.27.0
 
