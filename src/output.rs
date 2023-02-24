@@ -110,11 +110,11 @@ impl<'a> SnapshotPrinter<'a> {
             self.print_info();
         }
         println!("Snapshot Contents:");
-        println!("──────┬{:─^1$}", "", width.saturating_sub(13));
+        println!("──────┬{:─^1$}", "", width.saturating_sub(7));
         for (idx, line) in new_contents.lines().enumerate() {
             println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
         }
-        println!("──────┴{:─^1$}", "", width.saturating_sub(13),);
+        println!("──────┴{:─^1$}", "", width.saturating_sub(7));
     }
 
     fn print_changeset(&self) {
@@ -215,7 +215,7 @@ impl<'a> SnapshotPrinter<'a> {
             );
         }
 
-        println!("────────────┴{:─^1$}", "", width.saturating_sub(13),);
+        println!("────────────┴{:─^1$}", "", width.saturating_sub(13));
     }
 }
 

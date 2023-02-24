@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.29.0
+
+- Fixed a rednering bug with snapshot display (lines were not
+  rendered to the terminal width).
+
 ## 1.28.0
 
 - Added `allow_duplicates!` to enable multiple assertions for a
