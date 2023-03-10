@@ -2,9 +2,14 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.30.0
+
+- Snapshots are accepted when running with `--accept` even if a test outside
+  insta fails.
+
 ## 1.29.0
 
-- Fixed a rednering bug with snapshot display (lines were not
+- Fixed a rendering bug with snapshot display (lines were not
   rendered to the terminal width).
 
 ## 1.28.0

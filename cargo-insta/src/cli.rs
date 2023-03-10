@@ -601,11 +601,6 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 "{} non snapshot tests failed, skipping review",
                 style("warning:").bold().yellow()
             );
-        } else if cmd.accept {
-            eprintln!(
-                "{} non snapshot tests failed, not accepted changes",
-                style("warning:").bold().yellow()
-            );
         }
         return Err(QuietExit(1).into());
     }
