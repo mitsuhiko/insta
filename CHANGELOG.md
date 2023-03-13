@@ -6,6 +6,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Fixed a rednering bug with snapshot display (lines were not
   rendered to the terminal width).
+- Added `--exclude` option to `cargo insta test`. (#360)
 
 ## 1.28.0
 
