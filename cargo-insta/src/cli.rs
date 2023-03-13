@@ -133,6 +133,9 @@ pub struct TestCommand {
     /// Package to run tests for
     #[structopt(short = "p", long)]
     pub package: Option<String>,
+    /// Exclude packages from the test
+    #[structopt(long, value_name = "SPEC")]
+    pub exclude: Option<String>,
     /// Disable force-passing of snapshot tests
     #[structopt(long)]
     pub no_force_pass: bool,
@@ -815,6 +818,10 @@ fn prepare_test_runner<'snapshot_ref>(
     if let Some(ref pkg) = cmd.package {
         proc.arg("--package");
         proc.arg(pkg);
+    }
+    if let Some(ref spec) = cmd.exclude {
+        proc.arg("--exclude");
+        proc.arg(spec);
     }
     if let Some(ref manifest_path) = cmd.target_args.manifest_path {
         proc.arg("--manifest-path");
