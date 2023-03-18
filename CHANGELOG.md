@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.30.0 [unreleased]
+
+- Inherit `color` option from a `CARGO_TERM_COLOR` environment variable (#361)
+
 ## 1.29.0
 
 - Fixed a rednering bug with snapshot display (lines were not
@@ -43,7 +47,7 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.24.1
 
 - Fix non working `--include-hidden` flag (#331)
-- Fix incorrect mapping of `review.include_ignored` (#330) 
+- Fix incorrect mapping of `review.include_ignored` (#330)
 
 ## 1.24.0
 
