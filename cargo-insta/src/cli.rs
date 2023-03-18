@@ -32,7 +32,7 @@ use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, Fi
 )]
 pub struct Opts {
     /// Coloring
-    #[structopt(long, global = true, value_name = "WHEN", default_value="auto", possible_values=&["auto", "always", "never"])]
+    #[structopt(long, global = true, value_name = "WHEN", default_value="auto", possible_values=&["auto", "always", "never"], env = "CARGO_TERM_COLOR")]
     pub color: String,
 
     #[structopt(subcommand)]
