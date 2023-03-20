@@ -32,8 +32,8 @@ use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, Fi
 )]
 pub struct Opts {
     /// Coloring
-    #[structopt(long, global = true, value_name = "WHEN", default_value="auto", possible_values=&["auto", "always", "never"], env = "CARGO_TERM_COLOR")]
-    pub color: String,
+    #[structopt(long, global = true, value_name = "WHEN", possible_values=&["auto", "always", "never"])]
+    pub color: Option<String>,
 
     #[structopt(subcommand)]
     pub command: Command,
@@ -304,12 +304,21 @@ fn query_snapshot(
     }
 }
 
-fn handle_color(color: &str) -> Result<(), Box<dyn Error>> {
+fn handle_color(color: Option<&str>) -> Result<(), Box<dyn Error>> {
     match color {
-        "always" => set_colors_enabled(true),
-        "auto" => {}
-        "never" => set_colors_enabled(false),
-        color => return Err(err_msg(format!("invalid value for --color: {}", color))),
+        None => match env::var("CARGO_TERM_COLOR") {
+            Ok(v) => handle_color(Some(v.as_str())).or_else(|_| {
+                return Err(err_msg(format!(
+                    "invalid value for CARGO_TERM_COLOR: {}",
+                    color.unwrap()
+                )));
+            })?,
+            Err(_) => {}
+        },
+        Some("always") => set_colors_enabled(true),
+        Some("auto") => (),
+        Some("never") => set_colors_enabled(false),
+        Some(color) => return Err(err_msg(format!("invalid value for --color: {}", color))),
     }
     Ok(())
 }
@@ -521,7 +530,7 @@ fn process_snapshots(
     Ok(())
 }
 
-fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
+fn test_run(mut cmd: TestCommand, color: Option<&str>) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args)?;
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
@@ -750,7 +759,7 @@ fn prepare_test_runner<'snapshot_ref>(
     test_runner: TestRunner,
     unreferenced: UnreferencedSnapshots,
     cmd: &TestCommand,
-    color: &str,
+    color: Option<&str>,
     extra_args: &[&str],
     snapshot_ref_file: Option<&'snapshot_ref Path>,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
@@ -881,7 +890,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg(target);
     }
     proc.arg("--color");
-    proc.arg(color);
+    proc.arg(color.unwrap());
     proc.args(extra_args);
     let mut dashdash = false;
     if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
@@ -1033,7 +1042,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
     let opts = Opts::from_iter(args);
 
-    handle_color(&opts.color)?;
+    handle_color(opts.color.as_deref())?;
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
             process_snapshots(
@@ -1048,7 +1057,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 },
             )
         }
-        Command::Test(cmd) => test_run(cmd, &opts.color),
+        Command::Test(cmd) => test_run(cmd, opts.color.as_deref()),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
