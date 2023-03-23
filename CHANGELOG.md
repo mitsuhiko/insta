@@ -2,15 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## 1.30.0 [unreleased]
-
-- Inherit `color` option from a `CARGO_TERM_COLOR` environment variable (#361)
-
 ## 1.29.0
 
 - Fixed a rednering bug with snapshot display (lines were not
   rendered to the terminal width).
 - Added `--exclude` option to `cargo insta test`. (#360)
+- Inherit `color` option from a `CARGO_TERM_COLOR` environment variable (#361)
 
 ## 1.28.0
 
@@ -27,7 +24,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Fix an issue where the inline snapshot patcher could panic in
   certain situations. (#341)
 - `cargo insta test` now correctly detects CI environments like
-  `cargo test` does.  In that case it will by fail rather than
+  `cargo test` does. In that case it will by fail rather than
   create snapshot update files. (#345)
 - Added `cargo insta test --check` to force check runs. (#345)
 
@@ -37,17 +34,17 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.25.0
 
-- Added a way to disable the undiscoverable snapshots warning.  By
+- Added a way to disable the undiscoverable snapshots warning. By
   setting the `review.warn_undiscovered` config key to `false` a
   warning is never printed. (#334)
 - Force updating snapshots will now not overwrite files that did not
-  change.  This improves the behavior for situations if that behavior
+  change. This improves the behavior for situations if that behavior
   is preferred as a default choice. (#335)
 
 ## 1.24.1
 
 - Fix non working `--include-hidden` flag (#331)
-- Fix incorrect mapping of `review.include_ignored` (#330) 
+- Fix incorrect mapping of `review.include_ignored` (#330)
 
 ## 1.24.0
 
@@ -57,7 +54,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Added `--include-hidden` to instruct insta to also walk into
   hidden paths.
 - Added new `--unreferenced` option to `cargo-insta test` which allows
-  fine tuning of what should happen with unreferenced files.  It's now
+  fine tuning of what should happen with unreferenced files. It's now
   possible to ignore (default), warn, reject or delete unreferenced
   snapshots. (#328)
 - Resolved an error message about doc tests when using nextest with
@@ -70,7 +67,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.22.0
 
-- Added support for rendering some invisibles in diffs.  This now also
+- Added support for rendering some invisibles in diffs. This now also
   should make sure that ANSI sequences in strings are no longer screwing
   up the terminal output. (#308)
 - Prevent inline snapshots to be used in loops. (#307)
