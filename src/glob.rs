@@ -126,7 +126,7 @@ pub fn glob_exec<F: FnMut(&Path)>(manifest_dir: &str, base: &Path, pattern: &str
             );
         }
         panic!(
-            "glob! resulted in {} snapshot assertion failure{}s",
+            "glob! resulted in {} snapshot assertion failure{}",
             top.failed,
             if top.failed == 1 { "" } else { "s" },
         );
