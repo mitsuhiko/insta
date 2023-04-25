@@ -8,12 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          profile: minimal
-          override: true
       - name: Test
         run: make test
 
@@ -22,12 +20,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.56.1
-          profile: minimal
-          override: true
       - name: Test
         run: make cargotest
 
@@ -35,11 +31,9 @@ jobs:
     name: Check on 1.51.0
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.51.0
-          profile: minimal
-          override: true
       - name: Check
         run: cargo check --no-default-features
