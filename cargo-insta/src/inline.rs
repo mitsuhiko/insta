@@ -3,10 +3,11 @@ use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 
 use insta::_cargo_insta_support::SnapshotContents;
 use proc_macro2::TokenTree;
-use syn;
+
 use syn::spanned::Spanned;
 
 #[derive(Debug)]
@@ -47,10 +48,17 @@ impl FilePatcher {
     }
 
     pub fn save(&self) -> Result<(), Box<dyn Error>> {
-        let mut f = fs::File::create(&self.filename)?;
+        // We use a temp file and then atomically rename to prevent a
+        // file watcher restarting the process midway through the write.
+        let mut temp_file = NamedTempFile::new()?;
+
         for line in &self.lines {
-            writeln!(&mut f, "{}", line)?;
+            writeln!(temp_file, "{}", line)?;
         }
+
+        temp_file.flush()?;
+        fs::rename(temp_file.path(), &self.filename)?;
+
         Ok(())
     }
 
