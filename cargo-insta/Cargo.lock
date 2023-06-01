@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-insta"
-version = "1.28.0"
+version = "1.29.0"
 dependencies = [
  "console",
  "ignore",
@@ -194,7 +194,7 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.28.0"
+version = "1.29.0"
 dependencies = [
  "console",
  "lazy_static",

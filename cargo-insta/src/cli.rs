@@ -32,8 +32,8 @@ use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, Fi
 )]
 pub struct Opts {
     /// Coloring
-    #[structopt(long, global = true, value_name = "WHEN", default_value="auto", possible_values=&["auto", "always", "never"])]
-    pub color: String,
+    #[structopt(long, global = true, value_name = "WHEN", possible_values=&["auto", "always", "never"])]
+    pub color: Option<String>,
 
     #[structopt(subcommand)]
     pub command: Command,
@@ -133,6 +133,9 @@ pub struct TestCommand {
     /// Package to run tests for
     #[structopt(short = "p", long)]
     pub package: Option<String>,
+    /// Exclude packages from the test
+    #[structopt(long, value_name = "SPEC")]
+    pub exclude: Option<String>,
     /// Disable force-passing of snapshot tests
     #[structopt(long)]
     pub no_force_pass: bool,
@@ -301,14 +304,23 @@ fn query_snapshot(
     }
 }
 
-fn handle_color(color: &str) -> Result<(), Box<dyn Error>> {
-    match color {
-        "always" => set_colors_enabled(true),
-        "auto" => {}
-        "never" => set_colors_enabled(false),
-        color => return Err(err_msg(format!("invalid value for --color: {}", color))),
+fn handle_color(color: Option<&str>) -> Result<&'static str, Box<dyn Error>> {
+    match &*color
+        .map(Cow::Borrowed)
+        .or_else(|| std::env::var("CARGO_TERM_COLOR").ok().map(Cow::Owned))
+        .unwrap_or(Cow::Borrowed("auto"))
+    {
+        "always" => {
+            set_colors_enabled(true);
+            Ok("always")
+        }
+        "auto" => Ok("auto"),
+        "never" => {
+            set_colors_enabled(false);
+            Ok("never")
+        }
+        color => Err(err_msg(format!("invalid value for --color: {}", color))),
     }
-    Ok(())
 }
 
 struct LocationInfo<'a> {
@@ -811,6 +823,10 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--package");
         proc.arg(pkg);
     }
+    if let Some(ref spec) = cmd.exclude {
+        proc.arg("--exclude");
+        proc.arg(spec);
+    }
     if let Some(ref manifest_path) = cmd.target_args.manifest_path {
         proc.arg("--manifest-path");
         proc.arg(manifest_path);
@@ -1021,7 +1037,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
     let opts = Opts::from_iter(args);
 
-    handle_color(&opts.color)?;
+    let color = handle_color(opts.color.as_deref())?;
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
             process_snapshots(
@@ -1036,7 +1052,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 },
             )
         }
-        Command::Test(cmd) => test_run(cmd, &opts.color),
+        Command::Test(cmd) => test_run(cmd, color),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }

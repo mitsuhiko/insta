@@ -378,6 +378,8 @@ macro_rules! _prepare_snapshot_for_redaction {
 /// simple values that do not implement the `Serialize` trait but does not
 /// permit redactions.
 ///
+/// Debug is called with `"{:#?}"`, which means this uses pretty-print.
+///
 /// The snapshot name is optional.
 #[macro_export]
 macro_rules! assert_debug_snapshot {
