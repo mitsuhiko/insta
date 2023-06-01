@@ -29,7 +29,7 @@ pub fn find_snapshots<'a>(
     extensions: &'a [&'a str],
     flags: FindFlags,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-    make_snapshot_walker(&root, extensions, flags)
+    make_snapshot_walker(root, extensions, flags)
         .filter_map(|e| e.ok())
         .filter_map(move |e| {
             let fname = e.file_name().to_string_lossy();
@@ -89,7 +89,7 @@ pub fn make_deletion_walker(
     known_packages: Option<&[Package]>,
     selected_package: Option<&str>,
 ) -> Walk {
-    let roots: HashSet<_> = if let Some(ref packages) = known_packages {
+    let roots: HashSet<_> = if let Some(packages) = known_packages {
         packages
             .iter()
             .filter_map(|x| {
@@ -120,7 +120,7 @@ pub fn make_deletion_walker(
 
             // We always want to skip target even if it was not excluded by
             // ignore files.
-            if entry.path().file_name() == Some(&OsStr::new("target"))
+            if entry.path().file_name() == Some(OsStr::new("target"))
                 && roots.contains(canonicalized.parent().unwrap())
             {
                 return false;
