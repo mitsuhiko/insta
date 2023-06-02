@@ -892,18 +892,24 @@ fn prepare_test_runner<'snapshot_ref>(
     proc.arg("--color");
     proc.arg(color);
     proc.args(extra_args);
-    let mut dashdash = false;
+    // Items after this are passed to the test runner
+    proc.arg("--");
     if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
-        proc.arg("--");
         proc.arg("-q");
-        dashdash = true;
     }
     if !cmd.cargo_options.is_empty() {
-        if !dashdash {
-            proc.arg("--");
-        }
         proc.args(&cmd.cargo_options);
     }
+    // Currently libtest uses a different approach to color, so we need to pass
+    // it again to get output from the test runner as well as cargo. See
+    // https://github.com/rust-lang/cargo/issues/1983 for more
+    match test_runner {
+        TestRunner::CargoTest | TestRunner::Auto => {
+            proc.arg(format!("--color={}", color));
+        }
+        _ => {}
+    };
+    dbg!(&proc.get_args());
     Ok((proc, snapshot_ref_file, prevents_doc_run))
 }
 
