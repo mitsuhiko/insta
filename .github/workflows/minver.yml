@@ -1,6 +1,6 @@
 name: Check minimal version resolution
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   check-minver:
