@@ -3,7 +3,6 @@ use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use tempfile::NamedTempFile;
 
 use insta::_cargo_insta_support::SnapshotContents;
 use proc_macro2::TokenTree;
@@ -50,7 +49,9 @@ impl FilePatcher {
     pub fn save(&self) -> Result<(), Box<dyn Error>> {
         // We use a temp file and then atomically rename to prevent a
         // file watcher restarting the process midway through the write.
-        let mut temp_file = NamedTempFile::new()?;
+        let mut temp_file = tempfile::Builder::new()
+            .suffix(".snap.tmp")
+            .tempfile_in(self.filename.parent().ok_or("Parent directory not found")?)?;
 
         for line in &self.lines {
             writeln!(temp_file, "{}", line)?;
