@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.30.0
+
+-  Write inline snapshots with atomic rename to avoid some rare races.  (#373)
+-  Pass `--color=...` to libtest to propagate color choices in more situations.  (#375)
+
 ## 1.29.0
 
 - Fixed a rednering bug with snapshot display (lines were not
