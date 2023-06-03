@@ -89,7 +89,7 @@ impl Package {
         roots.sort_by_key(|x| x.as_os_str().len());
         let mut reduced_roots = vec![];
         for root in roots {
-            if !reduced_roots.iter().any(|x| root.starts_with(&x)) {
+            if !reduced_roots.iter().any(|x| root.starts_with(x)) {
                 reduced_roots.push(root);
             }
         }

@@ -352,9 +352,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
         target_args.manifest_path.as_ref(),
     ) {
         (Some(_), Some(_)) => {
-            return Err(err_msg(format!(
-                "both manifest-path and workspace-root provided."
-            )))
+            return Err(err_msg("both manifest-path and workspace-root provided.".to_string()))
         }
         (None, Some(manifest)) => (None, Some(Cow::Borrowed(manifest))),
         (Some(root), manifest_path) => {
@@ -370,7 +368,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
     };
 
     if let Some(workspace_root) = workspace_root {
-        let tool_config = ToolConfig::from_workspace(&workspace_root)?;
+        let tool_config = ToolConfig::from_workspace(workspace_root)?;
         Ok(LocationInfo {
             workspace_root: workspace_root.to_owned(),
             packages: None,
@@ -429,7 +427,7 @@ fn process_snapshots(
 ) -> Result<(), Box<dyn Error>> {
     let term = Term::stdout();
 
-    let (mut snapshot_containers, roots) = load_snapshot_containers(&loc)?;
+    let (mut snapshot_containers, roots) = load_snapshot_containers(loc)?;
 
     let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum();
 
@@ -455,7 +453,7 @@ fn process_snapshots(
         let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
         for snapshot_ref in snapshot_container.iter_snapshots() {
             // if a filter is provided, check if the snapshot reference is included
-            if let Some(ref filter) = snapshot_filter {
+            if let Some(filter) = snapshot_filter {
                 let key = if let Some(line) = snapshot_ref.line {
                     format!("{}:{}", target_file.display(), line)
                 } else {
@@ -479,7 +477,7 @@ fn process_snapshots(
                     snapshot_ref.line,
                     num,
                     snapshot_count,
-                    snapshot_file.as_ref().map(|x| x.as_path()),
+                    snapshot_file.as_deref(),
                     &mut show_info,
                     &mut show_diff,
                 )?,
@@ -744,7 +742,7 @@ fn handle_unreferenced_snapshots(
         }
     }
 
-    fs::remove_file(&path).ok();
+    fs::remove_file(path).ok();
 
     if !encountered_any {
         eprintln!("{}: no unreferenced snapshots found", style("info").bold());
@@ -961,12 +959,10 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                     SnapshotKey::NamedSnapshot { path: &target_file }
                 };
                 println!("{}", serde_json::to_string(&info).unwrap());
+            } else if is_inline {
+                println!("{}:{}", target_file.display(), snapshot_ref.line.unwrap());
             } else {
-                if is_inline {
-                    println!("{}:{}", target_file.display(), snapshot_ref.line.unwrap());
-                } else {
-                    println!("{}", target_file.display());
-                }
+                println!("{}", target_file.display());
             }
         }
     }
