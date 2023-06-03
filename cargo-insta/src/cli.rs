@@ -909,7 +909,6 @@ fn prepare_test_runner<'snapshot_ref>(
         }
         _ => {}
     };
-    dbg!(&proc.get_args());
     Ok((proc, snapshot_ref_file, prevents_doc_run))
 }
 
