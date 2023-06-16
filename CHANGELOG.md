@@ -5,7 +5,7 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.30.0
 
 - Snapshots are accepted when running with `--accept` even if a test outside
-  insta fails.
+  insta fails.  (#358)
 -  Write inline snapshots with atomic rename to avoid some rare races.  (#373)
 -  Pass `--color=...` to libtest to propagate color choices in more situations.  (#375)
 
