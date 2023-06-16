@@ -4,13 +4,15 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.30.0
 
+- Snapshots are accepted when running with `--accept` even if a test outside
+  insta fails.  (#358)
 - Mark settings drop guard as `#[must_use]`.
 - Write inline snapshots with atomic rename to avoid some rare races.  (#373)
 - Pass `--color=...` to libtest to propagate color choices in more situations.  (#375)
 
 ## 1.29.0
 
-- Fixed a rednering bug with snapshot display (lines were not
+- Fixed a rendering bug with snapshot display (lines were not
   rendered to the terminal width).
 - Added `--exclude` option to `cargo insta test`. (#360)
 - Inherit `color` option from a `CARGO_TERM_COLOR` environment variable (#361)
