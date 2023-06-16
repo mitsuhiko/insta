@@ -16,7 +16,7 @@ jobs:
         run: make test
 
   test-stable:
-    name: Test on 1.56.1
+    name: Test on 1.60.0
     runs-on: ubuntu-latest
 
     steps:
