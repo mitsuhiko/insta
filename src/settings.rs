@@ -580,6 +580,7 @@ impl Settings {
 }
 
 /// Returned from [`bind_to_scope`](Settings::bind_to_scope)
+#[must_use = "The guard is immediately dropped so binding has no effect. Use `let _guard = ...` to bind it."]
 pub struct SettingsBindDropGuard(Option<Arc<ActualSettings>>);
 
 impl Drop for SettingsBindDropGuard {
