@@ -55,7 +55,7 @@ impl Package {
         &self.version
     }
 
-    pub fn find_snapshot_roots<'a>(&self) -> Vec<PathBuf> {
+    pub fn find_snapshot_roots(&self) -> Vec<PathBuf> {
         let mut roots = Vec::new();
 
         // the manifest path's parent is always a snapshot container.  For
