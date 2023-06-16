@@ -315,9 +315,10 @@ impl<'a> SnapshotAssertionContext<'a> {
             .canonicalize()
             .ok()
             .and_then(|s| {
-                s.strip_prefix(self.cargo_workspace.as_path())
+                self.cargo_workspace
+                    .canonicalize()
                     .ok()
-                    .map(|x| x.to_path_buf())
+                    .and_then(|cw| s.strip_prefix(cw).ok().map(|x| x.to_path_buf()))
             })
     }
 
