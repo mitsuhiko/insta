@@ -310,16 +310,9 @@ impl<'a> SnapshotAssertionContext<'a> {
 
     /// Given a path returns the local path within the workspace.
     pub fn localize_path(&self, p: &Path) -> Option<PathBuf> {
-        self.cargo_workspace
-            .join(p)
-            .canonicalize()
-            .ok()
-            .and_then(|s| {
-                self.cargo_workspace
-                    .canonicalize()
-                    .ok()
-                    .and_then(|cw| s.strip_prefix(cw).ok().map(|x| x.to_path_buf()))
-            })
+        let workspace = self.cargo_workspace.canonicalize().ok()?;
+        let p = self.cargo_workspace.join(p).canonicalize().ok()?;
+        p.strip_prefix(&workspace).ok().map(|x| x.to_path_buf())
     }
 
     /// Creates the new snapshot from input values.
