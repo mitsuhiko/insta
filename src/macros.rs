@@ -438,14 +438,20 @@ macro_rules! assert_display_snapshot {
 macro_rules! assert_snapshot {
     ($value:expr, @$snapshot:literal) => {
         $crate::assert_snapshot!(
-            $crate::_macro_support::ReferenceValue::Inline($snapshot),
+            $crate::_macro_support::ReferenceValue::Inline(
+                #[allow(clippy::needless_raw_string_hashes)]
+                $snapshot,
+            ),
             $value,
             stringify!($value)
         )
     };
     ($value:expr, $debug_expr:expr, @$snapshot:literal) => {
         $crate::assert_snapshot!(
-            $crate::_macro_support::ReferenceValue::Inline($snapshot),
+            $crate::_macro_support::ReferenceValue::Inline(
+                #[allow(clippy::needless_raw_string_hashes)]
+                $snapshot,
+            ),
             $value,
             $debug_expr
         )
