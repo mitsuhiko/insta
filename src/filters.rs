@@ -9,8 +9,11 @@ pub struct Filters {
     rules: Vec<(Regex, String)>,
 }
 
-impl<'a> From<Vec<(&'a str, &'a str)>> for Filters {
-    fn from(value: Vec<(&'a str, &'a str)>) -> Filters {
+impl<'a, T> From<T> for Filters
+where
+    T: IntoIterator<Item = (&'a str, &'a str)>,
+{
+    fn from(value: T) -> Filters {
         let mut rv = Filters::default();
         for (regex, replacement) in value {
             rv.add(regex, replacement);
@@ -57,4 +60,10 @@ fn test_filters() {
         filters.apply_to("hellohello hello abc"),
         "hellohello [NAME] [a]bc"
     );
+}
+
+#[test]
+fn test_static_str_array_conversion() {
+    let arr: [(&'static str, &'static str); 2] = [("a1", "b1"), ("a2", "b2")];
+    let _ = Filters::from(arr);
 }
