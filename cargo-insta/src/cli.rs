@@ -151,6 +151,9 @@ pub struct TestCommand {
     /// Build artifacts in release mode, with optimizations
     #[structopt(long)]
     pub release: bool,
+    /// Build artifacts with the specified profile
+    #[structopt(long)]
+    pub profile: String,
     /// Activate all available features
     #[structopt(long)]
     pub all_features: bool,
@@ -866,6 +869,10 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if cmd.release {
         proc.arg("--release");
+    }
+    if let Some(ref profile) = cmd.features {
+        proc.arg("--profile");
+        proc.arg(profile);
     }
     if let Some(n) = cmd.jobs {
         // use -j instead of --jobs since both nextest and cargo test use it
