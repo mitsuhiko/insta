@@ -441,6 +441,7 @@ fn load_snapshot_containers<'a>(
             snapshot_containers.push((snapshot_container?, None));
         }
     }
+    snapshot_containers.sort_by(|(a, _), (b, _)| a.snapshot_path().cmp(&b.snapshot_path()));
     Ok((snapshot_containers, roots))
 }
 

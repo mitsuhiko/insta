@@ -198,4 +198,8 @@ impl SnapshotContainer {
         }
         Ok(())
     }
+
+    pub fn snapshot_path(&self) -> &Path {
+        &self.snapshot_path
+    }
 }
