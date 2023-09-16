@@ -294,6 +294,7 @@ macro_rules! assert_debug_snapshot {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_snapshot_base {
+    // If there's an inline literal, wrap that in a `ReferenceValue::Inline`.
     (transform=$transform:expr, $value:expr, @$snapshot:literal) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
@@ -303,6 +304,7 @@ macro_rules! _assert_snapshot_base {
             stringify!($value)
         )
     };
+    // If there's an inline literal with a debug_expr, wrap the literal in a `ReferenceValue::Inline`.
     (transform=$transform:expr, $value:expr, $debug_expr:expr, @$snapshot:literal) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
@@ -312,9 +314,20 @@ macro_rules! _assert_snapshot_base {
             $debug_expr
         )
     };
+    // If there's no debug_expr, use the stringified value in its place.
     (transform=$transform:expr, $name:expr, $value:expr) => {
         $crate::_assert_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
     };
+    // If there's no name, auto generate the name in its place.
+    (transform=$transform:expr, $value:expr) => {
+        $crate::_assert_snapshot_base!(
+            transform = $transform,
+            $crate::_macro_support::AutoName,
+            $value,
+            stringify!($value)
+        )
+    };
+    // The main macro body — every call to this macro should end up here.
     (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_snapshot(
             $name.into(),
@@ -328,14 +341,6 @@ macro_rules! _assert_snapshot_base {
             $debug_expr,
         )
         .unwrap()
-    };
-    (transform=$transform:expr, $value:expr) => {
-        $crate::_assert_snapshot_base!(
-            transform = $transform,
-            $crate::_macro_support::AutoName,
-            $value,
-            stringify!($value)
-        )
     };
 }
 
