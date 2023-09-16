@@ -216,6 +216,8 @@ macro_rules! assert_compact_json_snapshot {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_serialized_snapshot {
+    // Convert redactions expressions to a function call for inline snapshots,
+    // pass to `_assert_snapshot_base`
     (format=$format:ident, $value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
         let transform = |value| {
             let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, Inline);
@@ -223,9 +225,11 @@ macro_rules! _assert_serialized_snapshot {
         };
         $crate::_assert_snapshot_base!(transform=transform, $value, stringify!($value), @$snapshot);
     }};
+    // Add a auto-generated name if there's no name
     (format=$format:ident, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!(format=$format, $crate::_macro_support::AutoName, $value, {$($k => $v),*});
     }};
+    // Convert redaction expressions to a function call and pass to `_assert_snapshot_base`
     (format=$format:ident, $name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
         let transform = |value| {
             let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, File);
@@ -233,11 +237,12 @@ macro_rules! _assert_serialized_snapshot {
         };
         $crate::_assert_snapshot_base!(transform=transform, $name, $value, stringify!($value));
     }};
+    // Capture serialization function and pass to `_assert_snapshot_base`
     (format=$format:ident, $($arg:tt)*) => {{
         let transform = |value| {$crate::_macro_support::serialize_value(
             &value,
             $crate::_macro_support::SerializationFormat::$format,
-            $crate::_macro_support::SnapshotLocation::Inline
+            $crate::_macro_support::SnapshotLocation::File
         )};
         $crate::_assert_snapshot_base!(transform = transform, $($arg)*);
     }};
