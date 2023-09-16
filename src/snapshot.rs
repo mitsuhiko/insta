@@ -533,7 +533,7 @@ impl SnapshotContents {
                         )
                     })
                     // `lines` removes the final line ending - add back
-                    .chain(Some(format!("\n{:width$}", "", width = indentation)).into_iter()),
+                    .chain(Some(format!("\n{:width$}", "", width = indentation))),
             );
         } else {
             out.push_str(contents);
