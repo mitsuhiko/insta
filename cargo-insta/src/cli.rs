@@ -153,7 +153,7 @@ pub struct TestCommand {
     pub release: bool,
     /// Build artifacts with the specified profile
     #[structopt(long)]
-    pub profile: String,
+    pub profile: Option<String>,
     /// Activate all available features
     #[structopt(long)]
     pub all_features: bool,
@@ -870,7 +870,7 @@ fn prepare_test_runner<'snapshot_ref>(
     if cmd.release {
         proc.arg("--release");
     }
-    if let Some(ref profile) = cmd.features {
+    if let Some(ref profile) = cmd.profile {
         proc.arg("--profile");
         proc.arg(profile);
     }
