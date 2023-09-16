@@ -297,6 +297,7 @@ macro_rules! _assert_snapshot_base {
     (transform=$transform:expr, $value:expr, @$snapshot:literal) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
+            #[allow(clippy::needless_raw_string_hashes)]
             $crate::_macro_support::ReferenceValue::Inline($snapshot),
             $value,
             stringify!($value)
@@ -305,6 +306,7 @@ macro_rules! _assert_snapshot_base {
     (transform=$transform:expr, $value:expr, $debug_expr:expr, @$snapshot:literal) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
+            #[allow(clippy::needless_raw_string_hashes)]
             $crate::_macro_support::ReferenceValue::Inline($snapshot),
             $value,
             $debug_expr
@@ -316,6 +318,7 @@ macro_rules! _assert_snapshot_base {
     (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_snapshot(
             $name.into(),
+            #[allow(clippy::redundant_closure_call)]
             &$transform($value),
             env!("CARGO_MANIFEST_DIR"),
             $crate::_function_name!(),

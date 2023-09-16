@@ -651,7 +651,11 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         }
     }
 
-    Ok(())
+    if !success {
+        Err(QuietExit(1).into())
+    } else {
+        Ok(())
+    }
 }
 
 fn handle_unreferenced_snapshots(

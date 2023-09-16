@@ -2,8 +2,15 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.31.0
+
+- Fixed a bug that caused `cargo insta test` not to report test failures.
+- Suppress `needless_raw_string_hashes` clippy lint on inline snapshots.  (#390)
+
 ## 1.30.0
 
+- Resolved a bug on Windows that caused `input_file` not to be written into the
+  snapshots.  (#386)
 - Snapshots are accepted when running with `--accept` even if a test outside
   insta fails.  (#358)
 - Mark settings drop guard as `#[must_use]`.

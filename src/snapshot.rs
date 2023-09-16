@@ -533,7 +533,7 @@ impl SnapshotContents {
                         )
                     })
                     // `lines` removes the final line ending - add back
-                    .chain(Some(format!("\n{:width$}", "", width = indentation)).into_iter()),
+                    .chain(Some(format!("\n{:width$}", "", width = indentation))),
             );
         } else {
             out.push_str(contents);
@@ -727,7 +727,7 @@ b"[1..];
     );
 
     let t = "ab";
-    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r##""ab""##);
+    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""ab""#);
 }
 
 #[test]
