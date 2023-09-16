@@ -270,7 +270,7 @@ fn query_snapshot(
             println!(
                 "  {} reject     {}",
                 style("r").red().bold(),
-                style("keep the old snapshot").dim()
+                style("retain the old snapshot").dim()
             );
         } else {
             println!(
