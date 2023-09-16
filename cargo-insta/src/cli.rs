@@ -265,11 +265,21 @@ fn query_snapshot(
             style("a").green().bold(),
             style("keep the new snapshot").dim()
         );
-        println!(
-            "  {} reject     {}",
-            style("r").red().bold(),
-            style("keep the old snapshot").dim()
-        );
+
+        if old.is_some() {
+            println!(
+                "  {} reject     {}",
+                style("r").red().bold(),
+                style("retain the old snapshot").dim()
+            );
+        } else {
+            println!(
+                "  {} reject     {}",
+                style("r").red().bold(),
+                style("reject the new snapshot").dim()
+            );
+        }
+
         println!(
             "  {} skip       {}",
             style("s").yellow().bold(),
