@@ -22,6 +22,7 @@ pub(crate) enum SnapshotContainerKind {
 
 #[derive(Debug)]
 pub(crate) struct PendingSnapshot {
+    #[allow(dead_code)]
     id: usize,
     pub(crate) old: Option<Snapshot>,
     pub(crate) new: Snapshot,
