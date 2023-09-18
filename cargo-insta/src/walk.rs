@@ -10,9 +10,9 @@ use crate::cargo::Package;
 use crate::container::{SnapshotContainer, SnapshotContainerKind};
 
 #[derive(Debug, Copy, Clone)]
-pub struct FindFlags {
-    pub include_ignored: bool,
-    pub include_hidden: bool,
+pub(crate) struct FindFlags {
+    pub(crate) include_ignored: bool,
+    pub(crate) include_hidden: bool,
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
@@ -24,7 +24,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 }
 
 /// Finds all snapshots
-pub fn find_snapshots<'a>(
+pub(crate) fn find_snapshots<'a>(
     root: &Path,
     extensions: &'a [&'a str],
     flags: FindFlags,
@@ -57,7 +57,7 @@ pub fn find_snapshots<'a>(
 }
 
 /// Creates a walker for snapshots.
-pub fn make_snapshot_walker(path: &Path, extensions: &[&str], flags: FindFlags) -> Walk {
+pub(crate) fn make_snapshot_walker(path: &Path, extensions: &[&str], flags: FindFlags) -> Walk {
     let mut builder = WalkBuilder::new(path);
     builder.standard_filters(!flags.include_ignored);
     if flags.include_hidden {
@@ -84,7 +84,7 @@ pub fn make_snapshot_walker(path: &Path, extensions: &[&str], flags: FindFlags) 
 /// A walker that is used by the snapshot deletion code.
 ///
 /// This really should be using the same logic as the main snapshot walker but today is is not.
-pub fn make_deletion_walker(
+pub(crate) fn make_deletion_walker(
     workspace_root: &Path,
     known_packages: Option<&[Package]>,
     selected_package: Option<&str>,

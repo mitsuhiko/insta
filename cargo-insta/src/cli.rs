@@ -30,13 +30,13 @@ use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, Fi
     global_setting = AppSettings::DeriveDisplayOrder,
     global_setting = AppSettings::DontCollapseArgsInUsage
 )]
-pub struct Opts {
+struct Opts {
     /// Coloring
     #[structopt(long, global = true, value_name = "WHEN", possible_values=&["auto", "always", "never"])]
-    pub color: Option<String>,
+    color: Option<String>,
 
     #[structopt(subcommand)]
-    pub command: Command,
+    command: Command,
 }
 
 #[derive(StructOpt, Debug)]
@@ -44,7 +44,7 @@ pub struct Opts {
     bin_name = "cargo insta",
     after_help = "For the online documentation of the latest version, see https://insta.rs/docs/cli/."
 )]
-pub enum Command {
+enum Command {
     /// Interactively review snapshots
     #[structopt(name = "review", alias = "verify")]
     Review(ProcessCommand),
@@ -67,158 +67,158 @@ pub enum Command {
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(rename_all = "kebab-case")]
-pub struct TargetArgs {
+struct TargetArgs {
     /// Path to Cargo.toml
     #[structopt(long, value_name = "PATH", parse(from_os_str))]
-    pub manifest_path: Option<PathBuf>,
+    manifest_path: Option<PathBuf>,
     /// Explicit path to the workspace root
     #[structopt(long, value_name = "PATH", parse(from_os_str))]
-    pub workspace_root: Option<PathBuf>,
+    workspace_root: Option<PathBuf>,
     /// Sets the extensions to consider.  Defaults to `.snap`
     #[structopt(short = "e", long, value_name = "EXTENSIONS", multiple = true)]
-    pub extensions: Vec<String>,
+    extensions: Vec<String>,
     /// Work on all packages in the workspace
     #[structopt(long)]
-    pub workspace: bool,
+    workspace: bool,
     /// Alias for --workspace (deprecated)
     #[structopt(long)]
-    pub all: bool,
+    all: bool,
     /// Also walk into ignored paths.
     #[structopt(long, alias = "no-ignore")]
-    pub include_ignored: bool,
+    include_ignored: bool,
     /// Also include hidden paths.
     #[structopt(long)]
-    pub include_hidden: bool,
+    include_hidden: bool,
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "kebab-case")]
-pub struct ProcessCommand {
+struct ProcessCommand {
     #[structopt(flatten)]
-    pub target_args: TargetArgs,
+    target_args: TargetArgs,
     /// Limits the operation to one or more snapshots.
     #[structopt(long = "snapshot")]
-    pub snapshot_filter: Option<Vec<String>>,
+    snapshot_filter: Option<Vec<String>>,
     /// Do not print to stdout.
     #[structopt(short = "q", long)]
-    pub quiet: bool,
+    quiet: bool,
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "kebab-case")]
-pub struct TestCommand {
+struct TestCommand {
     #[structopt(flatten)]
-    pub target_args: TargetArgs,
+    target_args: TargetArgs,
     /// Test only this package's library unit tests
     #[structopt(long)]
-    pub lib: bool,
+    lib: bool,
     /// Test only the specified binary
     #[structopt(long)]
-    pub bin: Option<String>,
+    bin: Option<String>,
     /// Test all binaries
     #[structopt(long)]
-    pub bins: bool,
+    bins: bool,
     /// Test only the specified example
     #[structopt(long)]
-    pub example: Option<String>,
+    example: Option<String>,
     /// Test all examples
     #[structopt(long)]
-    pub examples: bool,
+    examples: bool,
     /// Test only the specified test target
     #[structopt(long)]
-    pub test: Option<String>,
+    test: Option<String>,
     /// Test all tests
     #[structopt(long)]
-    pub tests: bool,
+    tests: bool,
     /// Package to run tests for
     #[structopt(short = "p", long)]
-    pub package: Option<String>,
+    package: Option<String>,
     /// Exclude packages from the test
     #[structopt(long, value_name = "SPEC")]
-    pub exclude: Option<String>,
+    exclude: Option<String>,
     /// Disable force-passing of snapshot tests
     #[structopt(long)]
-    pub no_force_pass: bool,
+    no_force_pass: bool,
     /// Prevent running all tests regardless of failure
     #[structopt(long)]
-    pub fail_fast: bool,
+    fail_fast: bool,
     /// Space-separated list of features to activate
     #[structopt(long, value_name = "FEATURES")]
-    pub features: Option<String>,
+    features: Option<String>,
     /// Number of parallel jobs, defaults to # of CPUs
     #[structopt(short = "j", long)]
-    pub jobs: Option<usize>,
+    jobs: Option<usize>,
     /// Build artifacts in release mode, with optimizations
     #[structopt(long)]
-    pub release: bool,
+    release: bool,
     /// Build artifacts with the specified profile
     #[structopt(long)]
-    pub profile: Option<String>,
+    profile: Option<String>,
     /// Activate all available features
     #[structopt(long)]
-    pub all_features: bool,
+    all_features: bool,
     /// Do not activate the `default` feature
     #[structopt(long)]
-    pub no_default_features: bool,
+    no_default_features: bool,
     /// Build for the target triple
     #[structopt(long)]
-    pub target: Option<String>,
+    target: Option<String>,
     /// Follow up with review.
     #[structopt(long)]
-    pub review: bool,
+    review: bool,
     /// Accept all snapshots after test.
     #[structopt(long, conflicts_with = "review")]
-    pub accept: bool,
+    accept: bool,
     /// Accept all new (previously unseen).
     #[structopt(long)]
-    pub accept_unseen: bool,
+    accept_unseen: bool,
     /// Instructs the test command to just assert.
     #[structopt(long)]
-    pub check: bool,
+    check: bool,
     /// Do not reject pending snapshots before run.
     #[structopt(long)]
-    pub keep_pending: bool,
+    keep_pending: bool,
     /// Update all snapshots even if they are still matching.
     #[structopt(long)]
-    pub force_update_snapshots: bool,
+    force_update_snapshots: bool,
     /// Controls what happens with unreferenced snapshots.
     #[structopt(long, default_value="ignore", possible_values=&["ignore", "warn", "reject", "delete", "auto"])]
-    pub unreferenced: String,
+    unreferenced: String,
     /// Delete unreferenced snapshots after the test run.
     #[structopt(long, hidden = true)]
-    pub delete_unreferenced_snapshots: bool,
+    delete_unreferenced_snapshots: bool,
     /// Filters to apply to the insta glob feature.
     #[structopt(long)]
-    pub glob_filter: Vec<String>,
+    glob_filter: Vec<String>,
     /// Do not pass the quiet flag (`-q`) to tests.
     #[structopt(short = "Q", long)]
-    pub no_quiet: bool,
+    no_quiet: bool,
     /// Picks the test runner.
     #[structopt(long, default_value="auto", possible_values=&["auto", "cargo-test", "nextest"])]
-    pub test_runner: String,
+    test_runner: String,
     /// Options passed to cargo test
     // Sets raw to true so that `--` is required
     #[structopt(name = "CARGO_TEST_ARGS", raw(true))]
-    pub cargo_options: Vec<String>,
+    cargo_options: Vec<String>,
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "kebab-case")]
-pub struct PendingSnapshotsCommand {
+struct PendingSnapshotsCommand {
     #[structopt(flatten)]
-    pub target_args: TargetArgs,
+    target_args: TargetArgs,
     /// Changes the output from human readable to JSON.
     #[structopt(long)]
-    pub as_json: bool,
+    as_json: bool,
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(rename_all = "kebab-case")]
-pub struct ShowCommand {
+struct ShowCommand {
     #[structopt(flatten)]
-    pub target_args: TargetArgs,
+    target_args: TargetArgs,
     /// The path to the snapshot file.
-    pub path: PathBuf,
+    path: PathBuf,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1050,7 +1050,7 @@ fn show_undiscovered_hint(
     );
 }
 
-pub fn run() -> Result<(), Box<dyn Error>> {
+pub(crate) fn run() -> Result<(), Box<dyn Error>> {
     // chop off cargo
     let mut args: Vec<_> = env::args_os().collect();
     if env::var("CARGO").is_ok() && args.get(1).and_then(|x| x.to_str()) == Some("insta") {

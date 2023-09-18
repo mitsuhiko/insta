@@ -10,13 +10,13 @@ use proc_macro2::TokenTree;
 use syn::spanned::Spanned;
 
 #[derive(Debug)]
-pub struct InlineSnapshot {
+struct InlineSnapshot {
     start: (usize, usize),
     end: (usize, usize),
     indentation: usize,
 }
 
-pub struct FilePatcher {
+pub(crate) struct FilePatcher {
     filename: PathBuf,
     lines: Vec<String>,
     source: syn::File,
@@ -33,7 +33,7 @@ impl fmt::Debug for FilePatcher {
 }
 
 impl FilePatcher {
-    pub fn open(p: &Path) -> Result<FilePatcher, Box<dyn Error>> {
+    pub(crate) fn open(p: &Path) -> Result<FilePatcher, Box<dyn Error>> {
         let filename = p.to_path_buf();
         let contents = fs::read_to_string(p)?;
         let source = syn::parse_file(&contents)?;
@@ -46,7 +46,7 @@ impl FilePatcher {
         })
     }
 
-    pub fn save(&self) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn save(&self) -> Result<(), Box<dyn Error>> {
         // We use a temp file and then atomically rename to prevent a
         // file watcher restarting the process midway through the write.
         let mut temp_file = tempfile::Builder::new()
@@ -63,7 +63,7 @@ impl FilePatcher {
         Ok(())
     }
 
-    pub fn add_snapshot_macro(&mut self, line: usize) -> bool {
+    pub(crate) fn add_snapshot_macro(&mut self, line: usize) -> bool {
         match self.find_snapshot_macro(line) {
             Some(snapshot) => {
                 // this can happen if multiple snapshots were added in one
@@ -85,11 +85,11 @@ impl FilePatcher {
         }
     }
 
-    pub fn get_new_line(&self, id: usize) -> usize {
+    pub(crate) fn get_new_line(&self, id: usize) -> usize {
         self.inline_snapshots[id].start.0 + 1
     }
 
-    pub fn set_new_content(&mut self, id: usize, snapshot: &SnapshotContents) {
+    pub(crate) fn set_new_content(&mut self, id: usize, snapshot: &SnapshotContents) {
         let inline = &mut self.inline_snapshots[id];
 
         // find prefix and suffix on the first and last lines
@@ -146,7 +146,7 @@ impl FilePatcher {
         }
 
         impl Visitor {
-            pub fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
+            fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
                 for idx in 0..tokens.len() {
                     if let Some(TokenTree::Ident(_)) = tokens.get(idx) {
                         if let Some(TokenTree::Punct(ref punct)) = tokens.get(idx + 1) {
@@ -170,11 +170,7 @@ impl FilePatcher {
                 }
             }
 
-            pub fn try_extract_snapshot(
-                &mut self,
-                tokens: &[TokenTree],
-                indentation: usize,
-            ) -> bool {
+            fn try_extract_snapshot(&mut self, tokens: &[TokenTree], indentation: usize) -> bool {
                 if tokens.len() < 2 {
                     return false;
                 }
