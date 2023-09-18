@@ -10,13 +10,13 @@ use serde::Deserialize;
 use crate::utils::err_msg;
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct Target {
+struct Target {
     src_path: PathBuf,
     kind: HashSet<String>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct Package {
+pub(crate) struct Package {
     name: String,
     version: String,
     id: String,
@@ -25,14 +25,14 @@ pub struct Package {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Metadata {
+pub(crate) struct Metadata {
     packages: Vec<Package>,
     workspace_members: Vec<String>,
     workspace_root: String,
 }
 
 impl Metadata {
-    pub fn workspace_root(&self) -> &Path {
+    pub(crate) fn workspace_root(&self) -> &Path {
         Path::new(&self.workspace_root)
     }
 }
@@ -43,19 +43,19 @@ struct ProjectLocation {
 }
 
 impl Package {
-    pub fn manifest_path(&self) -> &Path {
+    pub(crate) fn manifest_path(&self) -> &Path {
         &self.manifest_path
     }
 
-    pub fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn version(&self) -> &str {
+    pub(crate) fn version(&self) -> &str {
         &self.version
     }
 
-    pub fn find_snapshot_roots(&self) -> Vec<PathBuf> {
+    pub(crate) fn find_snapshot_roots(&self) -> Vec<PathBuf> {
         let mut roots = Vec::new();
 
         // the manifest path's parent is always a snapshot container.  For
@@ -98,13 +98,15 @@ impl Package {
     }
 }
 
-pub fn get_cargo() -> String {
+pub(crate) fn get_cargo() -> String {
     env::var("CARGO")
         .ok()
         .unwrap_or_else(|| "cargo".to_string())
 }
 
-pub fn get_package_metadata(manifest_path: Option<&Path>) -> Result<Metadata, Box<dyn Error>> {
+pub(crate) fn get_package_metadata(
+    manifest_path: Option<&Path>,
+) -> Result<Metadata, Box<dyn Error>> {
     let mut cmd = process::Command::new(get_cargo());
     cmd.arg("metadata")
         .arg("--no-deps")
@@ -157,7 +159,10 @@ fn find_all_packages(metadata: &Metadata) -> Vec<Package> {
         .collect()
 }
 
-pub fn find_packages(metadata: &Metadata, all: bool) -> Result<Vec<Package>, Box<dyn Error>> {
+pub(crate) fn find_packages(
+    metadata: &Metadata,
+    all: bool,
+) -> Result<Vec<Package>, Box<dyn Error>> {
     if all {
         Ok(find_all_packages(metadata))
     } else {
