@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.32.0
+
+- Added `--profile` parameter support to `cargo insta test`.
+
 ## 1.31.0
 
 - Fixed a bug that caused `cargo insta test` not to report test failures.
