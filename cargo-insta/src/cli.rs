@@ -154,6 +154,9 @@ struct TestCommand {
     /// Build artifacts with the specified profile
     #[structopt(long)]
     profile: Option<String>,
+    /// Test all targets (does not include doctests)
+    #[structopt(long)]
+    all_targets: bool,
     /// Activate all available features
     #[structopt(long)]
     all_features: bool,
@@ -883,6 +886,9 @@ fn prepare_test_runner<'snapshot_ref>(
     if let Some(ref profile) = cmd.profile {
         proc.arg("--profile");
         proc.arg(profile);
+    }
+    if cmd.all_targets {
+        proc.arg("--all-targets");
     }
     if let Some(n) = cmd.jobs {
         // use -j instead of --jobs since both nextest and cargo test use it
