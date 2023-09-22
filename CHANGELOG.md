@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.33.0
+
+- Added `--all-targets` parameter support to `cargo insta test`.  (#408)
+
 ## 1.32.0
 
 - Added `--profile` parameter support to `cargo insta test`.
