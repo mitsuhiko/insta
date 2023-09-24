@@ -219,7 +219,6 @@ macro_rules! _assert_serialized_snapshot {
     // If there's an inline snapshot, convert redactions expressions to a
     // function call and pass to `_assert_snapshot_base`
     (format=$format:ident, $value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
-    // (format=$format:ident, $value:expr, {$($k:expr => $v:expr,)}, @$snapshot:literal) => {{
         let transform = |value| {
             let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, Inline);
             value
@@ -311,33 +310,22 @@ macro_rules! assert_debug_snapshot {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_snapshot_base {
-    // If there's an inline literal, wrap that in a `ReferenceValue::Inline`,
-    // call self.
-    (transform=$transform:expr, $value:expr, @$snapshot:literal) => {
-        $crate::_assert_snapshot_base!(
-            transform = $transform,
-            #[allow(clippy::needless_raw_string_hashes)]
-            $crate::_macro_support::ReferenceValue::Inline($snapshot),
-            $value,
-            stringify!($value)
-        )
-    };
-    // If there's an inline literal with a debug_expr, wrap the literal in a
+    // If there's an inline literal value, wrap the literal in a
     // `ReferenceValue::Inline`, call self.
-    (transform=$transform:expr, $value:expr, $debug_expr:expr, @$snapshot:literal) => {
+    (transform=$transform:expr, $($arg:expr),*, @$snapshot:literal) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
             #[allow(clippy::needless_raw_string_hashes)]
             $crate::_macro_support::ReferenceValue::Inline($snapshot),
-            $value,
-            $debug_expr
+            $($arg),*
         )
     };
     // If there's no debug_expr, use the stringified value, call self.
     (transform=$transform:expr, $name:expr, $value:expr) => {
         $crate::_assert_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
     };
-    // If there's no name, auto generate the name in its place, call self.
+    // If there's no name (and necessarily no debug expr), auto generate the
+    // name and debug expr, call self.
     (transform=$transform:expr, $value:expr) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
