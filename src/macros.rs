@@ -328,7 +328,7 @@ macro_rules! _assert_snapshot_base {
         $crate::_assert_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
     };
     // If there's no name (and necessarily no debug expr), auto generate the
-    // name and debug expr, call self.
+    // name, call self.
     (transform=$transform:expr, $value:expr) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
