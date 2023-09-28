@@ -1,6 +1,7 @@
 use std::borrow::{Borrow, Cow};
 use std::collections::HashSet;
 use std::error::Error;
+use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 use std::{io, process};
@@ -15,7 +16,7 @@ use structopt::clap::AppSettings;
 use structopt::StructOpt;
 use uuid::Uuid;
 
-use crate::cargo::{find_packages, get_cargo, get_package_metadata, Package};
+use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
@@ -240,10 +241,10 @@ fn query_snapshot(
 ) -> Result<Operation, Box<dyn Error>> {
     loop {
         term.clear_screen()?;
-        let (pkg_name, pkg_version) = if let Some(pkg) = pkg {
-            (pkg.name(), pkg.version())
+        let (pkg_name, pkg_version): (_, &dyn Display) = if let Some(pkg) = pkg {
+            (pkg.name.as_str(), &pkg.version)
         } else {
-            ("unknown package", "unknown version")
+            ("unknown package", &"unknown version")
         };
 
         println!(
@@ -364,8 +365,8 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
     // does we instead treat it as manifest path.  If both are provided we fail with an error
     // as this would indicate an error.
     let (workspace_root, manifest_path) = match (
-        target_args.workspace_root.as_ref(),
-        target_args.manifest_path.as_ref(),
+        target_args.workspace_root.as_deref(),
+        target_args.manifest_path.as_deref(),
     ) {
         (Some(_), Some(_)) => {
             return Err(err_msg(
@@ -374,12 +375,11 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
         }
         (None, Some(manifest)) => (None, Some(Cow::Borrowed(manifest))),
         (Some(root), manifest_path) => {
-            let mut assumed_manifest = root.clone();
-            assumed_manifest.push("Cargo.toml");
-            if assumed_manifest.metadata().map_or(false, |x| x.is_file()) {
+            let assumed_manifest = root.join("Cargo.toml");
+            if assumed_manifest.is_file() {
                 (None, Some(Cow::Owned(assumed_manifest)))
             } else {
-                (Some(root.as_path()), manifest_path.map(Cow::Borrowed))
+                (Some(root), manifest_path.map(Cow::Borrowed))
             }
         }
         (None, None) => (None, None),
@@ -395,11 +395,18 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
             tool_config,
         })
     } else {
-        let metadata = get_package_metadata(manifest_path.as_ref().map(|x| x.as_path()))?;
-        let packages = find_packages(&metadata, target_args.all || target_args.workspace)?;
-        let tool_config = ToolConfig::from_workspace(metadata.workspace_root())?;
+        let Metadata {
+            packages,
+            workspace_root,
+            ..
+        } = get_metadata(
+            manifest_path.as_deref(),
+            target_args.all || target_args.workspace,
+        )?;
+        let workspace_root = workspace_root.as_std_path().to_path_buf();
+        let tool_config = ToolConfig::from_workspace(&workspace_root)?;
         Ok(LocationInfo {
-            workspace_root: metadata.workspace_root().to_path_buf(),
+            workspace_root,
             packages: Some(packages),
             exts,
             find_flags: get_find_flags(&tool_config, target_args),
@@ -421,7 +428,7 @@ fn load_snapshot_containers<'a>(
     let mut snapshot_containers = vec![];
     if let Some(ref packages) = loc.packages {
         for package in packages.iter() {
-            for root in package.find_snapshot_roots() {
+            for root in find_snapshot_roots(package) {
                 roots.insert(root.clone());
                 for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
                     snapshot_containers.push((snapshot_container?, Some(package)));
@@ -776,14 +783,18 @@ fn prepare_test_runner<'snapshot_ref>(
     extra_args: &[&str],
     snapshot_ref_file: Option<&'snapshot_ref Path>,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
+    let cargo = env::var_os("CARGO");
+    let cargo = cargo
+        .as_deref()
+        .unwrap_or_else(|| std::ffi::OsStr::new("cargo"));
     let mut proc = match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
-            let mut proc = process::Command::new(get_cargo());
+            let mut proc = process::Command::new(cargo);
             proc.arg("test");
             proc
         }
         TestRunner::Nextest => {
-            let mut proc = process::Command::new(get_cargo());
+            let mut proc = process::Command::new(cargo);
             proc.arg("nextest");
             proc.arg("run");
             proc

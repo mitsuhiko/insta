@@ -95,11 +95,11 @@ pub(crate) fn make_deletion_walker(
             .filter_map(|x| {
                 // filter out packages we did not ask for.
                 if let Some(only_package) = selected_package {
-                    if x.name() != only_package {
+                    if x.name != only_package {
                         return None;
                     }
                 }
-                x.manifest_path().parent().unwrap().canonicalize().ok()
+                x.manifest_path.parent().unwrap().canonicalize().ok()
             })
             .collect()
     } else {
