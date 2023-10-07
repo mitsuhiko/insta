@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.34.0
+
+- Fixed handling of `--manifest-path` with regards to virtual workspaces.  (#409)
+
 ## 1.33.0
 
 - Added `--all-targets` parameter support to `cargo insta test`.  (#408)
