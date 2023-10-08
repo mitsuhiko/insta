@@ -30,12 +30,13 @@ fn main() {
         .unwrap();
 
     // run tests and accept snapshots
-    Command::new("../target/debug/cargo-insta")
+    let status = Command::new("../target/debug/cargo-insta")
         .arg("test")
         .arg("--accept")
         .arg("--no-ignore")
         .status()
         .unwrap();
+    assert!(status.success());
 
     // use insta itself to assert snapshots
     for entry in WalkDir::new("test-input") {
