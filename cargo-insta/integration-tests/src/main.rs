@@ -46,11 +46,10 @@ fn main() {
             .unwrap()
             .to_str()
             .unwrap();
-        if filename.ends_with(".rs") {
+        if let Some(snapshot) = filename.strip_suffix(".rs") {
             let gen_file = Path::new("tests").join(filename);
             let mut settings = Settings::clone_current();
             settings.set_input_file(&gen_file);
-            let snapshot = &filename[..filename.len() - 3];
             settings.bind(|| {
                 assert_snapshot!(snapshot, &fs::read_to_string(gen_file).unwrap());
             });
