@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::iter::FromIterator;
 
 use regex::Regex;
 
@@ -9,13 +10,16 @@ pub struct Filters {
     rules: Vec<(Regex, String)>,
 }
 
-impl<'a, T> From<T> for Filters
-where
-    T: IntoIterator<Item = (&'a str, &'a str)>,
-{
-    fn from(value: T) -> Filters {
+impl<'a> From<Vec<(&'a str, &'a str)>> for Filters {
+    fn from(value: Vec<(&'a str, &'a str)>) -> Self {
+        Self::from_iter(value)
+    }
+}
+
+impl<'a> FromIterator<(&'a str, &'a str)> for Filters {
+    fn from_iter<I: IntoIterator<Item = (&'a str, &'a str)>>(iter: I) -> Self {
         let mut rv = Filters::default();
-        for (regex, replacement) in value {
+        for (regex, replacement) in iter {
             rv.add(regex, replacement);
         }
         rv
@@ -65,5 +69,11 @@ fn test_filters() {
 #[test]
 fn test_static_str_array_conversion() {
     let arr: [(&'static str, &'static str); 2] = [("a1", "b1"), ("a2", "b2")];
-    let _ = Filters::from(arr);
+    let _ = Filters::from_iter(arr);
+}
+
+#[test]
+fn test_vec_str_conversion() {
+    let vec: Vec<(&str, &str)> = Vec::from([("a1", "b1"), ("a2", "b2")]);
+    let _ = Filters::from(vec);
 }
