@@ -5,6 +5,7 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.34.0
 
 - Fixed handling of `--manifest-path` with regards to virtual workspaces.  (#409)
+- Re-organized repository to move `cargo-insta` into a workspace.  (#410)
 
 ## 1.33.0
 
