@@ -727,7 +727,7 @@ b"[1..];
     );
 
     let t = "ab";
-    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r##""ab""##);
+    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""ab""#);
 }
 
 #[test]

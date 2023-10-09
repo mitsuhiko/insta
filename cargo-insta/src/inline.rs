@@ -104,7 +104,7 @@ impl FilePatcher {
 
         // replace lines
         let snapshot_line_contents =
-            vec![prefix, snapshot.to_inline(inline.indentation), suffix].join("");
+            [prefix, snapshot.to_inline(inline.indentation), suffix].join("");
 
         self.lines.splice(
             inline.start.0..=inline.end.0,

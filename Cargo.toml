@@ -18,6 +18,9 @@ exclude = [
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[workspace]
+members = ["cargo-insta", "cargo-insta/integration-tests"]
+
 [features]
 default = ["colors"]
 

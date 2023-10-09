@@ -44,7 +44,7 @@ fn test_clash_detection() {
 
     let s1 = err1.downcast_ref::<String>().unwrap();
     let s2 = err2.downcast_ref::<String>().unwrap();
-    let mut values = vec![s1.as_str(), s2.as_str()];
+    let mut values = [s1.as_str(), s2.as_str()];
     values.sort();
     assert_eq!(&values[..], &vec![
         "Insta snapshot name clash detected between \'foo_always_missing\' and \'test_foo_always_missing\' in \'test_clash_detection\'. Rename one function.",
