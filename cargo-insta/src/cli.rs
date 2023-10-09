@@ -443,6 +443,7 @@ fn load_snapshot_containers<'a>(
             snapshot_containers.push((snapshot_container?, None));
         }
     }
+    snapshot_containers.sort_by(|a, b| a.0.snapshot_sort_key().cmp(&b.0.snapshot_sort_key()));
     Ok((snapshot_containers, roots))
 }
 
