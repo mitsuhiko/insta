@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-pub(crate) use cargo_metadata::{Metadata, MetadataCommand, Package};
+pub(crate) use cargo_metadata::{Metadata, Package};
 
 pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     let mut roots = Vec::new();
@@ -49,7 +49,7 @@ pub(crate) fn get_metadata(
     manifest_path: Option<&Path>,
     all: bool,
 ) -> Result<Metadata, Box<dyn Error>> {
-    let mut cmd = MetadataCommand::new();
+    let mut cmd = cargo_metadata::MetadataCommand::new();
     if let Some(manifest_path) = manifest_path {
         cmd.manifest_path(manifest_path);
     }

@@ -12,7 +12,7 @@ cargo-insta-tests:
 	@echo "CARGO-INSTA INTEGRATION TESTS"
 	# Turn off CI flag so that cargo insta test behaves as we expect
 	# under normal operation
-	@cd cargo-insta/integration-tests; CI=0 cargo run
+	@CI=0 cargo test -p integration-tests
 
 cargotest:
 	@echo "CARGO TESTS"
@@ -21,7 +21,7 @@ cargotest:
 	@cargo test --all-features
 	@cargo test --no-default-features
 	@cargo test --features redactions -- --test-threads 1
-	@cd cargo-insta; cargo test
+	@cargo test -p cargo-insta
 
 check-minver:
 	@echo "MINVER CHECK"
@@ -40,6 +40,6 @@ format-check:
 
 lint:
 	@rustup component add clippy 2> /dev/null
-	@cargo clippy
+	@cargo clippy --all-targets --workspace -- --deny warnings
 
 .PHONY: all doc test cargotest format format-check lint update-readme

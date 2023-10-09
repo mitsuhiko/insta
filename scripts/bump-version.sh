@@ -11,4 +11,4 @@ perl -pi -e "s/^version = \".*?\"/version = \"$NEW_VERSION\"/" Cargo.toml
 perl -pi -e "s/^version = \".*?\"/version = \"$NEW_VERSION\"/" cargo-insta/Cargo.toml
 perl -pi -e "s/^(insta.*?)version = \".*?\"/\$1version = \"=$NEW_VERSION\"/" cargo-insta/Cargo.toml
 
-cd cargo-insta; cargo check
+cargo check -p cargo-insta
