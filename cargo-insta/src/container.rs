@@ -140,6 +140,20 @@ impl SnapshotContainer {
         }
     }
 
+    pub(crate) fn snapshot_sort_key(&self) -> impl Ord + '_ {
+        let path = self
+            .snapshot_path
+            .file_name()
+            .and_then(|x| x.to_str())
+            .unwrap_or_default();
+        let mut pieces = path.rsplitn(2, '-');
+        if let Some(num_suffix) = pieces.next().and_then(|x| x.parse::<i64>().ok()) {
+            (pieces.next().unwrap_or(""), num_suffix)
+        } else {
+            (path, 0)
+        }
+    }
+
     pub(crate) fn len(&self) -> usize {
         self.snapshots.len()
     }
