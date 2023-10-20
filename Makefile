@@ -6,13 +6,7 @@ build:
 doc:
 	@RUSTC_BOOTSTRAP=1 RUSTDOCFLAGS="--cfg=docsrs" cargo doc --no-deps --all-features
 
-test: cargotest cargo-insta-tests
-
-cargo-insta-tests:
-	@echo "CARGO-INSTA INTEGRATION TESTS"
-	# Turn off CI flag so that cargo insta test behaves as we expect
-	# under normal operation
-	@CI=0 cargo test -p integration-tests
+test: cargotest
 
 cargotest:
 	@echo "CARGO TESTS"
@@ -21,7 +15,10 @@ cargotest:
 	@cargo test --all-features
 	@cargo test --no-default-features
 	@cargo test --features redactions -- --test-threads 1
-	@cargo test -p cargo-insta
+	@echo "CARGO-INSTA TESTS"
+	# Turn off CI flag so that cargo insta test behaves as we expect
+	# under normal operation
+	@CI=0 cargo test -p cargo-insta
 
 check-minver:
 	@echo "MINVER CHECK"
