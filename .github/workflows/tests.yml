@@ -17,14 +17,14 @@ jobs:
         run: make test
 
   test-stable:
-    name: Test on 1.61.0
+    name: Test on 1.64.0
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.61.0
+          toolchain: 1.64.0
       - uses: Swatinem/rust-cache@v2
       - name: Use Cargo.lock.msrv
         run: cp Cargo.lock.msrv Cargo.lock
