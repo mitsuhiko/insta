@@ -30,8 +30,9 @@ macro_rules! _function_name {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions see [redactions](https://docs.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "csv")]
@@ -41,16 +42,16 @@ macro_rules! assert_csv_snapshot {
     ($value:expr, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, Csv, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Csv, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Csv);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, Csv);
     }};
-    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Csv);
     }};
     ($value:expr) => {{
@@ -74,8 +75,9 @@ macro_rules! assert_csv_snapshot {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "toml")]
@@ -85,16 +87,16 @@ macro_rules! assert_toml_snapshot {
     ($value:expr, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, Toml, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Toml, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Toml);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, Toml);
     }};
-    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Toml);
     }};
     ($value:expr) => {{
@@ -124,8 +126,9 @@ macro_rules! assert_toml_snapshot {
 /// macro, this one has a secondary mode where redactions can be defined.
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// Example:
 ///
@@ -153,16 +156,16 @@ macro_rules! assert_yaml_snapshot {
     ($value:expr, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, Yaml, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Yaml, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Yaml);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, Yaml);
     }};
-    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Yaml);
     }};
     ($value:expr) => {{
@@ -186,8 +189,9 @@ macro_rules! assert_yaml_snapshot {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "ron")]
@@ -197,16 +201,16 @@ macro_rules! assert_ron_snapshot {
     ($value:expr, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, Ron, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Ron, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Ron);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, Ron);
     }};
-    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Ron);
     }};
     ($value:expr) => {{
@@ -230,8 +234,9 @@ macro_rules! assert_ron_snapshot {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "json")]
@@ -241,16 +246,16 @@ macro_rules! assert_json_snapshot {
     ($value:expr, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, Json, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
         $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Json, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Json);
     }};
     ($name:expr, $value:expr) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, Json);
     }};
-    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Json);
     }};
     ($value:expr) => {{
@@ -275,8 +280,9 @@ macro_rules! assert_json_snapshot {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "json")]
