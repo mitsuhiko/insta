@@ -87,17 +87,15 @@ pub(crate) fn make_snapshot_walker(path: &Path, extensions: &[&str], flags: Find
 pub(crate) fn make_deletion_walker(
     workspace_root: &Path,
     known_packages: Option<&[Package]>,
-    selected_package: Option<&str>,
+    selected_packages: &[String],
 ) -> Walk {
     let roots: HashSet<_> = if let Some(packages) = known_packages {
         packages
             .iter()
             .filter_map(|x| {
                 // filter out packages we did not ask for.
-                if let Some(only_package) = selected_package {
-                    if x.name != only_package {
-                        return None;
-                    }
+                if !selected_packages.is_empty() && !selected_packages.contains(&x.name) {
+                    return None;
                 }
                 x.manifest_path.parent().unwrap().canonicalize().ok()
             })
