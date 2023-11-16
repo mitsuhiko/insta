@@ -8,10 +8,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
+      - uses: Swatinem/rust-cache@v2
       - name: Test
         run: make test
 
@@ -20,10 +21,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.61.0
+      - uses: Swatinem/rust-cache@v2
       - name: Use Cargo.lock.msrv
         run: cp Cargo.lock.msrv Cargo.lock
       - name: Test
@@ -33,9 +35,10 @@ jobs:
     name: Check on 1.51.0
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.51.0
+      - uses: Swatinem/rust-cache@v2
       - name: Check
         run: cargo check --no-default-features
