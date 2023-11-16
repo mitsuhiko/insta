@@ -134,7 +134,7 @@ struct TestCommand {
     tests: bool,
     /// Package to run tests for
     #[structopt(short = "p", long)]
-    package: Option<String>,
+    package: Vec<String>,
     /// Exclude packages from the test
     #[structopt(long, value_name = "SPEC")]
     exclude: Option<String>,
@@ -643,7 +643,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
 
     // handle unreferenced snapshots if we were instructed to do so
     if let Some(ref path) = snapshot_ref_file {
-        handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced, cmd.package.as_deref())?;
+        handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced, &cmd.package[..])?;
     }
 
     if cmd.review || cmd.accept {
@@ -688,7 +688,7 @@ fn handle_unreferenced_snapshots(
     path: &Path,
     loc: &LocationInfo<'_>,
     unreferenced: UnreferencedSnapshots,
-    package: Option<&str>,
+    packages: &[String],
 ) -> Result<(), Box<dyn Error>> {
     enum Action {
         Delete,
@@ -729,7 +729,7 @@ fn handle_unreferenced_snapshots(
     }
 
     let mut encountered_any = false;
-    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.as_deref(), package) {
+    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.as_deref(), packages) {
         let rel_path = match entry {
             Ok(ref entry) => entry.path(),
             _ => continue,
@@ -852,7 +852,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--tests");
         prevents_doc_run = true;
     }
-    if let Some(ref pkg) = cmd.package {
+    for pkg in &cmd.package {
         proc.arg("--package");
         proc.arg(pkg);
     }
