@@ -19,7 +19,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
-members = ["cargo-insta", "cargo-insta/integration-tests"]
+members = ["cargo-insta"]
 
 [features]
 default = ["colors"]
