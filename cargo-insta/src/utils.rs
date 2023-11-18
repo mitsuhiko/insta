@@ -3,7 +3,7 @@ use std::fmt;
 
 /// Close without message but exit code.
 #[derive(Debug)]
-pub struct QuietExit(pub i32);
+pub(crate) struct QuietExit(pub(crate) i32);
 
 impl Error for QuietExit {}
 
@@ -14,7 +14,7 @@ impl fmt::Display for QuietExit {
 }
 
 #[derive(Debug)]
-pub struct ErrMsg(String);
+struct ErrMsg(String);
 
 impl Error for ErrMsg {}
 
@@ -24,6 +24,6 @@ impl fmt::Display for ErrMsg {
     }
 }
 
-pub fn err_msg<S: Into<String>>(s: S) -> Box<dyn Error> {
+pub(crate) fn err_msg<S: Into<String>>(s: S) -> Box<dyn Error> {
     Box::new(ErrMsg(s.into()))
 }

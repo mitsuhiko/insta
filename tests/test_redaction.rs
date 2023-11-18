@@ -86,6 +86,22 @@ fn test_with_random_value_and_trailing_comma() {
     });
 }
 
+#[cfg(feature = "yaml")]
+#[test]
+fn test_with_random_value_and_trailing_comma_match() {
+    assert_yaml_snapshot!(
+        &User {
+            id: 11,
+            username: "john_doe".to_string(),
+            email: Email("john@example.com".to_string()),
+            extra: "".to_string(),
+        },
+        match .. {
+            ".id" => "[id]",
+        }
+    );
+}
+
 #[cfg(feature = "csv")]
 #[test]
 fn test_with_random_value_csv() {
@@ -97,6 +113,22 @@ fn test_with_random_value_csv() {
     }, {
         ".id" => "[id]"
     });
+}
+
+#[cfg(feature = "csv")]
+#[test]
+fn test_with_random_value_csv_match() {
+    assert_csv_snapshot!(
+        &User {
+            id: 44,
+            username: "julius_csv".to_string(),
+            email: Email("julius@example.com".to_string()),
+            extra: "".to_string(),
+        },
+        match .. {
+            ".id" => "[id]",
+        }
+    );
 }
 
 #[cfg(feature = "ron")]
@@ -112,6 +144,22 @@ fn test_with_random_value_ron() {
     });
 }
 
+#[cfg(feature = "ron")]
+#[test]
+fn test_with_random_value_ron_match() {
+    assert_ron_snapshot!(
+        &User {
+            id: 53,
+            username: "john_ron".to_string(),
+            email: Email("john@example.com".to_string()),
+            extra: "".to_string(),
+        },
+        match .. {
+            ".id" => "[id]",
+        }
+    );
+}
+
 #[cfg(feature = "toml")]
 #[test]
 fn test_with_random_value_toml() {
@@ -123,6 +171,22 @@ fn test_with_random_value_toml() {
     }, {
         ".id" => "[id]"
     });
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn test_with_random_value_toml_match() {
+    assert_toml_snapshot!(
+        &User {
+            id: 53,
+            username: "john_ron".to_string(),
+            email: Email("john@example.com".to_string()),
+            extra: "".to_string(),
+        },
+        match .. {
+            ".id" => "[id]",
+        }
+    );
 }
 
 #[cfg(feature = "json")]
@@ -137,6 +201,23 @@ fn test_with_random_value_json() {
         ".id" => "[id]",
         ".extra" => "[extra]"
     });
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn test_with_random_value_json_match() {
+    assert_json_snapshot!(
+        &User {
+            id: 9999,
+            username: "jason_doe".to_string(),
+            email: Email("jason@example.com".to_string()),
+            extra: "ssn goes here".to_string(),
+        },
+        match .. {
+            ".id" => "[id]",
+            ".extra" => "[extra]",
+        }
+    );
 }
 
 #[cfg(feature = "json")]

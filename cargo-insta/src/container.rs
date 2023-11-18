@@ -8,29 +8,30 @@ use insta::_cargo_insta_support::PendingInlineSnapshot;
 use crate::inline::FilePatcher;
 
 #[derive(Clone, Copy, Debug)]
-pub enum Operation {
+pub(crate) enum Operation {
     Accept,
     Reject,
     Skip,
 }
 
 #[derive(Debug)]
-pub enum SnapshotContainerKind {
+pub(crate) enum SnapshotContainerKind {
     Inline,
     External,
 }
 
 #[derive(Debug)]
-pub struct PendingSnapshot {
-    pub id: usize,
-    pub old: Option<Snapshot>,
-    pub new: Snapshot,
-    pub op: Operation,
-    pub line: Option<u32>,
+pub(crate) struct PendingSnapshot {
+    #[allow(dead_code)]
+    id: usize,
+    pub(crate) old: Option<Snapshot>,
+    pub(crate) new: Snapshot,
+    pub(crate) op: Operation,
+    pub(crate) line: Option<u32>,
 }
 
 impl PendingSnapshot {
-    pub fn summary(&self) -> String {
+    pub(crate) fn summary(&self) -> String {
         use std::fmt::Write;
         let mut rv = String::new();
         if let Some(source) = self.new.metadata().source() {
@@ -47,7 +48,7 @@ impl PendingSnapshot {
 }
 
 #[derive(Debug)]
-pub struct SnapshotContainer {
+pub(crate) struct SnapshotContainer {
     snapshot_path: PathBuf,
     target_path: PathBuf,
     kind: SnapshotContainerKind,
@@ -56,7 +57,7 @@ pub struct SnapshotContainer {
 }
 
 impl SnapshotContainer {
-    pub fn load(
+    pub(crate) fn load(
         snapshot_path: PathBuf,
         target_path: PathBuf,
         kind: SnapshotContainerKind,
@@ -128,26 +129,40 @@ impl SnapshotContainer {
         })
     }
 
-    pub fn target_file(&self) -> &Path {
+    pub(crate) fn target_file(&self) -> &Path {
         &self.target_path
     }
 
-    pub fn snapshot_file(&self) -> Option<&Path> {
+    pub(crate) fn snapshot_file(&self) -> Option<&Path> {
         match self.kind {
             SnapshotContainerKind::External => Some(&self.target_path),
             SnapshotContainerKind::Inline => None,
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn snapshot_sort_key(&self) -> impl Ord + '_ {
+        let path = self
+            .snapshot_path
+            .file_name()
+            .and_then(|x| x.to_str())
+            .unwrap_or_default();
+        let mut pieces = path.rsplitn(2, '-');
+        if let Some(num_suffix) = pieces.next().and_then(|x| x.parse::<i64>().ok()) {
+            (pieces.next().unwrap_or(""), num_suffix)
+        } else {
+            (path, 0)
+        }
+    }
+
+    pub(crate) fn len(&self) -> usize {
         self.snapshots.len()
     }
 
-    pub fn iter_snapshots(&mut self) -> impl Iterator<Item = &'_ mut PendingSnapshot> {
+    pub(crate) fn iter_snapshots(&mut self) -> impl Iterator<Item = &'_ mut PendingSnapshot> {
         self.snapshots.iter_mut()
     }
 
-    pub fn commit(&mut self) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn commit(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(ref mut patcher) = self.patcher {
             let mut new_pending = vec![];
             let mut did_accept = false;

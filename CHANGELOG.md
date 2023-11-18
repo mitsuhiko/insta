@@ -2,6 +2,26 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.35.0
+
+- Added new alternative `match .. { ... }` syntax to redactions for better
+  `rustfmt` support.  (#428)
+- The `--package` parameter can be supplied multiple times now.  (#427)
+
+## 1.34.0
+
+- Snapshots are now sorted in the UI on review.  (#413)
+- Re-organized repository to move `cargo-insta` into a workspace.  (#410)
+- Fixed handling of `--manifest-path` with regards to virtual workspaces.  (#409)
+
+## 1.33.0
+
+- Added `--all-targets` parameter support to `cargo insta test`.  (#408)
+
+## 1.32.0
+
+- Added `--profile` parameter support to `cargo insta test`.
+
 ## 1.31.0
 
 - Fixed a bug that caused `cargo insta test` not to report test failures.

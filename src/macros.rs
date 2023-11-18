@@ -30,8 +30,9 @@ macro_rules! _function_name {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions see [redactions](https://docs.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "csv")]
@@ -59,8 +60,9 @@ macro_rules! assert_csv_snapshot {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "toml")]
@@ -94,8 +96,9 @@ macro_rules! assert_toml_snapshot {
 /// macro, this one has a secondary mode where redactions can be defined.
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// Example:
 ///
@@ -141,8 +144,9 @@ macro_rules! assert_yaml_snapshot {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "ron")]
@@ -170,8 +174,9 @@ macro_rules! assert_ron_snapshot {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "json")]
@@ -200,8 +205,9 @@ macro_rules! assert_json_snapshot {
 /// ```
 ///
 /// The third argument to the macro can be an object expression for redaction.
-/// It's in the form `{ selector => replacement }`.  For more information
-/// about redactions refer to the [redactions feature in the guide](https://insta.rs/docs/redactions/).
+/// It's in the form `{ selector => replacement }` or `match .. { selector => replacement }`.
+/// For more information about redactions refer to the [redactions feature in
+/// the guide](https://insta.rs/docs/redactions/).
 ///
 /// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "json")]
@@ -221,7 +227,7 @@ macro_rules! _assert_serialized_snapshot {
     //
     // Note that if we could unify the Inline & File represenations of snapshots
     // redactions we could unify some of these branches.
-    (format=$format:ident, $value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
         let transform = |value| {
             let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, Inline);
             value
@@ -229,11 +235,11 @@ macro_rules! _assert_serialized_snapshot {
         $crate::_assert_snapshot_base!(transform=transform, $value, @$snapshot);
     }};
     // If there are redaction expressions and no name, add a auto-generated name, call self
-    (format=$format:ident, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         $crate::_assert_serialized_snapshot!(format=$format, $crate::_macro_support::AutoName, $value, {$($k => $v),*});
     }};
     // If there are redaction expressions, capture and pass to `_assert_snapshot_base`
-    (format=$format:ident, $name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
+    (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
         let transform = |value| {
             let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, File);
             value
