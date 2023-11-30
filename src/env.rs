@@ -132,6 +132,9 @@ impl ToolConfig {
         let mut cfg = None;
         for choice in &[".config/insta.yaml", "insta.yaml", ".insta.yaml"] {
             let path = workspace_dir.join(choice);
+            if !path.exists() {
+                continue;
+            }
             match fs::read_to_string(path) {
                 Ok(s) => {
                     cfg = Some(yaml::parse_str(&s).map_err(Error::Deserialize)?);
