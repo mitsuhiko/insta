@@ -4,6 +4,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.35.0
 
+- Fixed a crash when a file named `.config` was in the root.
 - Added new alternative `match .. { ... }` syntax to redactions for better
   `rustfmt` support.  (#428)
 - The `--package` parameter can be supplied multiple times now.  (#427)

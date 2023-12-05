@@ -137,8 +137,11 @@ impl ToolConfig {
                     cfg = Some(yaml::parse_str(&s).map_err(Error::Deserialize)?);
                     break;
                 }
-                Err(err) if matches!(err.kind(), io::ErrorKind::NotFound) => continue,
-                Err(err) => return Err(Error::Io(err)),
+                // ideally we would not swallow all errors here but unfortunately there are
+                // some cases where we cannot detect the error propertly.
+                // Eg we can see NotADirectory here as kind, but on stable rust it cannot
+                // be matched on.
+                Err(err) => continue,
             }
         }
         let cfg = cfg.unwrap_or_else(|| Content::Map(Default::default()));
