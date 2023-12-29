@@ -9,6 +9,7 @@ rust-version = "1.51.0"
 homepage = "https://insta.rs/"
 repository = "https://github.com/mitsuhiko/insta"
 keywords = ["snapshot", "testing", "jest", "approval"]
+categories = ["development-tools::testing"]
 readme = "README.md"
 exclude = [
     "assets/*"
