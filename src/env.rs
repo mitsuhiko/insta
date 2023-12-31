@@ -371,7 +371,7 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
             let docs =
                 yaml_rust::YamlLoader::load_from_str(std::str::from_utf8(&output.stdout).unwrap())
                     .unwrap();
-            let manifest = docs.get(0).expect("Unable to parse cargo manifest");
+            let manifest = docs.first().expect("Unable to parse cargo manifest");
             let workspace_root = PathBuf::from(manifest["workspace_root"].as_str().unwrap());
             Arc::new(workspace_root)
         };
