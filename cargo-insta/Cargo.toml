@@ -8,6 +8,7 @@ homepage = "https://insta.rs/"
 repository = "https://github.com/mitsuhiko/insta"
 documentation = "https://insta.rs/docs/cli/"
 keywords = ["snapshot", "testing", "jest"]
+categories = ["development-tools::cargo-plugins"]
 edition = "2018"
 readme = "README.md"
 
