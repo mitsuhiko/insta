@@ -170,6 +170,9 @@ struct TestRunnerOptions {
     /// Build for the target triple
     #[arg(long)]
     target: Option<String>,
+    /// Do not run `cargo test --doc` after `cargo nextest`, even if test specifiers would otherwise include doctests.
+    #[arg(long)]
+    disable_nextest_doctest: bool,
 }
 
 #[derive(Args, Debug)]
@@ -840,6 +843,9 @@ fn prepare_test_runner<'snapshot_ref>(
         None
     };
     let mut prevents_doc_run = false;
+    if cmd.disable_nextest_doctest {
+        prevents_doc_run = true;
+    }
     if cmd.target_args.all || cmd.target_args.workspace {
         proc.arg("--all");
     }
