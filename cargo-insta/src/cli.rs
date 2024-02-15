@@ -186,10 +186,10 @@ struct TestCommand {
     /// Update all snapshots even if they are still matching.
     #[structopt(long)]
     force_update_snapshots: bool,
-    /// Controls what happens with unreferenced snapshots.
+    /// Handle unreferenced snapshots after a successful test run.
     #[structopt(long, default_value="ignore", possible_values=&["ignore", "warn", "reject", "delete", "auto"])]
     unreferenced: String,
-    /// Delete unreferenced snapshots after the test run.
+    /// Delete unreferenced snapshots after a successful test run.
     #[structopt(long, hidden = true)]
     delete_unreferenced_snapshots: bool,
     /// Filters to apply to the insta glob feature.
@@ -641,9 +641,12 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         return Err(QuietExit(1).into());
     }
 
-    // handle unreferenced snapshots if we were instructed to do so
-    if let Some(ref path) = snapshot_ref_file {
-        handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced, &cmd.package[..])?;
+    // handle unreferenced snapshots if we were instructed to do so and the
+    // tests ran successfully
+    if success {
+        if let Some(ref path) = snapshot_ref_file {
+            handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced, &cmd.package[..])?;
+        }
     }
 
     if cmd.review || cmd.accept {
