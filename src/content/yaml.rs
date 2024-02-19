@@ -4,11 +4,11 @@ use yaml_rust::{yaml::Hash as YamlObj, Yaml as YamlValue};
 
 pub fn parse_str(s: &str) -> Result<Content, Error> {
     let mut blobs =
-        yaml_rust::YamlLoader::load_from_str(s).map_err(|_| Error::FailedParsingYaml)?;
+        yaml_rust::YamlLoader::load_from_str(s).map_err(|_| Error::FailedParsingYaml(None))?;
 
     match (blobs.pop(), blobs.pop()) {
         (Some(blob), None) => from_yaml_blob(blob).map_err(Into::into),
-        _ => Err(Error::FailedParsingYaml),
+        _ => Err(Error::FailedParsingYaml(None)),
     }
 }
 
@@ -36,7 +36,7 @@ fn from_yaml_blob(blob: YamlValue) -> Result<Content, Error> {
                 .collect::<Result<_, Error>>()?;
             Ok(Content::Map(obj))
         }
-        YamlValue::BadValue | YamlValue::Alias(_) => Err(Error::FailedParsingYaml),
+        YamlValue::BadValue | YamlValue::Alias(_) => Err(Error::FailedParsingYaml(None)),
     }
 }
 
