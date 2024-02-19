@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.35.1
+
+- Fixed a bug with diffs showing bogus newlines.
+
 ## 1.35.0
 
 - Fixed a crash when a file named `.config` was in the root.
