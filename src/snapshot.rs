@@ -436,7 +436,7 @@ impl Snapshot {
 
     /// The snapshot contents as a &str
     pub fn contents_str(&self) -> &str {
-        &self.snapshot.0
+        self.snapshot.as_str()
     }
 
     fn serialize_snapshot(&self, md: &MetaData) -> String {
@@ -510,6 +510,13 @@ impl SnapshotContents {
         SnapshotContents(get_inline_snapshot_value(value))
     }
 
+    /// Returns the snapshot contents as string with surrounding whitespace removed.
+    pub fn as_str(&self) -> &str {
+        self.0
+            .trim_start_matches(|x| x == '\r' || x == '\n')
+            .trim_end()
+    }
+
     pub fn to_inline(&self, indentation: usize) -> String {
         let contents = &self.0;
         let mut out = String::new();
@@ -576,13 +583,7 @@ impl From<SnapshotContents> for String {
 
 impl PartialEq for SnapshotContents {
     fn eq(&self, other: &Self) -> bool {
-        self.0
-            .trim_start_matches(|x| x == '\r' || x == '\n')
-            .trim_end()
-            == other
-                .0
-                .trim_start_matches(|x| x == '\r' || x == '\n')
-                .trim_end()
+        self.as_str() == other.as_str()
     }
 }
 
