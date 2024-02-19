@@ -1,18 +1,20 @@
+use std::path::Path;
+
 use crate::content::{Content, Error};
 
 use yaml_rust::{yaml::Hash as YamlObj, Yaml as YamlValue};
 
-pub fn parse_str(s: &str) -> Result<Content, Error> {
-    let mut blobs =
-        yaml_rust::YamlLoader::load_from_str(s).map_err(|_| Error::FailedParsingYaml(None))?;
+pub fn parse_str(s: &str, filename: &Path) -> Result<Content, Error> {
+    let mut blobs = yaml_rust::YamlLoader::load_from_str(s)
+        .map_err(|_| Error::FailedParsingYaml(filename.to_path_buf()))?;
 
     match (blobs.pop(), blobs.pop()) {
-        (Some(blob), None) => from_yaml_blob(blob).map_err(Into::into),
-        _ => Err(Error::FailedParsingYaml(None)),
+        (Some(blob), None) => from_yaml_blob(blob, filename),
+        _ => Err(Error::FailedParsingYaml(filename.to_path_buf())),
     }
 }
 
-fn from_yaml_blob(blob: YamlValue) -> Result<Content, Error> {
+fn from_yaml_blob(blob: YamlValue, filename: &Path) -> Result<Content, Error> {
     match blob {
         YamlValue::Null => Ok(Content::None),
         YamlValue::Boolean(b) => Ok(Content::from(b)),
@@ -25,18 +27,20 @@ fn from_yaml_blob(blob: YamlValue) -> Result<Content, Error> {
         YamlValue::Array(seq) => {
             let seq = seq
                 .into_iter()
-                .map(from_yaml_blob)
+                .map(|x| from_yaml_blob(x, filename))
                 .collect::<Result<_, Error>>()?;
             Ok(Content::Seq(seq))
         }
         YamlValue::Hash(obj) => {
             let obj = obj
                 .into_iter()
-                .map(|(k, v)| Ok((from_yaml_blob(k)?, from_yaml_blob(v)?)))
+                .map(|(k, v)| Ok((from_yaml_blob(k, filename)?, from_yaml_blob(v, filename)?)))
                 .collect::<Result<_, Error>>()?;
             Ok(Content::Map(obj))
         }
-        YamlValue::BadValue | YamlValue::Alias(_) => Err(Error::FailedParsingYaml(None)),
+        YamlValue::BadValue | YamlValue::Alias(_) => {
+            Err(Error::FailedParsingYaml(filename.to_path_buf()))
+        }
     }
 }
 

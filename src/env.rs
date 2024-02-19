@@ -129,9 +129,9 @@ impl ToolConfig {
         let mut cfg = None;
         for choice in &[".config/insta.yaml", "insta.yaml", ".insta.yaml"] {
             let path = workspace_dir.join(choice);
-            match fs::read_to_string(path) {
+            match fs::read_to_string(&path) {
                 Ok(s) => {
-                    cfg = Some(yaml::parse_str(&s).map_err(Error::Deserialize)?);
+                    cfg = Some(yaml::parse_str(&s, &path).map_err(Error::Deserialize)?);
                     break;
                 }
                 // ideally we would not swallow all errors here but unfortunately there are

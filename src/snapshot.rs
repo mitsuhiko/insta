@@ -44,7 +44,7 @@ impl PendingInlineSnapshot {
         let mut rv: Vec<Self> = contents
             .lines()
             .map(|line| {
-                let value = yaml::parse_str(line)?;
+                let value = yaml::parse_str(line, p)?;
                 Self::from_content(value)
             })
             .collect::<Result<_, Box<dyn Error>>>()?;
@@ -286,14 +286,7 @@ impl Snapshot {
                     break;
                 }
             }
-            let content = yaml::parse_str(&buf).map_err(|e| {
-                // Add file context to error
-                if matches!(e, content::Error::FailedParsingYaml(None)) {
-                    content::Error::FailedParsingYaml(Some(p.to_path_buf()))
-                } else {
-                    e
-                }
-            })?;
+            let content = yaml::parse_str(&buf, p)?;
             MetaData::from_content(content)?
         // legacy format
         } else {
