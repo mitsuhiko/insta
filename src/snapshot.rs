@@ -576,7 +576,13 @@ impl From<SnapshotContents> for String {
 
 impl PartialEq for SnapshotContents {
     fn eq(&self, other: &Self) -> bool {
-        self.0.trim_end() == other.0.trim_end()
+        self.0
+            .trim_start_matches(|x| x == '\r' || x == '\n')
+            .trim_end()
+            == other
+                .0
+                .trim_start_matches(|x| x == '\r' || x == '\n')
+                .trim_end()
     }
 }
 

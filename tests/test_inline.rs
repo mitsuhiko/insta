@@ -286,3 +286,15 @@ fn test_inline_test_in_loop() {
         assert_snapshot!(i.to_string(), @"0");
     }
 }
+
+#[test]
+fn test_inline_snapshot_whitespace() {
+    assert_snapshot!("\n\nfoo\n\n    bar\n\n", @r###"
+
+
+    foo
+
+        bar
+
+    "###);
+}
