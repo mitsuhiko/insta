@@ -10,6 +10,7 @@ All notable changes to insta and cargo-insta are documented here.
 - The `--package` parameter can be supplied multiple times now.  (#427)
 - Leading newlines in snapshots are now ignored to resolve issues with
   inline snapshots that were never able to match.  (#444)
+- `cargo insta test` now accepts the `--test` parameter multiple times.  (#437)
 
 ## 1.34.0
 

@@ -126,9 +126,9 @@ struct TestCommand {
     /// Test all examples
     #[structopt(long)]
     examples: bool,
-    /// Test only the specified test target
+    /// Test only the specified test targets
     #[structopt(long)]
-    test: Option<String>,
+    test: Vec<String>,
     /// Test all tests
     #[structopt(long)]
     tests: bool,
@@ -847,7 +847,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--examples");
         prevents_doc_run = true;
     }
-    if let Some(ref test) = cmd.test {
+    for test in &cmd.test {
         proc.arg("--test");
         proc.arg(test);
         prevents_doc_run = true;
