@@ -414,7 +414,6 @@ impl std::str::FromStr for UnreferencedSnapshots {
 pub fn memoize_snapshot_file(snapshot_file: &Path) {
     if let Ok(path) = env::var("INSTA_SNAPSHOT_REFERENCES_FILE") {
         let mut f = fs::OpenOptions::new()
-            .write(true)
             .append(true)
             .create(true)
             .open(path)
