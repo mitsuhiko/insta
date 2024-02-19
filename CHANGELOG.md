@@ -8,6 +8,8 @@ All notable changes to insta and cargo-insta are documented here.
 - Added new alternative `match .. { ... }` syntax to redactions for better
   `rustfmt` support.  (#428)
 - The `--package` parameter can be supplied multiple times now.  (#427)
+- Leading newlines in snapshots are now ignored to resolve issues with
+  inline snapshots that were never able to match.  (#444)
 
 ## 1.34.0
 
