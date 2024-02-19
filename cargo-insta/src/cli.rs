@@ -597,6 +597,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
 
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
+        println!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
         cmd.unreferenced = "delete".into();
     }
 
