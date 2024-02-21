@@ -158,8 +158,8 @@ fn test_toml_inline() {
         email: Email("peter@doe.invalid".into()),
     }, @r###"
     id = 42
-    username = 'peter-doe'
-    email = 'peter@doe.invalid'
+    username = "peter-doe"
+    email = "peter@doe.invalid"
     "###);
 }
 
