@@ -1,0 +1,10 @@
+---
+source: tests/test_basic.rs
+expression: obj
+---
+name = "Frosty"
+registered = true
+
+[boat]
+length = 21
+has_motor = true

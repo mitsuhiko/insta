@@ -104,3 +104,37 @@ fn insta_sort_order() {
         insta::assert_yaml_snapshot!(m);
     });
 }
+
+#[cfg(feature = "toml")]
+#[cfg(feature = "serde")]
+#[test]
+fn test_toml() {
+    #[derive(serde::Serialize)]
+    pub struct MyObjectTest {
+        pub obj: MyObject,
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct Boat {
+        pub length: i32,
+        pub has_motor: bool,
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct MyObject {
+        pub name: String,
+        pub boat: Option<Boat>,
+        pub registered: bool,
+    }
+
+    let obj = MyObject {
+        name: "Frosty".to_string(),
+        boat: Some(Boat {
+            length: 21,
+            has_motor: true,
+        }),
+        registered: true,
+    };
+
+    insta::assert_toml_snapshot!(obj);
+}
