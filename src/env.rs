@@ -143,14 +143,19 @@ impl ToolConfig {
         }
         let cfg = cfg.unwrap_or_else(|| Content::Map(Default::default()));
 
+        if let Ok("1") = env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
+            eprintln!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_FORCE_UPDATE");
+            env::set_var("INSTA_FORCE_UPDATE", "1");
+        }
+
         Ok(ToolConfig {
-            force_update_snapshots: match env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
+            force_update_snapshots: match env::var("INSTA_FORCE_UPDATE").as_deref() {
                 Err(_) | Ok("") => resolve(&cfg, &["behavior", "force_update"])
                     .and_then(|x| x.as_bool())
                     .unwrap_or(false),
                 Ok("0") => false,
                 Ok("1") => true,
-                _ => return Err(Error::Env("INSTA_FORCE_UPDATE_SNAPSHOTS")),
+                _ => return Err(Error::Env("INSTA_FORCE_UPDATE")),
             },
             force_pass: match env::var("INSTA_FORCE_PASS").as_deref() {
                 Err(_) | Ok("") => resolve(&cfg, &["behavior", "force_pass"])
