@@ -186,6 +186,9 @@ struct TestCommand {
     /// Update all snapshots even if they are still matching.
     #[structopt(long)]
     force_update_snapshots: bool,
+    /// Require metadata as well as snapshots' contents to match.
+    #[structopt(long)]
+    require_full_match: bool,
     /// Handle unreferenced snapshots after a successful test run.
     #[structopt(long, default_value="ignore", possible_values=&["ignore", "warn", "reject", "delete", "auto"])]
     unreferenced: String,
@@ -884,6 +887,9 @@ fn prepare_test_runner<'snapshot_ref>(
     );
     if cmd.force_update_snapshots {
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
+    }
+    if cmd.require_full_match {
+        proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
     }
     let glob_filter =
         cmd.glob_filter

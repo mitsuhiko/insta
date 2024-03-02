@@ -196,6 +196,8 @@
 //! behavior:
 //!   # also set by INSTA_FORCE_UPDATE
 //!   force_update: true/false
+//!   # also set by INSTA_REQUIRE_FULL_MATCH
+//!   require_full_match: true/false
 //!   # also set by INSTA_FORCE_PASS
 //!   force_pass: true/false
 //!   # also set by INSTA_OUTPUT

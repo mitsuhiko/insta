@@ -666,8 +666,19 @@ pub fn assert_snapshot(
         }
     });
 
-    // pass if the snapshots are missing
-    if ctx.old_snapshot.as_ref().map(|x| x.contents()) == Some(new_snapshot.contents()) {
+    let pass = ctx
+        .old_snapshot
+        .as_ref()
+        .map(|x| {
+            if tool_config.require_full_match() {
+                x.matches_fully(&new_snapshot)
+            } else {
+                x.matches(&new_snapshot)
+            }
+        })
+        .unwrap_or(false);
+
+    if pass {
         ctx.cleanup_passing()?;
 
         if tool_config.force_update_snapshots() {
