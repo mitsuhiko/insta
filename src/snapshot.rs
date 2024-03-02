@@ -128,7 +128,7 @@ impl PendingInlineSnapshot {
 }
 
 /// Snapshot metadata information.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct MetaData {
     /// The source file (relative to workspace root).
     pub(crate) source: Option<String>,
@@ -432,6 +432,16 @@ impl Snapshot {
     /// The snapshot contents
     pub fn contents(&self) -> &SnapshotContents {
         &self.snapshot
+    }
+
+    /// Snapshot contents match another snapshot's.
+    pub fn matches(&self, other: &Snapshot) -> bool {
+        self.contents() == other.contents()
+    }
+
+    /// Snapshot contents _and_ metadata match another snapshot's.
+    pub fn matches_fully(&self, other: &Snapshot) -> bool {
+        self.matches(other) && self.metadata == other.metadata
     }
 
     /// The snapshot contents as a &str

@@ -98,6 +98,7 @@ impl std::error::Error for Error {
 pub struct ToolConfig {
     force_update_snapshots: bool,
     force_pass: bool,
+    require_full_match: bool,
     output: OutputBehavior,
     snapshot_update: SnapshotUpdate,
     #[cfg(feature = "glob")]
@@ -156,6 +157,14 @@ impl ToolConfig {
                 Ok("0") => false,
                 Ok("1") => true,
                 _ => return Err(Error::Env("INSTA_FORCE_UPDATE")),
+            },
+            require_full_match: match env::var("INSTA_REQUIRE_FULL_MATCH").as_deref() {
+                Err(_) | Ok("") => resolve(&cfg, &["behavior", "require_full_match"])
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+                Ok("0") => false,
+                Ok("1") => true,
+                _ => return Err(Error::Env("INSTA_REQUIRE_FULL_MATCH")),
             },
             force_pass: match env::var("INSTA_FORCE_PASS").as_deref() {
                 Err(_) | Ok("") => resolve(&cfg, &["behavior", "force_pass"])
@@ -253,6 +262,11 @@ impl ToolConfig {
     /// Is insta told to force update snapshots?
     pub fn force_update_snapshots(&self) -> bool {
         self.force_update_snapshots
+    }
+
+    /// Should we fail if metadata doesn't match?
+    pub fn require_full_match(&self) -> bool {
+        self.require_full_match
     }
 
     /// Is insta instructed to fail in tests?

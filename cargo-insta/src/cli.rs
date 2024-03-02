@@ -891,6 +891,9 @@ fn prepare_test_runner<'snapshot_ref>(
     if cmd.require_full_match {
         proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
     }
+    if cmd.require_full_match {
+        proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
+    }
     let glob_filter =
         cmd.glob_filter
             .iter()
