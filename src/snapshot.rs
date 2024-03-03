@@ -340,9 +340,8 @@ impl Snapshot {
             .split('.')
             .next()
             .unwrap_or("")
-            .splitn(2, "__")
-            .nth(1)
-            .map(|x| x.to_string());
+            .split_once("__")
+            .map(|x| x.1.to_string());
 
         Ok(Snapshot::from_components(
             module_name,
