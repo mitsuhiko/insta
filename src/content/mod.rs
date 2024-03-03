@@ -30,16 +30,17 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Error::*;
         match self {
-            FailedParsingYaml(p) => {
+            Error::FailedParsingYaml(p) => {
                 f.write_str(format!("Failed parsing the YAML from {:?}", p.display()).as_str())
             }
-            UnexpectedDataType => f.write_str("The present data type wasn't what was expected"),
+            Error::UnexpectedDataType => {
+                f.write_str("The present data type wasn't what was expected")
+            }
             #[cfg(feature = "_cargo_insta_internal")]
-            MissingField => f.write_str("A required field was missing"),
+            Error::MissingField => f.write_str("A required field was missing"),
             #[cfg(feature = "_cargo_insta_internal")]
-            FileIo(e, p) => {
+            Error::FileIo(e, p) => {
                 f.write_str(format!("File error for {:?}: {}", p.display(), e).as_str())
             }
         }
