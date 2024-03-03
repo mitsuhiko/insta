@@ -2,6 +2,7 @@
 use insta::assert_json_snapshot;
 #[cfg(feature = "yaml")]
 use insta::assert_yaml_snapshot;
+#[allow(deprecated)]
 use insta::{assert_debug_snapshot, assert_display_snapshot};
 use std::fmt;
 
@@ -71,12 +72,14 @@ impl fmt::Display for TestDisplay {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_display() {
     let td = TestDisplay;
     assert_display_snapshot!("display", td);
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_unnamed_display() {
     let td = TestDisplay;
     assert_display_snapshot!(td);

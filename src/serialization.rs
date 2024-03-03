@@ -16,6 +16,7 @@ pub enum SerializationFormat {
     JsonCompact,
 }
 
+#[derive(Debug)]
 pub enum SnapshotLocation {
     Inline,
     File,

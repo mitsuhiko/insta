@@ -39,24 +39,9 @@ macro_rules! _function_name {
 #[cfg_attr(docsrs, doc(cfg(feature = "csv")))]
 #[macro_export]
 macro_rules! assert_csv_snapshot {
-    ($value:expr, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, Csv, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Csv, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Csv);
-    }};
-    ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, Csv);
-    }};
-    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Csv);
-    }};
-    ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Csv);
-    }};
+    ($($arg:tt)*) => {
+        $crate::_assert_serialized_snapshot!(format=Csv, $($arg)*);
+    };
 }
 
 /// Asserts a `Serialize` snapshot in TOML format.
@@ -84,24 +69,9 @@ macro_rules! assert_csv_snapshot {
 #[cfg_attr(docsrs, doc(cfg(feature = "toml")))]
 #[macro_export]
 macro_rules! assert_toml_snapshot {
-    ($value:expr, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, Toml, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Toml, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Toml);
-    }};
-    ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, Toml);
-    }};
-    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Toml);
-    }};
-    ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Toml);
-    }};
+    ($($arg:tt)*) => {
+        $crate::_assert_serialized_snapshot!(format=Toml, $($arg)*);
+    };
 }
 
 /// Asserts a `Serialize` snapshot in YAML format.
@@ -153,24 +123,9 @@ macro_rules! assert_toml_snapshot {
 #[cfg_attr(docsrs, doc(cfg(feature = "yaml")))]
 #[macro_export]
 macro_rules! assert_yaml_snapshot {
-    ($value:expr, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, Yaml, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Yaml, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Yaml);
-    }};
-    ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, Yaml);
-    }};
-    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Yaml);
-    }};
-    ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Yaml);
-    }};
+    ($($arg:tt)*) => {
+        $crate::_assert_serialized_snapshot!(format=Yaml, $($arg)*);
+    };
 }
 
 /// Asserts a `Serialize` snapshot in RON format.
@@ -198,24 +153,9 @@ macro_rules! assert_yaml_snapshot {
 #[cfg_attr(docsrs, doc(cfg(feature = "ron")))]
 #[macro_export]
 macro_rules! assert_ron_snapshot {
-    ($value:expr, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, Ron, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Ron, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Ron);
-    }};
-    ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, Ron);
-    }};
-    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Ron);
-    }};
-    ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Ron);
-    }};
+    ($($arg:tt)*) => {
+        $crate::_assert_serialized_snapshot!(format=Ron, $($arg)*);
+    };
 }
 
 /// Asserts a `Serialize` snapshot in JSON format.
@@ -243,24 +183,9 @@ macro_rules! assert_ron_snapshot {
 #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
 #[macro_export]
 macro_rules! assert_json_snapshot {
-    ($value:expr, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, Json, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, Json, @$snapshot);
-    }};
-    ($value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, Json);
-    }};
-    ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, Json);
-    }};
-    ($name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, Json);
-    }};
-    ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, Json);
-    }};
+    ($($arg:tt)*) => {
+        $crate::_assert_serialized_snapshot!(format=Json, $($arg)*);
+    };
 }
 
 /// Asserts a `Serialize` snapshot in compact JSON format.
@@ -289,61 +214,58 @@ macro_rules! assert_json_snapshot {
 #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
 #[macro_export]
 macro_rules! assert_compact_json_snapshot {
-    ($value:expr, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, JsonCompact, @$snapshot);
-    }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
-        $crate::_assert_serialized_snapshot!($value, {$($k => $v),*}, JsonCompact, @$snapshot);
-    }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, {$($k => $v),*}, JsonCompact);
-    }};
-    ($name:expr, $value:expr) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, JsonCompact);
-    }};
-    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}) => {{
-        $crate::_assert_serialized_snapshot!(Some($name), $value, {$($k => $v),*}, JsonCompact);
-    }};
-    ($value:expr) => {{
-        $crate::_assert_serialized_snapshot!($crate::_macro_support::AutoName, $value, JsonCompact);
-    }};
+    ($($arg:tt)*) => {
+        $crate::_assert_serialized_snapshot!(format=JsonCompact, $($arg)*);
+    };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_serialized_snapshot {
-    ($value:expr, $format:ident, @$snapshot:literal) => {{
-        let value = $crate::_macro_support::serialize_value(
-            &$value,
+    // If there are redaction expressions and an inline snapshot, capture
+    // the redactions expressions and pass to `_assert_snapshot_base`
+    //
+    // Note that if we could unify the Inline & File represenations of snapshots
+    // redactions we could unify some of these branches.
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+        let transform = |value| {
+            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, Inline);
+            value
+        };
+        $crate::_assert_snapshot_base!(transform=transform, $value, @$snapshot);
+    }};
+    // If there are redaction expressions and no name, add a auto-generated name, call self
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
+        $crate::_assert_serialized_snapshot!(format=$format, $crate::_macro_support::AutoName, $value, {$($k => $v),*});
+    }};
+    // If there are redaction expressions, capture and pass to `_assert_snapshot_base`
+    (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
+        let transform = |value| {
+            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, File);
+            value
+        };
+        $crate::_assert_snapshot_base!(transform=transform, $name, $value);
+    }};
+    // If there's an inline snapshot, capture serialization function and pass to
+    // `_assert_snapshot_base`, specifying `Inline`
+      (format=$format:ident, $($arg:expr),*, @$snapshot:literal) => {{
+        let transform = |value| {$crate::_macro_support::serialize_value(
+            &value,
             $crate::_macro_support::SerializationFormat::$format,
             $crate::_macro_support::SnapshotLocation::Inline
-        );
-        $crate::assert_snapshot!(
-            value,
-            stringify!($value),
-            @$snapshot
-        );
+        )};
+        $crate::_assert_snapshot_base!(transform = transform, $($arg),*, @$snapshot);
     }};
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, $format:ident, @$snapshot:literal) => {{
-        let (vec, value) = $crate::_prepare_snapshot_for_redaction!($value, {$($k => $v),*}, $format, Inline);
-        $crate::assert_snapshot!(value, stringify!($value), @$snapshot);
-    }};
-    ($name:expr, $value:expr, $format:ident) => {{
-        let value = $crate::_macro_support::serialize_value(
-            &$value,
+    // Capture serialization function and pass to `_assert_snapshot_base`,
+    // specifing `File`
+    (format=$format:ident, $($arg:expr),* $(,)?) => {{
+        let transform = |value| {$crate::_macro_support::serialize_value(
+            &value,
             $crate::_macro_support::SerializationFormat::$format,
             $crate::_macro_support::SnapshotLocation::File
-        );
-        $crate::assert_snapshot!(
-            $name,
-            value,
-            stringify!($value)
-        );
+        )};
+        $crate::_assert_snapshot_base!(transform = transform, $($arg),*);
     }};
-    ($name:expr, $value:expr, {$($k:expr => $v:expr),*$(,)?}, $format:ident) => {{
-        let (vec, value) = $crate::_prepare_snapshot_for_redaction!($value, {$($k => $v),*}, $format, File);
-        $crate::assert_snapshot!($name, value, stringify!($value));
-    }}
 }
 
 #[cfg(feature = "redactions")]
@@ -381,95 +303,51 @@ macro_rules! _prepare_snapshot_for_redaction {
 /// Asserts a `Debug` snapshot.
 ///
 /// The value needs to implement the `fmt::Debug` trait.  This is useful for
-/// simple values that do not implement the `Serialize` trait but does not
+/// simple values that do not implement the `Serialize` trait, but does not
 /// permit redactions.
 ///
 /// Debug is called with `"{:#?}"`, which means this uses pretty-print.
-///
-/// The snapshot name is optional.
 #[macro_export]
 macro_rules! assert_debug_snapshot {
-    ($value:expr, @$snapshot:literal) => {{
-        let value = format!("{:#?}", $value);
-        $crate::assert_snapshot!(value, stringify!($value), @$snapshot);
-    }};
-    ($name:expr, $value:expr) => {{
-        let value = format!("{:#?}", $value);
-        $crate::assert_snapshot!(Some($name), value, stringify!($value));
-    }};
-    ($value:expr) => {{
-        let value = format!("{:#?}", $value);
-        $crate::assert_snapshot!($crate::_macro_support::AutoName, value, stringify!($value));
-    }};
+    ($($arg:tt)*) => {
+        $crate::_assert_snapshot_base!(transform=|v| format!("{:#?}", v), $($arg)*)
+    };
 }
 
-/// Asserts a `Display` snapshot.
-///
-/// The value needs to implement the `fmt::Display` trait.
-///
-/// The snapshot name is optional.
+// A helper macro which takes a closure as `transform`, and runs the closure on
+// the value. This allows us to implement other macros with a small wrapper.
+#[doc(hidden)]
 #[macro_export]
-macro_rules! assert_display_snapshot {
-    ($value:expr, @$snapshot:literal) => {{
-        let value = format!("{}", $value);
-        $crate::assert_snapshot!(value, stringify!($value), @$snapshot);
-    }};
-    ($name:expr, $value:expr) => {{
-        let value = format!("{}", $value);
-        $crate::assert_snapshot!(Some($name), value, stringify!($value));
-    }};
-    ($value:expr) => {{
-        let value = format!("{}", $value);
-        $crate::assert_snapshot!($crate::_macro_support::AutoName, value, stringify!($value));
-    }};
-}
-
-/// Asserts a string snapshot.
-///
-/// This is the most simplistic of all assertion methods.  It just accepts
-/// a string to store as snapshot an does not apply any other transformations
-/// on it.  This is useful to build ones own primitives.
-///
-/// ```no_run
-/// # use insta::*;
-/// assert_snapshot!("reference value to snapshot");
-/// ```
-///
-/// Optionally a third argument can be given as expression which will be
-/// stringified as debug expression.  For more information on this look at the
-/// source of this macro and other assertion macros.
-///
-/// The snapshot name is optional.
-#[macro_export]
-macro_rules! assert_snapshot {
-    ($value:expr, @$snapshot:literal) => {
-        $crate::assert_snapshot!(
-            $crate::_macro_support::ReferenceValue::Inline(
-                #[allow(clippy::needless_raw_string_hashes)]
-                $snapshot,
-            ),
-            $value,
-            stringify!($value)
+macro_rules! _assert_snapshot_base {
+    // If there's an inline literal value, wrap the literal in a
+    // `ReferenceValue::Inline`, call self.
+    (transform=$transform:expr, $($arg:expr),*, @$snapshot:literal) => {
+        $crate::_assert_snapshot_base!(
+            transform = $transform,
+            #[allow(clippy::needless_raw_string_hashes)]
+            $crate::_macro_support::ReferenceValue::Inline($snapshot),
+            $($arg),*
         )
     };
-    ($value:expr, $debug_expr:expr, @$snapshot:literal) => {
-        $crate::assert_snapshot!(
-            $crate::_macro_support::ReferenceValue::Inline(
-                #[allow(clippy::needless_raw_string_hashes)]
-                $snapshot,
-            ),
-            $value,
-            $debug_expr
+    // If there's no debug_expr, use the stringified value, call self.
+    (transform=$transform:expr, $name:expr, $value:expr) => {
+        $crate::_assert_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
+    };
+    // If there's no name (and necessarily no debug expr), auto generate the
+    // name, call self.
+    (transform=$transform:expr, $value:expr) => {
+        $crate::_assert_snapshot_base!(
+            transform = $transform,
+            $crate::_macro_support::AutoName,
+            $value
         )
     };
-    ($name:expr, $value:expr) => {
-        $crate::assert_snapshot!($name, $value, stringify!($value))
-    };
-    ($name:expr, $value:expr, $debug_expr:expr) => {{
+    // The main macro body — every call to this macro should end up here.
+    (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr) => {
         $crate::_macro_support::assert_snapshot(
-            // Creates a ReferenceValue::Named variant
             $name.into(),
-            &$value,
+            #[allow(clippy::redundant_closure_call)]
+            &$transform($value),
             env!("CARGO_MANIFEST_DIR"),
             $crate::_function_name!(),
             module_path!(),
@@ -478,9 +356,37 @@ macro_rules! assert_snapshot {
             $debug_expr,
         )
         .unwrap()
-    }};
-    ($value:expr) => {
-        $crate::assert_snapshot!($crate::_macro_support::AutoName, $value, stringify!($value))
+    };
+}
+
+/// Asserts a `Display` snapshot.
+///
+/// This is now deprecated, replaced by the more generic `assert_snapshot!()`
+#[macro_export]
+#[deprecated = "use assert_snapshot!() instead"]
+macro_rules! assert_display_snapshot {
+    ($($arg:tt)*) => {
+        $crate::assert_snapshot!($($arg)*)
+    };
+}
+
+/// Asserts a string snapshot.
+///
+/// This is the simplest of all assertion methods.  It accepts any value that
+/// implements `fmt::Display`.
+///
+/// ```no_run
+/// # use insta::*;
+/// assert_snapshot!("reference value to snapshot");
+/// ```
+///
+/// Optionally a third argument can be given as an expression to be stringified
+/// as the debug expression.  For more information on this, check out
+/// https://insta.rs/docs/snapshot-types/.
+#[macro_export]
+macro_rules! assert_snapshot {
+    ($($arg:tt)*) => {
+        $crate::_assert_snapshot_base!(transform=|v| format!("{}", v), $($arg)*)
     };
 }
 
