@@ -39,7 +39,8 @@ impl PendingInlineSnapshot {
 
     #[cfg(feature = "_cargo_insta_internal")]
     pub fn load_batch(p: &Path) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
-        let contents = fs::read_to_string(p)?;
+        let contents =
+            fs::read_to_string(p).map_err(|e| content::Error::FileIo(e, p.to_path_buf()))?;
 
         let mut rv: Vec<Self> = contents
             .lines()

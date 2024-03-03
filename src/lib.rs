@@ -293,6 +293,7 @@ pub mod internals {
 #[cfg(feature = "_cargo_insta_internal")]
 pub mod _cargo_insta_support {
     pub use crate::{
+        content::Error as ContentError,
         env::{
             Error as ToolConfigError, OutputBehavior, SnapshotUpdate, TestRunner, ToolConfig,
             UnreferencedSnapshots,

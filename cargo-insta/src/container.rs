@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use insta::Snapshot;
-use insta::_cargo_insta_support::PendingInlineSnapshot;
+use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
 
 use crate::inline::FilePatcher;
 
@@ -113,7 +113,8 @@ impl SnapshotContainer {
                 // The runtime code will issue something like this:
                 //   PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
                 if !have_new {
-                    fs::remove_file(&snapshot_path)?;
+                    fs::remove_file(&snapshot_path)
+                        .map_err(|e| ContentError::FileIo(e, snapshot_path.to_path_buf()))?;
                 }
 
                 rv
@@ -192,7 +193,8 @@ impl SnapshotContainer {
             if did_skip {
                 PendingInlineSnapshot::save_batch(&self.snapshot_path, &new_pending)?;
             } else {
-                fs::remove_file(&self.snapshot_path)?;
+                fs::remove_file(&self.snapshot_path)
+                    .map_err(|e| ContentError::FileIo(e, self.snapshot_path.to_path_buf()))?;
             }
         } else {
             // should only be one or this is weird
@@ -201,10 +203,14 @@ impl SnapshotContainer {
                     Operation::Accept => {
                         let snapshot = Snapshot::from_file(&self.snapshot_path)?;
                         snapshot.save(&self.target_path)?;
-                        fs::remove_file(&self.snapshot_path)?;
+                        fs::remove_file(&self.snapshot_path).map_err(|e| {
+                            ContentError::FileIo(e, self.snapshot_path.to_path_buf())
+                        })?;
                     }
                     Operation::Reject => {
-                        fs::remove_file(&self.snapshot_path)?;
+                        fs::remove_file(&self.snapshot_path).map_err(|e| {
+                            ContentError::FileIo(e, self.snapshot_path.to_path_buf())
+                        })?;
                     }
                     Operation::Skip => {}
                 }
