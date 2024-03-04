@@ -4,7 +4,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.37.0
 
-- All macros should now handle trailing commas.
+- All macros for file snapshots should now handle trailing commas (but not yet inline snapshots)
 
 ## 1.36.1
 

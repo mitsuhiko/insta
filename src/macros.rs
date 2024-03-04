@@ -219,7 +219,7 @@ macro_rules! assert_compact_json_snapshot {
     };
 }
 
-// This macro is expected to handle optional trailing commas.
+// The macro handles optional trailing commas for file snapshots.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_serialized_snapshot {
@@ -228,7 +228,8 @@ macro_rules! _assert_serialized_snapshot {
     //
     // Note that if we could unify the Inline & File represenations of snapshots
     // redactions we could unify some of these branches.
-    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, @$snapshot:literal $(,)?) => {{
+
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, @$snapshot:literal) => {{
         let transform = |value| {
             let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, Inline);
             value
@@ -249,7 +250,8 @@ macro_rules! _assert_serialized_snapshot {
     }};
     // If there's an inline snapshot, capture serialization function and pass to
     // `_assert_snapshot_base`, specifying `Inline`
-      (format=$format:ident, $($arg:expr),*, @$snapshot:literal) => {{
+    //
+    (format=$format:ident, $($arg:expr),*, @$snapshot:literal) => {{
         let transform = |value| {$crate::_macro_support::serialize_value(
             &value,
             $crate::_macro_support::SerializationFormat::$format,
@@ -319,7 +321,7 @@ macro_rules! assert_debug_snapshot {
 // the value. This allows us to implement other macros with a small wrapper. All
 // snapshot macros eventually call this macro.
 //
-// This macro is expected to handle trailing commas.
+// The macro handles optional trailing commas in file snapshots.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_snapshot_base {

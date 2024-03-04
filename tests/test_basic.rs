@@ -68,6 +68,8 @@ fn test_trailing_commas() {
     assert_snapshot!("Testing",);
     assert_snapshot!("Testing", "name",);
     assert_snapshot!("Testing", "name", "expr",);
+    #[cfg(feature = "yaml")]
+    assert_yaml_snapshot!(vec![1, 2, 3, 4, 5],);
 }
 
 struct TestDisplay;
