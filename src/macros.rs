@@ -347,7 +347,7 @@ macro_rules! _assert_snapshot_base {
         $crate::_macro_support::assert_snapshot(
             $name.into(),
             #[allow(clippy::redundant_closure_call)]
-            &$transform($value),
+            &$transform(&$value),
             env!("CARGO_MANIFEST_DIR"),
             $crate::_function_name!(),
             module_path!(),

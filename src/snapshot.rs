@@ -917,3 +917,13 @@ fn test_parse_yaml_error() {
     assert!(error.contains("Failed parsing the YAML from"));
     assert!(error.contains("/bad.yaml"));
 }
+
+/// Check that snapshots don't take ownership of the value
+#[test]
+fn test_ownership() {
+    // Range is non-copy
+    use std::ops::Range;
+    let r = Range { start: 0, end: 10 };
+    assert_debug_snapshot!(r, @"0..10");
+    assert_debug_snapshot!(r, @"0..10");
+}
