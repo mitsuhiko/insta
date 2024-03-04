@@ -918,7 +918,7 @@ fn test_parse_yaml_error() {
     assert!(error.contains("/bad.yaml"));
 }
 
-/// Check thot snapshots don't take ownership of the value
+/// Check that snapshots don't take ownership of the value
 #[test]
 fn test_ownership() {
     // Range is non-copy
