@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.36.1
+
+- Fix an ownership issue introduced in 1.36 with snapshot assertions.  #453
+
 ## 1.36.0
 
 - Deprecate `INSTA_FORCE_UPDATE_SNAPSHOTS` env-var for `INSTA_FORCE_UPDATE`.
