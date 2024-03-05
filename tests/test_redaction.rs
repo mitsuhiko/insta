@@ -58,6 +58,44 @@ fn test_with_random_value() {
 
 #[cfg(feature = "yaml")]
 #[test]
+fn test_name_expr() {
+    let user = User {
+        id: 42,
+        username: "john_doe".to_string(),
+        email: Email("john@example.com".to_string()),
+        extra: "".to_string(),
+    };
+
+    // unnamed
+    assert_yaml_snapshot!(
+        &user,
+        match .. {
+            ".id" => "[id]",
+        }
+    );
+
+    // named, no debug expr
+    assert_yaml_snapshot!(
+        "name",
+        &user,
+        match .. {
+            ".id" => "[id]",
+        }
+    );
+
+    // named, debug expr
+    assert_yaml_snapshot!(
+        "name",
+        &user,
+        "debug expr",
+        match .. {
+            ".id" => "[id]",
+        }
+    );
+}
+
+#[cfg(feature = "yaml")]
+#[test]
 fn test_with_random_value_inline_callback() {
     assert_yaml_snapshot!("user", &User {
         id: 23,
