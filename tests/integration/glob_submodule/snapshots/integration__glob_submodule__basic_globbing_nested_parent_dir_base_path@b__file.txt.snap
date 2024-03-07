@@ -1,0 +1,6 @@
+---
+source: tests/integration/glob_submodule/mod.rs
+expression: "&contents"
+input_file: tests/integration/inputs-nested/b/file.txt
+---
+Hello B

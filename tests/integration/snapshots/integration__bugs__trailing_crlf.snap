@@ -1,0 +1,7 @@
+---
+source: tests/integration/bugs.rs
+expression: "\"foo\\r\\nbar\\r\\nbaz\\r\\n\""
+---
+foo
+bar
+baz

@@ -1,0 +1,14 @@
+---
+source: tests/integration/redaction.rs
+expression: "&User {\n        id: 122,\n        username: \"jason_doe\".to_string(),\n        flags: MySet(vec![\"zzz\".into(), \"foo\".into(), \"aha\".into(),\n                        \"is_admin\".into()].into_iter().collect()),\n    }"
+---
+{
+  "flags": [
+    "aha",
+    "foo",
+    "is_admin",
+    "zzz"
+  ],
+  "id": 122,
+  "username": "jason_doe"
+}

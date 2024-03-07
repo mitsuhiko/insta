@@ -1,0 +1,10 @@
+---
+source: tests/integration/redaction.rs
+expression: foo_value
+---
+hm:
+  ? bucket: "[bucket]"
+    value: 0
+  : 42
+btm:
+  "[key]": 23

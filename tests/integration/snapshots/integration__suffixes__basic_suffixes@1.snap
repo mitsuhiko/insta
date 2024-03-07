@@ -1,0 +1,5 @@
+---
+source: tests/integration/suffixes.rs
+expression: "&value"
+---
+1

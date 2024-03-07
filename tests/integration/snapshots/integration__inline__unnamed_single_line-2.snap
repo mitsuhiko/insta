@@ -1,0 +1,5 @@
+---
+source: tests/integration/inline.rs
+expression: "\"Testing-2\""
+---
+Testing-2

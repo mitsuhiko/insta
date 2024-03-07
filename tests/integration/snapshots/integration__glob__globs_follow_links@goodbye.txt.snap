@@ -1,0 +1,6 @@
+---
+source: tests/integration/glob.rs
+expression: "&contents"
+input_file: tests/integration/inputs/goodbye.txt
+---
+"Contents of goodbye"

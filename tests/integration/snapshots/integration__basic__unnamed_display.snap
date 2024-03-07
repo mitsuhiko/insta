@@ -1,0 +1,5 @@
+---
+source: tests/integration/basic.rs
+expression: td
+---
+TestDisplay struct
