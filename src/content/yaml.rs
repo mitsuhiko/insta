@@ -2,10 +2,10 @@ use std::path::Path;
 
 use crate::content::{Content, Error};
 
-use yaml_rust::{yaml::Hash as YamlObj, Yaml as YamlValue};
+use yaml_rust2::{yaml::Hash as YamlObj, Yaml as YamlValue};
 
 pub fn parse_str(s: &str, filename: &Path) -> Result<Content, Error> {
-    let mut blobs = yaml_rust::YamlLoader::load_from_str(s)
+    let mut blobs = yaml_rust2::YamlLoader::load_from_str(s)
         .map_err(|_| Error::FailedParsingYaml(filename.to_path_buf()))?;
 
     match (blobs.pop(), blobs.pop()) {
@@ -48,7 +48,7 @@ pub fn to_string(content: &Content) -> String {
     let yaml_blob = to_yaml_value(content);
 
     let mut buf = String::new();
-    let mut emitter = yaml_rust::YamlEmitter::new(&mut buf);
+    let mut emitter = yaml_rust2::YamlEmitter::new(&mut buf);
     emitter.dump(&yaml_blob).unwrap();
 
     if !buf.ends_with('\n') {
