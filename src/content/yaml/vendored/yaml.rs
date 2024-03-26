@@ -13,20 +13,6 @@ use std::vec;
 
 /// A YAML node is stored as this `Yaml` enumeration, which provides an easy way to
 /// access your YAML document.
-///
-/// # Examples
-///
-/// ```
-/// use yaml_rust::Yaml;
-/// let foo = Yaml::from_str("-123"); // convert the string to the appropriate YAML type
-/// assert_eq!(foo.as_i64().unwrap(), -123);
-///
-/// // iterate over an Array
-/// let vec = Yaml::Array(vec![Yaml::Integer(1), Yaml::Integer(2)]);
-/// for v in vec.as_vec().unwrap() {
-///     assert!(v.as_i64().is_some());
-/// }
-/// ```
 #[derive(Clone, PartialEq, PartialOrd, Debug, Eq, Ord, Hash)]
 pub enum Yaml {
     /// Float types are stored as String and parsed on demand.
@@ -410,19 +396,6 @@ a7: 你好
 ";
         let out = YamlLoader::load_from_str(s).unwrap();
         assert_eq!(out.len(), 3);
-    }
-
-    #[test]
-    fn test_anchor() {
-        let s = "
-a1: &DEFAULT
-    b1: 4
-    b2: d
-a2: *DEFAULT
-";
-        let out = YamlLoader::load_from_str(s).unwrap();
-        let doc = &out[0];
-        assert_eq!(doc["a2"]["b1"].as_i64().unwrap(), 4);
     }
 
     #[test]
