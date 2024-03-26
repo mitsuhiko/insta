@@ -886,6 +886,9 @@ fn prepare_test_runner<'snapshot_ref>(
         },
     );
     if cmd.force_update_snapshots {
+        // for old versions of insta
+        proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
+        // for newer versions of insta
         proc.env("INSTA_FORCE_UPDATE", "1");
     }
     if cmd.require_full_match {

@@ -39,7 +39,8 @@ impl PendingInlineSnapshot {
 
     #[cfg(feature = "_cargo_insta_internal")]
     pub fn load_batch(p: &Path) -> Result<Vec<PendingInlineSnapshot>, Box<dyn Error>> {
-        let contents = fs::read_to_string(p)?;
+        let contents =
+            fs::read_to_string(p).map_err(|e| content::Error::FileIo(e, p.to_path_buf()))?;
 
         let mut rv: Vec<Self> = contents
             .lines()
@@ -914,4 +915,14 @@ fn test_parse_yaml_error() {
     let error = format!("{}", Snapshot::from_file(temp.as_path()).unwrap_err());
     assert!(error.contains("Failed parsing the YAML from"));
     assert!(error.contains("bad.yaml"));
+}
+
+/// Check that snapshots don't take ownership of the value
+#[test]
+fn test_ownership() {
+    // Range is non-copy
+    use std::ops::Range;
+    let r = Range { start: 0, end: 10 };
+    assert_debug_snapshot!(r, @"0..10");
+    assert_debug_snapshot!(r, @"0..10");
 }

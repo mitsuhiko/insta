@@ -144,9 +144,15 @@ impl ToolConfig {
         }
         let cfg = cfg.unwrap_or_else(|| Content::Map(Default::default()));
 
-        if let Ok("1") = env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
-            eprintln!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_FORCE_UPDATE");
-            env::set_var("INSTA_FORCE_UPDATE", "1");
+        // support for the deprecated environment variable.  This is implemented in a way that
+        // cargo-insta can support older and newer insta versions alike.  It will set both
+        // variables.  However if only `INSTA_FORCE_UPDATE_SNAPSHOTS` is set, we will emit
+        // a deprecation warning.
+        if env::var("INSTA_FORCE_UPDATE").is_err() {
+            if let Ok("1") = env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
+                eprintln!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_FORCE_UPDATE");
+                env::set_var("INSTA_FORCE_UPDATE", "1");
+            }
         }
 
         Ok(ToolConfig {
@@ -387,9 +393,10 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
             .current_dir(manifest_dir)
             .output()
             .unwrap();
-            let docs =
-                yaml_rust::YamlLoader::load_from_str(std::str::from_utf8(&output.stdout).unwrap())
-                    .unwrap();
+            let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
+                std::str::from_utf8(&output.stdout).unwrap(),
+            )
+            .unwrap();
             let manifest = docs.first().expect("Unable to parse cargo manifest");
             let workspace_root = PathBuf::from(manifest["workspace_root"].as_str().unwrap());
             Arc::new(workspace_root)

@@ -2,7 +2,8 @@
 use insta::assert_json_snapshot;
 #[cfg(feature = "yaml")]
 use insta::assert_yaml_snapshot;
-use insta::{assert_debug_snapshot, assert_display_snapshot};
+#[allow(deprecated)]
+use insta::{assert_debug_snapshot, assert_display_snapshot, assert_snapshot};
 use std::fmt;
 
 #[test]
@@ -62,6 +63,15 @@ mod nested {
     }
 }
 
+#[test]
+fn test_trailing_commas() {
+    assert_snapshot!("Testing",);
+    assert_snapshot!("Testing", "name",);
+    assert_snapshot!("Testing", "name", "expr",);
+    #[cfg(feature = "yaml")]
+    assert_yaml_snapshot!(vec![1, 2, 3, 4, 5],);
+}
+
 struct TestDisplay;
 
 impl fmt::Display for TestDisplay {
@@ -71,12 +81,14 @@ impl fmt::Display for TestDisplay {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_display() {
     let td = TestDisplay;
     assert_display_snapshot!("display", td);
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_unnamed_display() {
     let td = TestDisplay;
     assert_display_snapshot!(td);
