@@ -1,11 +1,13 @@
+pub mod vendored;
+
 use std::path::Path;
 
 use crate::content::{Content, Error};
 
-use yaml_rust::{yaml::Hash as YamlObj, Yaml as YamlValue};
+use crate::content::yaml::vendored::{yaml::Hash as YamlObj, Yaml as YamlValue};
 
 pub fn parse_str(s: &str, filename: &Path) -> Result<Content, Error> {
-    let mut blobs = yaml_rust::YamlLoader::load_from_str(s)
+    let mut blobs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(s)
         .map_err(|_| Error::FailedParsingYaml(filename.to_path_buf()))?;
 
     match (blobs.pop(), blobs.pop()) {
@@ -38,9 +40,7 @@ fn from_yaml_blob(blob: YamlValue, filename: &Path) -> Result<Content, Error> {
                 .collect::<Result<_, Error>>()?;
             Ok(Content::Map(obj))
         }
-        YamlValue::BadValue | YamlValue::Alias(_) => {
-            Err(Error::FailedParsingYaml(filename.to_path_buf()))
-        }
+        YamlValue::BadValue => Err(Error::FailedParsingYaml(filename.to_path_buf())),
     }
 }
 
@@ -48,7 +48,7 @@ pub fn to_string(content: &Content) -> String {
     let yaml_blob = to_yaml_value(content);
 
     let mut buf = String::new();
-    let mut emitter = yaml_rust::YamlEmitter::new(&mut buf);
+    let mut emitter = crate::content::yaml::vendored::emitter::YamlEmitter::new(&mut buf);
     emitter.dump(&yaml_blob).unwrap();
 
     if !buf.ends_with('\n') {
