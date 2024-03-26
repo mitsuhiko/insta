@@ -722,16 +722,16 @@ b"[1..];
     );
 
     let t = &"
-    a
+a
 
-    b"[1..];
+b"[1..];
     assert_eq!(
-        SnapshotContents(t.to_string()).to_inline(0),
+        SnapshotContents(t.to_string()).to_inline(4),
         "r###\"
     a
 
     b
-\"###"
+    \"###"
     );
 
     let t = &"
