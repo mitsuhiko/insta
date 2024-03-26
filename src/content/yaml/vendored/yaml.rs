@@ -270,18 +270,18 @@ impl Yaml {
     // Not implementing FromStr because there is no possibility of Error.
     // This function falls back to Yaml::String if nothing else matches.
     pub fn from_str(v: &str) -> Yaml {
-        if v.starts_with("0x") {
-            if let Ok(i) = i64::from_str_radix(&v[2..], 16) {
+        if let Some(rest) = v.strip_prefix("0x") {
+            if let Ok(i) = i64::from_str_radix(rest, 16) {
                 return Yaml::Integer(i);
             }
         }
-        if v.starts_with("0o") {
-            if let Ok(i) = i64::from_str_radix(&v[2..], 8) {
+        if let Some(rest) = v.strip_prefix("0o") {
+            if let Ok(i) = i64::from_str_radix(rest, 8) {
                 return Yaml::Integer(i);
             }
         }
-        if v.starts_with('+') {
-            if let Ok(i) = v[1..].parse::<i64>() {
+        if let Some(rest) = v.strip_prefix('+') {
+            if let Ok(i) = rest.parse::<i64>() {
                 return Yaml::Integer(i);
             }
         }
