@@ -331,7 +331,6 @@ fn test_redact_newtype_enum() {
     assert_yaml_snapshot!(visitor, {
         r#".id"# => "[id]",
     }, @r###"
-    ---
     Visitor:
       id: "[id]"
       name: my-name
@@ -346,7 +345,6 @@ fn test_redact_newtype_enum() {
     assert_yaml_snapshot!(admin, {
         r#".id"# => "[id]",
     }, @r###"
-    ---
     Admin:
       id: "[id]"
       username: john_doe
