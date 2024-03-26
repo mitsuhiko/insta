@@ -9,7 +9,6 @@ pub enum TEncoding {
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq)]
 pub enum TScalarStyle {
-    Any,
     Plain,
     SingleQuoted,
     DoubleQuoted,
@@ -29,18 +28,6 @@ impl Marker {
     fn new(index: usize, line: usize, col: usize) -> Marker {
         Marker { index, line, col }
     }
-
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
-    pub fn line(&self) -> usize {
-        self.line
-    }
-
-    pub fn col(&self) -> usize {
-        self.col
-    }
 }
 
 #[derive(Clone, PartialEq, Debug, Eq)]
@@ -55,10 +42,6 @@ impl ScanError {
             mark: loc,
             info: info.to_owned(),
         }
-    }
-
-    pub fn marker(&self) -> &Marker {
-        &self.mark
     }
 }
 
@@ -87,7 +70,6 @@ impl fmt::Display for ScanError {
 
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub enum TokenType {
-    NoToken,
     StreamStart(TEncoding),
     StreamEnd,
     /// major, minor
@@ -176,38 +158,42 @@ impl<T: Iterator<Item = char>> Iterator for Scanner<T> {
 fn is_z(c: char) -> bool {
     c == '\0'
 }
+
 #[inline]
 fn is_break(c: char) -> bool {
     c == '\n' || c == '\r'
 }
+
 #[inline]
 fn is_breakz(c: char) -> bool {
     is_break(c) || is_z(c)
 }
+
 #[inline]
 fn is_blank(c: char) -> bool {
     c == ' ' || c == '\t'
 }
+
 #[inline]
 fn is_blankz(c: char) -> bool {
     is_blank(c) || is_breakz(c)
 }
+
 #[inline]
 fn is_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
+
 #[inline]
 fn is_alpha(c: char) -> bool {
-    match c {
-        '0'..='9' | 'a'..='z' | 'A'..='Z' => true,
-        '_' | '-' => true,
-        _ => false,
-    }
+    matches!(c, '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' | '-')
 }
+
 #[inline]
 fn is_hex(c: char) -> bool {
     c.is_ascii_digit() || ('a'..='f').contains(&c) || ('A'..='F').contains(&c)
 }
+
 #[inline]
 fn as_hex(c: char) -> u32 {
     match c {
@@ -217,12 +203,10 @@ fn as_hex(c: char) -> u32 {
         _ => unreachable!(),
     }
 }
+
 #[inline]
 fn is_flow(c: char) -> bool {
-    match c {
-        ',' | '[' | ']' | '{' | '}' => true,
-        _ => false,
-    }
+    matches!(c, ',' | '[' | ']' | '{' | '}')
 }
 
 pub type ScanResult = Result<(), ScanError>;

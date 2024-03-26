@@ -393,7 +393,7 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
             .current_dir(manifest_dir)
             .output()
             .unwrap();
-            let docs = crate::content::yaml::parser::yaml::YamlLoader::load_from_str(
+            let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
                 std::str::from_utf8(&output.stdout).unwrap(),
             )
             .unwrap();

@@ -1,4 +1,4 @@
-use crate::content::yaml::parser::scanner::*;
+use crate::content::yaml::vendored::scanner::*;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq)]
@@ -34,7 +34,6 @@ enum State {
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub enum Event {
     /// Reserved for internal use
-    Nothing,
     StreamStart,
     StreamEnd,
     DocumentStart,
@@ -67,7 +66,6 @@ pub struct Parser<T> {
     scanner: Scanner<T>,
     states: Vec<State>,
     state: State,
-    marks: Vec<Marker>,
     token: Option<Token>,
     current: Option<(Event, Marker)>,
     anchors: HashMap<String, usize>,
@@ -96,23 +94,12 @@ impl<T: Iterator<Item = char>> Parser<T> {
             scanner: Scanner::new(src),
             states: Vec::new(),
             state: State::StreamStart,
-            marks: Vec::new(),
             token: None,
             current: None,
 
             anchors: HashMap::new(),
             // valid anchor_id starts from 1
             anchor_id: 1,
-        }
-    }
-
-    pub fn peek(&mut self) -> Result<&(Event, Marker), ScanError> {
-        match self.current {
-            Some(ref x) => Ok(x),
-            None => {
-                self.current = Some(self.next()?);
-                self.peek()
-            }
         }
     }
 
@@ -826,33 +813,5 @@ impl<T: Iterator<Item = char>> Parser<T> {
     fn flow_sequence_entry_mapping_end(&mut self) -> ParseResult {
         self.state = State::FlowSequenceEntry;
         Ok((Event::MappingEnd, self.scanner.mark()))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::{Event, Parser};
-
-    #[test]
-    fn test_peek_eq_parse() {
-        let s = "
-a0 bb: val
-a1: &x
-    b1: 4
-    b2: d
-a2: 4
-a3: [1, 2, 3]
-a4:
-    - [a1, a2]
-    - 2
-a5: *x
-";
-        let mut p = Parser::new(s.chars());
-        while {
-            let event_peek = p.peek().unwrap().clone();
-            let event = p.next().unwrap();
-            assert_eq!(event, event_peek);
-            event.0 != Event::StreamEnd
-        } {}
     }
 }

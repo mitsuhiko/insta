@@ -1,4 +1,4 @@
-use crate::content::yaml::parser::yaml::{Hash, Yaml};
+use crate::content::yaml::vendored::yaml::{Hash, Yaml};
 
 use std::convert::From;
 use std::error::Error;
@@ -7,7 +7,6 @@ use std::fmt::{self, Display};
 #[derive(Copy, Clone, Debug)]
 pub enum EmitError {
     FmtError(fmt::Error),
-    BadHashmapKey,
 }
 
 impl Error for EmitError {
@@ -20,7 +19,6 @@ impl Display for EmitError {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             EmitError::FmtError(ref err) => Display::fmt(err, formatter),
-            EmitError::BadHashmapKey => formatter.write_str("bad hashmap key"),
         }
     }
 }
@@ -165,8 +163,6 @@ impl<'a> YamlEmitter<'a> {
                 write!(self.writer, "~")?;
                 Ok(())
             }
-            // XXX(chenyh) Alias
-            _ => Ok(()),
         }
     }
 
@@ -194,10 +190,7 @@ impl<'a> YamlEmitter<'a> {
         } else {
             self.level += 1;
             for (cnt, (k, v)) in h.iter().enumerate() {
-                let complex_key = match *k {
-                    Yaml::Hash(_) | Yaml::Array(_) => true,
-                    _ => false,
-                };
+                let complex_key = matches!(*k, Yaml::Hash(_) | Yaml::Array(_));
                 if cnt > 0 {
                     writeln!(self.writer)?;
                     self.write_indent()?;
@@ -277,12 +270,14 @@ fn need_quotes(string: &str) -> bool {
 
     string.is_empty()
         || need_quotes_spaces(string)
-        || string.starts_with(|character: char| match character {
-            '&' | '*' | '?' | '|' | '-' | '<' | '>' | '=' | '!' | '%' | '@' => true,
-            _ => false,
+        || string.starts_with(|character: char| {
+            matches!(
+                character,
+                '&' | '*' | '?' | '|' | '-' | '<' | '>' | '=' | '!' | '%' | '@'
+            )
         })
-        || string.contains(|character: char| match character {
-            ':'
+        || string.contains(|character: char| {
+            matches!(character, ':'
             | '{'
             | '}'
             | '['
@@ -298,8 +293,7 @@ fn need_quotes(string: &str) -> bool {
             | '\n'
             | '\r'
             | '\x0e'..='\x1a'
-            | '\x1c'..='\x1f' => true,
-            _ => false,
+            | '\x1c'..='\x1f')
         })
         || [
             // http://yaml.org/type/bool.html
@@ -321,7 +315,7 @@ fn need_quotes(string: &str) -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::content::yaml::parser::yaml::YamlLoader;
+    use crate::content::yaml::vendored::yaml::YamlLoader;
 
     #[test]
     fn test_emit_simple() {

@@ -36,6 +36,8 @@
 //!
 //! ```
 
+#![allow(unused)]
+
 pub mod emitter;
 pub mod parser;
 pub mod scanner;
@@ -47,9 +49,9 @@ pub use self::yaml::Yaml;
 mod tests {
     use super::*;
 
-    use crate::content::yaml::parser::emitter::YamlEmitter;
-    use crate::content::yaml::parser::scanner::ScanError;
-    use crate::content::yaml::parser::yaml::YamlLoader;
+    use crate::content::yaml::vendored::emitter::YamlEmitter;
+    use crate::content::yaml::vendored::scanner::ScanError;
+    use crate::content::yaml::vendored::yaml::YamlLoader;
 
     #[test]
     fn test_api() {
