@@ -20,7 +20,6 @@ fn test_yaml_snapshot() {
     insta::assert_yaml_snapshot!(&user, {
         ".id" => "[user_id]",
     }, @r###"
-    ---
     id: "[user_id]"
     email: john.doe@example.com
     "###);
