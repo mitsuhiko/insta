@@ -40,6 +40,8 @@ jobs:
         with:
           toolchain: 1.51.0
       - uses: Swatinem/rust-cache@v2
+      - name: Use Cargo.lock.msrv
+        run: cp Cargo.lock.msrv Cargo.lock
       - name: Remove named profile
         run: |
           perl -ni -e 'print unless /\[profile\.dist\]/ .. eof' Cargo.toml
