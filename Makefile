@@ -11,10 +11,10 @@ test: cargotest
 cargotest:
 	@echo "CARGO TESTS"
 	@rustup component add rustfmt 2> /dev/null
-	@cargo test
-	@cargo test --all-features
-	@cargo test --no-default-features
-	@cargo test --features redactions -- --test-threads 1
+	@cargo test -p insta
+	@cargo test -p insta --all-features
+	@cargo test -p insta --no-default-features
+	@cargo test -p insta --features redactions -- --test-threads 1
 	@echo "CARGO-INSTA TESTS"
 	# Turn off CI flag so that cargo insta test behaves as we expect
 	# under normal operation
@@ -22,10 +22,10 @@ cargotest:
 
 check-minver:
 	@echo "MINVER CHECK"
-	@cargo minimal-versions check
-	@cargo minimal-versions check --all-features
-	@cargo minimal-versions check --no-default-features
-	@cargo minimal-versions check --features redactions
+	@cargo minimal-versions check -p insta
+	@cargo minimal-versions check -p insta --all-features
+	@cargo minimal-versions check -p insta --no-default-features
+	@cargo minimal-versions check -p insta --features redactions
 
 format:
 	@rustup component add rustfmt 2> /dev/null
