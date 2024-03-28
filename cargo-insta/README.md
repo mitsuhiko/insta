@@ -6,12 +6,44 @@
 `cargo-insta` provides a cargo command for [insta](https://insta.rs/)
 snapshot reviews.
 
+Starting with `cargo-insta` 1.38.0 you can install prebuild binaries for many platforms, you can also always just install them with `cargo install` manually.
+
+Unix:
+
 ```
-$ cargo install cargo-insta
-$ cargo insta --help
+curl -LsSf https://insta.rs/install.sh | sh
 ```
 
-To install an old version ensure to pass the `--locked` flag so that the `Cargo.lock`
+Windows:
+
+```
+powershell -c "irm https://insta.rs/install.ps1 | iex"
+```
+
+To install a specific version (in this case 1.38.0):
+
+Unix:
+
+```
+curl -LsSf https://github.com/mitsuhiko/insta/releases/download/1.38.0/cargo-insta-installer.sh | sh
+```
+
+Windows:
+
+```
+powershell -c "irm https://github.com/mitsuhiko/insta/releases/download/1.38.0/cargo-insta-installer.ps1 | iex"
+```
+
+You can also manually download the binaries here:
+
+- [aarch64-apple-darwin](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-aarch64-apple-darwin.tar.xz) (Apple Silicon macOS)
+- [x86_64-apple-darwin](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-apple-darwin.tar.xz) (Intel macOS)
+- [x86_64-pc-windows-msvc](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-pc-widows-msvc.zip) (x64 Windows)
+- [x86_64-unknown-linux-gnu](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-unknown-linux-gnu.tar.xz) (x64 Linux, GNU)
+- [x86_64-unknown-linux-musl](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-unknown-linux-musl.tar.xz) (x64 Linux, MUSL)
+
+Alternatively you can manually build and install them. To install an old
+version ensure to pass the `--locked` flag so that the `Cargo.lock`
 file is honored:
 
 ```
