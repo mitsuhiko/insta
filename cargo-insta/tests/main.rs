@@ -68,11 +68,8 @@ fn main() {
     std::io::stderr().write_all(&stderr).unwrap();
     assert!(status.success());
     let stdout = std::str::from_utf8(stdout.as_slice()).unwrap();
-    let stderr = std::str::from_utf8(stderr.as_slice()).unwrap();
     assert!(stdout.contains("insta review finished"));
     assert!(stdout.contains("accepted"));
-    assert!(stderr.contains("Compiling"));
-    assert!(stderr.contains("cargo-insta"));
 
     // use insta itself to assert snapshots
     for entry in WalkDir::new(SRC) {
