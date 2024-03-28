@@ -40,5 +40,8 @@ jobs:
         with:
           toolchain: 1.51.0
       - uses: Swatinem/rust-cache@v2
+      - name: Remove named profile
+        run: |
+          perl -ni -e 'print unless /\[profile\.dist\]/ .. eof' Cargo.toml
       - name: Check
         run: cargo check --no-default-features
