@@ -2,6 +2,13 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.38.0
+
+- `Filters` is now constructible from `IntoIterator`.  #400
+
+- Change `std` macro calls to be fully qualified.  This fixes issues where
+  the prelude was not used or the macros were overridden.  #469
+
 ## 1.37.0
 
 - All macros for file snapshots should now handle trailing commas (but not yet inline snapshots)
