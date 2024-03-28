@@ -697,7 +697,12 @@ pub fn assert_snapshot(
 /// Test snapshots in doctests.
 ///
 /// ```
-/// insta::assert_debug_snapshot!("named", vec![1, 2, 3, 4, 5]);
+/// // this is only working on newer rust versions
+/// extern crate rustc_version;
+/// use rustc_version::{Version, version};
+/// if version().unwrap() > Version::parse("1.72.0").unwrap() {
+///     insta::assert_debug_snapshot!("named", vec![1, 2, 3, 4, 5]);
+/// }
 /// ```
 ///
 /// ```should_panic
