@@ -36,7 +36,7 @@ Or if you're not into videos, read the [5 minute introduction](https://insta.rs/
 
 Insta also supports inline snapshots which are stored right in your source file
 instead of separate files. This is accomplished by the companion
-[cargo-insta](https://crates.io/crates/cargo-insta) tool.
+[cargo-insta](https://github.com/mitsuhiko/insta/tree/master/cargo-insta) tool.
 
 ## Editor Support
 
