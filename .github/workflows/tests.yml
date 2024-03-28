@@ -46,4 +46,4 @@ jobs:
         run: |
           perl -ni -e 'print unless /\[profile\.dist\]/ .. eof' Cargo.toml
       - name: Check
-        run: cargo check --no-default-features
+        run: cargo check -p insta --no-default-features
