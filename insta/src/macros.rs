@@ -219,7 +219,7 @@ macro_rules! assert_compact_json_snapshot {
     };
 }
 
-// This macro is expected to handle optional trailing commas.
+// This macro handles optional trailing commas.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_serialized_snapshot {
@@ -319,7 +319,7 @@ macro_rules! assert_debug_snapshot {
 // the value. This allows us to implement other macros with a small wrapper. All
 // snapshot macros eventually call this macro.
 //
-// This macro is expected to handle trailing commas.
+// This macro handles optional trailing commas.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_snapshot_base {
