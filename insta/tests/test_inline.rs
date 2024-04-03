@@ -25,6 +25,14 @@ fn test_simple() {
 }
 
 #[test]
+fn test_trailing_commas() {
+    assert_snapshot!(
+        "Testing",
+        @"Testing",
+    );
+}
+
+#[test]
 fn test_single_line() {
     assert_snapshot!("Testing", @"Testing");
 }
