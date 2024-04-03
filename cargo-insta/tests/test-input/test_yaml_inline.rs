@@ -16,3 +16,18 @@ fn test_yaml_snapshot() {
         ".id" => "[user_id]",
     }, @"");
 }
+
+#[test]
+fn test_yaml_snapshot_trailing_comma() {
+    let user = User {
+        id: 42,
+        email: "john.doe@example.com".into(),
+    };
+    insta::assert_yaml_snapshot!(
+        &user,
+        {
+            ".id" => "[user_id]",
+        },
+        @"",
+    );
+}

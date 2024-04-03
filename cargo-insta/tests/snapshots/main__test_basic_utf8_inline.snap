@@ -1,7 +1,6 @@
 ---
-source: src/main.rs
+source: cargo-insta/tests/main.rs
 expression: "&fs::read_to_string(gen_file).unwrap()"
-input_file: tests/test_basic_utf8_inline.rs
 ---
 #[test]
 #[rustfmt::skip]
@@ -22,3 +21,10 @@ fn test_remove_existing_value_multiline() {
     );
 }
 
+#[test]
+fn test_trailing_comma_in_inline_snapshot() {
+    insta::assert_snapshot!(
+        "new value",
+        @"new value",  // comma here
+    );
+}
