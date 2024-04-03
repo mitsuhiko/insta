@@ -1,14 +1,13 @@
 import {
-  ProviderResult,
+  Event,
+  EventEmitter,
   TreeDataProvider,
   TreeItem,
-  Event,
-  WorkspaceFolder,
-  EventEmitter,
-  Uri,
+  Uri
 } from "vscode";
-import { getPendingSnapshots } from "./insta";
 import { Snapshot } from "./Snapshot";
+import { findCargoRoots } from "./cargo";
+import { getPendingSnapshots } from "./insta";
 
 export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
   private _onDidChangeTreeData: EventEmitter<
@@ -19,7 +18,7 @@ export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
   public cachedInlineSnapshots: { [key: string]: Snapshot } = {};
   private pendingRefresh?: NodeJS.Timeout;
 
-  constructor(private workspaceRoot?: WorkspaceFolder) {}
+  constructor() {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -47,19 +46,21 @@ export class PendingSnapshotsProvider implements TreeDataProvider<Snapshot> {
     return element;
   }
 
-  getChildren(element?: Snapshot): ProviderResult<Snapshot[]> {
-    const { workspaceRoot } = this;
-    if (element || !workspaceRoot) {
-      return Promise.resolve([]);
+  async getChildren(element?: Snapshot): Promise<Snapshot[]> {
+    if (element) {
+      return [];
+    }
+    const roots = await findCargoRoots();
+    if (roots.length === 0) {
+      return [];
     }
 
-    return getPendingSnapshots(workspaceRoot.uri).then((snapshots) => {
-      return snapshots.map((snapshot) => {
-        if (snapshot.inlineInfo) {
-          this.cachedInlineSnapshots[snapshot.key] = snapshot;
-        }
-        return snapshot;
-      });
+    const snapshots = await getPendingSnapshots(roots);
+    return snapshots.map((snapshot) => {
+      if (snapshot.inlineInfo) {
+        this.cachedInlineSnapshots[snapshot.key] = snapshot;
+      }
+      return snapshot;
     });
   }
 }
