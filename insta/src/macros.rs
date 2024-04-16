@@ -290,7 +290,7 @@ macro_rules! _assert_serialized_snapshot {
 macro_rules! _prepare_snapshot_for_redaction {
     ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
         {
-            let vec = vec![
+            let vec = std::vec![
                 $((
                     $crate::_macro_support::Selector::parse($k).unwrap(),
                     $crate::_macro_support::Redaction::from($v)
@@ -325,7 +325,7 @@ macro_rules! _prepare_snapshot_for_redaction {
 #[macro_export]
 macro_rules! assert_debug_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_snapshot_base!(transform=|v| format!("{:#?}", v), $($arg)*)
+        $crate::_assert_snapshot_base!(transform=|v| std::format!("{:#?}", v), $($arg)*)
     };
 }
 
@@ -404,7 +404,7 @@ macro_rules! assert_display_snapshot {
 #[macro_export]
 macro_rules! assert_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_snapshot_base!(transform=|v| format!("{}", v), $($arg)*)
+        $crate::_assert_snapshot_base!(transform=|v| std::format!("{}", v), $($arg)*)
     };
 }
 
