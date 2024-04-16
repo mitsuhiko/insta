@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.38.0
+
+- Redaction macros allow `debug` expressions.  #455
+
 ## 1.37.0
 
 - All macros for file snapshots should now handle trailing commas (but not yet inline snapshots)
