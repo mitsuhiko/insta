@@ -3,7 +3,7 @@ use insta::assert_json_snapshot;
 #[cfg(feature = "yaml")]
 use insta::assert_yaml_snapshot;
 #[allow(deprecated)]
-use insta::{assert_debug_snapshot, assert_display_snapshot};
+use insta::{assert_debug_snapshot, assert_display_snapshot, assert_snapshot};
 use std::fmt;
 
 #[test]
@@ -61,6 +61,15 @@ mod nested {
     fn test_nested_module() {
         insta::assert_snapshot!("aoeu");
     }
+}
+
+#[test]
+fn test_trailing_commas() {
+    assert_snapshot!("Testing",);
+    assert_snapshot!("Testing", "name",);
+    assert_snapshot!("Testing", "name", "expr",);
+    #[cfg(feature = "yaml")]
+    assert_yaml_snapshot!(vec![1, 2, 3, 4, 5],);
 }
 
 struct TestDisplay;

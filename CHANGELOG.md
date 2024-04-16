@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.37.0
+
+- All macros for file snapshots should now handle trailing commas (but not yet inline snapshots)
+
+- Vendored old `yaml-rust` dependency to avoid rustsec warnings.  #465
+
 ## 1.36.1
 
 - Fix an ownership issue introduced in 1.36 with snapshot assertions.  #453

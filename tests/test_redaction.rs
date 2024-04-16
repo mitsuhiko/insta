@@ -126,7 +126,7 @@ fn test_with_random_value_and_trailing_comma() {
 
 #[cfg(feature = "yaml")]
 #[test]
-fn test_with_random_value_and_trailing_comma_match() {
+fn test_with_random_value_and_match_comma() {
     assert_yaml_snapshot!(
         &User {
             id: 11,
@@ -137,6 +137,17 @@ fn test_with_random_value_and_trailing_comma_match() {
         match .. {
             ".id" => "[id]",
         }
+    );
+    assert_yaml_snapshot!(
+        &User {
+            id: 11,
+            username: "john_doe".to_string(),
+            email: Email("john@example.com".to_string()),
+            extra: "".to_string(),
+        },
+        match .. {
+            ".id" => "[id]",
+        }, // comma here
     );
 }
 

@@ -1,5 +1,5 @@
 ---
-source: tests/test_inline.rs
+source: tests/test_basic.rs
 expression: "\"Testing\""
 ---
 Testing

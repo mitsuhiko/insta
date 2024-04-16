@@ -219,6 +219,7 @@ macro_rules! assert_compact_json_snapshot {
     };
 }
 
+// The macro handles optional trailing commas for file snapshots.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_serialized_snapshot {
@@ -227,7 +228,8 @@ macro_rules! _assert_serialized_snapshot {
     //
     // Note that if we could unify the Inline & File represenations of snapshots
     // redactions we could unify some of these branches.
-    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}, @$snapshot:literal) => {{
+
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, @$snapshot:literal) => {{
         let transform = |value| {
             $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, Inline)
         };
@@ -240,11 +242,12 @@ macro_rules! _assert_serialized_snapshot {
     // `_assert_snapshot_base` handle them, we need the below few branches
     // copying the logic; since there can be ambiguity with a `match`
     // expression.
-    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?} $(,)?) => {{
         $crate::_assert_serialized_snapshot!(format=$format, $crate::_macro_support::AutoName, $value, {$($k => $v),*});
     }};
-    // If there are redaction expressions and no debug_expr, capture and pass to `_assert_snapshot_base`
-    (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),*$(,)?}) => {{
+    // If there are redaction expressions and no debug_expr, capture and pass to
+    // `_assert_snapshot_base`
+    (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?} $(,)?) => {{
         let transform = |value| {
             $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, File)
         };
@@ -260,7 +263,8 @@ macro_rules! _assert_serialized_snapshot {
     }};
     // If there's an inline snapshot, capture serialization function and pass to
     // `_assert_snapshot_base`, specifying `Inline`
-      (format=$format:ident, $($arg:expr),*, @$snapshot:literal) => {{
+    //
+    (format=$format:ident, $($arg:expr),*, @$snapshot:literal) => {{
         let transform = |value| {$crate::_macro_support::serialize_value(
             &value,
             $crate::_macro_support::SerializationFormat::$format,
@@ -269,7 +273,7 @@ macro_rules! _assert_serialized_snapshot {
         $crate::_assert_snapshot_base!(transform = transform, $($arg),*, @$snapshot);
     }};
     // Capture serialization function and pass to `_assert_snapshot_base`,
-    // specifing `File`
+    // specifying `File`
     (format=$format:ident, $($arg:expr),* $(,)?) => {{
         let transform = |value| {$crate::_macro_support::serialize_value(
             &value,
@@ -284,7 +288,7 @@ macro_rules! _assert_serialized_snapshot {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _prepare_snapshot_for_redaction {
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, $format:ident, $location:ident) => {
+    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
         {
             let vec = vec![
                 $((
@@ -306,7 +310,7 @@ macro_rules! _prepare_snapshot_for_redaction {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _prepare_snapshot_for_redaction {
-    ($value:expr, {$($k:expr => $v:expr),*$(,)?}, $format:ident, $location:ident) => {
+    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
         compile_error!("insta was compiled without redaction support.");
     };
 }
@@ -326,13 +330,16 @@ macro_rules! assert_debug_snapshot {
 }
 
 // A helper macro which takes a closure as `transform`, and runs the closure on
-// the value. This allows us to implement other macros with a small wrapper.
+// the value. This allows us to implement other macros with a small wrapper. All
+// snapshot macros eventually call this macro.
+//
+// The macro handles optional trailing commas in file snapshots.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_snapshot_base {
     // If there's an inline literal value, wrap the literal in a
     // `ReferenceValue::Inline`, call self.
-    (transform=$transform:expr, $($arg:expr),*, @$snapshot:literal) => {
+    (transform=$transform:expr, $($arg:expr),*, @$snapshot:literal $(,)?) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
             #[allow(clippy::needless_raw_string_hashes)]
@@ -341,12 +348,12 @@ macro_rules! _assert_snapshot_base {
         )
     };
     // If there's no debug_expr, use the stringified value, call self.
-    (transform=$transform:expr, $name:expr, $value:expr) => {
+    (transform=$transform:expr, $name:expr, $value:expr $(,)?) => {
         $crate::_assert_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
     };
     // If there's no name (and necessarily no debug expr), auto generate the
     // name, call self.
-    (transform=$transform:expr, $value:expr) => {
+    (transform=$transform:expr, $value:expr $(,)?) => {
         $crate::_assert_snapshot_base!(
             transform = $transform,
             $crate::_macro_support::AutoName,
@@ -354,7 +361,7 @@ macro_rules! _assert_snapshot_base {
         )
     };
     // The main macro body — every call to this macro should end up here.
-    (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr) => {
+    (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
         $crate::_macro_support::assert_snapshot(
             $name.into(),
             #[allow(clippy::redundant_closure_call)]
