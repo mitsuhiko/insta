@@ -7,6 +7,7 @@ use std::{env, fs};
 use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
+use insta::internals::SnapshotContents;
 use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
@@ -306,6 +307,24 @@ fn query_snapshot(
             style("toggle snapshot diff").dim()
         );
 
+        let new_is_binary = new.contents().is_binary();
+        let old_is_binary = old.is_some_and(|o| o.contents().is_binary());
+
+        if new_is_binary || old_is_binary {
+            println!(
+                "  {} open       {}",
+                style("o").cyan().bold(),
+                style(if new_is_binary && old_is_binary {
+                    "open snapshot files in external tool"
+                } else if new_is_binary {
+                    "open new snapshot file in external tool"
+                } else {
+                    "open old snapshot file in external tool"
+                })
+                .dim()
+            );
+        }
+
         loop {
             match term.read_key()? {
                 Key::Char('a') | Key::Enter => return Ok(Operation::Accept),
@@ -318,6 +337,17 @@ fn query_snapshot(
                 Key::Char('d') => {
                     *show_diff = !*show_diff;
                     break;
+                }
+                Key::Char('o') => {
+                    if let Some(SnapshotContents::Binary { path, .. }) = old.map(|o| o.contents()) {
+                        open::that_detached(path)?;
+                    }
+
+                    if let SnapshotContents::Binary { path, .. } = new.contents() {
+                        open::that_detached(path)?;
+                    }
+
+                    // there's no break here because there's no need to re-output anything
                 }
                 _ => {}
             }
@@ -1004,8 +1034,8 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                         path: &target_file,
                         line: snapshot_ref.line.unwrap(),
                         name: snapshot_ref.new.snapshot_name(),
-                        old_snapshot: snapshot_ref.old.as_ref().map(|x| x.contents_str()),
-                        new_snapshot: snapshot_ref.new.contents_str(),
+                        old_snapshot: snapshot_ref.old.as_ref().map(|x| x.contents_str().unwrap()),
+                        new_snapshot: snapshot_ref.new.contents_str().unwrap(),
                         expression: snapshot_ref.new.metadata().expression(),
                     }
                 } else {

@@ -314,7 +314,9 @@ pub use crate::redaction::{dynamic_redaction, rounded_redaction, sorted_redactio
 pub mod _macro_support {
     pub use crate::content::Content;
     pub use crate::env::get_cargo_workspace;
-    pub use crate::runtime::{assert_snapshot, with_allow_duplicates, AutoName, ReferenceValue};
+    pub use crate::runtime::{
+        assert_snapshot, with_allow_duplicates, AutoName, ReferenceValue, SnapshotValue,
+    };
 
     #[cfg(feature = "serde")]
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};
