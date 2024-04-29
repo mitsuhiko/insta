@@ -1,7 +1,9 @@
 use std::{
     borrow::Cow,
     env,
-    io::Write,
+    fs::File,
+    io::{BufReader, Read, Write},
+    ops::ControlFlow,
     path::Path,
     process::{Command, Stdio},
 };
@@ -106,6 +108,32 @@ pub fn format_rust_expression(value: &str) -> Cow<'_, str> {
         }
     }
     Cow::Borrowed(value)
+}
+
+pub fn file_eq(a: &mut File, b: &mut File) -> std::io::Result<bool> {
+    if a.metadata()?.len() != b.metadata()?.len() {
+        return Ok(false);
+    }
+
+    let a = BufReader::new(a).bytes();
+    let b = BufReader::new(b).bytes();
+
+    match a.zip(b).try_for_each(|pair| match pair {
+        (Ok(a), Ok(b)) => {
+            if a == b {
+                ControlFlow::Continue(())
+            } else {
+                ControlFlow::Break(Ok(()))
+            }
+        }
+        (Ok(_), Err(e)) | (Err(e), _) => ControlFlow::Break(Err(e)),
+    }) {
+        ControlFlow::Continue(_) => Ok(true),
+        ControlFlow::Break(r) => {
+            r?;
+            Ok(false)
+        }
+    }
 }
 
 #[test]

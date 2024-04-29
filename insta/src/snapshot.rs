@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::content::{self, json, yaml, Content};
+use crate::utils::file_eq;
 
 lazy_static::lazy_static! {
     static ref RUN_ID: String = {
@@ -513,32 +514,6 @@ impl Snapshot {
 
     /// Snapshot contents match another snapshot's.
     pub fn matches(&self, other: &Snapshot) -> bool {
-        fn file_eq(a: &mut File, b: &mut File) -> std::io::Result<bool> {
-            if a.metadata()?.len() != b.metadata()?.len() {
-                return Ok(false);
-            }
-
-            let a = BufReader::new(a).bytes();
-            let b = BufReader::new(b).bytes();
-
-            match a.zip(b).try_for_each(|pair| match pair {
-                (Ok(a), Ok(b)) => {
-                    if a == b {
-                        ControlFlow::Continue(())
-                    } else {
-                        ControlFlow::Break(Ok(()))
-                    }
-                }
-                (Ok(_), Err(e)) | (Err(e), _) => ControlFlow::Break(Err(e)),
-            }) {
-                ControlFlow::Continue(_) => Ok(true),
-                ControlFlow::Break(r) => {
-                    r?;
-                    Ok(false)
-                }
-            }
-        }
-
         match (self.contents(), other.contents()) {
             (SnapshotContents::String(this), SnapshotContents::String(other)) => this == other,
             (
