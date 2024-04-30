@@ -2,8 +2,7 @@ use std::borrow::Cow;
 use std::env;
 use std::error::Error;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader, Read, Write};
-use std::ops::ControlFlow;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -515,7 +514,9 @@ impl Snapshot {
     /// Snapshot contents match another snapshot's.
     pub fn matches(&self, other: &Snapshot) -> bool {
         match (self.contents(), other.contents()) {
-            (SnapshotContents::String(this), SnapshotContents::String(other)) => this == other,
+            (SnapshotContents::String(this), SnapshotContents::String(other)) => {
+                trim_content_str(this) == trim_content_str(other)
+            }
             (
                 SnapshotContents::Binary {
                     path: this,
@@ -650,11 +651,7 @@ impl SnapshotContents {
     /// Returns the snapshot contents as string with surrounding whitespace removed.
     pub fn as_str(&self) -> Option<&str> {
         match self {
-            SnapshotContents::String(content) => Some(
-                content
-                    .trim_start_matches(|x| x == '\r' || x == '\n')
-                    .trim_end(),
-            ),
+            SnapshotContents::String(content) => Some(trim_content_str(content)),
             _ => None,
         }
     }
@@ -718,6 +715,12 @@ impl From<String> for SnapshotContents {
         // make sure we have unix newlines consistently
         SnapshotContents::String(value.replace("\r\n", "\n"))
     }
+}
+
+fn trim_content_str(content: &str) -> &str {
+    content
+        .trim_start_matches(|x| x == '\r' || x == '\n')
+        .trim_end()
 }
 
 fn count_leading_spaces(value: &str) -> usize {
