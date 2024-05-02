@@ -141,6 +141,7 @@
 //! Example:
 //!
 //! ```no_run
+//! # use insta::assert_snapshot;
 //! assert_snapshot!(2 + 2, @"");
 //! ```
 //!
