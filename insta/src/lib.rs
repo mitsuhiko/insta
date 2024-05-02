@@ -108,7 +108,7 @@
 //! `INSTA_UPDATE` modes:
 //!
 //! - `auto`: the default. `no` for CI environments or `new` otherwise
-//! - `new`: writes failing snapshot assersions into `.snap.new` files[^1], in
+//! - `new`: writes failing snapshot assersions into `.snap.new` files, in
 //!   preparation for review
 //! - `always`: accepts any failing snapshot assertions into `.snap` files,
 //!   bypassing review
