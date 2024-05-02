@@ -100,8 +100,8 @@
 //! # Snapshot updating
 //!
 //! During test runs snapshots will be updated according to the `INSTA_UPDATE`
-//! environment variable.  The default is `auto` which will write failing
-//! snapshot assertions into `.snap.new` files (if no CI is detected) so that
+//! environment variable.  The default is `auto` which will write snapshots for
+//! any failing tests into `.snap.new` files (if no CI is detected) so that
 //! [`cargo-insta`](https://crates.io/crates/cargo-insta) can pick them up for
 //! review. Normally you don't have to change this variable.
 //!
