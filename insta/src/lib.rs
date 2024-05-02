@@ -100,56 +100,54 @@
 //! # Snapshot updating
 //!
 //! During test runs snapshots will be updated according to the `INSTA_UPDATE`
-//! environment variable.  The default is `auto` which will write all new
-//! snapshots into `.snap.new` files if no CI is detected so that
-//! [`cargo-insta`](https://crates.io/crates/cargo-insta)
-//! can pick them up.  Normally you don't have to change this variable.
+//! environment variable.  The default is `auto` which will write failing
+//! snapshot assertions into `.snap.new` files (if no CI is detected) so that
+//! [`cargo-insta`](https://crates.io/crates/cargo-insta) can pick them up for
+//! review. Normally you don't have to change this variable.
 //!
 //! `INSTA_UPDATE` modes:
 //!
 //! - `auto`: the default. `no` for CI environments or `new` otherwise
-//! - `always`: overwrites old snapshot files with new ones unasked
-//! - `unseen`: behaves like `always` for new snapshots and `new` for others
-//! - `new`: write new snapshots into `.snap.new` files
-//! - `no`: does not update snapshot files at all (just runs tests)
+//! - `new`: writes failing snapshot assersions into `.snap.new` files[^1], in
+//!   preparation for review
+//! - `always`: accepts any failing snapshot assertions into `.snap` files,
+//!   bypassing review
+//! - `unseen`: behaves like `always` for previously unseen snapshots and `new`
+//!   for existing snapshots
+//! - `no`: does not update snapshot files at all; just runs tests
 //!
-//! When `new` or `auto` is used as mode the [`cargo-insta`](https://crates.io/crates/cargo-insta)
-//! command can be used to review the snapshots conveniently:
+//! When `new`, `auto` or `unseen` is used, the
+//! [`cargo-insta`](https://crates.io/crates/cargo-insta) command can be used to
+//! review the snapshots conveniently:
 //!
 //! ```text
 //! $ cargo insta review
 //! ```
 //!
-//! "enter" or "a" accepts a new snapshot, "escape" or "r" rejects,
-//! "space" or "s" skips the snapshot for now.
+//! "enter" or "a" accepts a new snapshot, "escape" or "r" rejects, "space" or
+//! "s" skips the snapshot for now.
 //!
-//! For more information [read the cargo insta docs](https://insta.rs/docs/cli/).
+//! For more information [read the cargo insta
+//! docs](https://insta.rs/docs/cli/).
 //!
 //! # Inline Snapshots
 //!
 //! Additionally snapshots can also be stored inline.  In that case the format
 //! for the snapshot macros is `assert_snapshot!(reference_value, @"snapshot")`.
 //! The leading at sign (`@`) indicates that the following string is the
-//! reference value.  `cargo-insta` will then update that string with the new
-//! value on review.
+//! reference value.  On review, `cargo-insta` will update the string with the
+//! new value.
 //!
 //! Example:
 //!
-#![cfg_attr(feature = "yaml", doc = " ```no_run")]
-#![cfg_attr(not(feature = "yaml"), doc = " ```ignore")]
-//! # use insta::*; use serde::Serialize;
-//! #[derive(Serialize)]
-//! pub struct User {
-//!     username: String,
-//! }
-//!
-//! assert_yaml_snapshot!(User {
-//!     username: "john_doe".to_string(),
-//! }, @"");
+//! ```no_run
+//! assert_snapshot!(2 + 2, @"");
 //! ```
 //!
-//! Like with normal snapshots after the initial test failure you can run
-//! `cargo insta review` to accept the change.  The file will then be updated
+//! Like with normal snapshots, an initial test failure will write the proposed
+//! value into a draft file (note that inline snapshots use `.pending-snap`
+//! files rather than `.snap.new` files). Running `cargo insta review` will
+//! review the proposed changes and update the source files on acceptance
 //! automatically.
 //!
 //! # Features
@@ -166,9 +164,9 @@
 //! * `glob`: enables support for globbing ([`glob!`])
 //! * `colors`: enables color output (enabled by default)
 //!
-//! For legacy reasons the `json` and `yaml` features are enabled by default
-//! in limited capacity.  You will receive a deprecation warning if you are
-//! not opting into them but for now the macros will continue to function.
+//! For legacy reasons the `json` and `yaml` features are enabled by default in
+//! limited capacity.  You will receive a deprecation warning if you are not
+//! opting into them but for now the macros will continue to function.
 //!
 //! Enabling any of the serde based formats enables the hidden `serde` feature
 //! which gates some serde specific APIs such as [`Settings::set_info`].
@@ -177,10 +175,10 @@
 //!
 //! `insta` tries to be light in dependencies but this is tricky to accomplish
 //! given what it tries to do.  By default it currently depends on `serde` for
-//! the [`assert_toml_snapshot!`] and [`assert_yaml_snapshot!`] macros.  In
-//! the future this default dependencies will be removed.  To already benefit
-//! from this optimization you can disable the default features and manually
-//! opt into what you want.
+//! the [`assert_toml_snapshot!`] and [`assert_yaml_snapshot!`] macros.  In the
+//! future this default dependencies will be removed.  To already benefit from
+//! this optimization you can disable the default features and manually opt into
+//! what you want.
 //!
 //! # Settings
 //!
@@ -229,10 +227,11 @@
 //!
 //! # Optional: Faster Runs
 //!
-//! Insta benefits from being compiled in release mode, even as dev dependency.  It
-//! will compile slightly slower once, but use less memory, have faster diffs and
-//! just generally be more fun to use.  To achieve that, opt `insta` and `similar`
-//! (the diffing library) into higher optimization in your `Cargo.toml`:
+//! Insta benefits from being compiled in release mode, even as dev dependency.
+//! It will compile slightly slower once, but use less memory, have faster diffs
+//! and just generally be more fun to use.  To achieve that, opt `insta` and
+//! `similar` (the diffing library) into higher optimization in your
+//! `Cargo.toml`:
 //!
 //! ```yaml
 //! [profile.dev.package.insta]

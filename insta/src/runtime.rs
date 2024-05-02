@@ -344,8 +344,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         // let's just make sure there are no more pending files lingering
         // around.
         if let Some(ref snapshot_file) = self.snapshot_file {
-            let mut snapshot_file = snapshot_file.clone();
-            snapshot_file.set_extension("snap.new");
+            let snapshot_file = snapshot_file.clone().with_extension("snap.new");
             fs::remove_file(snapshot_file).ok();
         }
 
