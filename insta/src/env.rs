@@ -64,6 +64,7 @@ pub enum SnapshotUpdate {
     Unseen,
     New,
     No,
+    Force,
 }
 
 #[derive(Debug)]
@@ -96,7 +97,6 @@ impl std::error::Error for Error {
 /// Represents a tool configuration.
 #[derive(Debug)]
 pub struct ToolConfig {
-    force_update_snapshots: bool,
     force_pass: bool,
     require_full_match: bool,
     output: OutputBehavior,
@@ -144,26 +144,37 @@ impl ToolConfig {
         }
         let cfg = cfg.unwrap_or_else(|| Content::Map(Default::default()));
 
-        // support for the deprecated environment variable.  This is implemented in a way that
-        // cargo-insta can support older and newer insta versions alike.  It will set both
-        // variables.  However if only `INSTA_FORCE_UPDATE_SNAPSHOTS` is set, we will emit
-        // a deprecation warning.
-        if env::var("INSTA_FORCE_UPDATE").is_err() {
+        // Support for the deprecated environment variables.  This is
+        // implemented in a way that cargo-insta can support older and newer
+        // insta versions alike. `cargo-insta` will currently set
+        // `INSTA_FORCE_UPDATE_SNAPSHOTS` & `INSTA_FORCE_UPDATE`, and in late
+        // 2024 will set `INSTA_UPDATE=force` (this would break older versions
+        // of insta).
+        //
+        // If `INSTA_FORCE_UPDATE_SNAPSHOTS` is the only env var present we emit
+        // a deprecation warning, later to be expanded to `INSTA_FORCE_UPDATE`.
+        if env::var("INSTA_UPDATE").is_err() {
+            let mut force_update = false;
             if let Ok("1") = env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
-                eprintln!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_FORCE_UPDATE");
-                env::set_var("INSTA_FORCE_UPDATE", "1");
+                eprintln!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_UPDATE=force");
+                force_update = true;
+            }
+            if let Ok("1") = env::var("INSTA_FORCE_UPDATE").as_deref() {
+                // Don't raise a warning yet, because `cargo-insta` still uses
+                // this, so that it's compatible with older versions of `insta`.
+                // In the future, switch `cargo-insta` to use this, and raise a
+                // warning here.
+                //
+                // eprintln!("INSTA_FORCE_UPDATE is deprecated, use
+                // INSTA_UPDATE=force");
+                force_update = true;
+            }
+            if force_update {
+                env::set_var("INSTA_UPDATE", "force");
             }
         }
 
         Ok(ToolConfig {
-            force_update_snapshots: match env::var("INSTA_FORCE_UPDATE").as_deref() {
-                Err(_) | Ok("") => resolve(&cfg, &["behavior", "force_update"])
-                    .and_then(|x| x.as_bool())
-                    .unwrap_or(false),
-                Ok("0") => false,
-                Ok("1") => true,
-                _ => return Err(Error::Env("INSTA_FORCE_UPDATE")),
-            },
             require_full_match: match env::var("INSTA_REQUIRE_FULL_MATCH").as_deref() {
                 Err(_) | Ok("") => resolve(&cfg, &["behavior", "require_full_match"])
                     .and_then(|x| x.as_bool())
@@ -201,6 +212,14 @@ impl ToolConfig {
                 let val = match env_var.as_deref() {
                     Err(_) | Ok("") => resolve(&cfg, &["behavior", "update"])
                         .and_then(|x| x.as_str())
+                        // Legacy support for the old force update config
+                        .or(resolve(&cfg, &["behavior", "force_update"]).and_then(|x| {
+                            eprintln!("`force_update: true` is deprecated, use `update: force`");
+                            match x.as_bool() {
+                                Some(true) => Some("force"),
+                                _ => None,
+                            }
+                        }))
                         .unwrap_or("auto"),
                     Ok(val) => val,
                 };
@@ -210,6 +229,7 @@ impl ToolConfig {
                     "new" => SnapshotUpdate::New,
                     "unseen" => SnapshotUpdate::Unseen,
                     "no" => SnapshotUpdate::No,
+                    "force" => SnapshotUpdate::Force,
                     _ => return Err(Error::Env("INSTA_UPDATE")),
                 }
             },
@@ -263,11 +283,6 @@ impl ToolConfig {
                 .and_then(|x| x.as_bool())
                 .unwrap_or(true),
         })
-    }
-
-    /// Is insta told to force update snapshots?
-    pub fn force_update_snapshots(&self) -> bool {
-        self.force_update_snapshots
     }
 
     /// Should we fail if metadata doesn't match?
@@ -362,6 +377,7 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
         }
         SnapshotUpdate::New => SnapshotUpdateBehavior::NewFile,
         SnapshotUpdate::No => SnapshotUpdateBehavior::NoUpdate,
+        SnapshotUpdate::Force => SnapshotUpdateBehavior::InPlace,
     }
 }
 

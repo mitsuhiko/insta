@@ -581,6 +581,9 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
                 cmd.accept = false;
             }
         }
+        SnapshotUpdate::Force => {
+            cmd.force_update_snapshots = true;
+        }
     }
 
     // --check always implies --no-force-pass as otherwise this command does not
@@ -879,20 +882,26 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     proc.env(
         "INSTA_UPDATE",
-        match (cmd.check, cmd.accept_unseen) {
-            (true, _) => "no",
-            (_, true) => "unseen",
-            (_, false) => "new",
+        match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
+            (true, _, _) => "no",
+            (_, true, _) => "unseen",
+            (_, false, _) => "new",
+            // Don't yet set `INSTA_UPDATE=force` for
+            // `--force-update-snapshots`, since this would break with older
+            // versions of insta. In late 2024, we can swap this code in.
+            //
+            // (true, _, false) => "no",
+            // (_, true, false) => "unseen",
+            // (_, false, false) => "new",
+            // (false, false, true) => "force",
+            // _ => return Err(err_msg(format!("invalid combination of flags: check={}, accept-unseen={}, force-update-snapshots={}", cmd.check, cmd.accept_unseen, cmd.force_update_snapshots))),
         },
     );
     if cmd.force_update_snapshots {
-        // for old versions of insta
+        // For older versions of insta. Eventually we can remove this, and rely
+        // on the `INSTA_UPDATE=force`.
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
-        // for newer versions of insta
         proc.env("INSTA_FORCE_UPDATE", "1");
-    }
-    if cmd.require_full_match {
-        proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
     }
     if cmd.require_full_match {
         proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
