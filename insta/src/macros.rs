@@ -226,7 +226,7 @@ macro_rules! _assert_serialized_snapshot {
     // If there are redaction expressions and an inline snapshot, capture
     // the redactions expressions and pass to `_assert_snapshot_base`
     //
-    // Note that if we could unify the Inline & File represenations of snapshots
+    // Note that if we could unify the Inline & File representations of snapshots
     // redactions we could unify some of these branches.
 
     (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, @$snapshot:literal) => {{

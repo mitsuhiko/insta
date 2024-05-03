@@ -210,7 +210,7 @@ To silence the warning add them to your `insta` dependency. Additionally the
 
 ## 1.17.2
 
-- Remove an accidentaly debug print output.
+- Remove an accidentally debug print output.
 
 ## 1.17.1
 
