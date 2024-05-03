@@ -617,7 +617,6 @@ fn normalize_inline_snapshot(snapshot: &str) -> String {
 fn names_of_path(path: &Path) -> (String, String) {
     // The final part of the snapshot file name is the test name; the
     // initial parts are the module name
-
     let parts: Vec<&str> = path
         .file_stem()
         .unwrap()
@@ -626,9 +625,10 @@ fn names_of_path(path: &Path) -> (String, String) {
         .rsplitn(2, "__")
         .collect();
 
-    match parts.split_first() {
-        Some((&snapshot_name, modules)) => (snapshot_name.to_string(), modules.join("__")),
-        None => ("".to_string(), "<unknown>".to_string()),
+    match parts.as_slice() {
+        [snapshot_name, module_name] => (snapshot_name.to_string(), module_name.to_string()),
+        [snapshot_name] => (snapshot_name.to_string(), String::new()),
+        _ => (String::new(), "<unknown>".to_string()),
     }
 }
 
