@@ -133,7 +133,8 @@ impl PendingInlineSnapshot {
 pub struct MetaData {
     /// The source file (relative to workspace root).
     pub(crate) source: Option<String>,
-    /// The source line if available.
+    /// The source line, if available. This is used by pending snapshots, but trimmed
+    /// before writing to the final `.snap` files in ['MetaData::trim_for_persistence'].
     pub(crate) assertion_line: Option<u32>,
     /// Optional human readable (non formatted) snapshot description.
     pub(crate) description: Option<String>,
@@ -246,7 +247,8 @@ impl MetaData {
         Content::Struct("MetaData", fields)
     }
 
-    /// Trims the metadata for persistence.
+    /// Trims the metadata of fields that we don't save to `.snap` files; we
+    /// only use for display while reviewing
     fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
         if self.assertion_line.is_some() {
             let mut rv = self.clone();
@@ -422,7 +424,8 @@ impl Snapshot {
 
     /// Snapshot contents _and_ metadata match another snapshot's.
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
-        self.matches(other) && self.metadata == other.metadata
+        self.matches(other)
+            && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
     }
 
     /// The snapshot contents as a &str
