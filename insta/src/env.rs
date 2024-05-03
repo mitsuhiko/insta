@@ -149,7 +149,7 @@ impl ToolConfig {
         // insta versions alike. `cargo-insta` will currently set
         // `INSTA_FORCE_UPDATE_SNAPSHOTS` & `INSTA_FORCE_UPDATE`, and in late
         // 2024 will set `INSTA_UPDATE=force` (this would break older versions
-        // of insta).
+        // of insta if we implemented immediately).
         //
         // If `INSTA_FORCE_UPDATE_SNAPSHOTS` is the only env var present we emit
         // a deprecation warning, later to be expanded to `INSTA_FORCE_UPDATE`.
@@ -162,11 +162,12 @@ impl ToolConfig {
             if let Ok("1") = env::var("INSTA_FORCE_UPDATE").as_deref() {
                 // Don't raise a warning yet, because `cargo-insta` still uses
                 // this, so that it's compatible with older versions of `insta`.
-                // In the future, switch `cargo-insta` to use this, and raise a
-                // warning here.
+                // In the future, switch `cargo-insta` to use
+                // `INSTA_UPDATE=force`, and raise a warning for
+                // `INSTA_FORCE_UPDATE`.
                 //
-                // eprintln!("INSTA_FORCE_UPDATE is deprecated, use
-                // INSTA_UPDATE=force");
+                //   eprintln!("INSTA_FORCE_UPDATE is deprecated, use
+                //   INSTA_UPDATE=force");
                 force_update = true;
             }
             if force_update {

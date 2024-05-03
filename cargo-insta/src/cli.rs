@@ -898,8 +898,9 @@ fn prepare_test_runner<'snapshot_ref>(
         },
     );
     if cmd.force_update_snapshots {
-        // For older versions of insta. Eventually we can remove this, and rely
-        // on the `INSTA_UPDATE=force`.
+        // Currently compatible with older versions of insta. In late 2024, we can add:
+        //   proc.env("INSTA_UPDATE", "force");
+        // And then eventually we can remove these.
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
         proc.env("INSTA_FORCE_UPDATE", "1");
     }
