@@ -388,7 +388,7 @@ macro_rules! assert_display_snapshot {
 ///
 /// Optionally a third argument can be given as an expression to be stringified
 /// as the debug expression.  For more information on this, check out
-/// https://insta.rs/docs/snapshot-types/.
+/// <https://insta.rs/docs/snapshot-types/>.
 #[macro_export]
 macro_rules! assert_snapshot {
     ($($arg:tt)*) => {
