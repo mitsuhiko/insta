@@ -134,7 +134,7 @@ pub struct MetaData {
     /// The source file (relative to workspace root).
     pub(crate) source: Option<String>,
     /// The source line, if available. This is used by pending snapshots, but trimmed
-    /// before writing to the final `.snap` files in ['MetaData::trim_for_persistence'].
+    /// before writing to the final `.snap` files in [`MetaData::trim_for_persistence`].
     pub(crate) assertion_line: Option<u32>,
     /// Optional human readable (non formatted) snapshot description.
     pub(crate) description: Option<String>,
