@@ -585,7 +585,7 @@ impl Snapshot {
             };
 
             if old == persisted.as_str()
-                // Either both the metadata and the image get written or none of the two.
+                // Either both the metadata and the binary get written or none of the two.
                 && if let SnapshotContents::Binary { .. } = &self.snapshot {
                     let old_snapshot = Snapshot::from_file(ref_path)?;
 
@@ -595,6 +595,16 @@ impl Snapshot {
                 }
             {
                 return Ok(false);
+            }
+        }
+
+        // make sure to remove any previous binary files with different extensions.
+        if let Ok(current) = Snapshot::from_file(path) {
+            if let SnapshotContents::Binary { path, extension } = current.contents() {
+                // if the extension is the same the file has already been overwritten
+                if self.extension().map_or(true, |e| e != extension) {
+                    fs::remove_file(path)?;
+                }
             }
         }
 
