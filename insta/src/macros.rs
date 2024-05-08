@@ -379,7 +379,7 @@ macro_rules! assert_binary_snapshot {
         $crate::_macro_support::assert_snapshot(
             $name.into(),
             $crate::_macro_support::SnapshotValue::Binary {
-                write: $value,
+                write: &mut $value,
                 extension: $extension,
             },
             env!("CARGO_MANIFEST_DIR"),
