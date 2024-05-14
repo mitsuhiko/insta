@@ -735,7 +735,7 @@ impl<T: Iterator<Item = char>> Scanner<T> {
                 suffix = self.scan_tag_uri(false, secondary, "", &start_mark)?;
             } else {
                 suffix = self.scan_tag_uri(false, false, &handle, &start_mark)?;
-                handle = "!".to_owned();
+                handle = "!".to_string();
                 // A special case: the '!' tag.  Set the handle to '' and the
                 // suffix to '!'.
                 if suffix.is_empty() {
