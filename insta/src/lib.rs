@@ -75,7 +75,7 @@
 //! You can for instance first run the tests and not write and new snapshots, and
 //! if you like them run the tests again and update them:
 //!
-//! ```
+//! ```text
 //! INSTA_UPDATE=no cargo test
 //! INSTA_UPDATE=always cargo test
 //! ```
