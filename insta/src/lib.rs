@@ -58,6 +58,28 @@
 //! $ cargo insta review
 //! ```
 //!
+//! # Use Without `cargo-insta`
+//!
+//! Note that `cargo-insta` is entirely optional.  You can also just use insta
+//! directly from `cargo test` and control it via the `INSTA_UPDATE` environment
+//! variable.  The default is `auto` which will write all new snapshots into
+//! `.snap.new` files if no CI is detected so that `cargo-insta` can pick them
+//! up.  The following other modes are possible:
+//!
+//! - `auto`: the default. `no` for CI environments or `new` otherwise
+//! - `always`: overwrites old snapshot files with new ones unasked
+//! - `unseen`: behaves like `always` for new snapshots and `new` for others
+//! - `new`: write new snapshots into `.snap.new` files
+//! - `no`: does not update snapshot files at all (just runs tests)
+//!
+//! You can for instance first run the tests and not write and new snapshots, and
+//! if you like them run the tests again and update them:
+//!
+//! ```
+//! INSTA_UPDATE=no cargo test
+//! INSTA_UPDATE=always cargo test
+//! ```
+//!
 //! # Assertion Macros
 //!
 //! This crate exports multiple macros for snapshot testing:
