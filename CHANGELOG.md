@@ -7,6 +7,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Fixed a bug in `require_full_match`.  #485
 - Fixed a bug that caused snapshot and module names to sometimes be inaccurate.  #483
 - Insta will no longer error when removing snapshots that were already removed.  #484
+- Added support for trailing commas in inline snapshots.  #472
 
 ## 1.38.0
 
