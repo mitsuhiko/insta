@@ -1,20 +1,20 @@
 import { platform } from "os";
 import {
+  DocumentFilter,
   ExtensionContext,
-  languages,
-  workspace,
+  FileSystemError,
   Uri,
   commands,
+  languages,
   window,
-  FileSystemError,
-  DocumentFilter,
+  workspace,
 } from "vscode";
-import { projectUsesInsta } from "./cargo";
 import { InlineSnapshotProvider } from "./InlineSnapshotProvider";
-import { processAllSnapshots, processInlineSnapshot } from "./insta";
 import { PendingSnapshotsProvider } from "./PendingSnapshotsProvider";
 import { Snapshot } from "./Snapshot";
 import { SnapshotPathProvider } from "./SnapshotPathProvider";
+import { findCargoRoots, projectUsesInsta } from "./cargo";
+import { processAllSnapshots, processInlineSnapshot } from "./insta";
 
 const INSTA_CONTEXT_NAME = "inInstaSnapshotsProject";
 const RUST_FILTER: DocumentFilter = {
@@ -177,32 +177,29 @@ async function setInstaContext(value: boolean): Promise<void> {
   await commands.executeCommand("setContext", INSTA_CONTEXT_NAME, value);
 }
 
-function checkInstaContext() {
-  const rootUri = workspace.workspaceFolders?.[0].uri;
-  if (rootUri) {
-    projectUsesInsta(rootUri).then((usesInsta) => setInstaContext(usesInsta));
-  } else {
-    setInstaContext(false);
-  }
+async function checkInstaContext() {
+  const roots = await findCargoRoots();
+  setInstaContext(roots.length !== 0 && await projectUsesInsta(roots));
 }
 
 function performOnAllSnapshots(op: "accept" | "reject") {
-  const root = workspace.workspaceFolders?.[0];
-  if (!root) {
-    return;
-  }
-  processAllSnapshots(root.uri, op).then((okay) => {
-    if (okay) {
-      window.showInformationMessage(`Successfully ${op}ed all snapshots.`);
-    } else {
-      window.showErrorMessage(`Could not ${op} snapshots.`);
+  findCargoRoots().then((roots) => {
+    if (roots.length === 0) {
+      return;
     }
+
+    processAllSnapshots(roots, op).then((okay) => {
+      if (okay) {
+        window.showInformationMessage(`Successfully ${op}ed all snapshots.`);
+      } else {
+        window.showErrorMessage(`Could not ${op} snapshots.`);
+      }
+    });
   });
 }
 
 export function activate(context: ExtensionContext): void {
-  const root = workspace.workspaceFolders?.[0];
-  const pendingSnapshots = new PendingSnapshotsProvider(root);
+  const pendingSnapshots = new PendingSnapshotsProvider();
   const snapshotPathProvider = new SnapshotPathProvider();
 
   const snapWatcher = workspace.createFileSystemWatcher(
@@ -212,18 +209,20 @@ export function activate(context: ExtensionContext): void {
   snapWatcher.onDidCreate(() => pendingSnapshots.refreshDebounced());
   snapWatcher.onDidDelete(() => pendingSnapshots.refreshDebounced());
 
-  const cargoTomlWatcher = workspace.createFileSystemWatcher("**/Cargo.toml");
-  cargoTomlWatcher.onDidChange(() => checkInstaContext());
-  cargoTomlWatcher.onDidCreate(() => checkInstaContext());
-  cargoTomlWatcher.onDidDelete(() => checkInstaContext());
+  const cargoLockWatcher = workspace.createFileSystemWatcher("**/Cargo.lock");
+  cargoLockWatcher.onDidChange(() => checkInstaContext());
+  cargoLockWatcher.onDidCreate(() => checkInstaContext());
+  cargoLockWatcher.onDidDelete(() => checkInstaContext());
 
-  if (root) {
-    projectUsesInsta(root.uri).then((usesInsta) => setInstaContext(usesInsta));
-  }
+  findCargoRoots().then((roots) => {
+    if (roots.length !== 0) {
+      projectUsesInsta(roots).then((usesInsta) => setInstaContext(usesInsta));
+    }
+  })
 
   context.subscriptions.push(
     snapWatcher,
-    cargoTomlWatcher,
+    cargoLockWatcher,
     window.registerTreeDataProvider("pendingInstaSnapshots", pendingSnapshots),
     workspace.registerTextDocumentContentProvider(
       "instaInlineSnapshot",
