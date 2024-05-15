@@ -381,7 +381,12 @@ macro_rules! assert_display_snapshot {
 ///
 /// ```no_run
 /// # use insta::*;
+/// // implicitly named
 /// assert_snapshot!("reference value to snapshot");
+/// // named
+/// assert_snapshot!("snapshot_name", "reference value to snapshot");
+/// // inline
+/// assert_snapshot!("reference value", @"reference value");
 /// ```
 ///
 /// Optionally a third argument can be given as an expression to be stringified
