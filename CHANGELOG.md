@@ -17,6 +17,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.38.0
 
+- Redaction macros allow `debug` expressions.  #455
+
 - `Filters` is now constructible from `IntoIterator`.  #400
 
 - Change `std` macro calls to be fully qualified.  This fixes issues where
