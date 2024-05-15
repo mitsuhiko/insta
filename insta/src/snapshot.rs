@@ -484,8 +484,7 @@ impl Snapshot {
     /// If the existing snapshot matches the new file, then `None` is returned, otherwise
     /// the name of the new snapshot file.
     pub(crate) fn save_new(&self, path: &Path) -> Result<Option<PathBuf>, Box<dyn Error>> {
-        let mut new_path = path.to_path_buf();
-        new_path.set_extension("snap.new");
+        let new_path = path.to_path_buf().with_extension("snap.new");
         if self.save_with_metadata(&new_path, Some(path), &self.metadata)? {
             Ok(Some(new_path))
         } else {

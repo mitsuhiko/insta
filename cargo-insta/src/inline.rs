@@ -171,6 +171,14 @@ impl FilePatcher {
             }
 
             fn try_extract_snapshot(&mut self, tokens: &[TokenTree], indentation: usize) -> bool {
+                // ignore optional trailing comma
+                let tokens = match tokens.last() {
+                    Some(TokenTree::Punct(ref punct)) if punct.as_char() == ',' => {
+                        &tokens[..tokens.len() - 1]
+                    }
+                    _ => tokens,
+                };
+
                 if tokens.len() < 2 {
                     return false;
                 }

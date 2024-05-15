@@ -2,6 +2,11 @@ name: Tests
 
 on: [push, pull_request]
 
+env:
+  CARGO_TERM_COLOR: always
+  CLICOLOR_FORCE: 1
+  RUSTDOCFLAGS: "-Dwarnings"
+
 jobs:
   test-latest:
     name: Test on Latest
@@ -47,3 +52,15 @@ jobs:
           perl -ni -e 'print unless /\[profile\.dist\]/ .. eof' Cargo.toml
       - name: Check
         run: cargo check -p insta --no-default-features
+
+  build-docs:
+    name: Build docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: doc
+        run: cargo doc --all-features
