@@ -2,7 +2,7 @@
   "name": "insta",
   "displayName": "insta snapshots",
   "description": "Syntax support for insta snapshots",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "publisher": "mitsuhiko",
   "license": "Apache-2.0",
   "author": {
@@ -194,7 +194,7 @@
   "devDependencies": {
     "@types/node": "^14.14.19",
     "typescript": "^4.1.3",
-    "@types/vscode": "^1.80.0",
+    "@types/vscode": "^1.52.0",
     "@vscode/test-electron": "2.3.10"
   },
   "scripts": {
