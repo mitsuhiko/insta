@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.39.0
+
+- Fixed a bug in `require_full_match`.  #485
+- Fixed a bug that caused snapshot and module names to sometimes be inaccurate.  #483
+
 ## 1.38.0
 
 - `Filters` is now constructible from `IntoIterator`.  #400
