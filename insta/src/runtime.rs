@@ -680,7 +680,10 @@ pub fn assert_snapshot(
     if pass {
         ctx.cleanup_passing()?;
 
-        if tool_config.force_update_snapshots() {
+        if matches!(
+            tool_config.snapshot_update(),
+            crate::env::SnapshotUpdate::Force
+        ) {
             ctx.update_snapshot(new_snapshot)?;
         }
     // otherwise print information and update snapshots.
