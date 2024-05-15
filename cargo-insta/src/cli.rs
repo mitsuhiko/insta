@@ -954,11 +954,11 @@ fn prepare_test_runner<'snapshot_ref>(
     // Currently libtest uses a different approach to color, so we need to pass
     // it again to get output from the test runner as well as cargo. See
     // https://github.com/rust-lang/cargo/issues/1983 for more
-    match test_runner {
-        TestRunner::CargoTest | TestRunner::Auto => {
-            proc.arg(format!("--color={}", color));
-        }
-        _ => {}
+    // We also only want to do this if we override auto as some custom test runners
+    // do not handle --color and then we at least fix the default case.
+    // https://github.com/mitsuhiko/insta/issues/473
+    if color != "auto" && matches!(test_runner, TestRunner::CargoTest | TestRunner::Auto) {
+        proc.arg(format!("--color={}", color));
     };
     Ok((proc, snapshot_ref_file, prevents_doc_run))
 }
