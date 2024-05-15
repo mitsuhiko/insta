@@ -2,7 +2,7 @@ import * as cp from "child_process";
 import { Uri } from "vscode";
 import { Snapshot } from "./Snapshot";
 
-export function getPendingSnapshots(root: Uri): Promise<Snapshot[]> {
+async function getPendingSnapshotsFor(results: Snapshot[], root: Uri): Promise<void> {
   return new Promise((resolve, reject) => {
     let buffer = "";
     const child = cp.spawn(
@@ -19,19 +19,22 @@ export function getPendingSnapshots(root: Uri): Promise<Snapshot[]> {
     child.stdout?.setEncoding("utf8");
     child.stdout.on("data", (data) => (buffer += data));
     child.on("close", (_exitCode) => {
-      const snapshots = buffer
-        .split(/\n/g)
-        .map((line) => {
-          try {
-            return new Snapshot(root, JSON.parse(line));
-          } catch (e) {
-            return null;
-          }
-        })
-        .filter((x) => x !== null);
-      resolve(snapshots as any);
+      for (const line of buffer.split(/\n/g)) {
+        try {
+          results.push(new Snapshot(root, JSON.parse(line)))
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      resolve();
     });
   });
+}
+
+export async function getPendingSnapshots(roots: Uri[]): Promise<Snapshot[]> {
+  const results: Snapshot[] = [];
+  await Promise.all(roots.map((root) => getPendingSnapshotsFor(results, root)));
+  return results;
 }
 
 export function processInlineSnapshot(
@@ -55,11 +58,11 @@ export function processInlineSnapshot(
   });
 }
 
-export function processAllSnapshots(
-  rootUri: Uri,
+export async function processAllSnapshots(
+  roots: Uri[],
   op: "accept" | "reject"
 ): Promise<boolean> {
-  return new Promise((resolve, reject) => {
+  const results = await Promise.all(roots.map((rootUri) => new Promise<boolean>((resolve, reject) => {
     const child = cp.spawn("cargo", ["insta", op], {
       cwd: rootUri.fsPath,
     });
@@ -67,8 +70,7 @@ export function processAllSnapshots(
       reject(new Error("could not spawn cargo-insta"));
       return;
     }
-    child.on("close", (exitCode) => {
-      resolve(exitCode === 0);
-    });
-  });
+    child.on("close", (exitCode) => resolve(exitCode === 0));
+  })));
+  return results.every((x) => x);
 }

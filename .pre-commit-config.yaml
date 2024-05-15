@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+        exclude: '(.*\.snap)'
+      - id: check-yaml
+      - id: mixed-line-ending
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.20.10
+    hooks:
+      - id: typos
+        # https://github.com/crate-ci/typos/issues/347
+        pass_filenames: false
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.6.27
+    hooks:
+      - id: actionlint
+  - repo: https://github.com/tcort/markdown-link-check
+    rev: v3.12.1
+    hooks:
+      - id: markdown-link-check
+        name: markdown-link-check-all
+        stages: [manual]
+  - repo: local
+    hooks:
+      - id: no-dbg
+        name: no-dbg
+        description: We shouldn't merge code with `dbg!` in
+        language: pygrep
+        types: ["rust"]
+        entry: "dbg!"

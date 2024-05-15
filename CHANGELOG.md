@@ -2,6 +2,19 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.39.0
+
+- Fixed a bug in `require_full_match`.  #485
+
+- Fixed a bug that caused snapshot and module names to sometimes be inaccurate.  #483
+
+- Insta will no longer error when removing snapshots that were already removed.  #484
+
+- Added support for trailing commas in inline snapshots.  #472
+
+- Don't pass `--color` in all cases to `libtest` any more to work around limitations
+  with custom test harnesses.  #491
+
 ## 1.38.0
 
 - `Filters` is now constructible from `IntoIterator`.  #400
@@ -210,7 +223,7 @@ To silence the warning add them to your `insta` dependency. Additionally the
 
 ## 1.17.2
 
-- Remove an accidentaly debug print output.
+- Remove an accidentally debug print output.
 
 ## 1.17.1
 
