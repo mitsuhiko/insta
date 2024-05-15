@@ -263,6 +263,9 @@
 //! [profile.dev.package.similar]
 //! opt-level = 3
 //! ```
+//!
+//! You can also disable the default features of `insta` which will cut down on
+//! the compile time a bit by removing some quality of life features.
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[macro_use]
