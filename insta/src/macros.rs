@@ -19,7 +19,7 @@ macro_rules! _function_name {
 ///
 /// **Feature:** `csv` (disabled by default)
 ///
-/// This works exactly like [`assert_yaml_snapshot!`]
+/// This works exactly like [`crate::assert_yaml_snapshot!`]
 /// but serializes in [CSV](https://github.com/burntsushi/rust-csv) format instead of
 /// YAML.
 ///
@@ -48,7 +48,7 @@ macro_rules! assert_csv_snapshot {
 ///
 /// **Feature:** `toml` (disabled by default)
 ///
-/// This works exactly like [`assert_yaml_snapshot!`]
+/// This works exactly like [`crate::assert_yaml_snapshot!`]
 /// but serializes in [TOML](https://github.com/alexcrichton/toml-rs) format instead of
 /// YAML.  Note that TOML cannot represent all values due to limitations in the
 /// format.
@@ -92,7 +92,7 @@ macro_rules! assert_toml_snapshot {
 /// assert_yaml_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
-/// Unlike the [`assert_debug_snapshot!`]
+/// Unlike the [`crate::assert_debug_snapshot!`]
 /// macro, this one has a secondary mode where redactions can be defined.
 ///
 /// The third argument to the macro can be an object expression for redaction.
@@ -388,7 +388,7 @@ macro_rules! assert_display_snapshot {
 ///
 /// Optionally a third argument can be given as an expression to be stringified
 /// as the debug expression.  For more information on this, check out
-/// https://insta.rs/docs/snapshot-types/.
+/// <https://insta.rs/docs/snapshot-types/>.
 #[macro_export]
 macro_rules! assert_snapshot {
     ($($arg:tt)*) => {
