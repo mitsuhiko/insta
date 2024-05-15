@@ -5,9 +5,15 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.39.0
 
 - Fixed a bug in `require_full_match`.  #485
+
 - Fixed a bug that caused snapshot and module names to sometimes be inaccurate.  #483
+
 - Insta will no longer error when removing snapshots that were already removed.  #484
+
 - Added support for trailing commas in inline snapshots.  #472
+
+- Don't pass `--color` in all cases to `libtest` any more to work around limitations
+  with custom test harnesses.  #491
 
 ## 1.38.0
 
