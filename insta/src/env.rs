@@ -136,7 +136,7 @@ impl ToolConfig {
                     break;
                 }
                 // ideally we would not swallow all errors here but unfortunately there are
-                // some cases where we cannot detect the error propertly.
+                // some cases where we cannot detect the error properly.
                 // Eg we can see NotADirectory here as kind, but on stable rust it cannot
                 // be matched on.
                 Err(_) => continue,
