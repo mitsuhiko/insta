@@ -232,7 +232,7 @@ impl SnapshotContainer {
                         if let insta::internals::SnapshotContents::Binary { path, .. } =
                             snapshot.new.contents()
                         {
-                            fs::remove_file(path)?;
+                            try_removing_snapshot(path);
                         }
                     }
                     Operation::Skip => {}
