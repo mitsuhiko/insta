@@ -353,7 +353,7 @@ a4:
     #[test]
     fn test_emit_complex() {
         let s = r#"
-cataloge:
+catalogue:
   product: &coffee   { name: Coffee,    price: 2.5  ,  unit: 1l  }
   product: &cookies  { name: Cookies!,  price: 3.40 ,  unit: 400g}
 

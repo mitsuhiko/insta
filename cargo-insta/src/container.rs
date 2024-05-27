@@ -164,6 +164,18 @@ impl SnapshotContainer {
     }
 
     pub(crate) fn commit(&mut self) -> Result<(), Box<dyn Error>> {
+        // Try removing the snapshot file. If it fails, it's
+        // likely because it another process removed it; which
+        // is fine — print a message and continue.
+        let try_removing_snapshot = |p| {
+            fs::remove_file(p).unwrap_or_else(|_| {
+                    eprintln!(
+                        "Pending snapshot file at {:?} couldn't be removed. It was likely removed by another process.",
+                        p
+                    );
+                });
+        };
+
         if let Some(ref mut patcher) = self.patcher {
             let mut new_pending = vec![];
             let mut did_accept = false;
@@ -193,8 +205,7 @@ impl SnapshotContainer {
             if did_skip {
                 PendingInlineSnapshot::save_batch(&self.snapshot_path, &new_pending)?;
             } else {
-                fs::remove_file(&self.snapshot_path)
-                    .map_err(|e| ContentError::FileIo(e, self.snapshot_path.to_path_buf()))?;
+                try_removing_snapshot(&self.snapshot_path);
             }
         } else {
             // should only be one or this is weird
@@ -203,9 +214,7 @@ impl SnapshotContainer {
                     Operation::Accept => {
                         let new_snapshot = Snapshot::from_file(&self.snapshot_path)?;
                         new_snapshot.save(&self.target_path)?;
-                        fs::remove_file(&self.snapshot_path).map_err(|e| {
-                            ContentError::FileIo(e, self.snapshot_path.to_path_buf())
-                        })?;
+                        try_removing_snapshot(&self.snapshot_path);
 
                         if let insta::internals::SnapshotContents::Binary { path, extension } =
                             snapshot.new.contents()
@@ -218,9 +227,7 @@ impl SnapshotContainer {
                         }
                     }
                     Operation::Reject => {
-                        fs::remove_file(&self.snapshot_path).map_err(|e| {
-                            ContentError::FileIo(e, self.snapshot_path.to_path_buf())
-                        })?;
+                        try_removing_snapshot(&self.snapshot_path);
 
                         if let insta::internals::SnapshotContents::Binary { path, .. } =
                             snapshot.new.contents()

@@ -111,6 +111,24 @@ fn test_with_random_value_and_match_comma() {
             ".id" => "[id]",
         }, // comma here
     );
+    assert_yaml_snapshot!(
+        &User {
+            id: 11,
+            username: "john_doe".to_string(),
+            email: Email("john@example.com".to_string()),
+            extra: "".to_string(),
+        },
+        match .. {
+            ".id" => "[id]",
+        },
+        @r###"
+        ---
+        id: "[id]"
+        username: john_doe
+        email: john@example.com
+        extra: ""
+        "###, // comma here
+    );
 }
 
 #[cfg(feature = "csv")]

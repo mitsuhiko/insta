@@ -18,3 +18,11 @@ fn test_remove_existing_value_multiline() {
         it really is"
     );
 }
+
+#[test]
+fn test_trailing_comma_in_inline_snapshot() {
+    insta::assert_snapshot!(
+        "new value",
+        @"old value",  // comma here
+    );
+}

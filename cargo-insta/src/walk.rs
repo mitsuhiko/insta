@@ -35,8 +35,7 @@ pub(crate) fn find_snapshots<'a>(
             let fname = e.file_name().to_string_lossy();
             if fname.ends_with(".new") {
                 let new_path = e.into_path();
-                let mut old_path = new_path.clone();
-                old_path.set_extension("");
+                let old_path = new_path.clone().with_extension("");
                 Some(SnapshotContainer::load(
                     new_path,
                     old_path,

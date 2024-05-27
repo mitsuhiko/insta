@@ -1,7 +1,6 @@
 ---
-source: src/main.rs
+source: cargo-insta/tests/main.rs
 expression: "&fs::read_to_string(gen_file).unwrap()"
-input_file: tests/test_json_inline.rs
 ---
 use serde::Serialize;
 
@@ -27,3 +26,34 @@ fn test_json_snapshot() {
     "###);
 }
 
+#[test]
+fn test_json_snapshot_trailing_comma() {
+    let user = User {
+        id: 42,
+        email: "john.doe@example.com".into(),
+    };
+    insta::assert_compact_json_snapshot!(
+        &user,
+        @r###"{"id": 42, "email": "john.doe@example.com"}"###,
+    );
+}
+
+#[test]
+fn test_json_snapshot_trailing_comma_redaction() {
+    let user = User {
+        id: 42,
+        email: "john.doe@example.com".into(),
+    };
+    insta::assert_json_snapshot!(
+        &user,
+        {
+            ".id" => "[user_id]",
+        },
+        @r###"
+    {
+      "id": "[user_id]",
+      "email": "john.doe@example.com"
+    }
+    "###,
+    );
+}
