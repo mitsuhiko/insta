@@ -642,6 +642,7 @@ pub fn assert_snapshot(
         assertion_file,
         assertion_line,
     )?;
+
     let tool_config = get_tool_config(manifest_dir);
 
     // apply filters if they are available
