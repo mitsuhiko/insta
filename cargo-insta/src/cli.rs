@@ -186,7 +186,7 @@ struct TestCommand {
     /// Update all snapshots even if they are still matching.
     #[structopt(long)]
     force_update_snapshots: bool,
-    /// Require metadata as well as snapshots' contents to match.
+    /// Require metadata as well as snapshots' contents to match (experimental).
     #[structopt(long)]
     require_full_match: bool,
     /// Handle unreferenced snapshots after a successful test run.
@@ -890,9 +890,6 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
         // for newer versions of insta
         proc.env("INSTA_FORCE_UPDATE", "1");
-    }
-    if cmd.require_full_match {
-        proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
     }
     if cmd.require_full_match {
         proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
