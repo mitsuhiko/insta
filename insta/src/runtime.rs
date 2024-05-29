@@ -371,7 +371,7 @@ impl<'a> SnapshotAssertionContext<'a> {
     ) -> Result<SnapshotContents, Box<dyn Error>> {
         let mut path = self.snapshot_file.as_ref().unwrap().clone();
 
-        path.set_extension(format!("snap.new.{}", extension));
+        path.set_extension("snap._");
 
         let mut file = File::create(&path)?;
 

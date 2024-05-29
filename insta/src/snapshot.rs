@@ -583,15 +583,24 @@ impl Snapshot {
 
         // make sure to remove any previous binary files with different extensions.
         if let Ok(current) = Snapshot::from_file(path) {
-            if let SnapshotContents::Binary { path, extension } = current.contents() {
-                // if the extension is the same the file has already been overwritten
-                if self.extension().map_or(true, |e| e != extension) {
-                    fs::remove_file(path)?;
-                }
+            if let SnapshotContents::Binary { path, .. } = current.contents() {
+                fs::remove_file(path)?;
             }
         }
 
         fs::write(path, serialized_snapshot)?;
+
+        if let SnapshotContents::Binary {
+            path: binary_path,
+            extension,
+        } = &self.snapshot
+        {
+            fs::rename(
+                binary_path,
+                path.with_extension(format!(".snap.new.{}", extension)),
+            )?;
+        }
+
         Ok(true)
     }
 
