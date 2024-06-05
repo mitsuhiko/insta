@@ -734,6 +734,15 @@ pub fn assert_snapshot(
             write: new_snapshot_value,
             extension,
         } => {
+            assert!(
+                !["new", "_"].contains(&extension),
+                "this file extension is not allowed",
+            );
+            assert!(
+                !extension.starts_with("new."),
+                "file extensions starting with 'new.' are not allowed",
+            );
+
             let content = ctx.pre_create_binary_snapshot(new_snapshot_value, extension)?;
 
             let new_binary_path = if let SnapshotContents::Binary { ref path, .. } = content {
@@ -764,8 +773,6 @@ pub fn assert_snapshot(
                     }
                 })
                 .unwrap_or(false);
-
-            // let pass = false;
 
             if pass {
                 ctx.cleanup_passing()?;

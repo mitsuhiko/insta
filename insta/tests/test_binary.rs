@@ -22,3 +22,28 @@ fn test_file_empty_extension() {
         file.write_all(b"test").unwrap();
     });
 }
+
+#[test]
+#[should_panic(expected = "this file extension is not allowed")]
+fn test_new_extension() {
+    insta::assert_binary_snapshot!("new", |_| {});
+}
+
+#[test]
+#[should_panic(expected = "this file extension is not allowed")]
+fn test_underscore_extension() {
+    insta::assert_binary_snapshot!("_", |_| {});
+}
+
+#[test]
+#[should_panic(expected = "file extensions starting with 'new.' are not allowed")]
+fn test_extension_starting_with_new() {
+    insta::assert_binary_snapshot!("new.gz", |_| {});
+}
+
+#[test]
+fn test_multipart_extension() {
+    insta::assert_binary_snapshot!("tar.gz", |file| {
+        file.write_all(b"test").unwrap();
+    });
+}
