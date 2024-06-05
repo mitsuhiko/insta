@@ -212,7 +212,7 @@ impl SnapshotContainer {
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
                     Operation::Accept => {
-                        let new_snapshot = Snapshot::from_file(&self.snapshot_path)?;
+                        let mut new_snapshot = Snapshot::from_file(&self.snapshot_path)?;
                         new_snapshot.save(&self.target_path)?;
                         try_removing_snapshot(&self.snapshot_path);
 

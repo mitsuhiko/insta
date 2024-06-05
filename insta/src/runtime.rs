@@ -386,7 +386,7 @@ impl<'a> SnapshotAssertionContext<'a> {
     /// Writes the changes of the snapshot back.
     pub fn update_snapshot(
         &self,
-        new_snapshot: Snapshot,
+        new_snapshot: &mut Snapshot,
     ) -> Result<SnapshotUpdateBehavior, Box<dyn Error>> {
         let unseen = self
             .snapshot_file
@@ -456,7 +456,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .map_or(true, |x| x.contents() != new_snapshot.contents())
                 {
                     PendingInlineSnapshot::new(
-                        Some(new_snapshot),
+                        Some(new_snapshot.clone()),
                         self.old_snapshot.clone(),
                         self.assertion_line,
                     )
@@ -685,7 +685,7 @@ pub fn assert_snapshot(
             let new_snapshot_value =
                 Settings::with(|settings| settings.filters().apply_to(new_snapshot_value));
 
-            let new_snapshot = ctx.new_snapshot(new_snapshot_value.into(), expr);
+            let mut new_snapshot = ctx.new_snapshot(new_snapshot_value.into(), expr);
 
             // memoize the snapshot file if requested.
             if let Some(ref snapshot_file) = ctx.snapshot_file {
@@ -717,12 +717,12 @@ pub fn assert_snapshot(
                 ctx.cleanup_passing()?;
 
                 if tool_config.force_update_snapshots() {
-                    ctx.update_snapshot(new_snapshot)?;
+                    ctx.update_snapshot(&mut new_snapshot)?;
                 }
             // otherwise print information and update snapshots.
             } else {
                 print_snapshot_info(&ctx, &new_snapshot);
-                let update_result = ctx.update_snapshot(new_snapshot)?;
+                let update_result = ctx.update_snapshot(&mut new_snapshot)?;
                 finalize_assertion(&ctx, update_result);
             }
         }
@@ -738,7 +738,7 @@ pub fn assert_snapshot(
                 unreachable!();
             };
 
-            let new_snapshot = ctx.new_snapshot(content, expr);
+            let mut new_snapshot = ctx.new_snapshot(content, expr);
 
             // If we allow assertion with duplicates, we record the duplicate now.  This will
             // in itself fail the assertion if the previous visit of the same assertion macro
@@ -767,14 +767,14 @@ pub fn assert_snapshot(
                 ctx.cleanup_passing()?;
 
                 if tool_config.force_update_snapshots() {
-                    ctx.update_snapshot(new_snapshot)?;
+                    ctx.update_snapshot(&mut new_snapshot)?;
                 }
 
                 fs::remove_file(new_binary_path)?;
             // otherwise print information and update snapshots.
             } else {
+                let update_result = ctx.update_snapshot(&mut new_snapshot)?;
                 print_snapshot_info(&ctx, &new_snapshot);
-                let update_result = ctx.update_snapshot(new_snapshot)?;
                 finalize_assertion(&ctx, update_result);
             }
         }

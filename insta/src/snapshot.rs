@@ -546,7 +546,7 @@ impl Snapshot {
     }
 
     fn save_with_metadata(
-        &self,
+        &mut self,
         path: &Path,
         ref_file: Option<&Path>,
         md: &MetaData,
@@ -593,12 +593,19 @@ impl Snapshot {
         if let SnapshotContents::Binary {
             path: binary_path,
             extension,
-        } = &self.snapshot
+        } = &mut self.snapshot
         {
-            fs::rename(
-                binary_path,
-                path.with_extension(format!(".snap.new.{}", extension)),
-            )?;
+            let new_path = path.with_extension({
+                // The snapshot file should always have an extension, so this unwrap is fine.
+                let mut new_extension = path.extension().unwrap().to_os_string();
+                new_extension.push(".");
+                new_extension.push(extension);
+                new_extension
+            });
+
+            fs::rename(&*binary_path, &new_path)?;
+
+            *binary_path = new_path;
         }
 
         Ok(true)
@@ -609,8 +616,12 @@ impl Snapshot {
     /// Returns `true` if the snapshot was saved.  This will return `false` if there
     /// was already a snapshot with matching contents.
     #[doc(hidden)]
-    pub fn save(&self, path: &Path) -> Result<bool, Box<dyn Error>> {
-        self.save_with_metadata(path, None, &self.metadata.trim_for_persistence())
+    pub fn save(&mut self, path: &Path) -> Result<bool, Box<dyn Error>> {
+        self.save_with_metadata(
+            path,
+            None,
+            &self.metadata.trim_for_persistence().into_owned(),
+        )
     }
 
     /// Same as `save` but instead of writing a normal snapshot file this will write
@@ -618,9 +629,9 @@ impl Snapshot {
     ///
     /// If the existing snapshot matches the new file, then `None` is returned, otherwise
     /// the name of the new snapshot file.
-    pub(crate) fn save_new(&self, path: &Path) -> Result<Option<PathBuf>, Box<dyn Error>> {
+    pub(crate) fn save_new(&mut self, path: &Path) -> Result<Option<PathBuf>, Box<dyn Error>> {
         let new_path = path.to_path_buf().with_extension("snap.new");
-        if self.save_with_metadata(&new_path, Some(path), &self.metadata)? {
+        if self.save_with_metadata(&new_path, Some(path), &self.metadata.clone())? {
             Ok(Some(new_path))
         } else {
             Ok(None)
