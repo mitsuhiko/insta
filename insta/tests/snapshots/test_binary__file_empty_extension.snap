@@ -1,6 +1,6 @@
 ---
 source: insta/tests/test_binary.rs
-expression: "|file| { file.write_all(&[1, 3, 3, 7]).unwrap(); }"
+expression: "|file| { file.write_all(b\"test\").unwrap(); }"
 extension: ""
 snapshot_type: binary
 ---

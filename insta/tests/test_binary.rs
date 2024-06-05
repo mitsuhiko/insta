@@ -2,8 +2,8 @@ use std::io::Write;
 
 #[test]
 fn test_binary_snapshot() {
-    insta::assert_binary_snapshot!("bin", |file| {
-        file.write_all(&[0, 1, 2, 3]).unwrap();
+    insta::assert_binary_snapshot!("txt", |file| {
+        file.write_all(b"test").unwrap();
     });
 }
 
@@ -12,13 +12,13 @@ fn test_file_extension_collision() {
     // ubuntu snap packages also have the .snap extension so let's make sure that doesn't cause
     // problems
     insta::assert_binary_snapshot!("snap", |file| {
-        file.write_all(&[0, 1, 0, 1]).unwrap();
+        file.write_all(b"test").unwrap();
     });
 }
 
 #[test]
 fn test_file_empty_extension() {
     insta::assert_binary_snapshot!("", |file| {
-        file.write_all(&[1, 3, 3, 7]).unwrap();
+        file.write_all(b"test").unwrap();
     });
 }
