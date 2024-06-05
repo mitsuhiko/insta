@@ -215,16 +215,6 @@ impl SnapshotContainer {
                         let mut new_snapshot = Snapshot::from_file(&self.snapshot_path)?;
                         new_snapshot.save(&self.target_path)?;
                         try_removing_snapshot(&self.snapshot_path);
-
-                        if let insta::internals::SnapshotContents::Binary { path, extension } =
-                            snapshot.new.contents()
-                        {
-                            fs::rename(
-                                path,
-                                self.target_path
-                                    .with_extension(format!("snap.{}", extension)),
-                            )?;
-                        }
                     }
                     Operation::Reject => {
                         try_removing_snapshot(&self.snapshot_path);
@@ -236,6 +226,12 @@ impl SnapshotContainer {
                         }
                     }
                     Operation::Skip => {}
+                }
+
+                if let Operation::Accept | Operation::Reject = snapshot.op {
+                    let snapshot = Snapshot::from_file(&self.target_path).ok();
+
+                    Snapshot::cleanup_extra_files(snapshot.as_ref(), &self.snapshot_path)?;
                 }
             }
         }

@@ -637,6 +637,30 @@ impl Snapshot {
             Ok(None)
         }
     }
+
+    pub fn cleanup_extra_files(snapshot: Option<&Self>, path: &Path) -> Result<(), std::io::Error> {
+        let binary_file_name = snapshot.and_then(|snapshot| match &snapshot.contents() {
+            SnapshotContents::String(_) => None,
+            SnapshotContents::Binary { path, .. } => Some(path.file_name().unwrap()),
+        });
+
+        let file_name = path.file_name().unwrap();
+
+        for entry in path.parent().unwrap().read_dir().unwrap() {
+            let entry = entry.unwrap();
+            let entry_file_name = entry.file_name();
+            if entry_file_name
+                .as_encoded_bytes()
+                .starts_with(file_name.as_encoded_bytes())
+                && entry_file_name != file_name
+                && binary_file_name.map_or(true, |x| x != entry_file_name)
+            {
+                std::fs::remove_file(entry.path()).unwrap();
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// The contents of a Snapshot

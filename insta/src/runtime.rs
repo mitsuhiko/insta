@@ -678,6 +678,10 @@ pub fn assert_snapshot(
     )?;
     let tool_config = get_tool_config(manifest_dir);
 
+    if let Some(snapshot_file) = &ctx.snapshot_file {
+        Snapshot::cleanup_extra_files(ctx.old_snapshot.as_ref(), snapshot_file)?;
+    }
+
     match new_snapshot_value {
         SnapshotValue::String(new_snapshot_value) => {
             // apply filters if they are available
