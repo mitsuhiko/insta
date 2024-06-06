@@ -682,53 +682,14 @@ pub fn assert_snapshot(
         Snapshot::cleanup_extra_files(ctx.old_snapshot.as_ref(), snapshot_file)?;
     }
 
-    match new_snapshot_value {
+    let content = match new_snapshot_value {
         SnapshotValue::String(new_snapshot_value) => {
             // apply filters if they are available
             #[cfg(feature = "filters")]
             let new_snapshot_value =
                 Settings::with(|settings| settings.filters().apply_to(new_snapshot_value));
 
-            let mut new_snapshot = ctx.new_snapshot(new_snapshot_value.into(), expr);
-
-            // memoize the snapshot file if requested.
-            if let Some(ref snapshot_file) = ctx.snapshot_file {
-                memoize_snapshot_file(snapshot_file);
-            }
-
-            // If we allow assertion with duplicates, we record the duplicate now.  This will
-            // in itself fail the assertion if the previous visit of the same assertion macro
-            // did not yield the same result.
-            RECORDED_DUPLICATES.with(|x| {
-                if let Some(results) = x.borrow_mut().last_mut() {
-                    record_snapshot_duplicate(results, &new_snapshot, &ctx);
-                }
-            });
-
-            let pass = ctx
-                .old_snapshot
-                .as_ref()
-                .map(|x| {
-                    if tool_config.require_full_match() {
-                        x.matches_fully(&new_snapshot)
-                    } else {
-                        x.matches(&new_snapshot)
-                    }
-                })
-                .unwrap_or(false);
-
-            if pass {
-                ctx.cleanup_passing()?;
-
-                if tool_config.force_update_snapshots() {
-                    ctx.update_snapshot(&mut new_snapshot)?;
-                }
-            // otherwise print information and update snapshots.
-            } else {
-                print_snapshot_info(&ctx, &new_snapshot);
-                let update_result = ctx.update_snapshot(&mut new_snapshot)?;
-                finalize_assertion(&ctx, update_result);
-            }
+            new_snapshot_value.into()
         }
         SnapshotValue::Binary {
             write: new_snapshot_value,
@@ -743,52 +704,57 @@ pub fn assert_snapshot(
                 "file extensions starting with 'new.' are not allowed",
             );
 
-            let content = ctx.pre_create_binary_snapshot(new_snapshot_value, extension)?;
-
-            let new_binary_path = if let SnapshotContents::Binary { ref path, .. } = content {
-                path.clone()
-            } else {
-                unreachable!();
-            };
-
-            let mut new_snapshot = ctx.new_snapshot(content, expr);
-
-            // If we allow assertion with duplicates, we record the duplicate now.  This will
-            // in itself fail the assertion if the previous visit of the same assertion macro
-            // did not yield the same result.
-            RECORDED_DUPLICATES.with(|x| {
-                if let Some(results) = x.borrow_mut().last_mut() {
-                    record_snapshot_duplicate(results, &new_snapshot, &ctx);
-                }
-            });
-
-            let pass = ctx
-                .old_snapshot
-                .as_ref()
-                .map(|x| {
-                    if tool_config.require_full_match() {
-                        x.matches_fully(&new_snapshot)
-                    } else {
-                        x.matches(&new_snapshot)
-                    }
-                })
-                .unwrap_or(false);
-
-            if pass {
-                ctx.cleanup_passing()?;
-
-                if tool_config.force_update_snapshots() {
-                    ctx.update_snapshot(&mut new_snapshot)?;
-                }
-
-                fs::remove_file(new_binary_path)?;
-            // otherwise print information and update snapshots.
-            } else {
-                let update_result = ctx.update_snapshot(&mut new_snapshot)?;
-                print_snapshot_info(&ctx, &new_snapshot);
-                finalize_assertion(&ctx, update_result);
-            }
+            ctx.pre_create_binary_snapshot(new_snapshot_value, extension)?
         }
+    };
+
+    let mut new_snapshot = ctx.new_snapshot(content, expr);
+
+    // memoize the snapshot file if requested.
+    if let Some(ref snapshot_file) = ctx.snapshot_file {
+        memoize_snapshot_file(snapshot_file);
+    }
+
+    // If we allow assertion with duplicates, we record the duplicate now.  This will
+    // in itself fail the assertion if the previous visit of the same assertion macro
+    // did not yield the same result.
+    RECORDED_DUPLICATES.with(|x| {
+        if let Some(results) = x.borrow_mut().last_mut() {
+            record_snapshot_duplicate(results, &new_snapshot, &ctx);
+        }
+    });
+
+    let pass = ctx
+        .old_snapshot
+        .as_ref()
+        .map(|x| {
+            if tool_config.require_full_match() {
+                x.matches_fully(&new_snapshot)
+            } else {
+                x.matches(&new_snapshot)
+            }
+        })
+        .unwrap_or(false);
+
+    if pass {
+        ctx.cleanup_passing()?;
+
+        if tool_config.force_update_snapshots() {
+            ctx.update_snapshot(&mut new_snapshot)?;
+        }
+
+        if let SnapshotContents::Binary {
+            path: new_binary_path,
+            ..
+        } = new_snapshot.contents()
+        {
+            fs::remove_file(new_binary_path)?;
+        }
+    // otherwise print information and update snapshots.
+    } else {
+        let update_result = ctx.update_snapshot(&mut new_snapshot)?;
+        print_snapshot_info(&ctx, &new_snapshot);
+        finalize_assertion(&ctx, update_result);
     }
 
     Ok(())
