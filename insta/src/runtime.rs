@@ -724,17 +724,13 @@ pub fn assert_snapshot(
         }
     });
 
-    let pass = ctx
-        .old_snapshot
-        .as_ref()
-        .map(|x| {
-            if tool_config.require_full_match() {
-                x.matches_fully(&new_snapshot)
-            } else {
-                x.matches(&new_snapshot)
-            }
-        })
-        .unwrap_or(false);
+    let pass = ctx.old_snapshot.as_ref().map_or(Ok(false), |x| {
+        if tool_config.require_full_match() {
+            x.matches_fully(&new_snapshot)
+        } else {
+            x.matches(&new_snapshot)
+        }
+    })?;
 
     if pass {
         ctx.cleanup_passing()?;

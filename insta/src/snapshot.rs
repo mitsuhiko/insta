@@ -494,8 +494,8 @@ impl Snapshot {
     }
 
     /// Snapshot contents match another snapshot's.
-    pub fn matches(&self, other: &Snapshot) -> bool {
-        match (self.contents(), other.contents()) {
+    pub fn matches(&self, other: &Snapshot) -> Result<bool, Box<dyn Error>> {
+        Ok(match (self.contents(), other.contents()) {
             (SnapshotContents::String(this), SnapshotContents::String(other)) => {
                 trim_content_str(this) == trim_content_str(other)
             }
@@ -510,22 +510,22 @@ impl Snapshot {
                 },
             ) => {
                 if this_ext != other_ext {
-                    return false;
+                    return Ok(false);
                 }
 
-                let mut this = File::open(this).unwrap();
-                let mut other = File::open(other).unwrap();
+                let mut this = File::open(this)?;
+                let mut other = File::open(other)?;
 
-                file_eq(&mut this, &mut other).unwrap()
+                file_eq(&mut this, &mut other)?
             }
             _ => false,
-        }
+        })
     }
 
     /// Snapshot contents _and_ metadata match another snapshot's.
-    pub fn matches_fully(&self, other: &Snapshot) -> bool {
-        self.matches(other)
-            && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
+    pub fn matches_fully(&self, other: &Snapshot) -> Result<bool, Box<dyn Error>> {
+        Ok(self.matches(other)?
+            && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence())
     }
 
     /// The snapshot contents as a &str
@@ -572,7 +572,7 @@ impl Snapshot {
                 && if let SnapshotContents::Binary { .. } = &self.snapshot {
                     let old_snapshot = Snapshot::from_file(ref_path)?;
 
-                    self.matches(&old_snapshot)
+                    self.matches(&old_snapshot)?
                 } else {
                     true
                 }
@@ -638,7 +638,7 @@ impl Snapshot {
         }
     }
 
-    pub fn cleanup_extra_files(snapshot: Option<&Self>, path: &Path) -> Result<(), std::io::Error> {
+    pub fn cleanup_extra_files(snapshot: Option<&Self>, path: &Path) -> Result<(), Box<dyn Error>> {
         let binary_file_name = snapshot.and_then(|snapshot| match &snapshot.contents() {
             SnapshotContents::String(_) => None,
             SnapshotContents::Binary { path, .. } => Some(path.file_name().unwrap()),
@@ -646,8 +646,8 @@ impl Snapshot {
 
         let file_name = path.file_name().unwrap();
 
-        for entry in path.parent().unwrap().read_dir().unwrap() {
-            let entry = entry.unwrap();
+        for entry in path.parent().unwrap().read_dir()? {
+            let entry = entry?;
             let entry_file_name = entry.file_name();
             if entry_file_name
                 .as_encoded_bytes()
@@ -655,7 +655,7 @@ impl Snapshot {
                 && entry_file_name != file_name
                 && binary_file_name.map_or(true, |x| x != entry_file_name)
             {
-                std::fs::remove_file(entry.path()).unwrap();
+                std::fs::remove_file(entry.path())?;
             }
         }
 
