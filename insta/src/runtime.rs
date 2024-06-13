@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
-use std::fs;
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str;
@@ -14,7 +14,7 @@ use crate::env::{
 };
 use crate::output::SnapshotPrinter;
 use crate::settings::Settings;
-use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
+use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents, SnapshotType};
 use crate::utils::{path_to_storage, style};
 
 lazy_static::lazy_static! {
@@ -334,6 +334,12 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .input_file()
                     .and_then(|x| self.localize_path(x))
                     .map(|x| path_to_storage(&x)),
+                snapshot_type: match contents {
+                    SnapshotContents::String(_) => SnapshotType::String,
+                    SnapshotContents::Binary { ref extension, .. } => SnapshotType::Binary {
+                        extension: extension.clone(),
+                    },
+                },
             }),
             contents,
         )
@@ -358,10 +364,29 @@ impl<'a> SnapshotAssertionContext<'a> {
         Ok(())
     }
 
+    pub fn pre_create_binary_snapshot(
+        &self,
+        write: &mut dyn FnMut(&mut File),
+        extension: &str,
+    ) -> Result<SnapshotContents, Box<dyn Error>> {
+        let mut path = self.snapshot_file.as_ref().unwrap().clone();
+
+        path.set_extension("snap._");
+
+        let mut file = File::create(&path)?;
+
+        write(&mut file);
+
+        Ok(SnapshotContents::Binary {
+            path,
+            extension: extension.to_string(),
+        })
+    }
+
     /// Writes the changes of the snapshot back.
     pub fn update_snapshot(
         &self,
-        new_snapshot: Snapshot,
+        new_snapshot: &mut Snapshot,
     ) -> Result<SnapshotUpdateBehavior, Box<dyn Error>> {
         let unseen = self
             .snapshot_file
@@ -431,7 +456,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .map_or(true, |x| x.contents() != new_snapshot.contents())
                 {
                     PendingInlineSnapshot::new(
-                        Some(new_snapshot),
+                        Some(new_snapshot.clone()),
                         self.old_snapshot.clone(),
                         self.assertion_line,
                     )
@@ -617,6 +642,15 @@ where
     }
 }
 
+pub enum SnapshotValue<'a> {
+    String(&'a str),
+
+    Binary {
+        write: &'a mut dyn FnMut(&mut File),
+        extension: &'a str,
+    },
+}
+
 /// This function is invoked from the macros to run the main assertion logic.
 ///
 /// This will create the assertion context, run the main logic to assert
@@ -626,7 +660,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub fn assert_snapshot(
     refval: ReferenceValue<'_>,
-    new_snapshot_value: &str,
+    new_snapshot_value: SnapshotValue,
     manifest_dir: &str,
     function_name: &str,
     module_path: &str,
@@ -644,12 +678,37 @@ pub fn assert_snapshot(
     )?;
     let tool_config = get_tool_config(manifest_dir);
 
-    // apply filters if they are available
-    #[cfg(feature = "filters")]
-    let new_snapshot_value =
-        Settings::with(|settings| settings.filters().apply_to(new_snapshot_value));
+    if let Some(snapshot_file) = &ctx.snapshot_file {
+        Snapshot::cleanup_extra_files(ctx.old_snapshot.as_ref(), snapshot_file)?;
+    }
 
-    let new_snapshot = ctx.new_snapshot(new_snapshot_value.into(), expr);
+    let content = match new_snapshot_value {
+        SnapshotValue::String(new_snapshot_value) => {
+            // apply filters if they are available
+            #[cfg(feature = "filters")]
+            let new_snapshot_value =
+                Settings::with(|settings| settings.filters().apply_to(new_snapshot_value));
+
+            new_snapshot_value.into()
+        }
+        SnapshotValue::Binary {
+            write: new_snapshot_value,
+            extension,
+        } => {
+            assert!(
+                !["new", "_"].contains(&extension),
+                "this file extension is not allowed",
+            );
+            assert!(
+                !extension.starts_with("new."),
+                "file extensions starting with 'new.' are not allowed",
+            );
+
+            ctx.pre_create_binary_snapshot(new_snapshot_value, extension)?
+        }
+    };
+
+    let mut new_snapshot = ctx.new_snapshot(content, expr);
 
     // memoize the snapshot file if requested.
     if let Some(ref snapshot_file) = ctx.snapshot_file {
@@ -665,28 +724,32 @@ pub fn assert_snapshot(
         }
     });
 
-    let pass = ctx
-        .old_snapshot
-        .as_ref()
-        .map(|x| {
-            if tool_config.require_full_match() {
-                x.matches_fully(&new_snapshot)
-            } else {
-                x.matches(&new_snapshot)
-            }
-        })
-        .unwrap_or(false);
+    let pass = ctx.old_snapshot.as_ref().map_or(Ok(false), |x| {
+        if tool_config.require_full_match() {
+            x.matches_fully(&new_snapshot)
+        } else {
+            x.matches(&new_snapshot)
+        }
+    })?;
 
     if pass {
         ctx.cleanup_passing()?;
 
         if tool_config.force_update_snapshots() {
-            ctx.update_snapshot(new_snapshot)?;
+            ctx.update_snapshot(&mut new_snapshot)?;
+        }
+
+        if let SnapshotContents::Binary {
+            path: new_binary_path,
+            ..
+        } = new_snapshot.contents()
+        {
+            fs::remove_file(new_binary_path)?;
         }
     // otherwise print information and update snapshots.
     } else {
+        let update_result = ctx.update_snapshot(&mut new_snapshot)?;
         print_snapshot_info(&ctx, &new_snapshot);
-        let update_result = ctx.update_snapshot(new_snapshot)?;
         finalize_assertion(&ctx, update_result);
     }
 

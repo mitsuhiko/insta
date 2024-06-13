@@ -103,8 +103,12 @@ impl FilePatcher {
             .collect();
 
         // replace lines
-        let snapshot_line_contents =
-            [prefix, snapshot.to_inline(inline.indentation), suffix].join("");
+        let snapshot_line_contents = [
+            prefix,
+            snapshot.to_inline(inline.indentation).unwrap(),
+            suffix,
+        ]
+        .join("");
 
         self.lines.splice(
             inline.start.0..=inline.end.0,

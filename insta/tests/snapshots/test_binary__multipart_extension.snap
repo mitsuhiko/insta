@@ -1,0 +1,6 @@
+---
+source: insta/tests/test_binary.rs
+expression: "|file| { file.write_all(b\"test\").unwrap(); }"
+extension: tar.gz
+snapshot_type: binary
+---
