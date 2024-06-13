@@ -411,6 +411,8 @@ fn print_info(metadata: &MetaData) {
     }
 }
 
+/// Encodes a path as an OSC-8 escape sequence. This makes it a clickable link in supported
+/// terminal emulators.
 fn encode_file_link_escape(path: &Path) -> String {
     assert!(path.is_absolute());
     format!(
