@@ -77,8 +77,11 @@ impl<'a> From<&'a str> for ReferenceValue<'a> {
     }
 }
 
+/// A reference to a snapshot
 pub enum ReferenceValue<'a> {
+    /// A named snapshot, where the inner value is the snapshot name.
     Named(Option<Cow<'a, str>>),
+    /// An inline snapshot, where the inner value is the snapshot contents.
     Inline(&'a str),
 }
 
