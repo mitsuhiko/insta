@@ -5,7 +5,6 @@ use linked_hash_map::LinkedHashMap;
 
 use std::collections::BTreeMap;
 use std::f64;
-use std::i64;
 use std::mem;
 use std::ops::Index;
 use std::string;
