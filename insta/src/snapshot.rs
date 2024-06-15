@@ -462,7 +462,7 @@ impl Snapshot {
                 Cow::Owned(trimmed) => Cow::Owned(self.serialize_snapshot(&trimmed)),
                 Cow::Borrowed(trimmed) => {
                     // This condition needs to hold, otherwise we need to
-                    // the old value to a newly trimmed serialized snapshot
+                    // compare the old value to a newly trimmed serialized snapshot
                     debug_assert_eq!(trimmed, md);
 
                     Cow::Borrowed(&serialized_snapshot)
