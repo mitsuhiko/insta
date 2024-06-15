@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.40.0
+
+- Print a warning for old inline snapshot formats.
+
 ## 1.39.0
 
 - Fixed a bug in `require_full_match`.  #485
