@@ -229,14 +229,16 @@ impl<'a> SnapshotAssertionContext<'a> {
 
         match refval {
             ReferenceValue::Named(name) => {
-                if is_doctest {
-                    panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
-                }
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name),
-                    None => detect_snapshot_name(function_name, module_path)
-                        .unwrap()
-                        .into(),
+                    None => {
+                        if is_doctest {
+                            panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
+                        }
+                        detect_snapshot_name(function_name, module_path)
+                            .unwrap()
+                            .into()
+                    }
                 };
                 if allow_duplicates() {
                     duplication_key = Some(format!("named:{}|{}", module_path, name));
