@@ -86,18 +86,8 @@ fn is_doctest(function_name: &str) -> bool {
     function_name.starts_with("rust_out::main::_doctest")
 }
 
-fn detect_snapshot_name(
-    function_name: &str,
-    module_path: &str,
-    inline: bool,
-    is_doctest: bool,
-) -> Result<String, &'static str> {
+fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String, &'static str> {
     let mut name = function_name;
-
-    // simplify doctest names
-    if is_doctest && !inline {
-        panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
-    }
 
     // clean test name first
     name = name.rsplit("::").next().unwrap();
@@ -239,9 +229,12 @@ impl<'a> SnapshotAssertionContext<'a> {
 
         match refval {
             ReferenceValue::Named(name) => {
+                if is_doctest {
+                    panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
+                }
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name),
-                    None => detect_snapshot_name(function_name, module_path, false, is_doctest)
+                    None => detect_snapshot_name(function_name, module_path)
                         .unwrap()
                         .into(),
                 };
@@ -271,7 +264,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 } else {
                     prevent_inline_duplicate(function_name, assertion_file, assertion_line);
                 }
-                snapshot_name = detect_snapshot_name(function_name, module_path, true, is_doctest)
+                snapshot_name = detect_snapshot_name(function_name, module_path)
                     .ok()
                     .map(Cow::Owned);
                 let mut pending_file = cargo_workspace.join(assertion_file);
