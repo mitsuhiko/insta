@@ -11,7 +11,10 @@ use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
+use lazy_static::lazy_static;
+use semver::Version;
 use serde::Serialize;
+use serde_json::Value;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 use uuid::Uuid;
@@ -1094,6 +1097,8 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         args.remove(1);
     }
 
+    check_insta_cargo_insta_compat()?;
+
     let opts = Opts::from_iter(args);
 
     let color = handle_color(opts.color.as_deref())?;
@@ -1115,4 +1120,64 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
+}
+
+fn check_insta_cargo_insta_compat() -> Result<(), Box<dyn std::error::Error>> {
+    let insta_version = read_insta_version()?;
+    if insta_version.major != CARGO_INSTA_VERSION.major {
+        eprintln!(
+            "{}: insta version mismatch: cargo-insta is {}, but insta is {}",
+            style("error").bold().red(),
+            *CARGO_INSTA_VERSION,
+            insta_version
+        );
+        return Err(QuietExit(1).into());
+    }
+
+    if (insta_version.minor).abs_diff(CARGO_INSTA_VERSION.minor) > 10 {
+        eprintln!(
+            "{}: insta version {} is very different from cargo-insta version {}. This may raise an error in the future.",
+            style("error").bold().red(),
+            *CARGO_INSTA_VERSION,
+            insta_version
+        );
+    }
+
+    Ok(())
+}
+
+lazy_static! {
+    static ref CARGO_INSTA_VERSION: Version =
+        Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid cargo-insta version number");
+}
+
+fn run_cargo_metadata() -> Result<String, Box<dyn std::error::Error>> {
+    let output = std::process::Command::new("cargo")
+        .arg("metadata")
+        .arg("--format-version")
+        .arg("1")
+        .arg("--locked")
+        .output()?;
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+fn read_insta_version() -> Result<Version, Box<dyn std::error::Error>> {
+    let json_output = run_cargo_metadata()?;
+    let json_value: Value = serde_json::from_str(&json_output)?;
+
+    let packages = json_value["packages"]
+        .as_array()
+        .ok_or("Couldn't read packages array")?;
+
+    let insta_package = packages
+        .iter()
+        .find(|package| package["name"].as_str().unwrap() == "insta")
+        .ok_or("insta dependency not found")?;
+
+    let version_str = insta_package["version"]
+        .as_str()
+        .ok_or("Invalid insta version")?;
+
+    Ok(Version::parse(version_str)?)
 }
