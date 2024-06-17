@@ -313,6 +313,7 @@ impl Snapshot {
                     }
                 }
             }
+            eprintln!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
@@ -670,7 +671,7 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
     // (the only call site)
 
     if frozen_value.trim_start().starts_with('⋮') {
-        eprintln!("Value uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nValue: {}", frozen_value);
+        eprintln!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nValue: {}", frozen_value);
 
         // legacy format - retain so old snapshots still work
         let mut buf = String::new();

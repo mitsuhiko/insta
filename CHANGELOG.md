@@ -4,7 +4,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.40.0
 
-- Print a warning for old inline snapshot formats.
+- Print a warning when encountering old snapshot formats.  #503
 
 ## 1.39.0
 
