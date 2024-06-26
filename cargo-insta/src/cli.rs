@@ -138,8 +138,8 @@ struct TestCommand {
     /// Exclude packages from the test
     #[structopt(long, value_name = "SPEC")]
     exclude: Option<String>,
-    /// Disable force-passing of snapshot tests
-    #[structopt(long)]
+    /// [Deprecated] Disable force-passing of snapshot tests
+    #[structopt(long, hidden = true)]
     no_force_pass: bool,
     /// Prevent running all tests regardless of failure
     #[structopt(long)]
@@ -876,6 +876,11 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if !cmd.no_force_pass {
         proc.env("INSTA_FORCE_PASS", "1");
+    } else {
+        eprintln!(
+            "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
+            style("warning").bold().yellow()
+        );
     }
     proc.env(
         "INSTA_UPDATE",
