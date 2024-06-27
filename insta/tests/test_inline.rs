@@ -9,7 +9,7 @@ use insta::assert_yaml_snapshot;
 #[cfg(feature = "json")]
 use insta::{assert_compact_json_snapshot, assert_json_snapshot};
 
-use insta::{assert_debug_snapshot, assert_snapshot};
+use insta::{assert_compact_debug_snapshot, assert_debug_snapshot, assert_snapshot};
 use std::thread;
 
 #[test]
@@ -279,6 +279,12 @@ fn test_compact_json() {
       33
     ]
     "###);
+}
+
+#[test]
+fn test_compact_debug() {
+    assert_compact_debug_snapshot!((1..30).collect::<Vec<_>>(), @"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]");
+    assert_compact_debug_snapshot!((1..34).collect::<Vec<_>>(), @"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]");
 }
 
 #[test]
