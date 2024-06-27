@@ -138,7 +138,7 @@ struct TestCommand {
     /// Exclude packages from the test
     #[structopt(long, value_name = "SPEC")]
     exclude: Option<String>,
-    /// [Deprecated] Disable force-passing of snapshot tests
+    /// Disable force-passing of snapshot tests (deprecated)
     #[structopt(long, hidden = true)]
     no_force_pass: bool,
     /// Prevent running all tests regardless of failure
