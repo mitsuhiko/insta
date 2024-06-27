@@ -308,10 +308,28 @@ macro_rules! _prepare_snapshot_for_redaction {
 /// permit redactions.
 ///
 /// Debug is called with `"{:#?}"`, which means this uses pretty-print.
+///
+/// See also [`assert_compact_debug_snapshot!`].
 #[macro_export]
 macro_rules! assert_debug_snapshot {
     ($($arg:tt)*) => {
         $crate::_assert_snapshot_base!(transform=|v| std::format!("{:#?}", v), $($arg)*)
+    };
+}
+
+/// Asserts a `Debug` snapshot in compact format.
+///
+/// The value needs to implement the `fmt::Debug` trait.  This is useful for
+/// simple values that do not implement the `Serialize` trait, but does not
+/// permit redactions.
+///
+/// Debug is called with `"{:?}"`, which means this does not use pretty-print.
+///
+/// See also [`assert_debug_snapshot!`].
+#[macro_export]
+macro_rules! assert_compact_debug_snapshot {
+    ($($arg:tt)*) => {
+        $crate::_assert_snapshot_base!(transform=|v| std::format!("{:?}", v), $($arg)*)
     };
 }
 
