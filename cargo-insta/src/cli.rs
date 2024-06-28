@@ -812,6 +812,9 @@ fn prepare_test_runner<'snapshot_ref>(
         }
     };
 
+    // An env var to indicate we're running under cargo-insta
+    proc.env("INSTA_CARGO_INSTA", "1");
+
     let snapshot_ref_file = if unreferenced != UnreferencedSnapshots::Ignore {
         match snapshot_ref_file {
             Some(path) => Some(Cow::Borrowed(path)),
