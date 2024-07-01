@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use insta::_cargo_insta_support::SnapshotContents;
 use proc_macro2::TokenTree;
 
+use syn::__private::ToTokens;
 use syn::spanned::Spanned;
 
 #[derive(Debug)]
@@ -213,21 +214,17 @@ impl FilePatcher {
         impl<'ast> syn::visit::Visit<'ast> for Visitor {
             fn visit_attribute(&mut self, i: &'ast syn::Attribute) {
                 let start = i.span().start().line;
-                let end = i
-                    .tokens
-                    .clone()
-                    .into_iter()
-                    .last()
-                    .map_or(start, |t| t.span().end().line);
+                let end = i.span().end().line;
 
-                if start > self.0 || end < self.0 || i.path.segments.is_empty() {
+                if start > self.0 || end < self.0 || i.path().segments.is_empty() {
                     return;
                 }
 
-                let tokens: Vec<_> = i.tokens.clone().into_iter().collect();
-                self.scan_nested_macros(&tokens);
+                let tokens: Vec<_> = i.meta.to_token_stream().into_iter().collect();
+                if !tokens.is_empty() {
+                    self.scan_nested_macros(&tokens);
+                }
             }
-
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
                 let indentation = i.span().start().column;
                 let start = i.span().start().line;
