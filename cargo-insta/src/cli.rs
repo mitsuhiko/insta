@@ -137,7 +137,7 @@ struct TestCommand {
     package: Vec<String>,
     /// Exclude packages from the test
     #[structopt(long, value_name = "SPEC")]
-    exclude: Option<String>,
+    exclude: Vec<String>,
     /// Disable force-passing of snapshot tests
     #[structopt(long)]
     no_force_pass: bool,
@@ -866,7 +866,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--package");
         proc.arg(pkg);
     }
-    if let Some(ref spec) = cmd.exclude {
+    for spec in &cmd.exclude {
         proc.arg("--exclude");
         proc.arg(spec);
     }
