@@ -12,8 +12,6 @@ use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
 use serde::Serialize;
-use structopt::clap::AppSettings;
-use structopt::StructOpt;
 use uuid::Uuid;
 
 use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
@@ -21,209 +19,222 @@ use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
 
+use clap::{builder::PossibleValuesParser, Args, Parser, Subcommand, ValueEnum};
+
 /// A helper utility to work with insta snapshots.
-#[derive(StructOpt, Debug)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[command(
     bin_name = "cargo insta",
-    setting = AppSettings::ArgRequiredElseHelp,
-    global_setting = AppSettings::ColorNever,
-    global_setting = AppSettings::UnifiedHelpMessage,
-    global_setting = AppSettings::DeriveDisplayOrder,
-    global_setting = AppSettings::DontCollapseArgsInUsage
+    arg_required_else_help = true,
+    // TODO: do we want these?
+    disable_colored_help = true,
+    disable_version_flag = true,
+    next_line_help = true
 )]
 struct Opts {
     /// Coloring
-    #[structopt(long, global = true, value_name = "WHEN", possible_values=&["auto", "always", "never"])]
+    #[arg(long, global = true, value_name = "WHEN", value_parser = ["auto", "always", "never"])]
     color: Option<String>,
 
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     command: Command,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(
-    bin_name = "cargo insta",
+#[derive(ValueEnum, Clone, Debug)]
+enum ColorWhen {
+    Auto,
+    Always,
+    Never,
+}
+
+#[derive(Subcommand, Debug)]
+#[command(
     after_help = "For the online documentation of the latest version, see https://insta.rs/docs/cli/."
 )]
 #[allow(clippy::large_enum_variant)]
 enum Command {
     /// Interactively review snapshots
-    #[structopt(name = "review", alias = "verify")]
+    #[command(alias = "verify")]
     Review(ProcessCommand),
     /// Rejects all snapshots
-    #[structopt(name = "reject")]
     Reject(ProcessCommand),
     /// Accept all snapshots
-    #[structopt(name = "accept", alias = "approve")]
+    #[command(alias = "approve")]
     Accept(ProcessCommand),
     /// Run tests and then reviews
-    #[structopt(name = "test")]
     Test(TestCommand),
     /// Print a summary of all pending snapshots.
-    #[structopt(name = "pending-snapshots")]
     PendingSnapshots(PendingSnapshotsCommand),
     /// Shows a specific snapshot
-    #[structopt(name = "show")]
     Show(ShowCommand),
 }
 
-#[derive(StructOpt, Debug, Clone)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug, Clone)]
 struct TargetArgs {
     /// Path to Cargo.toml
-    #[structopt(long, value_name = "PATH", parse(from_os_str))]
+    #[arg(long, value_name = "PATH")]
     manifest_path: Option<PathBuf>,
     /// Explicit path to the workspace root
-    #[structopt(long, value_name = "PATH", parse(from_os_str))]
+    #[arg(long, value_name = "PATH")]
     workspace_root: Option<PathBuf>,
-    /// Sets the extensions to consider.  Defaults to `.snap`
-    #[structopt(short = "e", long, value_name = "EXTENSIONS", multiple = true)]
+    /// Sets the extensions to consider. Defaults to `.snap`
+    #[arg(short = 'e', long, value_name = "EXTENSIONS", num_args = 1.., value_delimiter = ',')]
     extensions: Vec<String>,
     /// Work on all packages in the workspace
-    #[structopt(long)]
+    #[arg(long)]
     workspace: bool,
     /// Alias for --workspace (deprecated)
-    #[structopt(long)]
+    #[arg(long)]
     all: bool,
     /// Also walk into ignored paths.
-    #[structopt(long, alias = "no-ignore")]
+    #[arg(long, alias = "no-ignore")]
     include_ignored: bool,
     /// Also include hidden paths.
-    #[structopt(long)]
+    #[arg(long)]
     include_hidden: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
 struct ProcessCommand {
-    #[structopt(flatten)]
+    #[command(flatten)]
     target_args: TargetArgs,
     /// Limits the operation to one or more snapshots.
-    #[structopt(long = "snapshot")]
+    #[arg(long = "snapshot")]
     snapshot_filter: Option<Vec<String>>,
     /// Do not print to stdout.
-    #[structopt(short = "q", long)]
+    #[arg(short = 'q', long)]
     quiet: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
+#[command(rename_all = "kebab-case")]
 struct TestCommand {
-    #[structopt(flatten)]
+    #[command(flatten)]
     target_args: TargetArgs,
     /// Test only this package's library unit tests
-    #[structopt(long)]
+    #[arg(long)]
     lib: bool,
     /// Test only the specified binary
-    #[structopt(long)]
+    #[arg(long)]
     bin: Option<String>,
     /// Test all binaries
-    #[structopt(long)]
+    #[arg(long)]
     bins: bool,
     /// Test only the specified example
-    #[structopt(long)]
+    #[arg(long)]
     example: Option<String>,
     /// Test all examples
-    #[structopt(long)]
+    #[arg(long)]
     examples: bool,
     /// Test only the specified test targets
-    #[structopt(long)]
+    #[arg(long)]
     test: Vec<String>,
     /// Test all tests
-    #[structopt(long)]
+    #[arg(long)]
     tests: bool,
     /// Package to run tests for
-    #[structopt(short = "p", long)]
+    #[arg(short = 'p', long)]
     package: Vec<String>,
     /// Exclude packages from the test
-    #[structopt(long, value_name = "SPEC")]
+    #[arg(long, value_name = "SPEC")]
     exclude: Option<String>,
     /// Disable force-passing of snapshot tests
-    #[structopt(long)]
+    #[arg(long)]
     no_force_pass: bool,
     /// Prevent running all tests regardless of failure
-    #[structopt(long)]
+    #[arg(long)]
     fail_fast: bool,
     /// Space-separated list of features to activate
-    #[structopt(long, value_name = "FEATURES")]
+    #[arg(long, value_name = "FEATURES")]
     features: Option<String>,
     /// Number of parallel jobs, defaults to # of CPUs
-    #[structopt(short = "j", long)]
+    #[arg(short = 'j', long)]
     jobs: Option<usize>,
     /// Build artifacts in release mode, with optimizations
-    #[structopt(long)]
+    #[arg(long)]
     release: bool,
     /// Build artifacts with the specified profile
-    #[structopt(long)]
+    #[arg(long)]
     profile: Option<String>,
     /// Test all targets (does not include doctests)
-    #[structopt(long)]
+    #[arg(long)]
     all_targets: bool,
     /// Activate all available features
-    #[structopt(long)]
+    #[arg(long)]
     all_features: bool,
     /// Do not activate the `default` feature
-    #[structopt(long)]
+    #[arg(long)]
     no_default_features: bool,
     /// Build for the target triple
-    #[structopt(long)]
+    #[arg(long)]
     target: Option<String>,
     /// Follow up with review.
-    #[structopt(long)]
+    #[arg(long)]
     review: bool,
     /// Accept all snapshots after test.
-    #[structopt(long, conflicts_with = "review")]
+    #[arg(long, conflicts_with = "review")]
     accept: bool,
     /// Accept all new (previously unseen).
-    #[structopt(long)]
+    #[arg(long)]
     accept_unseen: bool,
     /// Instructs the test command to just assert.
-    #[structopt(long)]
+    #[arg(long)]
     check: bool,
     /// Do not reject pending snapshots before run.
-    #[structopt(long)]
+    #[arg(long)]
     keep_pending: bool,
     /// Update all snapshots even if they are still matching.
-    #[structopt(long)]
+    #[arg(long)]
     force_update_snapshots: bool,
     /// Require metadata as well as snapshots' contents to match.
-    #[structopt(long)]
+    #[arg(long)]
     require_full_match: bool,
     /// Handle unreferenced snapshots after a successful test run.
-    #[structopt(long, default_value="ignore", possible_values=&["ignore", "warn", "reject", "delete", "auto"])]
+    #[arg(
+        long,
+        default_value = "ignore",
+        // TODO: could try and implement a clap trait on TestRunner struct from
+        // `cargo-insta` and avoid the repetition
+        value_parser = PossibleValuesParser::new(["ignore", "warn", "reject", "delete", "auto"])
+    )]
     unreferenced: String,
     /// Delete unreferenced snapshots after a successful test run.
-    #[structopt(long, hidden = true)]
+    #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
     /// Filters to apply to the insta glob feature.
-    #[structopt(long)]
+    #[arg(long)]
     glob_filter: Vec<String>,
     /// Do not pass the quiet flag (`-q`) to tests.
-    #[structopt(short = "Q", long)]
+    #[arg(short = 'Q', long)]
     no_quiet: bool,
     /// Picks the test runner.
-    #[structopt(long, default_value="auto", possible_values=&["auto", "cargo-test", "nextest"])]
+    #[arg(
+        long,
+        default_value = "auto",
+        // TODO: could try and implement a clap trait on TestRunner struct from
+        // `cargo-insta` and avoid the repetition
+        value_parser = PossibleValuesParser::new(["auto", "cargo-test", "nextest"])
+    )]
     test_runner: String,
     /// Options passed to cargo test
-    // Sets raw to true so that `--` is required
-    #[structopt(name = "CARGO_TEST_ARGS", raw(true))]
+    #[arg(last = true)]
     cargo_options: Vec<String>,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
+#[command(rename_all = "kebab-case")]
 struct PendingSnapshotsCommand {
-    #[structopt(flatten)]
+    #[command(flatten)]
     target_args: TargetArgs,
     /// Changes the output from human readable to JSON.
-    #[structopt(long)]
+    #[arg(long)]
     as_json: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
+#[command(rename_all = "kebab-case")]
 struct ShowCommand {
-    #[structopt(flatten)]
+    #[command(flatten)]
     target_args: TargetArgs,
     /// The path to the snapshot file.
     path: PathBuf,
@@ -1094,7 +1105,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         args.remove(1);
     }
 
-    let opts = Opts::from_iter(args);
+    let opts = Opts::parse_from(args);
 
     let color = handle_color(opts.color.as_deref())?;
     match opts.command {
