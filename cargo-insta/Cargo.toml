@@ -23,7 +23,7 @@ syn = { version = "1.0.50", features = ["full", "visit", "extra-traits"] }
 ignore = "0.4.17"
 uuid = { version = "1.0.0", features = ["v4"] }
 tempfile = "3.5.0"
-clap = { version = "4.3", features = ["derive"] }
+clap = { workspace=true}
 
 [dev-dependencies]
 walkdir = "2.3.1"

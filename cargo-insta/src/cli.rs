@@ -1,8 +1,8 @@
 use std::borrow::{Borrow, Cow};
-use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
+use std::{collections::HashSet, fmt};
 use std::{env, fs};
 use std::{io, process};
 
@@ -19,7 +19,7 @@ use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
 
-use clap::{builder::PossibleValuesParser, Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 /// A helper utility to work with insta snapshots.
 #[derive(Parser, Debug)]
@@ -33,18 +33,28 @@ use clap::{builder::PossibleValuesParser, Args, Parser, Subcommand, ValueEnum};
 )]
 struct Opts {
     /// Coloring
-    #[arg(long, global = true, value_name = "WHEN", value_parser = ["auto", "always", "never"])]
-    color: Option<String>,
+    #[arg(long, global = true, value_name = "WHEN", env = "CARGO_TERM_COLOR")]
+    color: Option<ColorWhen>,
 
     #[command(subcommand)]
     command: Command,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(ValueEnum, Copy, Clone, Debug)]
 enum ColorWhen {
     Auto,
     Always,
     Never,
+}
+
+impl fmt::Display for ColorWhen {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ColorWhen::Auto => write!(f, "auto"),
+            ColorWhen::Always => write!(f, "always"),
+            ColorWhen::Never => write!(f, "never"),
+        }
+    }
 }
 
 #[derive(Subcommand, Debug)]
@@ -190,14 +200,8 @@ struct TestCommand {
     #[arg(long)]
     require_full_match: bool,
     /// Handle unreferenced snapshots after a successful test run.
-    #[arg(
-        long,
-        default_value = "ignore",
-        // TODO: could try and implement a clap trait on TestRunner struct from
-        // `cargo-insta` and avoid the repetition
-        value_parser = PossibleValuesParser::new(["ignore", "warn", "reject", "delete", "auto"])
-    )]
-    unreferenced: String,
+    #[arg(long, default_value = "ignore")]
+    unreferenced: UnreferencedSnapshots,
     /// Delete unreferenced snapshots after a successful test run.
     #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
@@ -208,14 +212,8 @@ struct TestCommand {
     #[arg(short = 'Q', long)]
     no_quiet: bool,
     /// Picks the test runner.
-    #[arg(
-        long,
-        default_value = "auto",
-        // TODO: could try and implement a clap trait on TestRunner struct from
-        // `cargo-insta` and avoid the repetition
-        value_parser = PossibleValuesParser::new(["auto", "cargo-test", "nextest"])
-    )]
-    test_runner: String,
+    #[arg(long, default_value = "auto")]
+    test_runner: TestRunner,
     /// Options passed to cargo test
     #[arg(last = true)]
     cargo_options: Vec<String>,
@@ -336,22 +334,15 @@ fn query_snapshot(
     }
 }
 
-fn handle_color(color: Option<&str>) -> Result<&'static str, Box<dyn Error>> {
-    match &*color
-        .map(Cow::Borrowed)
-        .or_else(|| std::env::var("CARGO_TERM_COLOR").ok().map(Cow::Owned))
-        .unwrap_or(Cow::Borrowed("auto"))
-    {
-        "always" => {
+fn handle_color(color: Option<ColorWhen>) {
+    match color {
+        Some(ColorWhen::Always) => {
             set_colors_enabled(true);
-            Ok("always")
         }
-        "auto" => Ok("auto"),
-        "never" => {
+        Some(ColorWhen::Never) => {
             set_colors_enabled(false);
-            Ok("never")
         }
-        color => Err(err_msg(format!("invalid value for --color: {}", color))),
+        Some(ColorWhen::Auto) | None => {}
     }
 }
 
@@ -570,7 +561,7 @@ fn process_snapshots(
     Ok(())
 }
 
-fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
+fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args)?;
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
@@ -612,21 +603,11 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
         println!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
-        cmd.unreferenced = "delete".into();
+        cmd.unreferenced = UnreferencedSnapshots::Delete;
     }
 
-    let test_runner = cmd
-        .test_runner
-        .parse()
-        .map_err(|_| err_msg("invalid test runner preference"))?;
-
-    let unreferenced = cmd
-        .unreferenced
-        .parse()
-        .map_err(|_| err_msg("invalid value for --unreferenced"))?;
-
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
-        prepare_test_runner(test_runner, unreferenced, &cmd, color, &[], None)?;
+        prepare_test_runner(cmd.test_runner, cmd.unreferenced, &cmd, color, &[], None)?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
@@ -636,10 +617,10 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     let mut success = status.success();
 
     // nextest currently cannot run doctests, run them with regular tests
-    if matches!(test_runner, TestRunner::Nextest) && !prevents_doc_run {
+    if matches!(cmd.test_runner, TestRunner::Nextest) && !prevents_doc_run {
         let (mut proc, _, _) = prepare_test_runner(
             TestRunner::CargoTest,
-            unreferenced,
+            cmd.unreferenced,
             &cmd,
             color,
             &["--doc"],
@@ -660,7 +641,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     // tests ran successfully
     if success {
         if let Some(ref path) = snapshot_ref_file {
-            handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced, &cmd.package[..])?;
+            handle_unreferenced_snapshots(path.borrow(), &loc, cmd.unreferenced, &cmd.package[..])?;
         }
     }
 
@@ -801,7 +782,7 @@ fn prepare_test_runner<'snapshot_ref>(
     test_runner: TestRunner,
     unreferenced: UnreferencedSnapshots,
     cmd: &TestCommand,
-    color: &str,
+    color: ColorWhen,
     extra_args: &[&str],
     snapshot_ref_file: Option<&'snapshot_ref Path>,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
@@ -952,7 +933,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg(target);
     }
     proc.arg("--color");
-    proc.arg(color);
+    proc.arg(color.to_string());
     proc.args(extra_args);
     // Items after this are passed to the test runner
     proc.arg("--");
@@ -968,7 +949,9 @@ fn prepare_test_runner<'snapshot_ref>(
     // We also only want to do this if we override auto as some custom test runners
     // do not handle --color and then we at least fix the default case.
     // https://github.com/mitsuhiko/insta/issues/473
-    if color != "auto" && matches!(test_runner, TestRunner::CargoTest | TestRunner::Auto) {
+    if matches!(color, ColorWhen::Auto)
+        && matches!(test_runner, TestRunner::CargoTest | TestRunner::Auto)
+    {
         proc.arg(format!("--color={}", color));
     };
     Ok((proc, snapshot_ref_file, prevents_doc_run))
@@ -1107,7 +1090,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
 
     let opts = Opts::parse_from(args);
 
-    let color = handle_color(opts.color.as_deref())?;
+    handle_color(opts.color);
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
             process_snapshots(
@@ -1122,7 +1105,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
                 },
             )
         }
-        Command::Test(cmd) => test_run(cmd, color),
+        Command::Test(cmd) => test_run(cmd, opts.color.unwrap_or(ColorWhen::Auto)),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
