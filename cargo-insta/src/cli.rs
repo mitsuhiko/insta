@@ -813,6 +813,9 @@ fn prepare_test_runner<'snapshot_ref>(
         }
     };
 
+    // An env var to indicate we're running under cargo-insta
+    proc.env("INSTA_CARGO_INSTA", "1");
+
     let snapshot_ref_file = if unreferenced != UnreferencedSnapshots::Ignore {
         match snapshot_ref_file {
             Some(path) => Some(Cow::Borrowed(path)),
@@ -891,9 +894,6 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
         // for newer versions of insta
         proc.env("INSTA_FORCE_UPDATE", "1");
-    }
-    if cmd.require_full_match {
-        proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
     }
     if cmd.require_full_match {
         proc.env("INSTA_REQUIRE_FULL_MATCH", "1");
@@ -987,7 +987,6 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         InlineSnapshot {
             path: &'a Path,
             line: u32,
-            name: Option<&'a str>,
             old_snapshot: Option<&'a str>,
             new_snapshot: &'a str,
             expression: Option<&'a str>,
@@ -1006,7 +1005,6 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,
                         line: snapshot_ref.line.unwrap(),
-                        name: snapshot_ref.new.snapshot_name(),
                         old_snapshot: snapshot_ref.old.as_ref().map(|x| x.contents_str()),
                         new_snapshot: snapshot_ref.new.contents_str(),
                         expression: snapshot_ref.new.metadata().expression(),
