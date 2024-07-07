@@ -8,6 +8,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Print a clearer error message when accepting a snapshot that was removed.  #516
 
+- Fix `require-full-match` when running on inline snapshots outside of `cargo insta`.  #496
+
 - Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
 
 ## 1.39.0
