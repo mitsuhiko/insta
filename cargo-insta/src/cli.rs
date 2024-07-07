@@ -987,7 +987,6 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         InlineSnapshot {
             path: &'a Path,
             line: u32,
-            name: Option<&'a str>,
             old_snapshot: Option<&'a str>,
             new_snapshot: &'a str,
             expression: Option<&'a str>,
@@ -1006,7 +1005,6 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,
                         line: snapshot_ref.line.unwrap(),
-                        name: snapshot_ref.new.snapshot_name(),
                         old_snapshot: snapshot_ref.old.as_ref().map(|x| x.contents_str()),
                         new_snapshot: snapshot_ref.new.contents_str(),
                         expression: snapshot_ref.new.metadata().expression(),
