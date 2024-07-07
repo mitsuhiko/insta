@@ -213,13 +213,15 @@ impl SnapshotContainer {
                 match snapshot.op {
                     Operation::Accept => {
                         let snapshot = Snapshot::from_file(&self.snapshot_path).map_err(|e| {
-                            // Note that if the error isn't convertable to an
-                            // io::Error, it'll raise a confusing error message.
-                            // But that seems quite unlikely, and I couldn't
-                            // find a way of handingly this without spending
-                            // more time...
-                            let error = *e.downcast::<std::io::Error>().unwrap();
-                            ContentError::FileIo(error, self.snapshot_path.to_path_buf())
+                            // If it's an IO error, pass a ContentError back so
+                            // we get a slightly clearer error message
+                            match e.downcast::<std::io::Error>() {
+                                Ok(io_error) => Box::new(ContentError::FileIo(
+                                    *io_error,
+                                    self.snapshot_path.to_path_buf(),
+                                )),
+                                Err(other_error) => other_error,
+                            }
                         })?;
                         snapshot.save(&self.target_path)?;
                         try_removing_snapshot(&self.snapshot_path);
