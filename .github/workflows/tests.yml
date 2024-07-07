@@ -34,7 +34,7 @@ jobs:
         run: make check-msrv
 
   test-latest-dependencies:
-    name: Test after running `cargo update`
+    name: Test latest deps
     # Note that we don't test MSRV after running `cargo update`, since that
     # would increase our maintenance burden — we'd need to be constantly pinning
     # sub-dependencies
@@ -42,6 +42,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo update
       - name: Test
