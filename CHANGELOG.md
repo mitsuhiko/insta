@@ -5,7 +5,15 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.40.0
 
 - Deprecate `--no-force-pass` in `cargo-insta`.  The `--check` option covers the
-  same functionality and has a clearer name.
+  same functionality and has a clearer name.  #513
+
+- No longer suggest running `cargo insta` message when running `cargo insta test --check`.  #515
+
+- Print a clearer error message when accepting a snapshot that was removed.  #516
+
+- Fix `require-full-match` when running on inline snapshots outside of `cargo insta`.  #496
+
+- Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
 
 ## 1.39.0
 
@@ -42,7 +50,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Deprecate `INSTA_FORCE_UPDATE_SNAPSHOTS` env-var for `INSTA_FORCE_UPDATE`.
   The latter was documented, the former was implemented.  #449
 
-- Add `require_full_match` option.  #448 
+- Add `require_full_match` option.  #448
 
 - Deprecate `assert_display_snapshot!`.  #385
 
