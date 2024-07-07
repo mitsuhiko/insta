@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
@@ -7,6 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::{Arc, Mutex};
+use std::{borrow::Cow, env};
 
 use crate::env::{
     get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
@@ -524,13 +524,12 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
 
     if update_result != SnapshotUpdateBehavior::InPlace && !ctx.tool_config.force_pass() {
         if fail_fast && ctx.tool_config.output_behavior() != OutputBehavior::Nothing {
-            println!(
-                "{hint}",
-                hint = style(
-                    "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
-                )
-                .dim(),
-            );
+            let msg = if env::var("INSTA_CARGO_INSTA") == Ok("1".to_string()) {
+                "Stopped on the first failure."
+            } else {
+                "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
+            };
+            println!("{hint}", hint = style(msg).dim(),);
         }
 
         // if we are in glob mode, count the failures and print the

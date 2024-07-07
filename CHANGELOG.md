@@ -4,6 +4,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.40.0
 
+- No longer suggest running `cargo insta` message when running `cargo insta test --check`.  #515
+
 - Print a clearer error message when accepting a snapshot that was removed.  #516
 
 - Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
