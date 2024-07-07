@@ -55,7 +55,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-insta"
-version = "1.37.0"
+version = "1.39.0"
 dependencies = [
  "cargo_metadata",
  "console",
@@ -302,7 +302,7 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.37.0"
+version = "1.39.0"
 dependencies = [
  "console",
  "csv",
@@ -313,6 +313,7 @@ dependencies = [
  "pest_derive",
  "regex",
  "ron",
+ "rustc_version",
  "serde",
  "similar",
  "similar-asserts",
@@ -524,6 +525,15 @@ dependencies = [
  "base64",
  "bitflags",
  "serde",
+]
+
+[[package]]
+name = "rustc_version"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
+dependencies = [
+ "semver",
 ]
 
 [[package]]
