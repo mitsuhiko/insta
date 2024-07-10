@@ -308,8 +308,6 @@ macro_rules! _prepare_snapshot_for_redaction {
 /// permit redactions.
 ///
 /// Debug is called with `"{:#?}"`, which means this uses pretty-print.
-///
-/// See also [`assert_compact_debug_snapshot!`].
 #[macro_export]
 macro_rules! assert_debug_snapshot {
     ($($arg:tt)*) => {
@@ -324,8 +322,6 @@ macro_rules! assert_debug_snapshot {
 /// permit redactions.
 ///
 /// Debug is called with `"{:?}"`, which means this does not use pretty-print.
-///
-/// See also [`assert_debug_snapshot!`].
 #[macro_export]
 macro_rules! assert_compact_debug_snapshot {
     ($($arg:tt)*) => {
