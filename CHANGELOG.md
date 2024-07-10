@@ -12,6 +12,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
 
+- `cargo insta test` now accepts multiple `--exclude` flags.  #520
+
 ## 1.39.0
 
 - Fixed a bug in `require_full_match`.  #485
