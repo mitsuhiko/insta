@@ -145,7 +145,7 @@ struct TestRunnerOptions {
     package: Vec<String>,
     /// Exclude packages from the test
     #[arg(long, value_name = "SPEC")]
-    exclude: Option<String>,
+    exclude: Vec<String>,
     /// Space-separated list of features to activate
     #[arg(long, value_name = "FEATURES")]
     features: Option<String>,
@@ -867,7 +867,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--package");
         proc.arg(pkg);
     }
-    if let Some(ref spec) = cmd.test_runner_options.exclude {
+    for spec in &cmd.exclude {
         proc.arg("--exclude");
         proc.arg(spec);
     }
