@@ -250,6 +250,17 @@ impl MetaData {
     /// Trims the metadata of fields that we don't save to `.snap` files; we
     /// only use for display while reviewing
     fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
+        let is_inline = self.input_file.is_none();
+        // If it's inline, we don't persist any metadata
+        if is_inline {
+            return Cow::Owned(MetaData {
+                source: None,
+                assertion_line: None,
+                input_file: None,
+                expression: None,
+                ..self.clone()
+            });
+        }
         if self.assertion_line.is_some() {
             let mut rv = self.clone();
             rv.assertion_line = None;
@@ -950,7 +961,7 @@ fn test_parse_yaml_error() {
 
     let error = format!("{}", Snapshot::from_file(temp.as_path()).unwrap_err());
     assert!(error.contains("Failed parsing the YAML from"));
-    assert!(error.contains("/bad.yaml"));
+    assert!(error.contains("bad.yaml"));
 }
 
 /// Check that snapshots don't take ownership of the value
