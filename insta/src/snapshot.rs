@@ -133,7 +133,8 @@ impl PendingInlineSnapshot {
 pub struct MetaData {
     /// The source file (relative to workspace root).
     pub(crate) source: Option<String>,
-    /// The source line if available.
+    /// The source line, if available. This is used by pending snapshots, but trimmed
+    /// before writing to the final `.snap` files in [`MetaData::trim_for_persistence`].
     pub(crate) assertion_line: Option<u32>,
     /// Optional human readable (non formatted) snapshot description.
     pub(crate) description: Option<String>,
@@ -246,8 +247,20 @@ impl MetaData {
         Content::Struct("MetaData", fields)
     }
 
-    /// Trims the metadata for persistence.
+    /// Trims the metadata of fields that we don't save to `.snap` files; we
+    /// only use for display while reviewing
     fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
+        let is_inline = self.input_file.is_none();
+        // If it's inline, we don't persist any metadata
+        if is_inline {
+            return Cow::Owned(MetaData {
+                source: None,
+                assertion_line: None,
+                input_file: None,
+                expression: None,
+                ..self.clone()
+            });
+        }
         if self.assertion_line.is_some() {
             let mut rv = self.clone();
             rv.assertion_line = None;
@@ -323,31 +336,11 @@ impl Snapshot {
             buf.push_str(&line);
         }
 
-        let module_name = p
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap_or("")
-            .split("__")
-            .next()
-            .unwrap_or("<unknown>")
-            .to_string();
-
-        let snapshot_name = p
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap_or("")
-            .split('.')
-            .next()
-            .unwrap_or("")
-            .splitn(2, "__")
-            .nth(1)
-            .map(|x| x.to_string());
+        let (snapshot_name, module_name) = names_of_path(p);
 
         Ok(Snapshot::from_components(
             module_name,
-            snapshot_name,
+            Some(snapshot_name),
             metadata,
             buf.into(),
         ))
@@ -442,7 +435,8 @@ impl Snapshot {
 
     /// Snapshot contents _and_ metadata match another snapshot's.
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
-        self.matches(other) && self.metadata == other.metadata
+        self.matches(other)
+            && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
     }
 
     /// The snapshot contents as a &str
@@ -501,8 +495,7 @@ impl Snapshot {
     /// If the existing snapshot matches the new file, then `None` is returned, otherwise
     /// the name of the new snapshot file.
     pub(crate) fn save_new(&self, path: &Path) -> Result<Option<PathBuf>, Box<dyn Error>> {
-        let mut new_path = path.to_path_buf();
-        new_path.set_extension("snap.new");
+        let new_path = path.to_path_buf().with_extension("snap.new");
         if self.save_with_metadata(&new_path, Some(path), &self.metadata)? {
             Ok(Some(new_path))
         } else {
@@ -628,6 +621,53 @@ fn normalize_inline_snapshot(snapshot: &str) -> String {
         .map(|l| l.get(indentation..).unwrap_or(""))
         .collect::<Vec<&str>>()
         .join("\n")
+}
+
+/// Extracts the module and snapshot name from a snapshot path
+fn names_of_path(path: &Path) -> (String, String) {
+    // The final part of the snapshot file name is the test name; the
+    // initial parts are the module name
+    let parts: Vec<&str> = path
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap_or("")
+        .rsplitn(2, "__")
+        .collect();
+
+    match parts.as_slice() {
+        [snapshot_name, module_name] => (snapshot_name.to_string(), module_name.to_string()),
+        [snapshot_name] => (snapshot_name.to_string(), String::new()),
+        _ => (String::new(), "<unknown>".to_string()),
+    }
+}
+
+#[test]
+fn test_names_of_path() {
+    assert_debug_snapshot!(
+        names_of_path(Path::new("/src/snapshots/insta_tests__tests__name_foo.snap")), @r###"
+    (
+        "name_foo",
+        "insta_tests__tests",
+    )
+    "###
+    );
+    assert_debug_snapshot!(
+        names_of_path(Path::new("/src/snapshots/name_foo.snap")), @r###"
+    (
+        "name_foo",
+        "",
+    )
+    "###
+    );
+    assert_debug_snapshot!(
+        names_of_path(Path::new("foo/src/snapshots/go1.20.5.snap")), @r###"
+    (
+        "go1.20.5",
+        "",
+    )
+    "###
+    );
 }
 
 /// Helper function that returns the real inline snapshot value from a given
@@ -915,7 +955,7 @@ fn test_parse_yaml_error() {
 
     let error = format!("{}", Snapshot::from_file(temp.as_path()).unwrap_err());
     assert!(error.contains("Failed parsing the YAML from"));
-    assert!(error.contains("/bad.yaml"));
+    assert!(error.contains("bad.yaml"));
 }
 
 /// Check that snapshots don't take ownership of the value
