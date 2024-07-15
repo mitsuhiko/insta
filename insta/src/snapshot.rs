@@ -955,7 +955,7 @@ fn test_parse_yaml_error() {
 
     let error = format!("{}", Snapshot::from_file(temp.as_path()).unwrap_err());
     assert!(error.contains("Failed parsing the YAML from"));
-    assert!(error.contains("/bad.yaml"));
+    assert!(error.contains("bad.yaml"));
 }
 
 /// Check that snapshots don't take ownership of the value
