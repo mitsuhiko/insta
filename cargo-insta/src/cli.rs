@@ -106,7 +106,7 @@ struct ProcessCommand {
     quiet: bool,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Clone, StructOpt, Debug)]
 #[structopt(rename_all = "kebab-case")]
 struct TestCommand {
     #[structopt(flatten)]
@@ -347,6 +347,7 @@ fn handle_color(color: Option<&str>) -> Result<&'static str, Box<dyn Error>> {
 struct LocationInfo<'a> {
     tool_config: ToolConfig,
     workspace_root: PathBuf,
+    /// Packages to test
     packages: Vec<Package>,
     exts: Vec<&'a str>,
     find_flags: FindFlags,
@@ -359,7 +360,11 @@ fn get_find_flags(tool_config: &ToolConfig, target_args: &TargetArgs) -> FindFla
     }
 }
 
-fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<dyn Error>> {
+fn handle_target_args(
+    target_args: &TargetArgs,
+    // Empty if none are selected, implying cargo default
+    packages: Vec<String>,
+) -> Result<LocationInfo<'_>, Box<dyn Error>> {
     let mut exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
     if exts.is_empty() {
         exts.push("snap");
@@ -389,9 +394,21 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
         (None, None) => (None, None),
     };
 
+    // Filter to those that we've selected (or no filtering if none are selected)
+    let filter_packages = |all_packages: Vec<Package>| {
+        if packages.is_empty() {
+            return all_packages;
+        }
+        all_packages
+            .into_iter()
+            .filter(|p| packages.contains(&p.name))
+            .collect()
+    };
+
     if let Some(workspace_root) = workspace_root {
         let tool_config = ToolConfig::from_workspace(workspace_root)?;
-        let packages = get_all_packages(workspace_root)?;
+        let all_packages = get_all_packages(workspace_root)?;
+        let packages = filter_packages(all_packages);
         Ok(LocationInfo {
             workspace_root: workspace_root.to_owned(),
             packages,
@@ -408,6 +425,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
             manifest_path.as_deref(),
             target_args.all || target_args.workspace,
         )?;
+        let packages = filter_packages(packages);
         let workspace_root = workspace_root.as_std_path().to_path_buf();
         let tool_config = ToolConfig::from_workspace(&workspace_root)?;
         Ok(LocationInfo {
@@ -571,7 +589,7 @@ fn process_snapshots(
 }
 
 fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
-    let loc = handle_target_args(&cmd.target_args)?;
+    let loc = handle_target_args(&cmd.target_args, cmd.package.clone())?;
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
             if is_ci() {
@@ -626,7 +644,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         .map_err(|_| err_msg("invalid value for --unreferenced"))?;
 
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
-        prepare_test_runner(test_runner, unreferenced, &cmd, color, &[], None)?;
+        prepare_test_runner(test_runner, unreferenced, &cmd.clone(), color, &[], None)?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
@@ -660,7 +678,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     // tests ran successfully
     if success {
         if let Some(ref path) = snapshot_ref_file {
-            handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced, &cmd.package[..])?;
+            handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced)?;
         }
     }
 
@@ -668,7 +686,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
         process_snapshots(
             false,
             None,
-            &handle_target_args(&cmd.target_args)?,
+            &loc,
             if cmd.accept {
                 Some(Operation::Accept)
             } else {
@@ -706,7 +724,6 @@ fn handle_unreferenced_snapshots(
     path: &Path,
     loc: &LocationInfo<'_>,
     unreferenced: UnreferencedSnapshots,
-    packages: &[String],
 ) -> Result<(), Box<dyn Error>> {
     enum Action {
         Delete,
@@ -747,7 +764,7 @@ fn handle_unreferenced_snapshots(
     }
 
     let mut encountered_any = false;
-    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.clone(), packages) {
+    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.clone()) {
         let rel_path = match entry {
             Ok(ref entry) => entry.path(),
             _ => continue,
@@ -975,7 +992,7 @@ fn prepare_test_runner<'snapshot_ref>(
 }
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
-    let loc = handle_target_args(&cmd.target_args)?;
+    let loc = handle_target_args(&cmd.target_args, vec![])?;
     let snapshot = Snapshot::from_file(&cmd.path)?;
     let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
     printer.set_snapshot_file(Some(&cmd.path));
@@ -1001,7 +1018,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         },
     }
 
-    let loc = handle_target_args(&cmd.target_args)?;
+    let loc = handle_target_args(&cmd.target_args, vec![])?;
     let (mut snapshot_containers, _) = load_snapshot_containers(&loc)?;
 
     for (snapshot_container, _package) in snapshot_containers.iter_mut() {
@@ -1111,7 +1128,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
             process_snapshots(
                 cmd.quiet,
                 cmd.snapshot_filter.as_deref(),
-                &handle_target_args(&cmd.target_args)?,
+                &handle_target_args(&cmd.target_args, vec![])?,
                 match opts.command {
                     Command::Review(_) => None,
                     Command::Accept(_) => Some(Operation::Accept),
