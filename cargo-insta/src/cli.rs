@@ -347,7 +347,7 @@ fn handle_color(color: Option<&str>) -> Result<&'static str, Box<dyn Error>> {
 struct LocationInfo<'a> {
     tool_config: ToolConfig,
     workspace_root: PathBuf,
-    packages: Option<Vec<Package>>,
+    packages: Vec<Package>,
     exts: Vec<&'a str>,
     find_flags: FindFlags,
 }
@@ -391,9 +391,10 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
 
     if let Some(workspace_root) = workspace_root {
         let tool_config = ToolConfig::from_workspace(workspace_root)?;
+        let packages = get_all_packages(workspace_root)?;
         Ok(LocationInfo {
             workspace_root: workspace_root.to_owned(),
-            packages: None,
+            packages,
             exts,
             find_flags: get_find_flags(&tool_config, target_args),
             tool_config,
@@ -411,7 +412,7 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
         let tool_config = ToolConfig::from_workspace(&workspace_root)?;
         Ok(LocationInfo {
             workspace_root,
-            packages: Some(packages),
+            packages,
             exts,
             find_flags: get_find_flags(&tool_config, target_args),
             tool_config,
@@ -431,25 +432,35 @@ fn load_snapshot_containers<'a>(
 > {
     let mut roots = HashSet::new();
     let mut snapshot_containers = vec![];
-    if let Some(ref packages) = loc.packages {
-        for package in packages.iter() {
-            for root in find_snapshot_roots(package) {
-                roots.insert(root.clone());
-                for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
-                    snapshot_containers.push((snapshot_container?, Some(package)));
-                }
+
+    for package in &loc.packages {
+        for root in find_snapshot_roots(package) {
+            roots.insert(root.clone());
+            for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
+                snapshot_containers.push((snapshot_container?, Some(package)));
             }
         }
-    } else {
+    }
+
+    if snapshot_containers.is_empty() {
         roots.insert(loc.workspace_root.clone());
         for snapshot_container in find_snapshots(&loc.workspace_root, &loc.exts, loc.find_flags) {
             snapshot_containers.push((snapshot_container?, None));
         }
     }
+
     snapshot_containers.sort_by(|a, b| a.0.snapshot_sort_key().cmp(&b.0.snapshot_sort_key()));
     Ok((snapshot_containers, roots))
 }
 
+fn get_all_packages(workspace_root: &Path) -> Result<Vec<Package>, Box<dyn Error>> {
+    let metadata = cargo_metadata::MetadataCommand::new()
+        .current_dir(workspace_root)
+        .no_deps()
+        .exec()?;
+
+    Ok(metadata.packages)
+}
 fn process_snapshots(
     quiet: bool,
     snapshot_filter: Option<&[String]>,
@@ -736,7 +747,7 @@ fn handle_unreferenced_snapshots(
     }
 
     let mut encountered_any = false;
-    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.as_deref(), packages) {
+    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.clone(), packages) {
         let rel_path = match entry {
             Ok(ref entry) => entry.path(),
             _ => continue,

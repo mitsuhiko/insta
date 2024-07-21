@@ -106,23 +106,19 @@ pub(crate) fn make_snapshot_walker(
 /// This really should be using the same logic as the main snapshot walker but today is is not.
 pub(crate) fn make_deletion_walker(
     workspace_root: &Path,
-    known_packages: Option<&[Package]>,
+    packages: Vec<Package>,
     selected_packages: &[String],
 ) -> Walk {
-    let roots: HashSet<_> = if let Some(packages) = known_packages {
-        packages
-            .iter()
-            .filter_map(|x| {
-                // filter out packages we did not ask for.
-                if !selected_packages.is_empty() && !selected_packages.contains(&x.name) {
-                    return None;
-                }
-                x.manifest_path.parent().unwrap().canonicalize().ok()
-            })
-            .collect()
-    } else {
-        Some(workspace_root.to_path_buf()).into_iter().collect()
-    };
+    let roots: HashSet<_> = packages
+        .iter()
+        .filter_map(|x| {
+            // filter out packages we did not ask for.
+            if !selected_packages.is_empty() && !selected_packages.contains(&x.name) {
+                return None;
+            }
+            x.manifest_path.parent().unwrap().canonicalize().ok()
+        })
+        .collect();
 
     WalkBuilder::new(workspace_root)
         .filter_entry(move |entry| {

@@ -1,6 +1,5 @@
 ---
-source: cargo-insta/tests/main.rs
-expression: "&fs::read_to_string(gen_file).unwrap()"
+{}
 ---
 use serde::Serialize;
 
