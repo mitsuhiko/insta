@@ -209,6 +209,7 @@ impl SnapshotContainer {
             }
         } else {
             // should only be one or this is weird
+            debug_assert!(self.snapshots.len() == 1);
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
                     Operation::Accept => {

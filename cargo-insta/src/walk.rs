@@ -25,11 +25,11 @@ fn is_hidden(entry: &DirEntry) -> bool {
 
 /// Finds all snapshots
 pub(crate) fn find_snapshots<'a>(
-    root: &Path,
+    package_root: &Path,
     extensions: &'a [&'a str],
     flags: FindFlags,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-    make_snapshot_walker(root, extensions, flags)
+    make_snapshot_walker(package_root, extensions, flags)
         .filter_map(|e| e.ok())
         .filter_map(move |e| {
             let fname = e.file_name().to_string_lossy();
@@ -55,9 +55,13 @@ pub(crate) fn find_snapshots<'a>(
         })
 }
 
-/// Creates a walker for snapshots.
-pub(crate) fn make_snapshot_walker(path: &Path, extensions: &[&str], flags: FindFlags) -> Walk {
-    let mut builder = WalkBuilder::new(path);
+/// Creates a walker for snapshots within a package.
+pub(crate) fn make_snapshot_walker(
+    package_root: &Path,
+    extensions: &[&str],
+    flags: FindFlags,
+) -> Walk {
+    let mut builder = WalkBuilder::new(package_root);
     builder.standard_filters(!flags.include_ignored);
     if flags.include_hidden {
         builder.hidden(false);
@@ -65,7 +69,7 @@ pub(crate) fn make_snapshot_walker(path: &Path, extensions: &[&str], flags: Find
         builder.filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
     }
 
-    let mut override_builder = OverrideBuilder::new(path);
+    let mut override_builder = OverrideBuilder::new(package_root);
     override_builder
         .add(".*.pending-snap")
         .unwrap()
@@ -77,6 +81,22 @@ pub(crate) fn make_snapshot_walker(path: &Path, extensions: &[&str], flags: Find
     }
 
     builder.overrides(override_builder.build().unwrap());
+
+    let root_path = package_root.to_path_buf();
+
+    // Add a custom filter to skip interior crates; otherwise we get duplicate
+    // snapshots (https://github.com/mitsuhiko/insta/issues/396)
+    builder.filter_entry(move |entry| {
+        if entry.file_type().map_or(false, |ft| ft.is_dir()) {
+            let cargo_toml_path = entry.path().join("Cargo.toml");
+            if cargo_toml_path.exists() && entry.path() != root_path {
+                // Skip this directory if it contains a Cargo.toml and is not the root
+                return false;
+            }
+        }
+        true
+    });
+
     builder.build()
 }
 
