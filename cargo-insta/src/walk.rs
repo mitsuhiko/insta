@@ -66,6 +66,7 @@ pub(crate) fn make_snapshot_walker(
     if flags.include_hidden {
         builder.hidden(false);
     } else {
+        // We add a custom hidden filter to avoid skipping over `.pending-snap` files
         builder.filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
     }
 
