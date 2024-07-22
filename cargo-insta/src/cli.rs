@@ -19,7 +19,7 @@ use uuid::Uuid;
 use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
-use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
+use crate::walk::{find_snapshots, make_snapshot_walker, FindFlags};
 
 /// A helper utility to work with insta snapshots.
 #[derive(StructOpt, Debug)]
@@ -720,6 +720,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     }
 }
 
+/// Scan for any snapshots that were not referenced by any test.
 fn handle_unreferenced_snapshots(
     path: &Path,
     loc: &LocationInfo<'_>,
@@ -764,23 +765,28 @@ fn handle_unreferenced_snapshots(
     }
 
     let mut encountered_any = false;
-    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.clone()) {
-        let rel_path = match entry {
-            Ok(ref entry) => entry.path(),
-            _ => continue,
-        };
-        if !rel_path.is_file()
-            || !rel_path
-                .file_name()
-                .map_or(false, |x| x.to_str().unwrap_or("").ends_with(".snap"))
-        {
-            continue;
-        }
 
-        if let Ok(path) = fs::canonicalize(rel_path) {
-            if files.contains(&path) {
-                continue;
-            }
+    for package in loc.packages.clone() {
+        let walker = make_snapshot_walker(
+            package.manifest_path.parent().unwrap().as_std_path(),
+            &[".snap"],
+            FindFlags {
+                include_ignored: true,
+                include_hidden: true,
+            },
+        )
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().map(|ft| ft.is_file()).unwrap_or(false))
+        .filter(|e| {
+            e.file_name()
+                .to_str()
+                .map(|name| name.ends_with(".snap"))
+                .unwrap_or(false)
+        })
+        .filter_map(|e| e.path().canonicalize().ok())
+        .filter(|path| !files.contains(path));
+
+        for path in walker {
             if !encountered_any {
                 match action {
                     Action::Delete => {
@@ -795,14 +801,12 @@ fn handle_unreferenced_snapshots(
                 }
                 encountered_any = true;
             }
-            eprintln!("  {}", rel_path.display());
+            eprintln!("  {}", path.display());
             if matches!(action, Action::Delete) {
-                fs::remove_file(path).ok();
+                fs::remove_file(&path).ok();
             }
         }
     }
-
-    fs::remove_file(path).ok();
 
     if !encountered_any {
         eprintln!("{}: no unreferenced snapshots found", style("info").bold());
