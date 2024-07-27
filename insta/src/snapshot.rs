@@ -247,20 +247,15 @@ impl MetaData {
         Content::Struct("MetaData", fields)
     }
 
-    /// Trims the metadata of fields that we don't save to `.snap` files; we
-    /// only use for display while reviewing
+    /// Trims the metadata of fields that we don't save to `.snap` files (those
+    /// we only use for display while reviewing)
     fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
-        let is_inline = self.input_file.is_none();
-        // If it's inline, we don't persist any metadata
-        if is_inline {
-            return Cow::Owned(MetaData {
-                source: None,
-                assertion_line: None,
-                input_file: None,
-                expression: None,
-                ..self.clone()
-            });
-        }
+        // TODO: in order for `--require-full-match` to work on inline snapshots
+        // without cargo-insta, we need to trim all fields if there's an inline
+        // snapshot. But we don't know that from here (notably
+        // `self.input_file.is_none()` is not a correct approach). Given that
+        // `--require-full-match` is experimental and we're working on making
+        // inline & file snapshots more coherent, I'm leaving this as is for now.
         if self.assertion_line.is_some() {
             let mut rv = self.clone();
             rv.assertion_line = None;
