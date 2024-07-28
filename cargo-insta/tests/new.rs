@@ -6,9 +6,11 @@ use std::process::Command;
 use tempfile::TempDir;
 
 // TODO:
-// - pull out the common parts — setting up the test
-// - how to handle compilation? We want each test to be independent, but we
-//   don't want to compile `insta` for each test. Maybe we can compile it once
+// - Pull out the common parts — setting up the test
+// - Use a struct like `Repo{ files: Vec<Path, String> }` so we can
+//   have some common forms; less repetition.
+// - How to handle compilation? We want each test to be independent, but we
+//   don't want to compile insta for each test. Maybe we can compile it once
 //   and copy the `target` directory for each test?
 
 #[test]
