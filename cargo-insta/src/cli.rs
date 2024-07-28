@@ -383,12 +383,12 @@ fn handle_target_args(
             ))
         }
         (None, Some(manifest)) => (None, Some(Cow::Borrowed(manifest))),
-        (Some(root), manifest_path) => {
+        (Some(root), None) => {
             let assumed_manifest = root.join("Cargo.toml");
             if assumed_manifest.is_file() {
                 (None, Some(Cow::Owned(assumed_manifest)))
             } else {
-                (Some(root), manifest_path.map(Cow::Borrowed))
+                (Some(root), None)
             }
         }
         (None, None) => (None, None),
@@ -410,6 +410,9 @@ fn handle_target_args(
     // If `--all` is passed, or there's no root package, or packages are
     // specified: we filter from all packages (with no filter applied if no
     // packages are specified). Otherwise we use just the root package.
+    //
+    // (Once we're OK running on Cargo 1.71, we can replace `.root_package` with
+    // `.default_workspace_packages`.)
     let packages = if metadata.root_package().is_none()
         || (target_args.all || target_args.workspace)
         || !packages.is_empty()
