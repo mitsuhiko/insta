@@ -519,9 +519,25 @@ impl SnapshotContents {
     pub fn to_inline(&self, indentation: usize) -> String {
         let contents = &self.0;
         let mut out = String::new();
-        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
 
-        out.push_str(if is_escape { "r###\"" } else { "\"" });
+        // Escape the string if needed, with `r#`, using with 1 more `#` than
+        // the maximum number of existing contiguous `#`.
+        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
+        let delimiter = if is_escape {
+            let max_contiguous_hash = contents
+                .split(|c| c != '#')
+                .map(|group| group.len())
+                .max()
+                .unwrap_or(0);
+            out.push('r');
+            "#".repeat(max_contiguous_hash + 1)
+        } else {
+            "".to_string()
+        };
+
+        out.push_str(&delimiter);
+        out.push('"');
+
         // if we have more than one line we want to change into the block
         // representation mode
         if contents.contains('\n') {
@@ -545,7 +561,8 @@ impl SnapshotContents {
             out.push_str(contents);
         }
 
-        out.push_str(if is_escape { "\"###" } else { "\"" });
+        out.push('"');
+        out.push_str(&delimiter);
 
         out
     }
