@@ -745,10 +745,10 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
 a
 b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -756,10 +756,10 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(4),
-        "r###\"
+        "r#\"
     a
     b
-    \"###"
+    \"#"
     );
 
     let t = &"
@@ -767,10 +767,10 @@ b"[1..];
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     a
     b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -779,11 +779,11 @@ b"[1..];
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     a
 
     b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -791,13 +791,28 @@ b"[1..];
 "[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     ab
-\"###"
+\"#"
     );
 
     let t = "ab";
     assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""ab""#);
+}
+
+#[test]
+fn test_snapshot_contents_hashes() {
+    let t = "a###b";
+    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""a###b""#);
+
+    let t = "a\n###b";
+    assert_eq!(
+        SnapshotContents(t.to_string()).to_inline(0),
+        r#####"r####"
+a
+###b
+"####"#####
+    );
 }
 
 #[test]
