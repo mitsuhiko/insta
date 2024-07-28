@@ -6,6 +6,8 @@ use std::process::{Command, Output};
 use insta::{assert_snapshot, Settings};
 use walkdir::WalkDir;
 
+mod new;
+
 struct OnDrop<F: FnOnce()>(Option<F>);
 
 impl<F: FnOnce()> Drop for OnDrop<F> {
