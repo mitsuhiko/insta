@@ -50,9 +50,13 @@ pub(crate) fn get_metadata(
     all: bool,
 ) -> Result<Metadata, Box<dyn Error>> {
     let mut cmd = cargo_metadata::MetadataCommand::new();
+
+    // If a manifest path is provided, set it in the command
     if let Some(manifest_path) = manifest_path {
         cmd.manifest_path(manifest_path);
     }
+
+    // TODO: why do we have this? When do we ever want dependencies here?
     if all {
         cmd.no_deps();
     }
@@ -63,12 +67,15 @@ pub(crate) fn get_metadata(
         resolve,
         ..
     } = &mut metadata;
+
+    // If we set `all`, then get everything. Otherwise if there's a root crate,
+    // only get the crate.
     match resolve
         .as_ref()
         .and_then(|cargo_metadata::Resolve { root, .. }| root.as_ref())
     {
-        Some(root) => packages.retain(|Package { id, .. }| id == root),
-        None => {
+        Some(root) if all => packages.retain(|Package { id, .. }| id == root),
+        _ => {
             packages.retain(|Package { id, .. }| workspace_members.contains(id));
         }
     }
