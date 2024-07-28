@@ -16,7 +16,7 @@ use structopt::clap::AppSettings;
 use structopt::StructOpt;
 use uuid::Uuid;
 
-use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
+use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_snapshot_walker, FindFlags};
@@ -394,48 +394,43 @@ fn handle_target_args(
         (None, None) => (None, None),
     };
 
-    // Filter to those that we've selected (or no filtering if none are selected)
-    let filter_packages = |all_packages: Vec<Package>| {
-        if packages.is_empty() {
-            return all_packages;
-        }
-        all_packages
+    let mut cmd = cargo_metadata::MetadataCommand::new();
+
+    // If a manifest path is provided, set it in the command
+    if let Some(manifest_path) = manifest_path {
+        cmd.manifest_path(manifest_path);
+    }
+    if let Some(workspace_root) = workspace_root {
+        cmd.current_dir(workspace_root);
+    }
+    let metadata = cmd.no_deps().exec()?;
+    let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
+    let tool_config = ToolConfig::from_workspace(&workspace_root)?;
+
+    // If `--all` is passed, or there's no root package, or packages are
+    // specified: we filter from all packages (with no filter applied if no
+    // packages are specified). Otherwise we use just the root package.
+    let packages = if metadata.root_package().is_none()
+        || (target_args.all || target_args.workspace)
+        || !packages.is_empty()
+    {
+        metadata
+            .workspace_packages()
             .into_iter()
-            .filter(|p| packages.contains(&p.name))
+            .filter(|p| packages.is_empty() || packages.contains(&p.name))
+            .cloned()
             .collect()
+    } else {
+        vec![metadata.root_package().unwrap().clone()]
     };
 
-    if let Some(workspace_root) = workspace_root {
-        let tool_config = ToolConfig::from_workspace(workspace_root)?;
-        let all_packages = get_all_packages(workspace_root)?;
-        let packages = filter_packages(all_packages);
-        Ok(LocationInfo {
-            workspace_root: workspace_root.to_owned(),
-            packages,
-            exts,
-            find_flags: get_find_flags(&tool_config, target_args),
-            tool_config,
-        })
-    } else {
-        let Metadata {
-            packages,
-            workspace_root,
-            ..
-        } = get_metadata(
-            manifest_path.as_deref(),
-            target_args.all || target_args.workspace,
-        )?;
-        let packages = filter_packages(packages);
-        let workspace_root = workspace_root.as_std_path().to_path_buf();
-        let tool_config = ToolConfig::from_workspace(&workspace_root)?;
-        Ok(LocationInfo {
-            workspace_root,
-            packages,
-            exts,
-            find_flags: get_find_flags(&tool_config, target_args),
-            tool_config,
-        })
-    }
+    Ok(LocationInfo {
+        workspace_root,
+        packages,
+        exts,
+        find_flags: get_find_flags(&tool_config, target_args),
+        tool_config,
+    })
 }
 
 #[allow(clippy::type_complexity)]
@@ -466,14 +461,6 @@ fn load_snapshot_containers<'a>(
     Ok((snapshot_containers, roots))
 }
 
-fn get_all_packages(workspace_root: &Path) -> Result<Vec<Package>, Box<dyn Error>> {
-    let metadata = cargo_metadata::MetadataCommand::new()
-        .current_dir(workspace_root)
-        .no_deps()
-        .exec()?;
-
-    Ok(metadata.packages)
-}
 fn process_snapshots(
     quiet: bool,
     snapshot_filter: Option<&[String]>,
