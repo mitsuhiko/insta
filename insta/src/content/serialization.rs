@@ -20,6 +20,9 @@ pub enum Key<'a> {
 
 impl<'a> Eq for Key<'a> {}
 
+// We're making a deliberate choice to just "round down" here, so ignoring the
+// clippy lint
+#[allow(clippy::derive_ord_xor_partial_ord)]
 impl<'a> Ord for Key<'a> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap_or(Ordering::Less)
