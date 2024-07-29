@@ -519,9 +519,25 @@ impl SnapshotContents {
     pub fn to_inline(&self, indentation: usize) -> String {
         let contents = &self.0;
         let mut out = String::new();
-        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
 
-        out.push_str(if is_escape { "r###\"" } else { "\"" });
+        // Escape the string if needed, with `r#`, using with 1 more `#` than
+        // the maximum number of existing contiguous `#`.
+        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
+        let delimiter = if is_escape {
+            let max_contiguous_hash = contents
+                .split(|c| c != '#')
+                .map(|group| group.len())
+                .max()
+                .unwrap_or(0);
+            out.push('r');
+            "#".repeat(max_contiguous_hash + 1)
+        } else {
+            "".to_string()
+        };
+
+        out.push_str(&delimiter);
+        out.push('"');
+
         // if we have more than one line we want to change into the block
         // representation mode
         if contents.contains('\n') {
@@ -545,7 +561,8 @@ impl SnapshotContents {
             out.push_str(contents);
         }
 
-        out.push_str(if is_escape { "\"###" } else { "\"" });
+        out.push('"');
+        out.push_str(&delimiter);
 
         out
     }
@@ -728,10 +745,10 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
 a
 b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -739,10 +756,10 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(4),
-        "r###\"
+        "r#\"
     a
     b
-    \"###"
+    \"#"
     );
 
     let t = &"
@@ -750,10 +767,10 @@ b"[1..];
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     a
     b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -762,11 +779,11 @@ b"[1..];
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     a
 
     b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -774,13 +791,28 @@ b"[1..];
 "[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     ab
-\"###"
+\"#"
     );
 
     let t = "ab";
     assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""ab""#);
+}
+
+#[test]
+fn test_snapshot_contents_hashes() {
+    let t = "a###b";
+    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""a###b""#);
+
+    let t = "a\n###b";
+    assert_eq!(
+        SnapshotContents(t.to_string()).to_inline(0),
+        r#####"r####"
+a
+###b
+"####"#####
+    );
 }
 
 #[test]
