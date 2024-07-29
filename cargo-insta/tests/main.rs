@@ -1,18 +1,14 @@
-// TODO:
-// - How to handle compilation? We want each test to be independent, but we
-//   don't want to compile insta for each test. Maybe we can compile it once
-//   and copy the `target` directory for each test?
-
-use insta::assert_snapshot;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tempfile::TempDir;
 
 use ignore::WalkBuilder;
+use insta::assert_snapshot;
 use similar::udiff::unified_diff;
+use tempfile::TempDir;
+
 struct TestProject {
     files: HashMap<PathBuf, String>,
     /// Temporary directory where the project is created
@@ -21,6 +17,22 @@ struct TestProject {
     project_path: Option<PathBuf>,
     /// File tree at start of test
     file_tree: Option<String>,
+}
+
+fn workspace_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf()
+}
+
+fn target_dir() -> PathBuf {
+    let target_dir = env::var("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| workspace_path().join("target"))
+        .join("test-projects");
+    fs::create_dir_all(&target_dir).unwrap();
+    target_dir
 }
 
 impl TestProject {
@@ -34,18 +46,13 @@ impl TestProject {
     }
 
     fn add_file<P: AsRef<Path>>(mut self, path: P, content: String) -> Self {
-        let relative_path = path.as_ref().strip_prefix("/").unwrap_or(path.as_ref());
-        self.files.insert(relative_path.to_path_buf(), content);
+        self.files.insert(path.as_ref().to_path_buf(), content);
         self
     }
 
     fn create(mut self) -> Self {
         let project_path = self.temp_dir.path();
-
-        // Get the absolute path to the current insta crate
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let cargo_insta_path = PathBuf::from(manifest_dir).canonicalize().unwrap();
-        let insta_path = cargo_insta_path.parent().unwrap().join("insta");
+        let insta_path = workspace_path().join("insta");
 
         // Create files and replace $PROJECT_PATH in all files
         for (path, content) in &self.files {
@@ -69,11 +76,15 @@ impl TestProject {
             .expect("Project has not been created yet. Call create() first.");
         let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
         command.current_dir(project_path);
+        // Use the same target directory as other tests, consistent across test
+        // run. This makes the compilation much faster (though do some tests
+        // tread on the toes of others? We could have a different cache for each
+        // project if so...)
+        command.env("CARGO_TARGET_DIR", target_dir());
         command
     }
 
     fn diff(&self, file_path: &str) -> String {
-        dbg!(self.files.keys());
         let original_content = self.files.get(dbg!(Path::new(file_path))).unwrap();
         let project_path = self.project_path.as_ref().unwrap();
         let path_buf = project_path.join(file_path);
