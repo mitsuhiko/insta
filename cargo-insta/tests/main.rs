@@ -35,6 +35,15 @@ fn target_dir() -> PathBuf {
     target_dir
 }
 
+fn assert_success(output: &std::process::Output) {
+    assert!(
+        output.status.success(),
+        "Tests failed: {}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 impl TestProject {
     fn new() -> Self {
         Self {
@@ -88,10 +97,9 @@ impl TestProject {
     }
 
     fn diff(&self, file_path: &str) -> String {
-        let original_content = self.files.get(dbg!(Path::new(file_path))).unwrap();
-        let project_path = self.project_path.as_ref().unwrap();
-        let path_buf = project_path.join(file_path);
-        let updated_content = fs::read_to_string(&path_buf).unwrap();
+        let original_content = self.files.get(Path::new(file_path)).unwrap();
+        let file_path_buf = self.project_path.as_ref().unwrap().join(file_path);
+        let updated_content = fs::read_to_string(&file_path_buf).unwrap();
 
         unified_diff(
             similar::Algorithm::Patience,
@@ -181,12 +189,7 @@ fn test_json_snapshot() {
         .output()
         .unwrap();
 
-    assert!(
-        output.status.success(),
-        "Tests failed: {}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    assert_success(&output);
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r##"
     --- Original: src/main.rs
@@ -255,12 +258,7 @@ fn test_yaml_snapshot() {
         .output()
         .unwrap();
 
-    assert!(
-        output.status.success(),
-        "Tests failed: {}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    assert_success(&output);
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r##"
     --- Original: src/main.rs
@@ -336,12 +334,7 @@ fn test_trailing_comma_in_inline_snapshot() {
         .output()
         .unwrap();
 
-    assert!(
-        output.status.success(),
-        "Tests failed: {}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    assert_success(&output);
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r##"
     --- Original: src/main.rs
@@ -383,7 +376,7 @@ fn test_trailing_comma_in_inline_snapshot() {
 }
 
 // TODO: This panics and will be fixed by #531 (and the snapshot requires
-// updating, it's also wrong)
+// updating; the result is not what we want)
 #[ignore]
 #[test]
 fn test_nested_crate() {
@@ -456,12 +449,7 @@ fn test_root() {
         .output()
         .unwrap();
 
-    assert!(
-        output.status.success(),
-        "Tests failed: {}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    assert_success(&output);
 
     assert_snapshot!(test_project.file_tree_diff(), @r#"
     --- Original file tree
