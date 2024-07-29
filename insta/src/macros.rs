@@ -315,6 +315,20 @@ macro_rules! assert_debug_snapshot {
     };
 }
 
+/// Asserts a `Debug` snapshot in compact format.
+///
+/// The value needs to implement the `fmt::Debug` trait.  This is useful for
+/// simple values that do not implement the `Serialize` trait, but does not
+/// permit redactions.
+///
+/// Debug is called with `"{:?}"`, which means this does not use pretty-print.
+#[macro_export]
+macro_rules! assert_compact_debug_snapshot {
+    ($($arg:tt)*) => {
+        $crate::_assert_snapshot_base!(transform=|v| std::format!("{:?}", v), $($arg)*)
+    };
+}
+
 // A helper macro which takes a closure as `transform`, and runs the closure on
 // the value. This allows us to implement other macros with a small wrapper. All
 // snapshot macros eventually call this macro.
