@@ -1,8 +1,11 @@
 {
-    "editor.formatOnSave": true,
-    "rust-analyzer.checkOnSave.allFeatures": true,
-    "rust-analyzer.cargo.allFeatures": true,
-    "files.trimTrailingWhitespace": true,
-    "files.insertFinalNewline": true,
-    "rust-analyzer.checkOnSave.command": "clippy",
+  "editor.formatOnSave": true,
+  "rust-analyzer.checkOnSave.allFeatures": true,
+  "rust-analyzer.cargo.allFeatures": true,
+  // We have some snapshots that have trailing whitespace. `rustfmt` does this
+  // for rust files. (We could add something to pre-commit for other files if we
+  // wanted...)
+  "files.trimTrailingWhitespace": false,
+  "files.insertFinalNewline": true,
+  "rust-analyzer.checkOnSave.command": "clippy"
 }

@@ -11,11 +11,16 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::TempDir;
 
+use ignore::WalkBuilder;
 use similar::udiff::unified_diff;
 struct TestProject {
     files: HashMap<PathBuf, String>,
+    /// Temporary directory where the project is created
     temp_dir: TempDir,
+    /// Path of this repo, so we can have it as a dependency in the test project
     project_path: Option<PathBuf>,
+    /// File tree at start of test
+    file_tree: Option<String>,
 }
 
 impl TestProject {
@@ -24,6 +29,7 @@ impl TestProject {
             files: HashMap::new(),
             temp_dir: TempDir::new().unwrap(),
             project_path: None,
+            file_tree: None,
         }
     }
 
@@ -55,7 +61,8 @@ impl TestProject {
         self
     }
 
-    fn cmd(&self) -> Command {
+    fn cmd(&mut self) -> Command {
+        self.file_tree = Some(self.current_file_tree());
         let project_path = self
             .project_path
             .as_ref()
@@ -83,11 +90,37 @@ impl TestProject {
             )),
         )
     }
+
+    fn current_file_tree(&self) -> String {
+        WalkBuilder::new(&self.temp_dir)
+            .filter_entry(|e| e.path().file_name() != Some(std::ffi::OsStr::new("target")))
+            .build()
+            .filter_map(|e| e.ok())
+            .map(|entry| {
+                let path = entry
+                    .path()
+                    .strip_prefix(&self.temp_dir)
+                    .unwrap_or(entry.path());
+                format!("{}{}", "  ".repeat(entry.depth()), path.display())
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn file_tree_diff(&self) -> String {
+        unified_diff(
+            similar::Algorithm::Patience,
+            &self.file_tree.clone().unwrap(),
+            self.current_file_tree().as_ref(),
+            3,
+            Some(("Original file tree", "Updated file tree")),
+        )
+    }
 }
 
 #[test]
 fn test_json_inline() {
-    let test_project = TestProject::new()
+    let mut test_project = TestProject::new()
         .add_file(
             "Cargo.toml",
             r#"
@@ -161,7 +194,7 @@ fn test_json_snapshot() {
 
 #[test]
 fn test_yaml_inline() {
-    let test_project = TestProject::new()
+    let mut test_project = TestProject::new()
         .add_file(
             "Cargo.toml",
             r#"
@@ -235,7 +268,7 @@ fn test_yaml_snapshot() {
 
 #[test]
 fn test_utf8_inline() {
-    let test_project = TestProject::new()
+    let mut test_project = TestProject::new()
         .add_file(
             "Cargo.toml",
             r#"
@@ -334,4 +367,101 @@ fn test_trailing_comma_in_inline_snapshot() {
          );
      }
     "##);
+}
+
+// TODO: This panics and will be fixed by #531 (and the snapshot requires
+// updating, it's also wrong)
+#[ignore]
+#[test]
+fn test_nested_crate() {
+    let mut test_project = TestProject::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[workspace]
+members = [
+    "crates/member-crate",
+]
+
+[workspace.dependencies]
+insta = {path = "$PROJECT_PATH"}
+
+
+[package]
+name = "nested"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { workspace = true }
+
+"#
+            .to_string(),
+        )
+        .add_file(
+            "crates/member-crate/Cargo.toml",
+            r#"
+[package]
+name = "member-crate"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+insta = { workspace = true }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "crates/member-crate/src/lib.rs",
+            r#"
+#[test]
+fn test_member() {
+    insta::assert_debug_snapshot!(vec![1, 2, 3]);
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+fn main() {
+    println!("Hello, world!");
+}
+
+#[test]
+fn test_root() {
+    insta::assert_debug_snapshot!(vec![1, 2, 3]);
+}
+"#
+            .to_string(),
+        )
+        .create();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept", "--workspace"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Tests failed: {}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    assert_snapshot!(test_project.file_tree_diff(), @r#"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -5,5 +5,8 @@
+           crates/member-crate/Cargo.toml
+           crates/member-crate/src
+             crates/member-crate/src/lib.rs
+    +  Cargo.lock
+       src
+    +    src/snapshots
+    +      src/snapshots/nested__root.snap
+         src/main.rs
+    \ No newline at end of file
+    "#     );
 }
