@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::TempDir;
 
+use similar::udiff::unified_diff;
 struct TestProject {
     files: HashMap<PathBuf, String>,
     temp_dir: TempDir,
@@ -32,7 +33,7 @@ impl TestProject {
         self
     }
 
-    fn create(&mut self) -> &PathBuf {
+    fn create(mut self) -> Self {
         let project_path = self.temp_dir.path();
 
         // Get the absolute path to the current insta crate
@@ -51,7 +52,7 @@ impl TestProject {
         }
 
         self.project_path = Some(project_path.to_path_buf());
-        self.project_path.as_ref().unwrap()
+        self
     }
 
     fn cmd(&self) -> Command {
@@ -63,11 +64,30 @@ impl TestProject {
         command.current_dir(project_path);
         command
     }
+
+    fn diff(&self, file_path: &str) -> String {
+        dbg!(self.files.keys());
+        let original_content = self.files.get(dbg!(Path::new(file_path))).unwrap();
+        let project_path = self.project_path.as_ref().unwrap();
+        let path_buf = project_path.join(file_path);
+        let updated_content = fs::read_to_string(&path_buf).unwrap();
+
+        unified_diff(
+            similar::Algorithm::Patience,
+            original_content,
+            &updated_content,
+            3,
+            Some((
+                &format!("Original: {}", file_path),
+                &format!("Updated: {}", file_path),
+            )),
+        )
+    }
 }
 
 #[test]
 fn test_json_inline() {
-    let mut project = TestProject::new()
+    let test_project = TestProject::new()
         .add_file(
             "Cargo.toml",
             r#"
@@ -105,15 +125,14 @@ fn test_json_snapshot() {
 }
 "#
             .to_string(),
-        );
+        )
+        .create();
 
-    project.create();
-
-    let output = project
+    let output = test_project
         .cmd()
         .args(["test", "--accept"])
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(
         output.status.success(),
@@ -122,39 +141,27 @@ fn test_json_snapshot() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let contents =
-        fs::read_to_string(project.project_path.as_ref().unwrap().join("src/main.rs")).unwrap();
-    assert_snapshot!(contents, @r#####"
-
-    use serde::Serialize;
-
-    #[derive(Serialize)]
-    struct User {
-        id: u64,
-        email: String,
-    }
-
-    #[test]
-    fn test_json_snapshot() {
-        let user = User {
-            id: 42,
-            email: "john.doe@example.com".into(),
-        };
-        insta::assert_json_snapshot!(&user, {
-            ".id" => "[user_id]",
-        }, @r###"
-        {
-          "id": "[user_id]",
-          "email": "john.doe@example.com"
-        }
-        "###);
-    }
-    "#####);
+    assert_snapshot!(test_project.diff("src/main.rs"), @r##"
+    --- Original: src/main.rs
+    +++ Updated: src/main.rs
+    @@ -15,5 +15,10 @@
+         };
+         insta::assert_json_snapshot!(&user, {
+             ".id" => "[user_id]",
+    -    }, @"");
+    +    }, @r#"
+    +    {
+    +      "id": "[user_id]",
+    +      "email": "john.doe@example.com"
+    +    }
+    +    "#);
+     }
+    "##);
 }
 
 #[test]
 fn test_yaml_inline() {
-    let mut project = TestProject::new()
+    let test_project = TestProject::new()
         .add_file(
             "Cargo.toml",
             r#"
@@ -193,15 +200,14 @@ fn test_yaml_snapshot() {
 }
 "#
             .to_string(),
-        );
+        )
+        .create();
 
-    project.create();
-
-    let output = project
+    let output = test_project
         .cmd()
         .args(["test", "--accept"])
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(
         output.status.success(),
@@ -210,38 +216,26 @@ fn test_yaml_snapshot() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let contents =
-        fs::read_to_string(project.project_path.as_ref().unwrap().join("src/main.rs")).unwrap();
-    assert_snapshot!(contents, @r#####"
-
-    use serde::Serialize;
-
-    #[derive(Serialize)]
-    struct User {
-        id: u64,
-        email: String,
-    }
-
-    #[test]
-    fn test_yaml_snapshot() {
-        let user = User {
-            id: 42,
-            email: "john.doe@example.com".into(),
-        };
-        insta::assert_yaml_snapshot!(&user, {
-            ".id" => "[user_id]",
-        }, @r###"
-        ---
-        id: "[user_id]"
-        email: john.doe@example.com
-        "###);
-    }
-    "#####);
+    assert_snapshot!(test_project.diff("src/main.rs"), @r##"
+    --- Original: src/main.rs
+    +++ Updated: src/main.rs
+    @@ -15,5 +15,9 @@
+         };
+         insta::assert_yaml_snapshot!(&user, {
+             ".id" => "[user_id]",
+    -    }, @"");
+    +    }, @r#"
+    +    ---
+    +    id: "[user_id]"
+    +    email: john.doe@example.com
+    +    "#);
+     }
+    "##);
 }
 
 #[test]
 fn test_utf8_inline() {
-    let mut project = TestProject::new()
+    let test_project = TestProject::new()
         .add_file(
             "Cargo.toml",
             r#"
@@ -259,7 +253,6 @@ insta = { path = "$PROJECT_PATH" }
             "src/main.rs",
             r#"
 #[test]
-#[rustfmt::skip]
 fn test_non_basic_plane() {
     /* an offset here ❄️ */ insta::assert_snapshot!("a 😀oeu", @"");
 }
@@ -288,15 +281,14 @@ fn test_trailing_comma_in_inline_snapshot() {
 }
 "#
             .to_string(),
-        );
+        )
+        .create();
 
-    project.create();
-
-    let output = project
+    let output = test_project
         .cmd()
         .args(["test", "--accept"])
         .output()
-        .expect("Failed to execute command");
+        .unwrap();
 
     assert!(
         output.status.success(),
@@ -305,34 +297,41 @@ fn test_trailing_comma_in_inline_snapshot() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let contents =
-        fs::read_to_string(project.project_path.as_ref().unwrap().join("src/main.rs")).unwrap();
-    assert_snapshot!(contents, @r###"
-    #[test]
-    #[rustfmt::skip]
-    fn test_non_basic_plane() {
-        /* an offset here ❄️ */ insta::assert_snapshot!("a 😀oeu", @"a 😀oeu");
-    }
-
-    #[test]
-    fn test_remove_existing_value() {
-        insta::assert_snapshot!("this is the new value", @"this is the new value");
-    }
-
-    #[test]
-    fn test_remove_existing_value_multiline() {
-        insta::assert_snapshot!(
-            "this is the new value",
-            @"this is the new value"
-        );
-    }
-
-    #[test]
-    fn test_trailing_comma_in_inline_snapshot() {
-        insta::assert_snapshot!(
-            "new value",
-            @"new value",  // comma here
-        );
-    }
-    "###);
+    assert_snapshot!(test_project.diff("src/main.rs"), @r##"
+    --- Original: src/main.rs
+    +++ Updated: src/main.rs
+    @@ -1,21 +1,19 @@
+     
+     #[test]
+     fn test_non_basic_plane() {
+    -    /* an offset here ❄️ */ insta::assert_snapshot!("a 😀oeu", @"");
+    +    /* an offset here ❄️ */ insta::assert_snapshot!("a 😀oeu", @"a 😀oeu");
+     }
+     
+     #[test]
+     fn test_remove_existing_value() {
+    -    insta::assert_snapshot!("this is the new value", @"this is the old value");
+    +    insta::assert_snapshot!("this is the new value", @"this is the new value");
+     }
+     
+     #[test]
+     fn test_remove_existing_value_multiline() {
+         insta::assert_snapshot!(
+             "this is the new value",
+    -        @"this is\
+    -        this is the old value\
+    -        it really is"
+    +        @"this is the new value"
+         );
+     }
+     
+    @@ -23,6 +21,6 @@
+     fn test_trailing_comma_in_inline_snapshot() {
+         insta::assert_snapshot!(
+             "new value",
+    -        @"old value",  // comma here
+    +        @"new value",  // comma here
+         );
+     }
+    "##);
 }

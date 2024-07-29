@@ -27,3 +27,4 @@ tempfile = "3.5.0"
 
 [dev-dependencies]
 walkdir = "2.3.1"
+similar= "2.2.1"
