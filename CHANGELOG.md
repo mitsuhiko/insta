@@ -4,10 +4,10 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.40.0
 
-- Inline snapshots now use with the required number of `#` to escape the
-  snapshot value, rather than always using `###`. If there are no existing `#`
-  characters in the snapshot value, this will only be a single `#`. This allows
-  snapshotting values which themselves contain `###`.
+- Inline snapshots now use the required number of `#`s to escape the snapshot
+  value, rather than always using `###`. This allows snapshotting values which
+  themselves contain `###`. If there are no existing `#` characters in the
+  snapshot value, a single `#` will be used.
 
 - No longer suggest running `cargo insta` message when running `cargo insta test --check`.  #515
 
