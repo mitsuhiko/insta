@@ -141,7 +141,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-insta = { path = "$PROJECT_PATH", features=["json", "redactions"] }
+insta = { path = '$PROJECT_PATH', features=["json", "redactions"] }
 serde = { version = "1.0", features = ["derive"] }
 "#
             .to_string(),
@@ -215,7 +215,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-insta = { path = "$PROJECT_PATH", features=["yaml", "redactions"] }
+insta = { path = '$PROJECT_PATH', features=["yaml", "redactions"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 "#
@@ -289,7 +289,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-insta = { path = "$PROJECT_PATH" }
+insta = { path = '$PROJECT_PATH' }
 "#
             .to_string(),
         )
@@ -395,7 +395,7 @@ members = [
 ]
 
 [workspace.dependencies]
-insta = {path = "$PROJECT_PATH"}
+insta = {path = '$PROJECT_PATH'}
 
 
 [package]
