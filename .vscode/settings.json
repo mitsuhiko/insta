@@ -1,8 +1,7 @@
 {
-    "editor.formatOnSave": true,
-    "rust-analyzer.checkOnSave.allFeatures": true,
-    "rust-analyzer.cargo.allFeatures": true,
-    "files.trimTrailingWhitespace": true,
-    "files.insertFinalNewline": true,
-    "rust-analyzer.checkOnSave.command": "clippy",
+  "editor.formatOnSave": true,
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "rust-analyzer.cargo.features": "all",
+  "rust-analyzer.check.command": "clippy"
 }
