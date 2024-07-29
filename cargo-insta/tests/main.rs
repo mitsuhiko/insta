@@ -220,7 +220,6 @@ edition = "2021"
 [dependencies]
 insta = { path = '$PROJECT_PATH', features=["yaml", "redactions"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
 "#
             .to_string(),
         )
