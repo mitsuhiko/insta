@@ -15,10 +15,7 @@ cargotest:
 	@cargo test -p insta --all-features
 	@cargo test -p insta --no-default-features
 	@cargo test -p insta --features redactions -- --test-threads 1
-	@echo "CARGO-INSTA TESTS"
-	# Turn off CI flag so that cargo insta test behaves as we expect
-	# under normal operation
-	@CI=0 cargo test -p cargo-insta
+	@cargo test -p cargo-insta
 
 check-minver:
 	@echo "MINVER CHECK"

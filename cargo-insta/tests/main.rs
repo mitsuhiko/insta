@@ -81,6 +81,9 @@ impl TestProject {
         // tread on the toes of others? We could have a different cache for each
         // project if so...)
         command.env("CARGO_TARGET_DIR", target_dir());
+        // Turn off CI flag so that cargo insta test behaves as we expect
+        // under normal operation
+        command.env("CI", "0");
         command
     }
 
