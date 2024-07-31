@@ -867,7 +867,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--package");
         proc.arg(pkg);
     }
-    for spec in &cmd.exclude {
+    for spec in &cmd.test_runner_options.exclude {
         proc.arg("--exclude");
         proc.arg(spec);
     }
