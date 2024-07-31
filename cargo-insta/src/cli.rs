@@ -211,6 +211,8 @@ struct TestCommand {
     /// Picks the test runner.
     #[arg(long, default_value = "auto")]
     test_runner: TestRunner,
+    #[arg(long)]
+    test_runner_fallback: Option<bool>,
     /// Delete unreferenced snapshots after a successful test run.
     #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
@@ -616,6 +618,10 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         TestRunner::CargoTest => TestRunner::CargoTest,
         TestRunner::Nextest => TestRunner::Nextest,
     };
+    // Prioritize the command line over the tool config
+    let test_runner_fallback = cmd
+        .test_runner_fallback
+        .unwrap_or(loc.tool_config.test_runner_fallback());
 
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
         prepare_test_runner(test_runner, cmd.unreferenced, &cmd, color, &[], None)?;

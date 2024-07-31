@@ -104,6 +104,8 @@ pub struct ToolConfig {
     #[cfg(feature = "glob")]
     glob_fail_fast: bool,
     #[cfg(feature = "_cargo_insta_internal")]
+    test_runner_fallback: bool,
+    #[cfg(feature = "_cargo_insta_internal")]
     test_runner: TestRunner,
     #[cfg(feature = "_cargo_insta_internal")]
     test_unreferenced: UnreferencedSnapshots,
@@ -235,6 +237,15 @@ impl ToolConfig {
                 .map_err(|_| Error::Env("INSTA_TEST_RUNNER"))?
             },
             #[cfg(feature = "_cargo_insta_internal")]
+            test_runner_fallback: match env::var("INSTA_TEST_RUNNER_FALLBACK").as_deref() {
+                Err(_) | Ok("") => resolve(&cfg, &["test", "runner_fallback"])
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+                Ok("1") => true,
+                Ok("0") => false,
+                _ => return Err(Error::Env("INSTA_RUNNER_FALLBACK")),
+            },
+            #[cfg(feature = "_cargo_insta_internal")]
             test_unreferenced: {
                 resolve(&cfg, &["test", "unreferenced"])
                     .and_then(|x| x.as_str())
@@ -264,6 +275,8 @@ impl ToolConfig {
                 .unwrap_or(true),
         })
     }
+
+    // TODO: Do we want all these methods, vs. just allowing access to the fields?
 
     /// Is insta told to force update snapshots?
     pub fn force_update_snapshots(&self) -> bool {
@@ -302,6 +315,11 @@ impl ToolConfig {
     /// Returns the intended test runner
     pub fn test_runner(&self) -> TestRunner {
         self.test_runner
+    }
+
+    /// Whether to fallback to `cargo test` if the test runner isn't available
+    pub fn test_runner_fallback(&self) -> bool {
+        self.test_runner_fallback
     }
 
     pub fn test_unreferenced(&self) -> UnreferencedSnapshots {
