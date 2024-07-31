@@ -610,8 +610,14 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         cmd.unreferenced = UnreferencedSnapshots::Delete;
     }
 
+    let test_runner = match cmd.test_runner {
+        TestRunner::Auto => loc.tool_config.test_runner(),
+        TestRunner::CargoTest => TestRunner::CargoTest,
+        TestRunner::Nextest => TestRunner::Nextest,
+    };
+
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
-        prepare_test_runner(cmd.test_runner, cmd.unreferenced, &cmd, color, &[], None)?;
+        prepare_test_runner(test_runner, cmd.unreferenced, &cmd, color, &[], None)?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
