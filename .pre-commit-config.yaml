@@ -3,7 +3,7 @@ repos:
     rev: v4.6.0
     hooks:
       - id: end-of-file-fixer
-        exclude: '(.*\.snap)'
+        exclude: '(.*\.snap)|(insta/tests/inputs/.*)'
       - id: check-yaml
       - id: mixed-line-ending
   - repo: https://github.com/crate-ci/typos
