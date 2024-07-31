@@ -610,6 +610,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         cmd.unreferenced = UnreferencedSnapshots::Delete;
     }
 
+    // Prioritize the command line over the tool config
     let test_runner = match cmd.test_runner {
         TestRunner::Auto => loc.tool_config.test_runner(),
         TestRunner::CargoTest => TestRunner::CargoTest,
