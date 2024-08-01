@@ -801,6 +801,8 @@ fn handle_unreferenced_snapshots(
         }
     }
 
+    fs::remove_file(snapshot_ref_path).ok();
+
     if !encountered_any {
         eprintln!("{}: no unreferenced snapshots found", style("info").bold());
     } else if matches!(action, Action::Reject) {
