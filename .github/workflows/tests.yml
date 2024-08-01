@@ -39,7 +39,7 @@ jobs:
       - name: Test
         run: cargo run -p cargo-insta -- test
 
-  build-old-stable:
+  build-on-msrv:
     name: Check on MSRV
     runs-on: ubuntu-latest
     steps:
