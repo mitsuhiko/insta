@@ -15,4 +15,5 @@ inherits = "release"
 lto = "thin"
 
 [workspace.dependencies]
-clap = {version = "4.3", features = ["derive", "env"]}
+# Locking because of MSRV; wait for MSRV bump or msrv-resolver
+clap = {version = "4.1", features = ["derive", "env"]}
