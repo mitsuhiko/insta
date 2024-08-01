@@ -18,12 +18,12 @@ fn test_json_snapshot() {
     };
     insta::assert_json_snapshot!(&user, {
         ".id" => "[user_id]",
-    }, @r###"
+    }, @r#"
     {
       "id": "[user_id]",
       "email": "john.doe@example.com"
     }
-    "###);
+    "#);
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn test_json_snapshot_trailing_comma() {
     };
     insta::assert_compact_json_snapshot!(
         &user,
-        @r###"{"id": 42, "email": "john.doe@example.com"}"###,
+        @r#"{"id": 42, "email": "john.doe@example.com"}"#,
     );
 }
 
@@ -49,11 +49,11 @@ fn test_json_snapshot_trailing_comma_redaction() {
         {
             ".id" => "[user_id]",
         },
-        @r###"
+        @r#"
     {
       "id": "[user_id]",
       "email": "john.doe@example.com"
     }
-    "###,
+    "#,
     );
 }
