@@ -247,20 +247,15 @@ impl MetaData {
         Content::Struct("MetaData", fields)
     }
 
-    /// Trims the metadata of fields that we don't save to `.snap` files; we
-    /// only use for display while reviewing
+    /// Trims the metadata of fields that we don't save to `.snap` files (those
+    /// we only use for display while reviewing)
     fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
-        let is_inline = self.input_file.is_none();
-        // If it's inline, we don't persist any metadata
-        if is_inline {
-            return Cow::Owned(MetaData {
-                source: None,
-                assertion_line: None,
-                input_file: None,
-                expression: None,
-                ..self.clone()
-            });
-        }
+        // TODO: in order for `--require-full-match` to work on inline snapshots
+        // without cargo-insta, we need to trim all fields if there's an inline
+        // snapshot. But we don't know that from here (notably
+        // `self.input_file.is_none()` is not a correct approach). Given that
+        // `--require-full-match` is experimental and we're working on making
+        // inline & file snapshots more coherent, I'm leaving this as is for now.
         if self.assertion_line.is_some() {
             let mut rv = self.clone();
             rv.assertion_line = None;
@@ -324,6 +319,7 @@ impl Snapshot {
                     }
                 }
             }
+            eprintln!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
@@ -465,11 +461,19 @@ impl Snapshot {
         let serialized_snapshot = self.serialize_snapshot(md);
 
         // check the reference file for contents.  Note that we always want to
-        // compare snapshots that were trimmed to persistence here.
+        // compare snapshots that were trimmed to persistence here.  This is a
+        // stricter check than even `matches_fully`, since it's comparing the
+        // exact contents of the file.
         if let Ok(old) = fs::read_to_string(ref_file.unwrap_or(path)) {
             let persisted = match md.trim_for_persistence() {
                 Cow::Owned(trimmed) => Cow::Owned(self.serialize_snapshot(&trimmed)),
-                Cow::Borrowed(_) => Cow::Borrowed(&serialized_snapshot),
+                Cow::Borrowed(trimmed) => {
+                    // This condition needs to hold, otherwise we need to
+                    // compare the old value to a newly trimmed serialized snapshot
+                    debug_assert_eq!(trimmed, md);
+
+                    Cow::Borrowed(&serialized_snapshot)
+                }
             };
             if old == persisted.as_str() {
                 return Ok(false);
@@ -541,9 +545,25 @@ impl SnapshotContents {
     pub fn to_inline(&self, indentation: usize) -> String {
         let contents = &self.0;
         let mut out = String::new();
-        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
 
-        out.push_str(if is_escape { "r###\"" } else { "\"" });
+        // Escape the string if needed, with `r#`, using with 1 more `#` than
+        // the maximum number of existing contiguous `#`.
+        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
+        let delimiter = if is_escape {
+            let max_contiguous_hash = contents
+                .split(|c| c != '#')
+                .map(|group| group.len())
+                .max()
+                .unwrap_or(0);
+            out.push('r');
+            "#".repeat(max_contiguous_hash + 1)
+        } else {
+            "".to_string()
+        };
+
+        out.push_str(&delimiter);
+        out.push('"');
+
         // if we have more than one line we want to change into the block
         // representation mode
         if contents.contains('\n') {
@@ -567,7 +587,8 @@ impl SnapshotContents {
             out.push_str(contents);
         }
 
-        out.push_str(if is_escape { "\"###" } else { "\"" });
+        out.push('"');
+        out.push_str(&delimiter);
 
         out
     }
@@ -698,6 +719,8 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
     // (the only call site)
 
     if frozen_value.trim_start().starts_with('⋮') {
+        eprintln!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nValue: {}", frozen_value);
+
         // legacy format - retain so old snapshots still work
         let mut buf = String::new();
         let mut line_iter = frozen_value.lines();
@@ -750,10 +773,10 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
 a
 b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -761,10 +784,10 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(4),
-        "r###\"
+        "r#\"
     a
     b
-    \"###"
+    \"#"
     );
 
     let t = &"
@@ -772,10 +795,10 @@ b"[1..];
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     a
     b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -784,11 +807,11 @@ b"[1..];
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     a
 
     b
-\"###"
+\"#"
     );
 
     let t = &"
@@ -796,13 +819,28 @@ b"[1..];
 "[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        "r#\"
     ab
-\"###"
+\"#"
     );
 
     let t = "ab";
     assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""ab""#);
+}
+
+#[test]
+fn test_snapshot_contents_hashes() {
+    let t = "a###b";
+    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""a###b""#);
+
+    let t = "a\n###b";
+    assert_eq!(
+        SnapshotContents(t.to_string()).to_inline(0),
+        r#####"r####"
+a
+###b
+"####"#####
+    );
 }
 
 #[test]
