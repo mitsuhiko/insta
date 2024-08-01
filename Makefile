@@ -27,6 +27,11 @@ check-minver:
 	@cargo minimal-versions check -p insta --no-default-features
 	@cargo minimal-versions check -p insta --features redactions
 
+check-msrv:
+	@echo "MSRV CHECK"
+	@cd insta && cargo msrv verify
+	@cd cargo-insta && cargo msrv verify
+
 format:
 	@rustup component add rustfmt 2> /dev/null
 	@cargo fmt --all
