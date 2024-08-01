@@ -26,19 +26,6 @@ jobs:
       - name: Test
         run: make test
 
-  test-stable:
-    name: Test on 1.64.0
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.64.0
-      - uses: Swatinem/rust-cache@v2
-      - name: Test
-        run: cargo run -p cargo-insta -- test
-        
   test-current-cargo-insta:
     name: Run the in-tree version of cargo-insta on ourselves
     runs-on: ubuntu-latest
@@ -52,7 +39,7 @@ jobs:
       - name: Test
         run: cargo run -p cargo-insta -- test
 
-  build-old-stable:
+  build-on-msrv:
     name: Check on MSRV
     runs-on: ubuntu-latest
     steps:
