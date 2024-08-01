@@ -61,7 +61,9 @@ dependencies = [
  "console",
  "ignore",
  "insta",
+ "lazy_static",
  "proc-macro2",
+ "semver",
  "serde",
  "serde_json",
  "structopt",
@@ -567,9 +569,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.19"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad977052201c6de01a8ef2aa3378c4bd23217a056337d1d6da40468d267a4fb0"
+checksum = "d65bd28f48be7196d222d95b9243287f48d27aca604e08497513019ff0502cc4"
 dependencies = [
  "serde",
 ]
