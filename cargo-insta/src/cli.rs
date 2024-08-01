@@ -795,7 +795,7 @@ fn handle_unreferenced_snapshots(
         }
     }
 
-    fs::remove_file(path).ok();
+    fs::remove_file(snapshot_ref_path).ok();
 
     if !encountered_any {
         eprintln!("{}: no unreferenced snapshots found", style("info").bold());
