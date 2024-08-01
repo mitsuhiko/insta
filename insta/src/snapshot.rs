@@ -319,6 +319,7 @@ impl Snapshot {
                     }
                 }
             }
+            eprintln!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
@@ -460,11 +461,19 @@ impl Snapshot {
         let serialized_snapshot = self.serialize_snapshot(md);
 
         // check the reference file for contents.  Note that we always want to
-        // compare snapshots that were trimmed to persistence here.
+        // compare snapshots that were trimmed to persistence here.  This is a
+        // stricter check than even `matches_fully`, since it's comparing the
+        // exact contents of the file.
         if let Ok(old) = fs::read_to_string(ref_file.unwrap_or(path)) {
             let persisted = match md.trim_for_persistence() {
                 Cow::Owned(trimmed) => Cow::Owned(self.serialize_snapshot(&trimmed)),
-                Cow::Borrowed(_) => Cow::Borrowed(&serialized_snapshot),
+                Cow::Borrowed(trimmed) => {
+                    // This condition needs to hold, otherwise we need to
+                    // compare the old value to a newly trimmed serialized snapshot
+                    debug_assert_eq!(trimmed, md);
+
+                    Cow::Borrowed(&serialized_snapshot)
+                }
             };
             if old == persisted.as_str() {
                 return Ok(false);
@@ -676,6 +685,8 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
     // (the only call site)
 
     if frozen_value.trim_start().starts_with('⋮') {
+        eprintln!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nValue: {}", frozen_value);
+
         // legacy format - retain so old snapshots still work
         let mut buf = String::new();
         let mut line_iter = frozen_value.lines();

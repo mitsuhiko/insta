@@ -11,6 +11,7 @@ keywords = ["snapshot", "testing", "jest"]
 categories = ["development-tools::cargo-plugins"]
 edition = "2018"
 readme = "README.md"
+rust-version = "1.61.0"
 
 [dependencies]
 insta = { version = "=1.39.0", path = "../insta", features = ["json", "yaml", "redactions", "_cargo_insta_internal"] }
