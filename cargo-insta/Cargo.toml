@@ -25,7 +25,9 @@ syn = { version = "=2.0.8", features = ["full", "visit", "extra-traits"] }
 ignore = "0.4.17"
 uuid = { version = "1.0.0", features = ["v4"] }
 tempfile = "3.5.0"
-clap = { workspace=true}
+# Not yet supported in our MSRV of 1.60.0
+# clap = { workspace=true }
+clap = {version = "4.0", features = ["derive", "env"]}
 
 [dev-dependencies]
 walkdir = "2.3.1"
