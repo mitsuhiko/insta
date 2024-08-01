@@ -670,10 +670,8 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // handle unreferenced snapshots if we were instructed to do so and the
     // tests ran successfully
     if success {
-        if let Some(ref path) = snapshot_ref_file {
-            handle_unreferenced_snapshots(path.borrow(), &loc, cmd.unreferenced)?;
-            // handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced, &cmd.package[..])?;
-            // handle_unreferenced_snapshots(path.borrow(), &loc, cmd.unreferenced, &cmd.package[..])?;
+        if let Some(ref snapshot_ref_path) = snapshot_ref_file {
+            handle_unreferenced_snapshots(snapshot_ref_path.borrow(), &loc, cmd.unreferenced)?;
         }
     }
 
@@ -716,7 +714,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
 }
 
 fn handle_unreferenced_snapshots(
-    path: &Path,
+    snapshot_ref_path: &Path,
     loc: &LocationInfo<'_>,
     unreferenced: UnreferencedSnapshots,
 ) -> Result<(), Box<dyn Error>> {
@@ -741,7 +739,7 @@ fn handle_unreferenced_snapshots(
     };
 
     let mut files = HashSet::new();
-    match fs::read_to_string(path) {
+    match fs::read_to_string(snapshot_ref_path) {
         Ok(s) => {
             for line in s.lines() {
                 if let Ok(path) = fs::canonicalize(line) {
