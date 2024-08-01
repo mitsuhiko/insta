@@ -65,7 +65,7 @@ dependencies = [
  "serde",
  "serde_json",
  "structopt",
- "syn 2.0.72",
+ "syn 2.0.0",
  "tempfile",
  "uuid",
  "walkdir",
@@ -673,9 +673,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.72"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc4b9b9bf2add8093d3f2c0204471e951b2285580335de42f9d2534f3ae7a8af"
+checksum = "4cff13bb1732bccfe3b246f3fdb09edfd51c01d6f5299b7ccd9457c2e4e37774"
 dependencies = [
  "proc-macro2",
  "quote",
