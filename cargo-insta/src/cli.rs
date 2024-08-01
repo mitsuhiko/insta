@@ -1,8 +1,8 @@
 use std::borrow::{Borrow, Cow};
-use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
+use std::{collections::HashSet, fmt};
 use std::{env, fs};
 use std::{io, process};
 
@@ -12,8 +12,6 @@ use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
 use serde::Serialize;
-use structopt::clap::AppSettings;
-use structopt::StructOpt;
 use uuid::Uuid;
 
 use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
@@ -21,209 +19,220 @@ use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
 
+use clap::{Args, Parser, Subcommand, ValueEnum};
+
 /// A helper utility to work with insta snapshots.
-#[derive(StructOpt, Debug)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[command(
     bin_name = "cargo insta",
-    setting = AppSettings::ArgRequiredElseHelp,
-    global_setting = AppSettings::ColorNever,
-    global_setting = AppSettings::UnifiedHelpMessage,
-    global_setting = AppSettings::DeriveDisplayOrder,
-    global_setting = AppSettings::DontCollapseArgsInUsage
+    arg_required_else_help = true,
+    // TODO: do we want these?
+    disable_colored_help = true,
+    disable_version_flag = true,
+    next_line_help = true
 )]
 struct Opts {
     /// Coloring
-    #[structopt(long, global = true, value_name = "WHEN", possible_values=&["auto", "always", "never"])]
-    color: Option<String>,
+    #[arg(long, global = true, value_name = "WHEN", env = "CARGO_TERM_COLOR")]
+    color: Option<ColorWhen>,
 
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     command: Command,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(
-    bin_name = "cargo insta",
+#[derive(ValueEnum, Copy, Clone, Debug)]
+enum ColorWhen {
+    Auto,
+    Always,
+    Never,
+}
+
+impl fmt::Display for ColorWhen {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ColorWhen::Auto => write!(f, "auto"),
+            ColorWhen::Always => write!(f, "always"),
+            ColorWhen::Never => write!(f, "never"),
+        }
+    }
+}
+
+#[derive(Subcommand, Debug)]
+#[command(
     after_help = "For the online documentation of the latest version, see https://insta.rs/docs/cli/."
 )]
 #[allow(clippy::large_enum_variant)]
 enum Command {
     /// Interactively review snapshots
-    #[structopt(name = "review", alias = "verify")]
+    #[command(alias = "verify")]
     Review(ProcessCommand),
     /// Rejects all snapshots
-    #[structopt(name = "reject")]
     Reject(ProcessCommand),
     /// Accept all snapshots
-    #[structopt(name = "accept", alias = "approve")]
+    #[command(alias = "approve")]
     Accept(ProcessCommand),
     /// Run tests and then reviews
-    #[structopt(name = "test")]
     Test(TestCommand),
     /// Print a summary of all pending snapshots.
-    #[structopt(name = "pending-snapshots")]
     PendingSnapshots(PendingSnapshotsCommand),
     /// Shows a specific snapshot
-    #[structopt(name = "show")]
     Show(ShowCommand),
 }
 
-#[derive(StructOpt, Debug, Clone)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug, Clone)]
 struct TargetArgs {
     /// Path to Cargo.toml
-    #[structopt(long, value_name = "PATH", parse(from_os_str))]
+    #[arg(long, value_name = "PATH")]
     manifest_path: Option<PathBuf>,
     /// Explicit path to the workspace root
-    #[structopt(long, value_name = "PATH", parse(from_os_str))]
+    #[arg(long, value_name = "PATH")]
     workspace_root: Option<PathBuf>,
-    /// Sets the extensions to consider.  Defaults to `.snap`
-    #[structopt(short = "e", long, value_name = "EXTENSIONS", multiple = true)]
+    /// Sets the extensions to consider. Defaults to `.snap`
+    #[arg(short = 'e', long, value_name = "EXTENSIONS", num_args = 1.., value_delimiter = ',')]
     extensions: Vec<String>,
     /// Work on all packages in the workspace
-    #[structopt(long)]
+    #[arg(long)]
     workspace: bool,
     /// Alias for --workspace (deprecated)
-    #[structopt(long)]
+    #[arg(long)]
     all: bool,
     /// Also walk into ignored paths.
-    #[structopt(long, alias = "no-ignore")]
+    #[arg(long, alias = "no-ignore")]
     include_ignored: bool,
     /// Also include hidden paths.
-    #[structopt(long)]
+    #[arg(long)]
     include_hidden: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
 struct ProcessCommand {
-    #[structopt(flatten)]
+    #[command(flatten)]
     target_args: TargetArgs,
     /// Limits the operation to one or more snapshots.
-    #[structopt(long = "snapshot")]
+    #[arg(long = "snapshot")]
     snapshot_filter: Option<Vec<String>>,
     /// Do not print to stdout.
-    #[structopt(short = "q", long)]
+    #[arg(short = 'q', long)]
     quiet: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
+#[command(rename_all = "kebab-case")]
 struct TestCommand {
-    #[structopt(flatten)]
+    #[command(flatten)]
     target_args: TargetArgs,
     /// Test only this package's library unit tests
-    #[structopt(long)]
+    #[arg(long)]
     lib: bool,
     /// Test only the specified binary
-    #[structopt(long)]
+    #[arg(long)]
     bin: Option<String>,
     /// Test all binaries
-    #[structopt(long)]
+    #[arg(long)]
     bins: bool,
     /// Test only the specified example
-    #[structopt(long)]
+    #[arg(long)]
     example: Option<String>,
     /// Test all examples
-    #[structopt(long)]
+    #[arg(long)]
     examples: bool,
     /// Test only the specified test targets
-    #[structopt(long)]
+    #[arg(long)]
     test: Vec<String>,
     /// Test all tests
-    #[structopt(long)]
+    #[arg(long)]
     tests: bool,
     /// Package to run tests for
-    #[structopt(short = "p", long)]
+    #[arg(short = 'p', long)]
     package: Vec<String>,
     /// Exclude packages from the test
-    #[structopt(long, value_name = "SPEC")]
+    #[arg(long, value_name = "SPEC")]
     exclude: Vec<String>,
     /// Disable force-passing of snapshot tests
-    #[structopt(long)]
+    #[arg(long)]
     no_force_pass: bool,
     /// Prevent running all tests regardless of failure
-    #[structopt(long)]
+    #[arg(long)]
     fail_fast: bool,
     /// Space-separated list of features to activate
-    #[structopt(long, value_name = "FEATURES")]
+    #[arg(long, value_name = "FEATURES")]
     features: Option<String>,
     /// Number of parallel jobs, defaults to # of CPUs
-    #[structopt(short = "j", long)]
+    #[arg(short = 'j', long)]
     jobs: Option<usize>,
     /// Build artifacts in release mode, with optimizations
-    #[structopt(long)]
+    #[arg(long)]
     release: bool,
     /// Build artifacts with the specified profile
-    #[structopt(long)]
+    #[arg(long)]
     profile: Option<String>,
     /// Test all targets (does not include doctests)
-    #[structopt(long)]
+    #[arg(long)]
     all_targets: bool,
     /// Activate all available features
-    #[structopt(long)]
+    #[arg(long)]
     all_features: bool,
     /// Do not activate the `default` feature
-    #[structopt(long)]
+    #[arg(long)]
     no_default_features: bool,
     /// Build for the target triple
-    #[structopt(long)]
+    #[arg(long)]
     target: Option<String>,
     /// Follow up with review.
-    #[structopt(long)]
+    #[arg(long)]
     review: bool,
     /// Accept all snapshots after test.
-    #[structopt(long, conflicts_with = "review")]
+    #[arg(long, conflicts_with = "review")]
     accept: bool,
     /// Accept all new (previously unseen).
-    #[structopt(long)]
+    #[arg(long)]
     accept_unseen: bool,
     /// Instructs the test command to just assert.
-    #[structopt(long)]
+    #[arg(long)]
     check: bool,
     /// Do not reject pending snapshots before run.
-    #[structopt(long)]
+    #[arg(long)]
     keep_pending: bool,
     /// Update all snapshots even if they are still matching.
-    #[structopt(long)]
+    #[arg(long)]
     force_update_snapshots: bool,
     /// Require metadata as well as snapshots' contents to match (experimental).
-    #[structopt(long)]
+    #[arg(long)]
     require_full_match: bool,
     /// Handle unreferenced snapshots after a successful test run.
-    #[structopt(long, default_value="ignore", possible_values=&["ignore", "warn", "reject", "delete", "auto"])]
-    unreferenced: String,
+    #[arg(long, default_value = "ignore")]
+    unreferenced: UnreferencedSnapshots,
     /// Delete unreferenced snapshots after a successful test run.
-    #[structopt(long, hidden = true)]
+    #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
     /// Filters to apply to the insta glob feature.
-    #[structopt(long)]
+    #[arg(long)]
     glob_filter: Vec<String>,
     /// Do not pass the quiet flag (`-q`) to tests.
-    #[structopt(short = "Q", long)]
+    #[arg(short = 'Q', long)]
     no_quiet: bool,
     /// Picks the test runner.
-    #[structopt(long, default_value="auto", possible_values=&["auto", "cargo-test", "nextest"])]
-    test_runner: String,
+    #[arg(long, default_value = "auto")]
+    test_runner: TestRunner,
     /// Options passed to cargo test
-    // Sets raw to true so that `--` is required
-    #[structopt(name = "CARGO_TEST_ARGS", raw(true))]
+    #[arg(last = true)]
     cargo_options: Vec<String>,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
+#[command(rename_all = "kebab-case")]
 struct PendingSnapshotsCommand {
-    #[structopt(flatten)]
+    #[command(flatten)]
     target_args: TargetArgs,
     /// Changes the output from human readable to JSON.
-    #[structopt(long)]
+    #[arg(long)]
     as_json: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(rename_all = "kebab-case")]
+#[derive(Args, Debug)]
+#[command(rename_all = "kebab-case")]
 struct ShowCommand {
-    #[structopt(flatten)]
+    #[command(flatten)]
     target_args: TargetArgs,
     /// The path to the snapshot file.
     path: PathBuf,
@@ -325,22 +334,15 @@ fn query_snapshot(
     }
 }
 
-fn handle_color(color: Option<&str>) -> Result<&'static str, Box<dyn Error>> {
-    match &*color
-        .map(Cow::Borrowed)
-        .or_else(|| std::env::var("CARGO_TERM_COLOR").ok().map(Cow::Owned))
-        .unwrap_or(Cow::Borrowed("auto"))
-    {
-        "always" => {
+fn handle_color(color: Option<ColorWhen>) {
+    match color {
+        Some(ColorWhen::Always) => {
             set_colors_enabled(true);
-            Ok("always")
         }
-        "auto" => Ok("auto"),
-        "never" => {
+        Some(ColorWhen::Never) => {
             set_colors_enabled(false);
-            Ok("never")
         }
-        color => Err(err_msg(format!("invalid value for --color: {}", color))),
+        Some(ColorWhen::Auto) | None => {}
     }
 }
 
@@ -559,7 +561,7 @@ fn process_snapshots(
     Ok(())
 }
 
-fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
+fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args)?;
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
@@ -601,21 +603,11 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
         println!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
-        cmd.unreferenced = "delete".into();
+        cmd.unreferenced = UnreferencedSnapshots::Delete;
     }
 
-    let test_runner = cmd
-        .test_runner
-        .parse()
-        .map_err(|_| err_msg("invalid test runner preference"))?;
-
-    let unreferenced = cmd
-        .unreferenced
-        .parse()
-        .map_err(|_| err_msg("invalid value for --unreferenced"))?;
-
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
-        prepare_test_runner(test_runner, unreferenced, &cmd, color, &[], None)?;
+        prepare_test_runner(cmd.test_runner, cmd.unreferenced, &cmd, color, &[], None)?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
@@ -625,10 +617,10 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     let mut success = status.success();
 
     // nextest currently cannot run doctests, run them with regular tests
-    if matches!(test_runner, TestRunner::Nextest) && !prevents_doc_run {
+    if matches!(cmd.test_runner, TestRunner::Nextest) && !prevents_doc_run {
         let (mut proc, _, _) = prepare_test_runner(
             TestRunner::CargoTest,
-            unreferenced,
+            cmd.unreferenced,
             &cmd,
             color,
             &["--doc"],
@@ -649,7 +641,7 @@ fn test_run(mut cmd: TestCommand, color: &str) -> Result<(), Box<dyn Error>> {
     // tests ran successfully
     if success {
         if let Some(ref path) = snapshot_ref_file {
-            handle_unreferenced_snapshots(path.borrow(), &loc, unreferenced, &cmd.package[..])?;
+            handle_unreferenced_snapshots(path.borrow(), &loc, cmd.unreferenced, &cmd.package[..])?;
         }
     }
 
@@ -790,7 +782,7 @@ fn prepare_test_runner<'snapshot_ref>(
     test_runner: TestRunner,
     unreferenced: UnreferencedSnapshots,
     cmd: &TestCommand,
-    color: &str,
+    color: ColorWhen,
     extra_args: &[&str],
     snapshot_ref_file: Option<&'snapshot_ref Path>,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
@@ -941,7 +933,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg(target);
     }
     proc.arg("--color");
-    proc.arg(color);
+    proc.arg(color.to_string());
     proc.args(extra_args);
     // Items after this are passed to the test runner
     proc.arg("--");
@@ -957,7 +949,9 @@ fn prepare_test_runner<'snapshot_ref>(
     // We also only want to do this if we override auto as some custom test runners
     // do not handle --color and then we at least fix the default case.
     // https://github.com/mitsuhiko/insta/issues/473
-    if color != "auto" && matches!(test_runner, TestRunner::CargoTest | TestRunner::Auto) {
+    if matches!(color, ColorWhen::Auto)
+        && matches!(test_runner, TestRunner::CargoTest | TestRunner::Auto)
+    {
         proc.arg(format!("--color={}", color));
     };
     Ok((proc, snapshot_ref_file, prevents_doc_run))
@@ -1092,9 +1086,9 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         args.remove(1);
     }
 
-    let opts = Opts::from_iter(args);
+    let opts = Opts::parse_from(args);
 
-    let color = handle_color(opts.color.as_deref())?;
+    handle_color(opts.color);
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
             process_snapshots(
@@ -1109,7 +1103,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
                 },
             )
         }
-        Command::Test(cmd) => test_run(cmd, color),
+        Command::Test(cmd) => test_run(cmd, opts.color.unwrap_or(ColorWhen::Auto)),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
