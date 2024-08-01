@@ -461,11 +461,19 @@ impl Snapshot {
         let serialized_snapshot = self.serialize_snapshot(md);
 
         // check the reference file for contents.  Note that we always want to
-        // compare snapshots that were trimmed to persistence here.
+        // compare snapshots that were trimmed to persistence here.  This is a
+        // stricter check than even `matches_fully`, since it's comparing the
+        // exact contents of the file.
         if let Ok(old) = fs::read_to_string(ref_file.unwrap_or(path)) {
             let persisted = match md.trim_for_persistence() {
                 Cow::Owned(trimmed) => Cow::Owned(self.serialize_snapshot(&trimmed)),
-                Cow::Borrowed(_) => Cow::Borrowed(&serialized_snapshot),
+                Cow::Borrowed(trimmed) => {
+                    // This condition needs to hold, otherwise we need to
+                    // compare the old value to a newly trimmed serialized snapshot
+                    debug_assert_eq!(trimmed, md);
+
+                    Cow::Borrowed(&serialized_snapshot)
+                }
             };
             if old == persisted.as_str() {
                 return Ok(false);
