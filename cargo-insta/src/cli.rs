@@ -6,6 +6,7 @@ use std::{collections::HashSet, fmt};
 use std::{env, fs};
 use std::{io, process};
 
+use cargo_metadata::MetadataCommand;
 use console::{set_colors_enabled, style, Key, Term};
 use insta::Snapshot;
 use insta::_cargo_insta_support::{
@@ -14,7 +15,6 @@ use insta::_cargo_insta_support::{
 use lazy_static::lazy_static;
 use semver::Version;
 use serde::Serialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
@@ -1159,33 +1159,12 @@ lazy_static! {
         Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid cargo-insta version number");
 }
 
-fn run_cargo_metadata() -> Result<String, Box<dyn std::error::Error>> {
-    let output = std::process::Command::new("cargo")
-        .arg("metadata")
-        .arg("--format-version")
-        .arg("1")
-        .arg("--locked")
-        .output()?;
-
-    Ok(String::from_utf8(output.stdout)?)
-}
-
 fn read_insta_version() -> Result<Version, Box<dyn std::error::Error>> {
-    let json_output = run_cargo_metadata()?;
-    let json_value: Value = serde_json::from_str(&json_output)?;
-
-    let packages = json_value["packages"]
-        .as_array()
-        .ok_or("Couldn't read packages array")?;
-
-    let insta_package = packages
+    MetadataCommand::new()
+        .exec()?
+        .packages
         .iter()
-        .find(|package| package["name"].as_str().unwrap() == "insta")
-        .ok_or("insta dependency not found")?;
-
-    let version_str = insta_package["version"]
-        .as_str()
-        .ok_or("Invalid insta version")?;
-
-    Ok(Version::parse(version_str)?)
+        .find(|package| package.name == "insta")
+        .map(|package| package.version.clone())
+        .ok_or("insta not found in cargo metadata".into())
 }
