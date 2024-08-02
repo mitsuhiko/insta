@@ -87,7 +87,7 @@ struct TargetArgs {
     /// Explicit path to the workspace root
     #[arg(long, value_name = "PATH")]
     workspace_root: Option<PathBuf>,
-    /// Sets the extensions to consider.
+    /// Sets the extensions to consider. Defaults to `snap`.
     #[arg(short = 'e', long, value_name = "EXTENSIONS", num_args = 1.., value_delimiter = ',', default_value = "snap")]
     extensions: Vec<String>,
     /// Work on all packages in the workspace
