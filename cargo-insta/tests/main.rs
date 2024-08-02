@@ -150,13 +150,14 @@ impl TestProject {
                     .path()
                     .strip_prefix(workspace_dir)
                     .unwrap_or(entry.path());
-                format!("{}{}", "  ".repeat(entry.depth()), path.display())
+                // Required for Windows compatibility
+                let path_str = path.to_str().map(|s| s.replace('\\', "/")).unwrap();
+                format!("{}{}", "  ".repeat(entry.depth()), path_str)
             })
             .chain(std::iter::once(String::new()))
             .collect::<Vec<_>>()
             .join("\n")
     }
-
     fn file_tree_diff(&self) -> String {
         unified_diff(
             similar::Algorithm::Patience,
