@@ -375,10 +375,12 @@ fn handle_target_args(
     packages: Vec<String>,
 ) -> Result<LocationInfo<'_>, Box<dyn Error>> {
     let exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
+    let all = target_args.all || target_args.workspace;
 
-    // if a workspace root is provided we first check if it points to a `Cargo.toml`.  If it
-    // does we instead treat it as manifest path.  If both are provided we fail with an error
-    // as this would indicate an error.
+    // if a workspace root is provided we first check if it points to a path
+    // containing a `Cargo.toml`.  If it does we instead treat it as manifest
+    // path.  If both are provided we fail with an error since they may not
+    // reconcile with each other.
     let (workspace_root, manifest_path) = match (
         target_args.workspace_root.as_deref(),
         target_args.manifest_path.as_deref(),
@@ -411,37 +413,26 @@ fn handle_target_args(
             .collect()
     };
 
-    if let Some(workspace_root) = workspace_root {
-        let tool_config = ToolConfig::from_workspace(workspace_root)?;
-        let all_packages = get_all_packages(workspace_root)?;
-        let packages = filter_packages(all_packages);
-        Ok(LocationInfo {
-            workspace_root: workspace_root.to_owned(),
-            packages,
-            exts,
-            find_flags: get_find_flags(&tool_config, target_args),
-            tool_config,
-        })
-    } else {
-        let Metadata {
-            packages,
-            workspace_root,
-            ..
-        } = get_metadata(
-            manifest_path.as_deref(),
-            target_args.all || target_args.workspace,
-        )?;
-        let packages = filter_packages(packages);
-        let workspace_root = workspace_root.as_std_path().to_path_buf();
-        let tool_config = ToolConfig::from_workspace(&workspace_root)?;
-        Ok(LocationInfo {
-            workspace_root,
-            packages,
-            exts,
-            find_flags: get_find_flags(&tool_config, target_args),
-            tool_config,
-        })
-    }
+    let Metadata {
+        packages: packages_from_metadata,
+        workspace_root: workspace_root_from_metadata,
+        ..
+    } = get_metadata(manifest_path.as_deref(), all)?;
+
+    let workspace_root =
+        workspace_root.unwrap_or_else(|| workspace_root_from_metadata.as_std_path());
+
+    // if let Some(workspace_root) = workspace_root {
+    let tool_config = ToolConfig::from_workspace(workspace_root)?;
+    // let all_packages = get_all_packages(workspace_root)?;
+    let packages = filter_packages(packages_from_metadata);
+    Ok(LocationInfo {
+        workspace_root: workspace_root.to_owned(),
+        packages,
+        exts,
+        find_flags: get_find_flags(&tool_config, target_args),
+        tool_config,
+    })
 }
 
 #[allow(clippy::type_complexity)]
@@ -472,14 +463,6 @@ fn load_snapshot_containers<'a>(
     Ok((snapshot_containers, roots))
 }
 
-fn get_all_packages(workspace_root: &Path) -> Result<Vec<Package>, Box<dyn Error>> {
-    let metadata = cargo_metadata::MetadataCommand::new()
-        .current_dir(workspace_root)
-        .no_deps()
-        .exec()?;
-
-    Ok(metadata.packages)
-}
 fn process_snapshots(
     quiet: bool,
     snapshot_filter: Option<&[String]>,
