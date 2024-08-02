@@ -21,6 +21,7 @@ use std::process::Command;
 
 use ignore::WalkBuilder;
 use insta::assert_snapshot;
+use itertools::Itertools;
 use similar::udiff::unified_diff;
 use tempfile::TempDir;
 
@@ -143,6 +144,7 @@ impl TestProject {
             .filter_entry(|e| e.path().file_name() != Some(std::ffi::OsStr::new("target")))
             .build()
             .filter_map(|e| e.ok())
+            .sorted_by(|a, b| a.path().cmp(b.path()))
             .map(|entry| {
                 let path = entry
                     .path()
@@ -487,18 +489,20 @@ fn test_root_crate_all() {
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
     +++ Updated file tree
-    @@ -3,6 +3,11 @@
+    @@ -1,8 +1,13 @@
+     
+    +  Cargo.lock
+       Cargo.toml
        member
          member/Cargo.toml
          member/src
+           member/src/lib.rs
     +      member/src/snapshots
     +        member/src/snapshots/root_crate_all_member__member.snap
-           member/src/lib.rs
-    +  Cargo.lock
        src
+         src/main.rs
     +    src/snapshots
     +      src/snapshots/root_crate_all__root.snap
-         src/main.rs
     "###     );
 }
 
@@ -519,15 +523,18 @@ fn test_root_crate_no_all() {
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
     +++ Updated file tree
-    @@ -4,5 +4,8 @@
-         member/Cargo.toml
-         member/src
-           member/src/lib.rs
+    @@ -1,4 +1,5 @@
+     
     +  Cargo.lock
+       Cargo.toml
+       member
+         member/Cargo.toml
+    @@ -6,3 +7,5 @@
+           member/src/lib.rs
        src
+         src/main.rs
     +    src/snapshots
     +      src/snapshots/root_crate_no_all__root.snap
-         src/main.rs
     "###     );
 }
 
@@ -620,20 +627,20 @@ fn test_virtual_manifest_all() {
     +++ Updated file tree
     @@ -1,10 +1,15 @@
      
-       Cargo.toml
     +  Cargo.lock
-       member-2
-         member-2/Cargo.toml
-         member-2/src
-    +      member-2/src/snapshots
-    +        member-2/src/snapshots/virtual_manifest_all_member_2__member_2.snap
-           member-2/src/lib.rs
+       Cargo.toml
        member-1
          member-1/Cargo.toml
          member-1/src
+           member-1/src/lib.rs
     +      member-1/src/snapshots
     +        member-1/src/snapshots/virtual_manifest_all_member_1__member_1.snap
-           member-1/src/lib.rs
+       member-2
+         member-2/Cargo.toml
+         member-2/src
+           member-2/src/lib.rs
+    +      member-2/src/snapshots
+    +        member-2/src/snapshots/virtual_manifest_all_member_2__member_2.snap
     "###     );
 }
 
@@ -657,20 +664,20 @@ fn test_virtual_manifest_default() {
     +++ Updated file tree
     @@ -1,10 +1,15 @@
      
-       Cargo.toml
     +  Cargo.lock
-       member-2
-         member-2/Cargo.toml
-         member-2/src
-    +      member-2/src/snapshots
-    +        member-2/src/snapshots/virtual_manifest_default_member_2__member_2.snap
-           member-2/src/lib.rs
+       Cargo.toml
        member-1
          member-1/Cargo.toml
          member-1/src
+           member-1/src/lib.rs
     +      member-1/src/snapshots
     +        member-1/src/snapshots/virtual_manifest_default_member_1__member_1.snap
-           member-1/src/lib.rs
+       member-2
+         member-2/Cargo.toml
+         member-2/src
+           member-2/src/lib.rs
+    +      member-2/src/snapshots
+    +        member-2/src/snapshots/virtual_manifest_default_member_2__member_2.snap
     "###     );
 }
 
@@ -692,19 +699,18 @@ fn test_virtual_manifest_single_crate() {
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,5 +1,6 @@
+    @@ -1,9 +1,12 @@
      
-       Cargo.toml
     +  Cargo.lock
-       member-2
-         member-2/Cargo.toml
-         member-2/src
-    @@ -7,4 +8,6 @@
+       Cargo.toml
        member-1
          member-1/Cargo.toml
          member-1/src
+           member-1/src/lib.rs
     +      member-1/src/snapshots
     +        member-1/src/snapshots/virtual_manifest_single_member_1__member_1.snap
-           member-1/src/lib.rs
+       member-2
+         member-2/Cargo.toml
+         member-2/src
     "###     );
 }
