@@ -74,6 +74,7 @@ pub(crate) fn get_metadata(
         .as_ref()
         .and_then(|cargo_metadata::Resolve { root, .. }| root.as_ref())
     {
+        // TODO: should this be `!all`? Let's add a test
         Some(root) if all => packages.retain(|Package { id, .. }| id == root),
         _ => {
             packages.retain(|Package { id, .. }| workspace_members.contains(id));
