@@ -116,7 +116,7 @@ struct ProcessCommand {
     quiet: bool,
 }
 
-#[derive(Clone, Args, Debug)]
+#[derive(Args, Debug)]
 #[command(rename_all = "kebab-case", next_help_heading = "Test Runner Options")]
 struct TestRunnerOptions {
     /// Test only this package's library unit tests
@@ -369,15 +369,12 @@ fn get_find_flags(tool_config: &ToolConfig, target_args: &TargetArgs) -> FindFla
     }
 }
 
-fn handle_target_args(
-    target_args: &TargetArgs,
+fn handle_target_args<'a>(
+    target_args: &'a TargetArgs,
     // Empty if none are selected, implying cargo default
-    packages: Vec<String>,
-) -> Result<LocationInfo<'_>, Box<dyn Error>> {
-    let mut exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
-    if exts.is_empty() {
-        exts.push("snap");
-    }
+    packages: &'a [String],
+) -> Result<LocationInfo<'a>, Box<dyn Error>> {
+    let exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
 
     // if a workspace root is provided we first check if it points to a `Cargo.toml`.  If it
     // does we instead treat it as manifest path.  If both are provided we fail with an error
@@ -583,7 +580,7 @@ fn process_snapshots(
 }
 
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
-    let loc = handle_target_args(&cmd.target_args, cmd.test_runner_options.package.clone())?;
+    let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
             if is_ci() {
@@ -991,7 +988,7 @@ fn prepare_test_runner<'snapshot_ref>(
 }
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
-    let loc = handle_target_args(&cmd.target_args, vec![])?;
+    let loc = handle_target_args(&cmd.target_args, &[])?;
     let snapshot = Snapshot::from_file(&cmd.path)?;
     let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
     printer.set_snapshot_file(Some(&cmd.path));
@@ -1017,7 +1014,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         },
     }
 
-    let loc = handle_target_args(&cmd.target_args, vec![])?;
+    let loc = handle_target_args(&cmd.target_args, &[])?;
     let (mut snapshot_containers, _) = load_snapshot_containers(&loc)?;
 
     for (snapshot_container, _package) in snapshot_containers.iter_mut() {
@@ -1127,7 +1124,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
             process_snapshots(
                 cmd.quiet,
                 cmd.snapshot_filter.as_deref(),
-                &handle_target_args(&cmd.target_args, vec![])?,
+                &handle_target_args(&cmd.target_args, &[])?,
                 match opts.command {
                     Command::Review(_) => None,
                     Command::Accept(_) => Some(Operation::Accept),
