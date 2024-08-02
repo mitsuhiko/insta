@@ -78,7 +78,6 @@ dependencies = [
  "serde",
  "serde_json",
  "similar",
- "similar-asserts",
  "syn",
  "tempfile",
  "uuid",
