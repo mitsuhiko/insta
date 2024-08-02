@@ -87,8 +87,8 @@ struct TargetArgs {
     /// Explicit path to the workspace root
     #[arg(long, value_name = "PATH")]
     workspace_root: Option<PathBuf>,
-    /// Sets the extensions to consider. Defaults to `.snap`
-    #[arg(short = 'e', long, value_name = "EXTENSIONS", num_args = 1.., value_delimiter = ',')]
+    /// Sets the extensions to consider. Defaults to `snap`.
+    #[arg(short = 'e', long, value_name = "EXTENSIONS", num_args = 1.., value_delimiter = ',', default_value = "snap")]
     extensions: Vec<String>,
     /// Work on all packages in the workspace
     #[arg(long)]
@@ -117,10 +117,8 @@ struct ProcessCommand {
 }
 
 #[derive(Clone, Args, Debug)]
-#[command(rename_all = "kebab-case")]
-struct TestCommand {
-    #[command(flatten)]
-    target_args: TargetArgs,
+#[command(rename_all = "kebab-case", next_help_heading = "Test Runner Options")]
+struct TestRunnerOptions {
     /// Test only this package's library unit tests
     #[arg(long)]
     lib: bool,
@@ -148,12 +146,6 @@ struct TestCommand {
     /// Exclude packages from the test
     #[arg(long, value_name = "SPEC")]
     exclude: Vec<String>,
-    /// Disable force-passing of snapshot tests
-    #[arg(long)]
-    no_force_pass: bool,
-    /// Prevent running all tests regardless of failure
-    #[arg(long)]
-    fail_fast: bool,
     /// Space-separated list of features to activate
     #[arg(long, value_name = "FEATURES")]
     features: Option<String>,
@@ -178,42 +170,57 @@ struct TestCommand {
     /// Build for the target triple
     #[arg(long)]
     target: Option<String>,
+}
+
+#[derive(Args, Debug)]
+#[command(rename_all = "kebab-case")]
+struct TestCommand {
+    /// Accept all snapshots after test.
+    #[arg(long, conflicts_with_all = ["review", "check"])]
+    accept: bool,
+    /// Instructs the test command to just assert.
+    #[arg(long, conflicts_with_all = ["review"])]
+    check: bool,
     /// Follow up with review.
     #[arg(long)]
     review: bool,
-    /// Accept all snapshots after test.
-    #[arg(long, conflicts_with = "review")]
-    accept: bool,
     /// Accept all new (previously unseen).
     #[arg(long)]
     accept_unseen: bool,
-    /// Instructs the test command to just assert.
-    #[arg(long)]
-    check: bool,
     /// Do not reject pending snapshots before run.
     #[arg(long)]
     keep_pending: bool,
     /// Update all snapshots even if they are still matching.
     #[arg(long)]
     force_update_snapshots: bool,
-    /// Require metadata as well as snapshots' contents to match (experimental).
-    #[arg(long)]
-    require_full_match: bool,
     /// Handle unreferenced snapshots after a successful test run.
     #[arg(long, default_value = "ignore")]
     unreferenced: UnreferencedSnapshots,
-    /// Delete unreferenced snapshots after a successful test run.
-    #[arg(long, hide = true)]
-    delete_unreferenced_snapshots: bool,
     /// Filters to apply to the insta glob feature.
     #[arg(long)]
     glob_filter: Vec<String>,
+    /// Require metadata as well as snapshots' contents to match.
+    #[arg(long)]
+    require_full_match: bool,
+    /// Prevent running all tests regardless of failure
+    #[arg(long)]
+    fail_fast: bool,
     /// Do not pass the quiet flag (`-q`) to tests.
     #[arg(short = 'Q', long)]
     no_quiet: bool,
     /// Picks the test runner.
     #[arg(long, default_value = "auto")]
     test_runner: TestRunner,
+    /// Delete unreferenced snapshots after a successful test run.
+    #[arg(long, hide = true)]
+    delete_unreferenced_snapshots: bool,
+    /// Disable force-passing of snapshot tests
+    #[arg(long)]
+    no_force_pass: bool,
+    #[command(flatten)]
+    target_args: TargetArgs,
+    #[command(flatten)]
+    test_runner_options: TestRunnerOptions,
     /// Options passed to cargo test
     #[arg(last = true)]
     cargo_options: Vec<String>,
@@ -367,10 +374,7 @@ fn handle_target_args(
     // Empty if none are selected, implying cargo default
     packages: Vec<String>,
 ) -> Result<LocationInfo<'_>, Box<dyn Error>> {
-    let mut exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
-    if exts.is_empty() {
-        exts.push("snap");
-    }
+    let exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
 
     // if a workspace root is provided we first check if it points to a `Cargo.toml`.  If it
     // does we instead treat it as manifest path.  If both are provided we fail with an error
@@ -586,7 +590,7 @@ fn process_snapshots(
 }
 
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
-    let loc = handle_target_args(&cmd.target_args, cmd.package.clone())?;
+    let loc = handle_target_args(&cmd.target_args, cmd.test_runner_options.package.clone())?;
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
             if is_ci() {
@@ -630,14 +634,15 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         cmd.unreferenced = UnreferencedSnapshots::Delete;
     }
 
-    let (mut proc, snapshot_ref_file, prevents_doc_run) = prepare_test_runner(
-        cmd.test_runner,
-        cmd.unreferenced,
-        &cmd.clone(),
-        color,
-        &[],
-        None,
-    )?;
+    // Prioritize the command line over the tool config
+    let test_runner = match cmd.test_runner {
+        TestRunner::Auto => loc.tool_config.test_runner(),
+        TestRunner::CargoTest => TestRunner::CargoTest,
+        TestRunner::Nextest => TestRunner::Nextest,
+    };
+
+    let (mut proc, snapshot_ref_file, prevents_doc_run) =
+        prepare_test_runner(test_runner, cmd.unreferenced, &cmd, color, &[], None)?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
@@ -858,42 +863,42 @@ fn prepare_test_runner<'snapshot_ref>(
     if cmd.target_args.all || cmd.target_args.workspace {
         proc.arg("--all");
     }
-    if cmd.lib {
+    if cmd.test_runner_options.lib {
         proc.arg("--lib");
         prevents_doc_run = true;
     }
-    if let Some(ref bin) = cmd.bin {
+    if let Some(ref bin) = cmd.test_runner_options.bin {
         proc.arg("--bin");
         proc.arg(bin);
         prevents_doc_run = true;
     }
-    if cmd.bins {
+    if cmd.test_runner_options.bins {
         proc.arg("--bins");
         prevents_doc_run = true;
     }
-    if let Some(ref example) = cmd.example {
+    if let Some(ref example) = cmd.test_runner_options.example {
         proc.arg("--example");
         proc.arg(example);
         prevents_doc_run = true;
     }
-    if cmd.examples {
+    if cmd.test_runner_options.examples {
         proc.arg("--examples");
         prevents_doc_run = true;
     }
-    for test in &cmd.test {
+    for test in &cmd.test_runner_options.test {
         proc.arg("--test");
         proc.arg(test);
         prevents_doc_run = true;
     }
-    if cmd.tests {
+    if cmd.test_runner_options.tests {
         proc.arg("--tests");
         prevents_doc_run = true;
     }
-    for pkg in &cmd.package {
+    for pkg in &cmd.test_runner_options.package {
         proc.arg("--package");
         proc.arg(pkg);
     }
-    for spec in &cmd.exclude {
+    for spec in &cmd.test_runner_options.exclude {
         proc.arg("--exclude");
         proc.arg(spec);
     }
@@ -938,32 +943,32 @@ fn prepare_test_runner<'snapshot_ref>(
     if !glob_filter.is_empty() {
         proc.env("INSTA_GLOB_FILTER", glob_filter);
     }
-    if cmd.release {
+    if cmd.test_runner_options.release {
         proc.arg("--release");
     }
-    if let Some(ref profile) = cmd.profile {
+    if let Some(ref profile) = cmd.test_runner_options.profile {
         proc.arg("--profile");
         proc.arg(profile);
     }
-    if cmd.all_targets {
+    if cmd.test_runner_options.all_targets {
         proc.arg("--all-targets");
     }
-    if let Some(n) = cmd.jobs {
+    if let Some(n) = cmd.test_runner_options.jobs {
         // use -j instead of --jobs since both nextest and cargo test use it
         proc.arg("-j");
         proc.arg(n.to_string());
     }
-    if let Some(ref features) = cmd.features {
+    if let Some(ref features) = cmd.test_runner_options.features {
         proc.arg("--features");
         proc.arg(features);
     }
-    if cmd.all_features {
+    if cmd.test_runner_options.all_features {
         proc.arg("--all-features");
     }
-    if cmd.no_default_features {
+    if cmd.test_runner_options.no_default_features {
         proc.arg("--no-default-features");
     }
-    if let Some(ref target) = cmd.target {
+    if let Some(ref target) = cmd.test_runner_options.target {
         proc.arg("--target");
         proc.arg(target);
     }
