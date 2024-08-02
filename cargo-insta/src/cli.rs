@@ -14,7 +14,7 @@ use insta::_cargo_insta_support::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
+use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_snapshot_walker, FindFlags};
@@ -374,13 +374,14 @@ fn handle_target_args(
     // Empty if none are selected, implying cargo default
     packages: Vec<String>,
 ) -> Result<LocationInfo<'_>, Box<dyn Error>> {
-    let exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
-    let all = target_args.all || target_args.workspace;
+    let mut exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
+    if exts.is_empty() {
+        exts.push("snap");
+    }
 
-    // if a workspace root is provided we first check if it points to a path
-    // containing a `Cargo.toml`.  If it does we instead treat it as manifest
-    // path.  If both are provided we fail with an error since they may not
-    // reconcile with each other.
+    // if a workspace root is provided we first check if it points to a `Cargo.toml`.  If it
+    // does we instead treat it as manifest path.  If both are provided we fail with an error
+    // as this would indicate an error.
     let (workspace_root, manifest_path) = match (
         target_args.workspace_root.as_deref(),
         target_args.manifest_path.as_deref(),
@@ -391,41 +392,52 @@ fn handle_target_args(
             ))
         }
         (None, Some(manifest)) => (None, Some(Cow::Borrowed(manifest))),
-        (Some(root), manifest_path) => {
+        (Some(root), None) => {
             let assumed_manifest = root.join("Cargo.toml");
             if assumed_manifest.is_file() {
                 (None, Some(Cow::Owned(assumed_manifest)))
             } else {
-                (Some(root), manifest_path.map(Cow::Borrowed))
+                (Some(root), None)
             }
         }
         (None, None) => (None, None),
     };
 
-    // Filter to those that we've selected (or no filtering if none are selected)
-    let filter_packages = |all_packages: Vec<Package>| {
-        if packages.is_empty() {
-            return all_packages;
-        }
-        all_packages
+    let mut cmd = cargo_metadata::MetadataCommand::new();
+
+    // If a manifest path is provided, set it in the command
+    if let Some(manifest_path) = manifest_path {
+        cmd.manifest_path(manifest_path);
+    }
+    if let Some(workspace_root) = workspace_root {
+        cmd.current_dir(workspace_root);
+    }
+    let metadata = cmd.no_deps().exec()?;
+    let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
+    let tool_config = ToolConfig::from_workspace(&workspace_root)?;
+
+    // If `--all` is passed, or there's no root package, we include all
+    // packages. If packages are specified, we filter from all packages.
+    // Otherwise we use just the root package.
+    //
+    // (Once we're OK running on Cargo 1.71, we can replace `.root_package` with
+    // `.default_workspace_packages`.)
+    let packages = if metadata.root_package().is_none()
+        || (target_args.all || target_args.workspace)
+        || !packages.is_empty()
+    {
+        metadata
+            .workspace_packages()
             .into_iter()
-            .filter(|p| packages.contains(&p.name))
+            .filter(|p| packages.is_empty() || packages.contains(&p.name))
+            .cloned()
             .collect()
+    } else {
+        vec![metadata.root_package().unwrap().clone()]
     };
 
-    let Metadata {
-        packages: packages_from_metadata,
-        workspace_root: workspace_root_from_metadata,
-        ..
-    } = get_metadata(manifest_path.as_deref(), all)?;
-
-    let workspace_root =
-        workspace_root.unwrap_or_else(|| workspace_root_from_metadata.as_std_path());
-
-    let tool_config = ToolConfig::from_workspace(workspace_root)?;
-    let packages = filter_packages(packages_from_metadata);
     Ok(LocationInfo {
-        workspace_root: workspace_root.to_owned(),
+        workspace_root,
         packages,
         exts,
         find_flags: get_find_flags(&tool_config, target_args),

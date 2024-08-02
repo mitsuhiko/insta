@@ -1,7 +1,6 @@
-use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-pub(crate) use cargo_metadata::{Metadata, Package};
+pub(crate) use cargo_metadata::Package;
 
 pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     let mut roots = Vec::new();
@@ -43,38 +42,4 @@ pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     }
 
     reduced_roots
-}
-
-pub(crate) fn get_metadata(
-    manifest_path: Option<&Path>,
-    all: bool,
-) -> Result<Metadata, Box<dyn Error>> {
-    let mut cmd = cargo_metadata::MetadataCommand::new();
-    cmd.no_deps();
-
-    // If a manifest path is provided, set it in the command
-    if let Some(manifest_path) = manifest_path {
-        cmd.manifest_path(manifest_path);
-    }
-
-    let mut metadata = cmd.exec()?;
-    let root_package = metadata.root_package().cloned();
-    let Metadata {
-        packages,
-        workspace_members,
-        ..
-    } = &mut metadata;
-
-    // If we set `all`, then get all workspace members. Otherwise if there's a root crate,
-    // only get the crate.
-    match root_package {
-        // When we only support cargo versions > ~1.73, we can use `default_workspace_members`.
-        Some(root_package) if !all => {
-            packages.retain(|package| package.id == root_package.id);
-        }
-        _ => {
-            packages.retain(|package| workspace_members.contains(&package.id));
-        }
-    }
-    Ok(metadata)
 }
