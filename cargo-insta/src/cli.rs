@@ -422,9 +422,7 @@ fn handle_target_args(
     let workspace_root =
         workspace_root.unwrap_or_else(|| workspace_root_from_metadata.as_std_path());
 
-    // if let Some(workspace_root) = workspace_root {
     let tool_config = ToolConfig::from_workspace(workspace_root)?;
-    // let all_packages = get_all_packages(workspace_root)?;
     let packages = filter_packages(packages_from_metadata);
     Ok(LocationInfo {
         workspace_root: workspace_root.to_owned(),
