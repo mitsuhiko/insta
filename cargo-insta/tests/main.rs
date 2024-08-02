@@ -8,9 +8,11 @@
 /// (That seems to be because they all share the same `target` directory, which
 /// cargo will confuse for each other if they share the same name. I haven't
 /// worked out why — this is the case even if the files are the same between two
-/// tests but with different commands. (We could try to enforce different names,
-/// or give up using a consistent target directory for a cache, but it would
-/// slow down repeatedly running the tests locally.)
+/// tests but with different commands — and those files exist in different
+/// temporary workspace dirs. (We could try to enforce different names, or give
+/// up using a consistent target directory for a cache, but it would slow down
+/// repeatedly running the tests locally. To demonstrate the effect, name crates
+/// the same...)
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -148,6 +150,7 @@ impl TestProject {
                     .unwrap_or(entry.path());
                 format!("{}{}", "  ".repeat(entry.depth()), path.display())
             })
+            .chain(std::iter::once(String::new()))
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -412,7 +415,7 @@ edition = "2021"
 
 [workspace]
 members = [
-    "crates/member-crate",
+    "member",
 ]
 
 [workspace.dependencies]
@@ -426,20 +429,22 @@ insta = {{ workspace = true }}
             .to_string(),
         )
         .add_file(
-            "crates/member-crate/Cargo.toml",
-            r#"
+            "member/Cargo.toml",
+            format!(
+                r#"
 [package]
-name = "member-crate"
+name = "{name}-member"
 version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-insta = { workspace = true }
+insta = {{ workspace = true }}
 "#
+            )
             .to_string(),
         )
         .add_file(
-            "crates/member-crate/src/lib.rs",
+            "member/src/lib.rs",
             r#"
 #[test]
 fn test_member() {
@@ -482,19 +487,18 @@ fn test_root_crate_all() {
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
     +++ Updated file tree
-    @@ -4,6 +4,11 @@
-         crates/member-crate
-           crates/member-crate/Cargo.toml
-           crates/member-crate/src
-    +        crates/member-crate/src/snapshots
-    +          crates/member-crate/src/snapshots/member_crate__member.snap
-             crates/member-crate/src/lib.rs
+    @@ -3,6 +3,11 @@
+       member
+         member/Cargo.toml
+         member/src
+    +      member/src/snapshots
+    +        member/src/snapshots/root_crate_all_member__member.snap
+           member/src/lib.rs
     +  Cargo.lock
        src
     +    src/snapshots
     +      src/snapshots/root_crate_all__root.snap
          src/main.rs
-    \ No newline at end of file
     "###     );
 }
 
@@ -515,15 +519,192 @@ fn test_root_crate_no_all() {
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
     +++ Updated file tree
-    @@ -5,5 +5,8 @@
-           crates/member-crate/Cargo.toml
-           crates/member-crate/src
-             crates/member-crate/src/lib.rs
+    @@ -4,5 +4,8 @@
+         member/Cargo.toml
+         member/src
+           member/src/lib.rs
     +  Cargo.lock
        src
     +    src/snapshots
     +      src/snapshots/root_crate_no_all__root.snap
          src/main.rs
-    \ No newline at end of file
+    "###     );
+}
+
+fn workspace_with_virtual_manifest(name: String) -> TestFiles {
+    TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[workspace]
+members = [
+    "member-1",
+    "member-2",
+]
+
+[workspace.dependencies]
+insta = {path = '$PROJECT_PATH'}
+"#
+            .to_string()
+            .to_string(),
+        )
+        .add_file(
+            "member-1/Cargo.toml",
+            format!(
+                r#"
+[package]
+name = "{name}-member-1"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = {{ workspace = true }}
+"#
+            )
+            .to_string(),
+        )
+        .add_file(
+            "member-1/src/lib.rs",
+            r#"
+#[test]
+fn test_member_1() {
+    insta::assert_debug_snapshot!(vec![1, 2, 3]);
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "member-2/Cargo.toml",
+            format!(
+                r#"
+[package]
+name = "{name}-member-2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = {{ workspace = true }}
+"#
+            )
+            .to_string(),
+        )
+        .add_file(
+            "member-2/src/lib.rs",
+            r#"
+#[test]
+fn test_member_2() {
+    insta::assert_debug_snapshot!(vec![4, 5, 6]);
+}
+"#
+            .to_string(),
+        )
+}
+
+/// Check that in a workspace with a virtual manifest, running `cargo insta test --workspace`
+/// will update snapshots in all member crates.
+#[test]
+fn test_virtual_manifest_all() {
+    let test_project =
+        workspace_with_virtual_manifest("virtual-manifest-all".to_string()).create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept", "--workspace"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,10 +1,15 @@
+     
+       Cargo.toml
+    +  Cargo.lock
+       member-2
+         member-2/Cargo.toml
+         member-2/src
+    +      member-2/src/snapshots
+    +        member-2/src/snapshots/virtual_manifest_all_member_2__member_2.snap
+           member-2/src/lib.rs
+       member-1
+         member-1/Cargo.toml
+         member-1/src
+    +      member-1/src/snapshots
+    +        member-1/src/snapshots/virtual_manifest_all_member_1__member_1.snap
+           member-1/src/lib.rs
+    "###     );
+}
+
+/// Check that in a workspace with a virtual manifest, running `cargo insta test`
+/// updates snapshots in all member crates.
+#[test]
+fn test_virtual_manifest_default() {
+    let test_project =
+        workspace_with_virtual_manifest("virtual-manifest-default".to_string()).create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,10 +1,15 @@
+     
+       Cargo.toml
+    +  Cargo.lock
+       member-2
+         member-2/Cargo.toml
+         member-2/src
+    +      member-2/src/snapshots
+    +        member-2/src/snapshots/virtual_manifest_default_member_2__member_2.snap
+           member-2/src/lib.rs
+       member-1
+         member-1/Cargo.toml
+         member-1/src
+    +      member-1/src/snapshots
+    +        member-1/src/snapshots/virtual_manifest_default_member_1__member_1.snap
+           member-1/src/lib.rs
+    "###     );
+}
+
+/// Check that in a workspace with a virtual manifest, running `cargo insta test
+/// -p <crate>` will only update snapshots in that crate.
+#[test]
+fn test_virtual_manifest_single_crate() {
+    let test_project =
+        workspace_with_virtual_manifest("virtual-manifest-single".to_string()).create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept", "-p", "virtual-manifest-single-member-1"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,5 +1,6 @@
+     
+       Cargo.toml
+    +  Cargo.lock
+       member-2
+         member-2/Cargo.toml
+         member-2/src
+    @@ -7,4 +8,6 @@
+       member-1
+         member-1/Cargo.toml
+         member-1/src
+    +      member-1/src/snapshots
+    +        member-1/src/snapshots/virtual_manifest_single_member_1__member_1.snap
+           member-1/src/lib.rs
     "###     );
 }
