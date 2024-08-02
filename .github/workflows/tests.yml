@@ -39,7 +39,7 @@ jobs:
       - name: Test
         run: cargo run -p cargo-insta -- test
 
-  build-old-stable:
+  build-on-msrv:
     name: Check on MSRV
     runs-on: ubuntu-latest
     steps:
@@ -78,3 +78,43 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: doc
         run: cargo doc --all-features
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Run clippy
+        run: make lint
+
+  check-minver:
+    name: Test with minimal version resolution
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-hack
+      - uses: taiki-e/install-action@cargo-minimal-versions
+      - name: Test
+        run: make check-minver
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Run rustfmt
+        run: make format-check
