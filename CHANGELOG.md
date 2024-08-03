@@ -11,9 +11,9 @@ All notable changes to insta and cargo-insta are documented here.
   themselves contain `###`. If there are no existing `#` characters in the
   snapshot value, a single `#` will be used.  #540
 
-- `cargo insta test` now accepts multiple `--exclude` flags.  #520
+- `cargo insta test` accepts multiple `--exclude` flags.  #520
 
-- `test_runner` in insta's yaml config now works.  #544
+- `test` `runner` in insta's yaml config works.  #544
 
 - Print a warning when encountering old snapshot formats.  #503
 
