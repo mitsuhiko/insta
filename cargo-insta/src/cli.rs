@@ -1,6 +1,5 @@
 use std::borrow::{Borrow, Cow};
 use std::error::Error;
-use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::{collections::HashSet, fmt};
 use std::{env, fs};
@@ -251,7 +250,7 @@ fn query_snapshot(
     term: &Term,
     new: &Snapshot,
     old: Option<&Snapshot>,
-    pkg: Option<&Package>,
+    pkg: &Package,
     line: Option<u32>,
     i: usize,
     n: usize,
@@ -261,19 +260,14 @@ fn query_snapshot(
 ) -> Result<Operation, Box<dyn Error>> {
     loop {
         term.clear_screen()?;
-        let (pkg_name, pkg_version): (_, &dyn Display) = if let Some(pkg) = pkg {
-            (pkg.name.as_str(), &pkg.version)
-        } else {
-            ("unknown package", &"unknown version")
-        };
 
         println!(
             "{}{}{} {}@{}:",
             style("Reviewing [").bold(),
             style(format!("{}/{}", i, n)).yellow().bold(),
             style("]").bold(),
-            pkg_name,
-            pkg_version,
+            pkg.name.as_str(),
+            &pkg.version,
         );
 
         let mut printer = SnapshotPrinter::new(workspace_root, old, new);
@@ -445,13 +439,7 @@ fn handle_target_args<'a>(
 #[allow(clippy::type_complexity)]
 fn load_snapshot_containers<'a>(
     loc: &'a LocationInfo,
-) -> Result<
-    (
-        Vec<(SnapshotContainer, Option<&'a Package>)>,
-        HashSet<PathBuf>,
-    ),
-    Box<dyn Error>,
-> {
+) -> Result<(Vec<(SnapshotContainer, &'a Package)>, HashSet<PathBuf>), Box<dyn Error>> {
     let mut roots = HashSet::new();
     let mut snapshot_containers = vec![];
 
@@ -461,7 +449,7 @@ fn load_snapshot_containers<'a>(
         for root in find_snapshot_roots(package) {
             roots.insert(root.clone());
             for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
-                snapshot_containers.push((snapshot_container?, Some(package)));
+                snapshot_containers.push((snapshot_container?, package));
             }
         }
     }
@@ -524,7 +512,7 @@ fn process_snapshots(
                     &term,
                     &snapshot_ref.new,
                     snapshot_ref.old.as_ref(),
-                    *package,
+                    package,
                     snapshot_ref.line,
                     num,
                     snapshot_count,
@@ -1047,7 +1035,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
 
 fn show_undiscovered_hint(
     find_flags: FindFlags,
-    snapshot_containers: &[(SnapshotContainer, Option<&Package>)],
+    snapshot_containers: &[(SnapshotContainer, &Package)],
     roots: &HashSet<PathBuf>,
     extensions: &[&str],
 ) {
