@@ -6,6 +6,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 - MSRV for `insta` has been raised to 1.60, and for `cargo-insta` to 1.64.
 
+- Added support for compact debug snapshots (`assert_compact_debug_snapshot`). #514
+
 - Inline snapshots now use the required number of `#`s to escape the snapshot
   value, rather than always using `###`. This allows snapshotting values which
   themselves contain `###`. If there are no existing `#` characters in the
