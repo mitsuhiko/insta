@@ -146,33 +146,35 @@ impl ToolConfig {
 
         // Support for the deprecated environment variables.  This is
         // implemented in a way that cargo-insta can support older and newer
-        // insta versions alike. `cargo-insta` will currently set
-        // `INSTA_FORCE_UPDATE_SNAPSHOTS` & `INSTA_FORCE_UPDATE`, and in late
-        // 2024 will set `INSTA_UPDATE=force` (this would break older versions
-        // of insta if we implemented immediately).
+        // insta versions alike. Versions of `cargo-insta` <= 1.39 will set
+        // `INSTA_FORCE_UPDATE_SNAPSHOTS` & `INSTA_FORCE_UPDATE`.
         //
         // If `INSTA_FORCE_UPDATE_SNAPSHOTS` is the only env var present we emit
         // a deprecation warning, later to be expanded to `INSTA_FORCE_UPDATE`.
-        if env::var("INSTA_UPDATE").is_err() {
-            let mut force_update = false;
-            if let Ok("1") = env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
-                eprintln!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_UPDATE=force");
-                force_update = true;
-            }
-            if let Ok("1") = env::var("INSTA_FORCE_UPDATE").as_deref() {
-                // Don't raise a warning yet, because `cargo-insta` still uses
-                // this, so that it's compatible with older versions of `insta`.
-                // In the future, switch `cargo-insta` to use
-                // `INSTA_UPDATE=force`, and raise a warning for
-                // `INSTA_FORCE_UPDATE`.
-                //
-                //   eprintln!("INSTA_FORCE_UPDATE is deprecated, use
-                //   INSTA_UPDATE=force");
-                force_update = true;
-            }
-            if force_update {
-                env::set_var("INSTA_UPDATE", "force");
-            }
+        //
+        // Another approach would be to pass the version of `cargo-insta` in a
+        // `INSTA_CARGO_INSTA_VERSION` env var, and then raise a warning unless
+        // running under cargo-insta <= 1.39. Though it would require adding a
+        // `semver` dependency to this crate or doing the version comparison
+        // ourselves (a tractable task...).
+        let force_update_old_env_vars = if let Ok("1") = env::var("INSTA_FORCE_UPDATE").as_deref() {
+            // Don't raise a warning yet, because recent versions of
+            // `cargo-insta` use this, so that it's compatible with older
+            // versions of `insta`.
+            //
+            //   eprintln!("INSTA_FORCE_UPDATE is deprecated, use
+            //   INSTA_UPDATE=force");
+            true
+        } else if let Ok("1") = env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
+            // Do we need to log with a stronger output than `eprintln` to
+            // escape the cargo test capturing?
+            eprintln!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_UPDATE=force");
+            true
+        } else {
+            false
+        };
+        if force_update_old_env_vars {
+            env::set_var("INSTA_UPDATE", "force");
         }
 
         Ok(ToolConfig {
