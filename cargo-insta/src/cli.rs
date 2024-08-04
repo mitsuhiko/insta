@@ -895,21 +895,21 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     proc.env(
         "INSTA_UPDATE",
+        // Don't set `INSTA_UPDATE=force` for `--force-update-snapshots` on
+        // older versions
         if *INSTA_VERSION >= Version::new(1,40,0) {
             match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
-                // Don't set `INSTA_UPDATE=force` for
-                // `--force-update-snapshots` on older versions
-                (true, _, false) => "no",
-                (_, true, false) => "unseen",
-                (_, false, false) => "new",
-                (false, false, true) => "force",
+                (true, false, false) => "no",
+                (false, true, false) => "unseen",
+                (false, false, false) => "new",
+                (false, _, true) => "force",
                 _ => return Err(err_msg(format!("invalid combination of flags: check={}, accept-unseen={}, force-update-snapshots={}", cmd.check, cmd.accept_unseen, cmd.force_update_snapshots))),
             }
         } else {
-            match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
-                (true, _, _) => "no",
-                (_, true, _) => "unseen",
-                (_, false, _) => "new",
+            match (cmd.check, cmd.accept_unseen) {
+                (true, _) => "no",
+                (_, true) => "unseen",
+                (_, false) => "new",
             }
         }
     );
