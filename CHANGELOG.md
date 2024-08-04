@@ -4,24 +4,30 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.40.0
 
+- MSRV for `insta` has been raised to 1.60, and for `cargo-insta` to 1.64.
+
 - Added support for compact debug snapshots (`assert_compact_debug_snapshot`). #514
 
 - Inline snapshots now use the required number of `#`s to escape the snapshot
   value, rather than always using `###`. This allows snapshotting values which
   themselves contain `###`. If there are no existing `#` characters in the
-  snapshot value, a single `#` will be used.
+  snapshot value, a single `#` will be used.  #540
+
+- `cargo insta test` accepts multiple `--exclude` flags.  #520
+
+- `test` `runner` in insta's yaml config works.  #544
 
 - Print a warning when encountering old snapshot formats.  #503
+
+- Group the options in `cargo insta --help`, upgrade to `clap` from `structopt`.  #518
 
 - No longer suggest running `cargo insta` message when running `cargo insta test --check`.  #515
 
 - Print a clearer error message when accepting a snapshot that was removed.  #516
 
-- Fix `require-full-match` when running on inline snapshots outside of `cargo insta`.  #496
-
 - Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
 
-- `cargo insta test` now accepts multiple `--exclude` flags.  #520
+- Add a new integration test approach for `cargo-insta` and a set of integration tests.  #537
 
 ## 1.39.0
 
