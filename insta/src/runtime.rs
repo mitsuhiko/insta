@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
@@ -7,6 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::{Arc, Mutex};
+use std::{borrow::Cow, env};
 
 use crate::env::{
     get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
@@ -77,8 +77,11 @@ impl<'a> From<&'a str> for ReferenceValue<'a> {
     }
 }
 
+/// A reference to a snapshot
 pub enum ReferenceValue<'a> {
+    /// A named snapshot, where the inner value is the snapshot name.
     Named(Option<Cow<'a, str>>),
+    /// An inline snapshot, where the inner value is the snapshot contents.
     Inline(&'a str),
 }
 
@@ -86,18 +89,8 @@ fn is_doctest(function_name: &str) -> bool {
     function_name.starts_with("rust_out::main::_doctest")
 }
 
-fn detect_snapshot_name(
-    function_name: &str,
-    module_path: &str,
-    inline: bool,
-    is_doctest: bool,
-) -> Result<String, &'static str> {
+fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String, &'static str> {
     let mut name = function_name;
-
-    // simplify doctest names
-    if is_doctest && !inline {
-        panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
-    }
 
     // clean test name first
     name = name.rsplit("::").next().unwrap();
@@ -241,9 +234,14 @@ impl<'a> SnapshotAssertionContext<'a> {
             ReferenceValue::Named(name) => {
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name),
-                    None => detect_snapshot_name(function_name, module_path, false, is_doctest)
-                        .unwrap()
-                        .into(),
+                    None => {
+                        if is_doctest {
+                            panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
+                        }
+                        detect_snapshot_name(function_name, module_path)
+                            .unwrap()
+                            .into()
+                    }
                 };
                 if allow_duplicates() {
                     duplication_key = Some(format!("named:{}|{}", module_path, name));
@@ -271,7 +269,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 } else {
                     prevent_inline_duplicate(function_name, assertion_file, assertion_line);
                 }
-                snapshot_name = detect_snapshot_name(function_name, module_path, true, is_doctest)
+                snapshot_name = detect_snapshot_name(function_name, module_path)
                     .ok()
                     .map(Cow::Owned);
                 let mut pending_file = cargo_workspace.join(assertion_file);
@@ -526,13 +524,12 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
 
     if update_result != SnapshotUpdateBehavior::InPlace && !ctx.tool_config.force_pass() {
         if fail_fast && ctx.tool_config.output_behavior() != OutputBehavior::Nothing {
-            println!(
-                "{hint}",
-                hint = style(
-                    "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
-                )
-                .dim(),
-            );
+            let msg = if env::var("INSTA_CARGO_INSTA") == Ok("1".to_string()) {
+                "Stopped on the first failure."
+            } else {
+                "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
+            };
+            println!("{hint}", hint = style(msg).dim(),);
         }
 
         // if we are in glob mode, count the failures and print the
@@ -642,6 +639,7 @@ pub fn assert_snapshot(
         assertion_file,
         assertion_line,
     )?;
+
     let tool_config = get_tool_config(manifest_dir);
 
     // apply filters if they are available

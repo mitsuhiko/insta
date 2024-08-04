@@ -5,7 +5,7 @@ license = "Apache-2.0"
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
 description = "A snapshot testing library for Rust"
 edition = "2018"
-rust-version = "1.51.0"
+rust-version = "1.60.0"
 homepage = "https://insta.rs/"
 repository = "https://github.com/mitsuhiko/insta"
 keywords = ["snapshot", "testing", "jest", "approval"]
@@ -45,7 +45,7 @@ toml = ["dep_toml", "serde"]
 yaml = ["serde"]
 
 # internal feature exclusive to cargo-insta
-_cargo_insta_internal = []
+_cargo_insta_internal = ["clap"]
 
 [dependencies]
 dep_csv = { package = "csv", version = "=1.1.6", optional = true }
@@ -61,6 +61,9 @@ regex = { version = "1.6.0", default-features = false, optional = true, features
 serde = { version = "1.0.117", optional = true }
 linked-hash-map = "0.5.6"
 lazy_static = "1.4.0"
+# Not yet supported in our MSRV of 1.60.0
+# clap = { workspace=true, optional = true }
+clap = {version = "=4.1", features = ["derive", "env"], optional = true}
 
 [dev-dependencies]
 rustc_version = "0.4.0"
