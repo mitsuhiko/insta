@@ -14,10 +14,13 @@ use insta::_cargo_insta_support::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
+use crate::{
+    cargo::{find_snapshot_roots, get_metadata, Metadata, Package},
+    utils::cargo_insta_version,
+};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -822,6 +825,7 @@ fn prepare_test_runner<'snapshot_ref>(
 
     // An env var to indicate we're running under cargo-insta
     proc.env("INSTA_CARGO_INSTA", "1");
+    proc.env("INSTA_CARGO_INSTA_VERSION", cargo_insta_version());
 
     let snapshot_ref_file = if unreferenced != UnreferencedSnapshots::Ignore {
         match snapshot_ref_file {
