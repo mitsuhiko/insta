@@ -11,11 +11,13 @@ use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
+use semver::Version;
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
 use crate::container::{Operation, SnapshotContainer};
+use crate::utils::INSTA_VERSION;
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
 
@@ -893,25 +895,26 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     proc.env(
         "INSTA_UPDATE",
-        match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
-            (true, _, _) => "no",
-            (_, true, _) => "unseen",
-            (_, false, _) => "new",
-            // Don't yet set `INSTA_UPDATE=force` for
-            // `--force-update-snapshots`, since this would break with older
-            // versions of insta. In late 2024, we can swap this code in.
-            //
-            // (true, _, false) => "no",
-            // (_, true, false) => "unseen",
-            // (_, false, false) => "new",
-            // (false, false, true) => "force",
-            // _ => return Err(err_msg(format!("invalid combination of flags: check={}, accept-unseen={}, force-update-snapshots={}", cmd.check, cmd.accept_unseen, cmd.force_update_snapshots))),
-        },
+        if *INSTA_VERSION >= Version::new(1,40,0) {
+            match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
+                // Don't set `INSTA_UPDATE=force` for
+                // `--force-update-snapshots` on older versions
+                (true, _, false) => "no",
+                (_, true, false) => "unseen",
+                (_, false, false) => "new",
+                (false, false, true) => "force",
+                _ => return Err(err_msg(format!("invalid combination of flags: check={}, accept-unseen={}, force-update-snapshots={}", cmd.check, cmd.accept_unseen, cmd.force_update_snapshots))),
+            }
+        } else {
+            match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
+                (true, _, _) => "no",
+                (_, true, _) => "unseen",
+                (_, false, _) => "new",
+            }
+        }
     );
-    if cmd.force_update_snapshots {
-        // Currently compatible with older versions of insta. In late 2024, we can add:
-        //   proc.env("INSTA_UPDATE", "force");
-        // And then eventually we can remove these.
+    if cmd.force_update_snapshots && *INSTA_VERSION < Version::new(1, 40, 0) {
+        // Currently compatible with older versions of insta.
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
         proc.env("INSTA_FORCE_UPDATE", "1");
     }

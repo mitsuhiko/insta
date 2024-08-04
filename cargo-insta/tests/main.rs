@@ -12,7 +12,8 @@
 /// temporary workspace dirs. (We could try to enforce different names, or give
 /// up using a consistent target directory for a cache, but it would slow down
 /// repeatedly running the tests locally. To demonstrate the effect, name crates
-/// the same...)
+/// the same...). This also causes issues when running the same tests
+/// concurrently.
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -716,4 +717,106 @@ fn test_virtual_manifest_single_crate() {
          member-2/Cargo.toml
          member-2/src
     "###     );
+}
+
+fn create_test_project(name: &str, insta_dependency: &str) -> TestProject {
+    TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            format!(
+                r#"
+[package]
+name = "test_force_update_{}"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = {}
+"#,
+                name, insta_dependency
+            )
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot_with_newline() {
+    insta::assert_snapshot!("force_update", "Hello, world!");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            format!(
+                "src/snapshots/test_force_update_{}__force_update.snap",
+                name
+            ),
+            r#"
+---
+source: src/lib.rs
+expression: 
+---
+Hello, world!
+
+
+"#
+            .to_string(),
+        )
+        .create_project()
+}
+
+#[test]
+fn test_force_update_snapshots() {
+    let test_current_insta = create_test_project("current", "{ path = '$PROJECT_PATH' }");
+    let test_insta_1_39_0 = create_test_project("1_39_0", "\"1.39.0\"");
+
+    // Test with current insta version
+    let output_current = test_current_insta
+        .cmd()
+        .args(["test", "--accept", "--force-update-snapshots"])
+        .output()
+        .unwrap();
+
+    assert_success(&output_current);
+
+    // Test with insta 1.39.0
+    let output_1_39_0 = test_insta_1_39_0
+        .cmd()
+        .args(["test", "--accept", "--force-update-snapshots"])
+        .output()
+        .unwrap();
+
+    assert_success(&output_1_39_0);
+
+    // Check that both versions updated the snapshot correctly
+    assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
+    --- Original: src/snapshots/test_force_update_current__force_update.snap
+    +++ Updated: src/snapshots/test_force_update_current__force_update.snap
+    @@ -1,8 +1,5 @@
+    -
+     ---
+     source: src/lib.rs
+    -expression: 
+    +expression: "\"Hello, world!\""
+     ---
+     Hello, world!
+    -
+    -
+    "#);
+
+    assert_snapshot!(test_insta_1_39_0.diff("src/snapshots/test_force_update_1_39_0__force_update.snap"), @r#"
+    --- Original: src/snapshots/test_force_update_1_39_0__force_update.snap
+    +++ Updated: src/snapshots/test_force_update_1_39_0__force_update.snap
+    @@ -1,8 +1,5 @@
+    -
+     ---
+     source: src/lib.rs
+    -expression: 
+    +expression: "\"Hello, world!\""
+     ---
+     Hello, world!
+    -
+    -
+    "#);
 }

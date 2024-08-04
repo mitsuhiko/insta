@@ -1,6 +1,6 @@
 [package]
 name = "cargo-insta"
-version = "1.39.0"
+version = "1.40.0"
 license = "Apache-2.0"
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
 description = "A review tool for the insta snapshot testing library for Rust"
@@ -14,7 +14,7 @@ readme = "README.md"
 rust-version = "1.64.0"
 
 [dependencies]
-insta = { version = "=1.39.0", path = "../insta", features = ["json", "yaml", "redactions", "_cargo_insta_internal"] }
+insta = { version = "=1.40.0", path = "../insta", features = ["json", "yaml", "redactions", "_cargo_insta_internal"] }
 cargo_metadata = { version = "0.18.0", default-features = false }
 console = "0.15.4"
 serde = { version = "1.0.117", features = ["derive"] }
@@ -25,6 +25,9 @@ syn = { version = "=2.0.8", features = ["full", "visit", "extra-traits"] }
 ignore = "0.4.17"
 uuid = { version = "1.0.0", features = ["v4"] }
 tempfile = "3.5.0"
+# Pinned because of MSRV; wait for MSRV bump or msrv-resolver
+semver = {version = "=1.0.7", features = ["serde"]}
+lazy_static = "1.4.0"
 # Not yet supported in our MSRV of 1.60.0
 # clap = { workspace=true }
 clap = {version = "=4.1", features = ["derive", "env"]}
