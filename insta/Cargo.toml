@@ -37,7 +37,7 @@ colors = ["console"]
 
 # Serialization formats
 # TODO: This could be cleaner by using "dep:csv" without renaming the dep, but
-# this technique allows for a lower MSRV
+# `dep_csv` allows for a lower MSRV
 csv = ["dep_csv", "serde"]
 json = ["serde"]
 ron = ["dep_ron", "serde"]

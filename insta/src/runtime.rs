@@ -32,6 +32,7 @@ thread_local! {
 
 // This macro is basically eprintln but without being captured and
 // hidden by the test runner.
+#[macro_export]
 macro_rules! elog {
     () => (write!(std::io::stderr()).ok());
     ($($arg:tt)*) => ({

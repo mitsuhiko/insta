@@ -4,8 +4,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::{env, fmt, fs};
 
-use crate::content::{yaml, Content};
 use crate::utils::is_ci;
+use crate::{
+    content::{yaml, Content},
+    elog,
+};
 
 lazy_static::lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
@@ -162,13 +165,17 @@ impl ToolConfig {
             // `cargo-insta` use this, so that it's compatible with older
             // versions of `insta`.
             //
-            //   eprintln!("INSTA_FORCE_UPDATE is deprecated, use
+            //   elog!("INSTA_FORCE_UPDATE is deprecated, use
             //   INSTA_UPDATE=force");
             true
         } else if let Ok("1") = env::var("INSTA_FORCE_UPDATE_SNAPSHOTS").as_deref() {
-            // Do we need to log with a stronger output than `eprintln` to
-            // escape the cargo test capturing?
-            eprintln!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_UPDATE=force");
+            // Warn on an old envvar.
+            //
+            // There's some possibility that we're running from within an fairly
+            // old version of `cargo-insta` (before we added an
+            // `INSTA_CARGO_INSTA` env var, so we can't pick that up.) So offer
+            // a caveat in that case.
+            elog!("INSTA_FORCE_UPDATE_SNAPSHOTS is deprecated, use INSTA_UPDATE=force. (If running from `cargo insta`, no action is required; upgrading `cargo-insta` will silence this warning.)");
             true
         } else {
             false
@@ -217,7 +224,7 @@ impl ToolConfig {
                         .and_then(|x| x.as_str())
                         // Legacy support for the old force update config
                         .or(resolve(&cfg, &["behavior", "force_update"]).and_then(|x| {
-                            eprintln!("`force_update: true` is deprecated, use `update: force`");
+                            elog!("`force_update: true` is deprecated in insta config files, use `update: force`");
                             match x.as_bool() {
                                 Some(true) => Some("force"),
                                 _ => None,
