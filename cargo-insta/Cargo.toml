@@ -33,3 +33,4 @@ clap = {version = "=4.1", features = ["derive", "env"]}
 [dev-dependencies]
 walkdir = "2.3.1"
 similar= "2.2.1"
+itertools = "0.10.0"
