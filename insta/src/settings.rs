@@ -555,7 +555,7 @@ impl Settings {
     ///
     /// This is the recommended way to temporarily bind settings and replaces
     /// the earlier [`bind_to_scope`](Settings::bind_to_scope) and relies on
-    /// drop guards.  An alterantive is [`bind`](Settings::bind) which binds
+    /// drop guards.  An alternative is [`bind`](Settings::bind) which binds
     /// for the duration of the block it wraps.
     ///
     /// ```

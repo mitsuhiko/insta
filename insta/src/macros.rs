@@ -19,7 +19,7 @@ macro_rules! _function_name {
 ///
 /// **Feature:** `csv` (disabled by default)
 ///
-/// This works exactly like [`assert_yaml_snapshot!`]
+/// This works exactly like [`crate::assert_yaml_snapshot!`]
 /// but serializes in [CSV](https://github.com/burntsushi/rust-csv) format instead of
 /// YAML.
 ///
@@ -48,7 +48,7 @@ macro_rules! assert_csv_snapshot {
 ///
 /// **Feature:** `toml` (disabled by default)
 ///
-/// This works exactly like [`assert_yaml_snapshot!`]
+/// This works exactly like [`crate::assert_yaml_snapshot!`]
 /// but serializes in [TOML](https://github.com/alexcrichton/toml-rs) format instead of
 /// YAML.  Note that TOML cannot represent all values due to limitations in the
 /// format.
@@ -92,7 +92,7 @@ macro_rules! assert_toml_snapshot {
 /// assert_yaml_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
-/// Unlike the [`assert_debug_snapshot!`]
+/// Unlike the [`crate::assert_debug_snapshot!`]
 /// macro, this one has a secondary mode where redactions can be defined.
 ///
 /// The third argument to the macro can be an object expression for redaction.
@@ -219,17 +219,16 @@ macro_rules! assert_compact_json_snapshot {
     };
 }
 
-// The macro handles optional trailing commas for file snapshots.
+// This macro handles optional trailing commas.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_serialized_snapshot {
     // If there are redaction expressions and an inline snapshot, capture the
     // redactions expressions and pass to `_assert_snapshot_base`
     //
-    // Note that if we could unify the Inline & File represenations of snapshots
+    // Note that if we could unify the Inline & File representations of snapshots
     // redactions we could unify some of these branches.
-
-    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, @$snapshot:literal) => {{
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, @$snapshot:literal $(,)?) => {{
         let transform = |value| {
             $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, Inline)
         };
@@ -263,8 +262,7 @@ macro_rules! _assert_serialized_snapshot {
     }};
     // If there's an inline snapshot, capture serialization function and pass to
     // `_assert_snapshot_base`, specifying `Inline`
-    //
-    (format=$format:ident, $($arg:expr),*, @$snapshot:literal) => {{
+    (format=$format:ident, $($arg:expr),*, @$snapshot:literal $(,)?) => {{
         let transform = |value| {$crate::_macro_support::serialize_value(
             &value,
             $crate::_macro_support::SerializationFormat::$format,
@@ -311,7 +309,9 @@ macro_rules! _prepare_snapshot_for_redaction {
 #[macro_export]
 macro_rules! _prepare_snapshot_for_redaction {
     ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
-        compile_error!("insta was compiled without redaction support.");
+        compile_error!(
+            "insta was compiled without redactions support. Enable the `redactions` feature."
+        );
     };
 }
 
@@ -329,11 +329,25 @@ macro_rules! assert_debug_snapshot {
     };
 }
 
+/// Asserts a `Debug` snapshot in compact format.
+///
+/// The value needs to implement the `fmt::Debug` trait.  This is useful for
+/// simple values that do not implement the `Serialize` trait, but does not
+/// permit redactions.
+///
+/// Debug is called with `"{:?}"`, which means this does not use pretty-print.
+#[macro_export]
+macro_rules! assert_compact_debug_snapshot {
+    ($($arg:tt)*) => {
+        $crate::_assert_snapshot_base!(transform=|v| std::format!("{:?}", v), $($arg)*)
+    };
+}
+
 // A helper macro which takes a closure as `transform`, and runs the closure on
 // the value. This allows us to implement other macros with a small wrapper. All
 // snapshot macros eventually call this macro.
 //
-// The macro handles optional trailing commas in file snapshots.
+// This macro handles optional trailing commas.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_snapshot_base {
@@ -395,12 +409,17 @@ macro_rules! assert_display_snapshot {
 ///
 /// ```no_run
 /// # use insta::*;
+/// // implicitly named
 /// assert_snapshot!("reference value to snapshot");
+/// // named
+/// assert_snapshot!("snapshot_name", "reference value to snapshot");
+/// // inline
+/// assert_snapshot!("reference value", @"reference value");
 /// ```
 ///
 /// Optionally a third argument can be given as an expression to be stringified
 /// as the debug expression.  For more information on this, check out
-/// https://insta.rs/docs/snapshot-types/.
+/// <https://insta.rs/docs/snapshot-types/>.
 #[macro_export]
 macro_rules! assert_snapshot {
     ($($arg:tt)*) => {

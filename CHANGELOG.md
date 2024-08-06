@@ -2,6 +2,46 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.40.0
+
+- MSRV for `insta` has been raised to 1.60, and for `cargo-insta` to 1.64.
+
+- Added support for compact debug snapshots (`assert_compact_debug_snapshot`). #514
+
+- Inline snapshots now use the required number of `#`s to escape the snapshot
+  value, rather than always using `###`. This allows snapshotting values which
+  themselves contain `###`. If there are no existing `#` characters in the
+  snapshot value, a single `#` will be used.  #540
+
+- `cargo insta test` accepts multiple `--exclude` flags.  #520
+
+- `test` `runner` in insta's yaml config works.  #544
+
+- Print a warning when encountering old snapshot formats.  #503
+
+- Group the options in `cargo insta --help`, upgrade to `clap` from `structopt`.  #518
+
+- No longer suggest running `cargo insta` message when running `cargo insta test --check`.  #515
+
+- Print a clearer error message when accepting a snapshot that was removed.  #516
+
+- Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
+
+- Add a new integration test approach for `cargo-insta` and a set of integration tests.  #537
+
+## 1.39.0
+
+- Fixed a bug in `require_full_match`.  #485
+
+- Fixed a bug that caused snapshot and module names to sometimes be inaccurate.  #483
+
+- Insta will no longer error when removing snapshots that were already removed.  #484
+
+- Added support for trailing commas in inline snapshots.  #472
+
+- Don't pass `--color` in all cases to `libtest` any more to work around limitations
+  with custom test harnesses.  #491
+
 ## 1.38.0
 
 - Redaction macros allow `debug` expressions.  #455
@@ -26,7 +66,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Deprecate `INSTA_FORCE_UPDATE_SNAPSHOTS` env-var for `INSTA_FORCE_UPDATE`.
   The latter was documented, the former was implemented.  #449
 
-- Add `require_full_match` option.  #448 
+- Add `require_full_match` option.  #448
 
 - Deprecate `assert_display_snapshot!`.  #385
 
@@ -212,7 +252,7 @@ To silence the warning add them to your `insta` dependency. Additionally the
 
 ## 1.17.2
 
-- Remove an accidentaly debug print output.
+- Remove an accidentally debug print output.
 
 ## 1.17.1
 

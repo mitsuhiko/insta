@@ -15,7 +15,7 @@ function metadataReferencesInsta(metadata: any): boolean {
   return false;
 }
 
-export async function projectUsesInsta(root: Uri): Promise<boolean> {
+async function checkSingleProject(root: Uri): Promise<boolean> {
   const rootCargoToml = Uri.joinPath(root, "Cargo.toml");
   try {
     await workspace.fs.stat(rootCargoToml);
@@ -43,4 +43,17 @@ export async function projectUsesInsta(root: Uri): Promise<boolean> {
       }
     });
   });
+}
+
+export async function projectUsesInsta(roots: Uri[]): Promise<boolean> {
+  const results = await Promise.all(roots.map(checkSingleProject));
+  return results.some((x) => x);
+}
+
+export async function findCargoRoots(): Promise<Uri[]> {
+  // we search for the lockfile to only include workspace roots
+  const uris = await workspace.findFiles('**/Cargo.lock');
+  const roots = uris.map((uri) => Uri.joinPath(uri, '..'));
+  console.log('found cargo roots', roots);
+  return roots;
 }
