@@ -29,7 +29,6 @@ tempfile = "3.5.0"
 # Needs pinning in Cargo.lock because of MSRV
 semver = {version = "1.0.7", features = ["serde"]}
 lazy_static = "1.4.0"
-# Not yet supported in our MSRV of 1.60.0
 clap = { workspace=true }
 
 [dev-dependencies]
