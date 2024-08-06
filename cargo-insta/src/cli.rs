@@ -627,7 +627,11 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     let status = proc.status()?;
     let mut success = status.success();
 
-    // nextest currently cannot run doctests, run them with regular tests
+    // nextest currently cannot run doctests, run them with regular tests.
+    //
+    // Note that unlike `cargo test`, `cargo test --doctest` will run doctests
+    // even on crates that specify `doctests = false`. But I don't think there's
+    // a way to replicate the `cargo test` behavior.
     if matches!(cmd.test_runner, TestRunner::Nextest) && !prevents_doc_run {
         let (mut proc, _, _) = prepare_test_runner(
             TestRunner::CargoTest,
