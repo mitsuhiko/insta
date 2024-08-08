@@ -4,6 +4,9 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.40.0
 
+- `cargo-insta` no longer panics when running `cargo test --accept --workspace`
+  on a workspace with a default crate. #532
+
 - MSRV for `insta` has been raised to 1.60, and for `cargo-insta` to 1.64.
 
 - Added support for compact debug snapshots (`assert_compact_debug_snapshot`). #514

@@ -1,6 +1,5 @@
 use std::borrow::{Borrow, Cow};
 use std::error::Error;
-use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::{collections::HashSet, fmt};
 use std::{env, fs};
@@ -14,10 +13,10 @@ use insta::_cargo_insta_support::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::cargo::{find_snapshot_roots, get_metadata, Metadata, Package};
+use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::{err_msg, QuietExit};
-use crate::walk::{find_snapshots, make_deletion_walker, make_snapshot_walker, FindFlags};
+use crate::walk::{find_snapshots, make_snapshot_walker, FindFlags};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -251,7 +250,7 @@ fn query_snapshot(
     term: &Term,
     new: &Snapshot,
     old: Option<&Snapshot>,
-    pkg: Option<&Package>,
+    pkg: &Package,
     line: Option<u32>,
     i: usize,
     n: usize,
@@ -261,19 +260,14 @@ fn query_snapshot(
 ) -> Result<Operation, Box<dyn Error>> {
     loop {
         term.clear_screen()?;
-        let (pkg_name, pkg_version): (_, &dyn Display) = if let Some(pkg) = pkg {
-            (pkg.name.as_str(), &pkg.version)
-        } else {
-            ("unknown package", &"unknown version")
-        };
 
         println!(
             "{}{}{} {}@{}:",
             style("Reviewing [").bold(),
             style(format!("{}/{}", i, n)).yellow().bold(),
             style("]").bold(),
-            pkg_name,
-            pkg_version,
+            pkg.name.as_str(),
+            &pkg.version,
         );
 
         let mut printer = SnapshotPrinter::new(workspace_root, old, new);
@@ -356,7 +350,8 @@ fn handle_color(color: Option<ColorWhen>) {
 struct LocationInfo<'a> {
     tool_config: ToolConfig,
     workspace_root: PathBuf,
-    packages: Option<Vec<Package>>,
+    /// Packages to test
+    packages: Vec<Package>,
     exts: Vec<&'a str>,
     find_flags: FindFlags,
 }
@@ -368,7 +363,11 @@ fn get_find_flags(tool_config: &ToolConfig, target_args: &TargetArgs) -> FindFla
     }
 }
 
-fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<dyn Error>> {
+fn handle_target_args<'a>(
+    target_args: &'a TargetArgs,
+    // Empty if none are selected, implying cargo default
+    packages: &'a [String],
+) -> Result<LocationInfo<'a>, Box<dyn Error>> {
     let exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
 
     // if a workspace root is provided we first check if it points to a `Cargo.toml`.  If it
@@ -384,74 +383,77 @@ fn handle_target_args(target_args: &TargetArgs) -> Result<LocationInfo<'_>, Box<
             ))
         }
         (None, Some(manifest)) => (None, Some(Cow::Borrowed(manifest))),
-        (Some(root), manifest_path) => {
+        (Some(root), None) => {
             let assumed_manifest = root.join("Cargo.toml");
             if assumed_manifest.is_file() {
                 (None, Some(Cow::Owned(assumed_manifest)))
             } else {
-                (Some(root), manifest_path.map(Cow::Borrowed))
+                (Some(root), None)
             }
         }
         (None, None) => (None, None),
     };
 
-    if let Some(workspace_root) = workspace_root {
-        let tool_config = ToolConfig::from_workspace(workspace_root)?;
-        Ok(LocationInfo {
-            workspace_root: workspace_root.to_owned(),
-            packages: None,
-            exts,
-            find_flags: get_find_flags(&tool_config, target_args),
-            tool_config,
-        })
-    } else {
-        let Metadata {
-            packages,
-            workspace_root,
-            ..
-        } = get_metadata(
-            manifest_path.as_deref(),
-            target_args.all || target_args.workspace,
-        )?;
-        let workspace_root = workspace_root.as_std_path().to_path_buf();
-        let tool_config = ToolConfig::from_workspace(&workspace_root)?;
-        Ok(LocationInfo {
-            workspace_root,
-            packages: Some(packages),
-            exts,
-            find_flags: get_find_flags(&tool_config, target_args),
-            tool_config,
-        })
+    let mut cmd = cargo_metadata::MetadataCommand::new();
+
+    // If a manifest path is provided, set it in the command
+    if let Some(manifest_path) = manifest_path {
+        cmd.manifest_path(manifest_path);
     }
+    if let Some(workspace_root) = workspace_root {
+        cmd.current_dir(workspace_root);
+    }
+    let metadata = cmd.no_deps().exec()?;
+    let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
+    let tool_config = ToolConfig::from_workspace(&workspace_root)?;
+
+    // If `--all` is passed, or there's no root package, we include all
+    // packages. If packages are specified, we filter from all packages.
+    // Otherwise we use just the root package.
+    //
+    // (Once we're OK running on Cargo 1.71, we can replace `.root_package` with
+    // `.default_workspace_packages`.)
+    let packages = if metadata.root_package().is_none()
+        || (target_args.all || target_args.workspace)
+        || !packages.is_empty()
+    {
+        metadata
+            .workspace_packages()
+            .into_iter()
+            .filter(|p| packages.is_empty() || packages.contains(&p.name))
+            .cloned()
+            .collect()
+    } else {
+        vec![metadata.root_package().unwrap().clone()]
+    };
+
+    Ok(LocationInfo {
+        workspace_root,
+        packages,
+        exts,
+        find_flags: get_find_flags(&tool_config, target_args),
+        tool_config,
+    })
 }
 
 #[allow(clippy::type_complexity)]
 fn load_snapshot_containers<'a>(
     loc: &'a LocationInfo,
-) -> Result<
-    (
-        Vec<(SnapshotContainer, Option<&'a Package>)>,
-        HashSet<PathBuf>,
-    ),
-    Box<dyn Error>,
-> {
+) -> Result<(Vec<(SnapshotContainer, &'a Package)>, HashSet<PathBuf>), Box<dyn Error>> {
     let mut roots = HashSet::new();
     let mut snapshot_containers = vec![];
-    if let Some(ref packages) = loc.packages {
-        for package in packages.iter() {
-            for root in find_snapshot_roots(package) {
-                roots.insert(root.clone());
-                for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
-                    snapshot_containers.push((snapshot_container?, Some(package)));
-                }
+
+    debug_assert!(!loc.packages.is_empty());
+
+    for package in &loc.packages {
+        for root in find_snapshot_roots(package) {
+            roots.insert(root.clone());
+            for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
+                snapshot_containers.push((snapshot_container?, package));
             }
         }
-    } else {
-        roots.insert(loc.workspace_root.clone());
-        for snapshot_container in find_snapshots(&loc.workspace_root, &loc.exts, loc.find_flags) {
-            snapshot_containers.push((snapshot_container?, None));
-        }
     }
+
     snapshot_containers.sort_by(|a, b| a.0.snapshot_sort_key().cmp(&b.0.snapshot_sort_key()));
     Ok((snapshot_containers, roots))
 }
@@ -510,7 +512,7 @@ fn process_snapshots(
                     &term,
                     &snapshot_ref.new,
                     snapshot_ref.old.as_ref(),
-                    *package,
+                    package,
                     snapshot_ref.line,
                     num,
                     snapshot_count,
@@ -566,7 +568,7 @@ fn process_snapshots(
 }
 
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
-    let loc = handle_target_args(&cmd.target_args)?;
+    let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
             if is_ci() {
@@ -655,13 +657,8 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // handle unreferenced snapshots if we were instructed to do so and the
     // tests ran successfully
     if success {
-        if let Some(ref path) = snapshot_ref_file {
-            handle_unreferenced_snapshots(
-                path.borrow(),
-                &loc,
-                cmd.unreferenced,
-                &cmd.test_runner_options.package[..],
-            )?;
+        if let Some(ref snapshot_ref_path) = snapshot_ref_file {
+            handle_unreferenced_snapshots(snapshot_ref_path.borrow(), &loc, cmd.unreferenced)?;
         }
     }
 
@@ -669,7 +666,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         process_snapshots(
             false,
             None,
-            &handle_target_args(&cmd.target_args)?,
+            &loc,
             if cmd.accept {
                 Some(Operation::Accept)
             } else {
@@ -703,11 +700,11 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     }
 }
 
+/// Scan for any snapshots that were not referenced by any test.
 fn handle_unreferenced_snapshots(
-    path: &Path,
+    snapshot_ref_path: &Path,
     loc: &LocationInfo<'_>,
     unreferenced: UnreferencedSnapshots,
-    packages: &[String],
 ) -> Result<(), Box<dyn Error>> {
     enum Action {
         Delete,
@@ -730,7 +727,7 @@ fn handle_unreferenced_snapshots(
     };
 
     let mut files = HashSet::new();
-    match fs::read_to_string(path) {
+    match fs::read_to_string(snapshot_ref_path) {
         Ok(s) => {
             for line in s.lines() {
                 if let Ok(path) = fs::canonicalize(line) {
@@ -748,23 +745,28 @@ fn handle_unreferenced_snapshots(
     }
 
     let mut encountered_any = false;
-    for entry in make_deletion_walker(&loc.workspace_root, loc.packages.as_deref(), packages) {
-        let rel_path = match entry {
-            Ok(ref entry) => entry.path(),
-            _ => continue,
-        };
-        if !rel_path.is_file()
-            || !rel_path
-                .file_name()
-                .map_or(false, |x| x.to_str().unwrap_or("").ends_with(".snap"))
-        {
-            continue;
-        }
 
-        if let Ok(path) = fs::canonicalize(rel_path) {
-            if files.contains(&path) {
-                continue;
-            }
+    for package in loc.packages.clone() {
+        let walker = make_snapshot_walker(
+            package.manifest_path.parent().unwrap().as_std_path(),
+            &[".snap"],
+            FindFlags {
+                include_ignored: true,
+                include_hidden: true,
+            },
+        )
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().map(|ft| ft.is_file()).unwrap_or(false))
+        .filter(|e| {
+            e.file_name()
+                .to_str()
+                .map(|name| name.ends_with(".snap"))
+                .unwrap_or(false)
+        })
+        .filter_map(|e| e.path().canonicalize().ok())
+        .filter(|path| !files.contains(path));
+
+        for path in walker {
             if !encountered_any {
                 match action {
                     Action::Delete => {
@@ -779,14 +781,14 @@ fn handle_unreferenced_snapshots(
                 }
                 encountered_any = true;
             }
-            eprintln!("  {}", rel_path.display());
+            eprintln!("  {}", path.display());
             if matches!(action, Action::Delete) {
-                fs::remove_file(path).ok();
+                fs::remove_file(&path).ok();
             }
         }
     }
 
-    fs::remove_file(path).ok();
+    fs::remove_file(snapshot_ref_path).ok();
 
     if !encountered_any {
         eprintln!("{}: no unreferenced snapshots found", style("info").bold());
@@ -978,7 +980,7 @@ fn prepare_test_runner<'snapshot_ref>(
 }
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
-    let loc = handle_target_args(&cmd.target_args)?;
+    let loc = handle_target_args(&cmd.target_args, &[])?;
     let snapshot = Snapshot::from_file(&cmd.path)?;
     let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
     printer.set_snapshot_file(Some(&cmd.path));
@@ -1004,7 +1006,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         },
     }
 
-    let loc = handle_target_args(&cmd.target_args)?;
+    let loc = handle_target_args(&cmd.target_args, &[])?;
     let (mut snapshot_containers, _) = load_snapshot_containers(&loc)?;
 
     for (snapshot_container, _package) in snapshot_containers.iter_mut() {
@@ -1037,7 +1039,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
 
 fn show_undiscovered_hint(
     find_flags: FindFlags,
-    snapshot_containers: &[(SnapshotContainer, Option<&Package>)],
+    snapshot_containers: &[(SnapshotContainer, &Package)],
     roots: &HashSet<PathBuf>,
     extensions: &[&str],
 ) {
@@ -1114,7 +1116,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
             process_snapshots(
                 cmd.quiet,
                 cmd.snapshot_filter.as_deref(),
-                &handle_target_args(&cmd.target_args)?,
+                &handle_target_args(&cmd.target_args, &[])?,
                 match opts.command {
                     Command::Review(_) => None,
                     Command::Accept(_) => Some(Operation::Accept),
