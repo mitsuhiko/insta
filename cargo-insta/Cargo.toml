@@ -9,7 +9,7 @@ repository = "https://github.com/mitsuhiko/insta"
 documentation = "https://insta.rs/docs/cli/"
 keywords = ["snapshot", "testing", "jest"]
 categories = ["development-tools::cargo-plugins"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 rust-version = "1.64.0"
 
@@ -21,13 +21,13 @@ serde = { version = "1.0.117", features = ["derive"] }
 serde_json = "1.0.59"
 proc-macro2 = { version = "1.0.60", features = ["span-locations"] }
 # Pinned because of MSRV; wait for MSRV bump or msrv-resolver
-syn = { version = "=2.0.8", features = ["full", "visit", "extra-traits"] }
+syn = { version = "2.0.8", features = ["full", "visit", "extra-traits"] }
 ignore = "0.4.17"
 uuid = { version = "1.0.0", features = ["v4"] }
 tempfile = "3.5.0"
 # Not yet supported in our MSRV of 1.60.0
 # clap = { workspace=true }
-clap = {version = "=4.1", features = ["derive", "env"]}
+clap = {version = "4.1", features = ["derive", "env"]}
 
 
 [dev-dependencies]
