@@ -11,6 +11,9 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Added support for compact debug snapshots (`assert_compact_debug_snapshot`). #514
 
+- Deprecate `--no-force-pass` in `cargo-insta`.  The `--check` option covers the
+  same functionality and has a clearer name.  #513
+
 - Inline snapshots now use the required number of `#`s to escape the snapshot
   value, rather than always using `###`. This allows snapshotting values which
   themselves contain `###`. If there are no existing `#` characters in the
@@ -38,7 +41,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Fixed a bug that caused snapshot and module names to sometimes be inaccurate.  #483
 
-- Insta will no longer error when removing snapshots that were already removed.  #484
+- Insta will no longer error when attempting to remove snapshots that were already removed.  #484
 
 - Added support for trailing commas in inline snapshots.  #472
 

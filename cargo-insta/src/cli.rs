@@ -213,8 +213,8 @@ struct TestCommand {
     /// Delete unreferenced snapshots after a successful test run.
     #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
-    /// Disable force-passing of snapshot tests
-    #[arg(long)]
+    /// Disable force-passing of snapshot tests (deprecated)
+    #[arg(long, hide = true)]
     no_force_pass: bool,
     #[command(flatten)]
     target_args: TargetArgs,
@@ -893,6 +893,11 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if !cmd.no_force_pass {
         proc.env("INSTA_FORCE_PASS", "1");
+    } else {
+        eprintln!(
+            "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
+            style("warning").bold().yellow()
+        );
     }
     proc.env(
         "INSTA_UPDATE",
