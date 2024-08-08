@@ -210,6 +210,8 @@ struct TestCommand {
     /// Picks the test runner.
     #[arg(long, default_value = "auto")]
     test_runner: TestRunner,
+    #[arg(long)]
+    test_runner_fallback: Option<bool>,
     /// Delete unreferenced snapshots after a successful test run.
     #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
@@ -618,9 +620,20 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         TestRunner::CargoTest => TestRunner::CargoTest,
         TestRunner::Nextest => TestRunner::Nextest,
     };
+    // Prioritize the command line over the tool config
+    let test_runner_fallback = cmd
+        .test_runner_fallback
+        .unwrap_or(loc.tool_config.test_runner_fallback());
 
-    let (mut proc, snapshot_ref_file, prevents_doc_run) =
-        prepare_test_runner(test_runner, cmd.unreferenced, &cmd, color, &[], None)?;
+    let (mut proc, snapshot_ref_file, prevents_doc_run) = prepare_test_runner(
+        test_runner,
+        test_runner_fallback,
+        cmd.unreferenced,
+        &cmd,
+        color,
+        &[],
+        None,
+    )?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
@@ -637,6 +650,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     if matches!(cmd.test_runner, TestRunner::Nextest) && !prevents_doc_run {
         let (mut proc, _, _) = prepare_test_runner(
             TestRunner::CargoTest,
+            false,
             cmd.unreferenced,
             &cmd,
             color,
@@ -802,6 +816,7 @@ fn handle_unreferenced_snapshots(
 #[allow(clippy::type_complexity)]
 fn prepare_test_runner<'snapshot_ref>(
     test_runner: TestRunner,
+    test_runner_fallback: bool,
     unreferenced: UnreferencedSnapshots,
     cmd: &TestCommand,
     color: ColorWhen,
@@ -812,6 +827,26 @@ fn prepare_test_runner<'snapshot_ref>(
     let cargo = cargo
         .as_deref()
         .unwrap_or_else(|| std::ffi::OsStr::new("cargo"));
+    let test_runner = match test_runner {
+        TestRunner::CargoTest | TestRunner::Auto => test_runner,
+        TestRunner::Nextest => {
+            // Fall back to `cargo test` if `cargo nextest` isn't installed and
+            // `test_runner_fallback` is true (but don't run the cargo command
+            // unless that's an option)
+            if !test_runner_fallback
+                || std::process::Command::new("cargo")
+                    .arg("nextest")
+                    .arg("--version")
+                    .output()
+                    .map(|output| output.status.success())
+                    .unwrap_or(false)
+            {
+                TestRunner::Nextest
+            } else {
+                TestRunner::Auto
+            }
+        }
+    };
     let mut proc = match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
             let mut proc = process::Command::new(cargo);

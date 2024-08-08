@@ -224,6 +224,9 @@
 //! test:
 //!   # also set by INSTA_TEST_RUNNER
 //!   runner: "auto" | "cargo-test" | "nextest"
+//!   # whether to fallback to `cargo-test` if `nextest` is not available,
+//!   # also set by INSTA_TEST_RUNNER_FALLBACK, default false
+//!   test_runner_fallback: true/false
 //!   # automatically assume --review was passed to cargo insta test
 //!   auto_review: true/false
 //!   # automatically assume --accept-unseen was passed to cargo insta test
