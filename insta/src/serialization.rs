@@ -22,11 +22,7 @@ pub enum SnapshotLocation {
     File,
 }
 
-pub fn serialize_content(
-    mut content: Content,
-    format: SerializationFormat,
-    location: SnapshotLocation,
-) -> String {
+pub fn serialize_content(mut content: Content, format: SerializationFormat) -> String {
     content = Settings::with(|settings| {
         if settings.sort_maps() {
             content.sort_maps();
@@ -41,13 +37,7 @@ pub fn serialize_content(
     });
 
     match format {
-        SerializationFormat::Yaml => {
-            let serialized = yaml::to_string(&content);
-            match location {
-                SnapshotLocation::Inline => serialized,
-                SnapshotLocation::File => serialized[4..].to_string(),
-            }
-        }
+        SerializationFormat::Yaml => yaml::to_string(&content)[4..].to_string(),
         SerializationFormat::Json => json::to_string_pretty(&content),
         SerializationFormat::JsonCompact => json::to_string_compact(&content),
         #[cfg(feature = "csv")]
@@ -98,14 +88,10 @@ pub fn serialize_content(
     }
 }
 
-pub fn serialize_value<S: Serialize>(
-    s: &S,
-    format: SerializationFormat,
-    location: SnapshotLocation,
-) -> String {
+pub fn serialize_value<S: Serialize>(s: &S, format: SerializationFormat) -> String {
     let serializer = ContentSerializer::<ValueError>::new();
     let content = Serialize::serialize(s, serializer).unwrap();
-    serialize_content(content, format, location)
+    serialize_content(content, format)
 }
 
 #[cfg(feature = "redactions")]
@@ -113,14 +99,13 @@ pub fn serialize_value_redacted<S: Serialize>(
     s: &S,
     redactions: &[(crate::redaction::Selector, crate::redaction::Redaction)],
     format: SerializationFormat,
-    location: SnapshotLocation,
 ) -> String {
     let serializer = ContentSerializer::<ValueError>::new();
     let mut content = Serialize::serialize(s, serializer).unwrap();
     for (selector, redaction) in redactions {
         content = selector.redact(content, redaction);
     }
-    serialize_content(content, format, location)
+    serialize_content(content, format)
 }
 
 #[test]
@@ -140,7 +125,6 @@ fn test_yaml_serialization() {
             ),
         ]),
         SerializationFormat::Yaml,
-        SnapshotLocation::File,
     );
     crate::assert_snapshot!(&yaml, @r###"
     env:
@@ -166,8 +150,17 @@ fn test_yaml_serialization() {
             ),
         ]),
         SerializationFormat::Yaml,
-        SnapshotLocation::Inline,
     );
+    crate::assert_snapshot!(&inline_yaml, @r###"
+    env:
+      - ENVIRONMENT
+      - production
+    cmdline:
+      - my-tool
+      - run
+    "###);
+
+    // Old approach with leading `---`:
     crate::assert_snapshot!(&inline_yaml, @r###"
     ---
     env:
