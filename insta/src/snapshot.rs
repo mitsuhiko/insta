@@ -520,9 +520,7 @@ impl SnapshotContents {
 
     /// Returns the snapshot contents as string with surrounding whitespace removed.
     pub fn as_str(&self) -> &str {
-        self.0
-            .trim_start_matches(|x| x == '\r' || x == '\n')
-            .trim_end()
+        self.0.trim_start_matches(['\r', '\n']).trim_end()
     }
 
     pub fn to_inline(&self, indentation: usize) -> String {
