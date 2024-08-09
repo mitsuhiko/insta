@@ -9,7 +9,7 @@ repository = "https://github.com/mitsuhiko/insta"
 documentation = "https://insta.rs/docs/cli/"
 keywords = ["snapshot", "testing", "jest"]
 categories = ["development-tools::cargo-plugins"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 rust-version = "1.65.0"
 

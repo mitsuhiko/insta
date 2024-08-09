@@ -1,5 +1,6 @@
 [workspace]
 members = ["cargo-insta"]
+resolver = "2"
 
 [workspace.metadata.dist]
 cargo-dist-version = "0.12.0"
