@@ -520,10 +520,7 @@ impl SnapshotContents {
 
     /// Returns the snapshot contents as string with surrounding whitespace removed.
     pub fn as_str(&self) -> &str {
-        let out = self
-            .0
-            .trim_start_matches(|x| x == '\r' || x == '\n')
-            .trim_end();
+        let out = self.0.trim_start_matches(['\r', '\n']).trim_end();
         // Old inline snapshots have `---` at the start, so this strips that if
         // it exists. Soon we can start printing a warning and then eventually
         // remove it in the next version.
