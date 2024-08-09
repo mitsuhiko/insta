@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
+use crate::utils::cargo_insta_version;
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_snapshots, make_snapshot_walker, FindFlags};
 
@@ -863,6 +864,7 @@ fn prepare_test_runner<'snapshot_ref>(
 
     // An env var to indicate we're running under cargo-insta
     proc.env("INSTA_CARGO_INSTA", "1");
+    proc.env("INSTA_CARGO_INSTA_VERSION", cargo_insta_version());
 
     let snapshot_ref_file = if unreferenced != UnreferencedSnapshots::Ignore {
         match snapshot_ref_file {

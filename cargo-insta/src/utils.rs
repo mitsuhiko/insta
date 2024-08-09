@@ -27,3 +27,9 @@ impl fmt::Display for ErrMsg {
 pub(crate) fn err_msg<S: Into<String>>(s: S) -> Box<dyn Error> {
     Box::new(ErrMsg(s.into()))
 }
+
+/// cargo-insta version
+// We could put this in a lazy_static
+pub(crate) fn cargo_insta_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
