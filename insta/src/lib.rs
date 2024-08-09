@@ -129,6 +129,7 @@
 //! - `unseen`: `always` for previously unseen snapshots or `new` for existing
 //!   snapshots
 //! - `no`: does not write to snapshot files at all; just runs tests
+//! - `force`: forcibly updates snapshot files, even if assertions pass
 //!
 //! When `new`, `auto` or `unseen` is used, the
 //! [`cargo-insta`](https://crates.io/crates/cargo-insta) command can be used to
@@ -207,8 +208,6 @@
 //!
 //! ```yaml
 //! behavior:
-//!   # also set by INSTA_FORCE_UPDATE
-//!   force_update: true/false
 //!   # also set by INSTA_REQUIRE_FULL_MATCH
 //!   require_full_match: true/false
 //!   # also set by INSTA_FORCE_PASS
@@ -216,7 +215,7 @@
 //!   # also set by INSTA_OUTPUT
 //!   output: "diff" | "summary" | "minimal" | "none"
 //!   # also set by INSTA_UPDATE
-//!   update: "auto" | "always" | "new" | "unseen" | "no"
+//!   update: "auto" | "new" | "always" | "no" | "unseen" | "force"
 //!   # also set by INSTA_GLOB_FAIL_FAST
 //!   glob_fail_fast: true/false
 //!

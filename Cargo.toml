@@ -16,5 +16,5 @@ inherits = "release"
 lto = "thin"
 
 [workspace.dependencies]
-# Locking because of MSRV; wait for MSRV bump or msrv-resolver
+# Needs pinning in Cargo.lock because of MSRV
 clap = {version = "4.1", features = ["derive", "env"]}
