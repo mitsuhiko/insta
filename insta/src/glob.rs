@@ -61,7 +61,7 @@ pub fn glob_exec<F: FnMut(&Path)>(manifest_dir: &str, base: &Path, pattern: &str
     GLOB_STACK.lock().unwrap().push(GlobCollector {
         failed: 0,
         show_insta_hint: false,
-        fail_fast: get_tool_config(manifest_dir).glob_fail_fast(),
+        fail_fast: get_tool_config(manifest_dir).glob_fail_fast,
     });
 
     // step 1: collect all matching files

@@ -365,7 +365,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             .snapshot_file
             .as_ref()
             .map_or(false, |x| fs::metadata(x).is_ok());
-        let should_print = self.tool_config.output_behavior() != OutputBehavior::Nothing;
+        let should_print = self.tool_config.output_behavior != OutputBehavior::Nothing;
         let snapshot_update = snapshot_update_behavior(&self.tool_config, unseen);
 
         match snapshot_update {
@@ -468,7 +468,7 @@ fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) 
     printer.set_snapshot_file(ctx.snapshot_file.as_deref());
     printer.set_title(Some("Snapshot Summary"));
     printer.set_show_info(true);
-    match ctx.tool_config.output_behavior() {
+    match ctx.tool_config.output_behavior {
         OutputBehavior::Summary => {
             printer.print();
         }
@@ -513,7 +513,7 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
 
     if fail_fast
         && update_result == SnapshotUpdateBehavior::NewFile
-        && ctx.tool_config.output_behavior() != OutputBehavior::Nothing
+        && ctx.tool_config.output_behavior != OutputBehavior::Nothing
         && !ctx.is_doctest
     {
         println!(
@@ -522,8 +522,8 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
         );
     }
 
-    if update_result != SnapshotUpdateBehavior::InPlace && !ctx.tool_config.force_pass() {
-        if fail_fast && ctx.tool_config.output_behavior() != OutputBehavior::Nothing {
+    if update_result != SnapshotUpdateBehavior::InPlace && !ctx.tool_config.force_pass {
+        if fail_fast && ctx.tool_config.output_behavior != OutputBehavior::Nothing {
             let msg = if env::var("INSTA_CARGO_INSTA") == Ok("1".to_string()) {
                 "Stopped on the first failure."
             } else {
@@ -541,7 +541,7 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
             if let Some(glob_collector) = stack.last_mut() {
                 glob_collector.failed += 1;
                 if update_result == SnapshotUpdateBehavior::NewFile
-                    && ctx.tool_config.output_behavior() != OutputBehavior::Nothing
+                    && ctx.tool_config.output_behavior != OutputBehavior::Nothing
                 {
                     glob_collector.show_insta_hint = true;
                 }
@@ -579,7 +579,7 @@ fn record_snapshot_duplicate(
             printer.set_snapshot_file(ctx.snapshot_file.as_deref());
             printer.set_title(Some("Differences in Block"));
             printer.set_snapshot_hints("previous assertion", "current assertion");
-            if ctx.tool_config.output_behavior() == OutputBehavior::Diff {
+            if ctx.tool_config.output_behavior == OutputBehavior::Diff {
                 printer.set_show_diff(true);
             }
             printer.print();
@@ -667,7 +667,7 @@ pub fn assert_snapshot(
         .old_snapshot
         .as_ref()
         .map(|x| {
-            if tool_config.require_full_match() {
+            if tool_config.require_full_match {
                 x.matches_fully(&new_snapshot)
             } else {
                 x.matches(&new_snapshot)
@@ -678,7 +678,7 @@ pub fn assert_snapshot(
     if pass {
         ctx.cleanup_passing()?;
 
-        if tool_config.force_update_snapshots() {
+        if tool_config.force_update_snapshots {
             ctx.update_snapshot(new_snapshot)?;
         }
     // otherwise print information and update snapshots.

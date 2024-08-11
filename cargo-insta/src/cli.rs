@@ -572,7 +572,7 @@ fn process_snapshots(
 
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
-    match loc.tool_config.snapshot_update() {
+    match loc.tool_config.snapshot_update {
         SnapshotUpdate::Auto => {
             if is_ci() {
                 cmd.check = true;

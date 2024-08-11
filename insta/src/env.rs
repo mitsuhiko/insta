@@ -96,13 +96,13 @@ impl std::error::Error for Error {
 /// Represents a tool configuration.
 #[derive(Debug)]
 pub struct ToolConfig {
-    force_update_snapshots: bool,
-    force_pass: bool,
-    require_full_match: bool,
-    output: OutputBehavior,
-    snapshot_update: SnapshotUpdate,
+    pub force_update_snapshots: bool,
+    pub force_pass: bool,
+    pub require_full_match: bool,
+    pub output_behavior: OutputBehavior,
+    pub snapshot_update: SnapshotUpdate,
     #[cfg(feature = "glob")]
-    glob_fail_fast: bool,
+    pub glob_fail_fast: bool,
     /// Whether to fallback to `cargo test` if the test runner isn't available
     #[cfg(feature = "_cargo_insta_internal")]
     pub test_runner_fallback: bool,
@@ -184,7 +184,7 @@ impl ToolConfig {
                 Ok("1") => true,
                 _ => return Err(Error::Env("INSTA_FORCE_PASS")),
             },
-            output: {
+            output_behavior: {
                 let env_var = env::var("INSTA_OUTPUT");
                 let val = match env_var.as_deref() {
                     Err(_) | Ok("") => resolve(&cfg, &["behavior", "output"])
@@ -277,39 +277,6 @@ impl ToolConfig {
                 .unwrap_or(true),
         })
     }
-
-    // TODO: Do we want all these methods, vs. just allowing access to the fields?
-
-    /// Is insta told to force update snapshots?
-    pub fn force_update_snapshots(&self) -> bool {
-        self.force_update_snapshots
-    }
-
-    /// Should we fail if metadata doesn't match?
-    pub fn require_full_match(&self) -> bool {
-        self.require_full_match
-    }
-
-    /// Is insta instructed to fail in tests?
-    pub fn force_pass(&self) -> bool {
-        self.force_pass
-    }
-
-    /// Returns the intended output behavior for insta.
-    pub fn output_behavior(&self) -> OutputBehavior {
-        self.output
-    }
-
-    /// Returns the intended snapshot update behavior.
-    pub fn snapshot_update(&self) -> SnapshotUpdate {
-        self.snapshot_update
-    }
-
-    /// Returns the value of glob_fail_fast
-    #[cfg(feature = "glob")]
-    pub fn glob_fail_fast(&self) -> bool {
-        self.glob_fail_fast
-    }
 }
 
 /// How snapshots are supposed to be updated
@@ -325,7 +292,7 @@ pub enum SnapshotUpdateBehavior {
 
 /// Returns the intended snapshot update behavior.
 pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> SnapshotUpdateBehavior {
-    match tool_config.snapshot_update() {
+    match tool_config.snapshot_update {
         SnapshotUpdate::Always => SnapshotUpdateBehavior::InPlace,
         SnapshotUpdate::Auto => {
             if is_ci() {
