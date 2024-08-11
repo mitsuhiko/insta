@@ -472,8 +472,6 @@ fn test_root() {
         )
 }
 
-// Currently panics
-#[should_panic]
 /// Check that in a workspace with a default root crate, running `cargo insta
 /// test --workspace` will update snapsnots in both the root crate and the
 /// member crate.

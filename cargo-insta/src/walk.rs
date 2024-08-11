@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -6,7 +5,6 @@ use std::path::Path;
 use ignore::overrides::OverrideBuilder;
 use ignore::{DirEntry, Walk, WalkBuilder};
 
-use crate::cargo::Package;
 use crate::container::{SnapshotContainer, SnapshotContainerKind};
 
 #[derive(Debug, Copy, Clone)]
@@ -25,11 +23,11 @@ fn is_hidden(entry: &DirEntry) -> bool {
 
 /// Finds all snapshots
 pub(crate) fn find_snapshots<'a>(
-    root: &Path,
+    package_root: &Path,
     extensions: &'a [&'a str],
     flags: FindFlags,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-    make_snapshot_walker(root, extensions, flags)
+    make_snapshot_walker(package_root, extensions, flags)
         .filter_map(|e| e.ok())
         .filter_map(move |e| {
             let fname = e.file_name().to_string_lossy();
@@ -55,87 +53,52 @@ pub(crate) fn find_snapshots<'a>(
         })
 }
 
-/// Creates a walker for snapshots.
-pub(crate) fn make_snapshot_walker(path: &Path, extensions: &[&str], flags: FindFlags) -> Walk {
-    let mut builder = WalkBuilder::new(path);
+/// Creates a walker for snapshots & pending snapshots within a package.
+pub(crate) fn make_snapshot_walker(
+    package_root: &Path,
+    extensions: &[&str],
+    flags: FindFlags,
+) -> Walk {
+    let mut builder = WalkBuilder::new(package_root);
     builder.standard_filters(!flags.include_ignored);
     if flags.include_hidden {
         builder.hidden(false);
     } else {
+        // We add a custom hidden filter to avoid skipping over `.pending-snap` files
         builder.filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
     }
 
-    let mut override_builder = OverrideBuilder::new(path);
+    let mut override_builder = OverrideBuilder::new(package_root);
     override_builder
         .add(".*.pending-snap")
         .unwrap()
         .add("*.snap.new")
         .unwrap();
-
     for ext in extensions {
         override_builder.add(&format!("*.{}.new", ext)).unwrap();
     }
-
     builder.overrides(override_builder.build().unwrap());
+
+    let root_path = package_root.to_path_buf();
+
+    // Add a custom filter to skip interior crates; otherwise we get duplicate
+    // snapshots (https://github.com/mitsuhiko/insta/issues/396)
+    builder.filter_entry(move |entry| {
+        if entry.file_type().map_or(false, |ft| ft.is_dir()) {
+            let cargo_toml_path = entry.path().join("Cargo.toml");
+            if cargo_toml_path.exists() && entry.path() != root_path {
+                // Skip this directory if it contains a Cargo.toml and is not the root
+                return false;
+            }
+        }
+        // We always want to skip target even if it was not excluded by
+        // ignore files.
+        if entry.path().file_name() == Some(OsStr::new("target")) {
+            return false;
+        }
+
+        true
+    });
+
     builder.build()
-}
-
-/// A walker that is used by the snapshot deletion code.
-///
-/// This really should be using the same logic as the main snapshot walker but today is is not.
-pub(crate) fn make_deletion_walker(
-    workspace_root: &Path,
-    known_packages: Option<&[Package]>,
-    selected_packages: &[String],
-) -> Walk {
-    let roots: HashSet<_> = if let Some(packages) = known_packages {
-        packages
-            .iter()
-            .filter_map(|x| {
-                // filter out packages we did not ask for.
-                if !selected_packages.is_empty() && !selected_packages.contains(&x.name) {
-                    return None;
-                }
-                x.manifest_path.parent().unwrap().canonicalize().ok()
-            })
-            .collect()
-    } else {
-        Some(workspace_root.to_path_buf()).into_iter().collect()
-    };
-
-    WalkBuilder::new(workspace_root)
-        .filter_entry(move |entry| {
-            // we only filter down for directories
-            if !entry.file_type().map_or(false, |x| x.is_dir()) {
-                return true;
-            }
-
-            let canonicalized = match entry.path().canonicalize() {
-                Ok(path) => path,
-                Err(_) => return true,
-            };
-
-            // We always want to skip target even if it was not excluded by
-            // ignore files.
-            if entry.path().file_name() == Some(OsStr::new("target"))
-                && roots.contains(canonicalized.parent().unwrap())
-            {
-                return false;
-            }
-
-            // do not enter crates which are not in the list of known roots
-            // of the workspace.
-            if !roots.contains(&canonicalized)
-                && entry
-                    .path()
-                    .join("Cargo.toml")
-                    .metadata()
-                    .map_or(false, |x| x.is_file())
-            {
-                return false;
-            }
-
-            true
-        })
-        .build()
 }
