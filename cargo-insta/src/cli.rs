@@ -928,14 +928,19 @@ fn prepare_test_runner<'snapshot_ref>(
     if !cmd.fail_fast {
         proc.arg("--no-fail-fast");
     }
-    if !cmd.no_force_pass {
+    if !cmd.check {
         proc.env("INSTA_FORCE_PASS", "1");
-    } else {
+    } else if !cmd.no_force_pass {
+        proc.env("INSTA_FORCE_PASS", "1");
+        // If we're not running under cargo insta, raise a warning that this option
+        // is deprecated. (cargo insta still uses it when running under `--check`,
+        // but this will stop soon too)
         eprintln!(
             "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
             style("warning").bold().yellow()
-        );
+    );
     }
+
     proc.env(
         "INSTA_UPDATE",
         match (cmd.check, cmd.accept_unseen) {
