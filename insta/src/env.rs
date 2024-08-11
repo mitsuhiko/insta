@@ -103,22 +103,24 @@ pub struct ToolConfig {
     snapshot_update: SnapshotUpdate,
     #[cfg(feature = "glob")]
     glob_fail_fast: bool,
+    /// Whether to fallback to `cargo test` if the test runner isn't available
     #[cfg(feature = "_cargo_insta_internal")]
-    test_runner_fallback: bool,
+    pub test_runner_fallback: bool,
+    /// The intended test runner
     #[cfg(feature = "_cargo_insta_internal")]
-    test_runner: TestRunner,
+    pub test_runner: TestRunner,
     #[cfg(feature = "_cargo_insta_internal")]
-    test_unreferenced: UnreferencedSnapshots,
+    pub test_unreferenced: UnreferencedSnapshots,
     #[cfg(feature = "_cargo_insta_internal")]
-    auto_review: bool,
+    pub auto_review: bool,
     #[cfg(feature = "_cargo_insta_internal")]
-    auto_accept_unseen: bool,
+    pub auto_accept_unseen: bool,
     #[cfg(feature = "_cargo_insta_internal")]
-    review_include_ignored: bool,
+    pub review_include_ignored: bool,
     #[cfg(feature = "_cargo_insta_internal")]
-    review_include_hidden: bool,
+    pub review_include_hidden: bool,
     #[cfg(feature = "_cargo_insta_internal")]
-    review_warn_undiscovered: bool,
+    pub review_warn_undiscovered: bool,
 }
 
 impl ToolConfig {
@@ -307,45 +309,6 @@ impl ToolConfig {
     #[cfg(feature = "glob")]
     pub fn glob_fail_fast(&self) -> bool {
         self.glob_fail_fast
-    }
-}
-
-#[cfg(feature = "_cargo_insta_internal")]
-impl ToolConfig {
-    /// Returns the intended test runner
-    pub fn test_runner(&self) -> TestRunner {
-        self.test_runner
-    }
-
-    /// Whether to fallback to `cargo test` if the test runner isn't available
-    pub fn test_runner_fallback(&self) -> bool {
-        self.test_runner_fallback
-    }
-
-    pub fn test_unreferenced(&self) -> UnreferencedSnapshots {
-        self.test_unreferenced
-    }
-
-    /// Returns the auto review flag.
-    pub fn auto_review(&self) -> bool {
-        self.auto_review
-    }
-
-    /// Returns the auto accept unseen flag.
-    pub fn auto_accept_unseen(&self) -> bool {
-        self.auto_accept_unseen
-    }
-
-    pub fn review_include_hidden(&self) -> bool {
-        self.review_include_hidden
-    }
-
-    pub fn review_include_ignored(&self) -> bool {
-        self.review_include_ignored
-    }
-
-    pub fn review_warn_undiscovered(&self) -> bool {
-        self.review_warn_undiscovered
     }
 }
 

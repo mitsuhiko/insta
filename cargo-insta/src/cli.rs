@@ -361,8 +361,8 @@ struct LocationInfo<'a> {
 
 fn get_find_flags(tool_config: &ToolConfig, target_args: &TargetArgs) -> FindFlags {
     FindFlags {
-        include_ignored: target_args.include_ignored || tool_config.review_include_ignored(),
-        include_hidden: target_args.include_hidden || tool_config.review_include_hidden(),
+        include_ignored: target_args.include_ignored || tool_config.review_include_ignored,
+        include_hidden: target_args.include_hidden || tool_config.review_include_hidden,
     }
 }
 
@@ -476,7 +476,7 @@ fn process_snapshots(
     if snapshot_count == 0 {
         if !quiet {
             println!("{}: no snapshots to review", style("done").bold());
-            if loc.tool_config.review_warn_undiscovered() {
+            if loc.tool_config.review_warn_undiscovered {
                 show_undiscovered_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
             }
         }
@@ -602,10 +602,10 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
 
     // the tool config can also indicate that --accept-unseen should be picked
     // automatically unless instructed otherwise.
-    if loc.tool_config.auto_accept_unseen() && !cmd.accept && !cmd.review {
+    if loc.tool_config.auto_accept_unseen && !cmd.accept && !cmd.review {
         cmd.accept_unseen = true;
     }
-    if loc.tool_config.auto_review() && !cmd.review && !cmd.accept {
+    if loc.tool_config.auto_review && !cmd.review && !cmd.accept {
         cmd.review = true;
     }
 
@@ -617,14 +617,14 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
 
     // Prioritize the command line over the tool config
     let test_runner = match cmd.test_runner {
-        TestRunner::Auto => loc.tool_config.test_runner(),
+        TestRunner::Auto => loc.tool_config.test_runner,
         TestRunner::CargoTest => TestRunner::CargoTest,
         TestRunner::Nextest => TestRunner::Nextest,
     };
     // Prioritize the command line over the tool config
     let test_runner_fallback = cmd
         .test_runner_fallback
-        .unwrap_or(loc.tool_config.test_runner_fallback());
+        .unwrap_or(loc.tool_config.test_runner_fallback);
 
     let (mut proc, snapshot_ref_file, prevents_doc_run) = prepare_test_runner(
         test_runner,
@@ -702,7 +702,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
             return Err(QuietExit(1).into());
         } else {
             println!("{}: no snapshots to review", style("info").bold());
-            if loc.tool_config.review_warn_undiscovered() {
+            if loc.tool_config.review_warn_undiscovered {
                 show_undiscovered_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
             }
         }
