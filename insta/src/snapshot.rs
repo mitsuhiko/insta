@@ -527,9 +527,10 @@ impl SnapshotContents {
         let contents = &self.0;
         let mut out = String::new();
 
+        // We don't technically need to escape on newlines, but it reduces diffs
+        let is_escape = contents.contains(['\\', '"', '\n']);
         // Escape the string if needed, with `r#`, using with 1 more `#` than
         // the maximum number of existing contiguous `#`.
-        let is_escape = contents.contains(['\\', '"']);
         let delimiter = if is_escape {
             let max_contiguous_hash = contents
                 .split(|c| c != '#')
@@ -754,10 +755,10 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        r##""
+        r##"r#"
 a
 b
-""##
+"#"##
     );
 
     assert_eq!(
@@ -767,10 +768,10 @@ b"
             .to_string()
         )
         .to_inline(4),
-        r##""
+        r##"r#"
     a
     b
-    ""##
+    "#"##
     );
 
     let t = &"
@@ -778,10 +779,10 @@ b"
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        r##""
+        r##"r#"
     a
     b
-""##
+"#"##
     );
 
     let t = &"
@@ -790,11 +791,11 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(4),
-        r##""
+        r##"r#"
     a
 
     b
-    ""##
+    "#"##
     );
 
     let t = &"
@@ -802,9 +803,9 @@ b"[1..];
 "[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        r#""
+        r##"r#"
     ab
-""#
+"#"##
     );
 
     let t = "ab";
