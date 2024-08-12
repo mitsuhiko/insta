@@ -1,5 +1,5 @@
 ---
-source: tests/test_redaction.rs
+source: insta/tests/test_redaction.rs
 expression: "vec![checkout]"
 ---
 - _id: "[checkout_id]"
@@ -8,4 +8,3 @@ expression: "vec![checkout]"
       product_name: "[product_name]"
     - _id: "[product_id]"
       product_name: "[product_name]"
-

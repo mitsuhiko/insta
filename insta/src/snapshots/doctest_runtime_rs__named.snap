@@ -1,5 +1,5 @@
 ---
-source: src/runtime.rs
+source: insta/src/runtime.rs
 expression: "vec![1, 2, 3, 4, 5]"
 ---
 [
