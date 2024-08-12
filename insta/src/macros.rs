@@ -278,7 +278,9 @@ macro_rules! _prepare_snapshot_for_redaction {
 #[macro_export]
 macro_rules! _prepare_snapshot_for_redaction {
     ($value:expr, {$($k:expr => $v:expr),*}, $format:ident) => {
-        "insta was compiled without redactions support. Enable the `redactions` feature."
+        compile_error!(
+            "insta was compiled without redactions support. Enable the `redactions` feature."
+        )
     };
 }
 
