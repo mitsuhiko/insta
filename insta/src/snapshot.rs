@@ -529,7 +529,7 @@ impl SnapshotContents {
 
         // Escape the string if needed, with `r#`, using with 1 more `#` than
         // the maximum number of existing contiguous `#`.
-        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
+        let is_escape = contents.contains(['\\', '"']);
         let delimiter = if is_escape {
             let max_contiguous_hash = contents
                 .split(|c| c != '#')
@@ -754,21 +754,23 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r#\"
+        r##""
 a
 b
-\"#"
+""##
     );
 
-    let t = &"
-a
-b"[1..];
     assert_eq!(
-        SnapshotContents(t.to_string()).to_inline(4),
-        "r#\"
+        SnapshotContents(
+            "a
+b"
+            .to_string()
+        )
+        .to_inline(4),
+        r##""
     a
     b
-    \"#"
+    ""##
     );
 
     let t = &"
@@ -776,10 +778,10 @@ b"[1..];
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r#\"
+        r##""
     a
     b
-\"#"
+""##
     );
 
     let t = &"
@@ -788,11 +790,11 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(4),
-        "r#\"
+        r##""
     a
 
     b
-    \"#"
+    ""##
     );
 
     let t = &"
@@ -800,9 +802,9 @@ b"[1..];
 "[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r#\"
+        r#""
     ab
-\"#"
+""#
     );
 
     let t = "ab";
@@ -814,12 +816,12 @@ fn test_snapshot_contents_hashes() {
     let t = "a###b";
     assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""a###b""#);
 
-    let t = "a\n###b";
+    let t = "a\n\\###b";
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
         r#####"r####"
 a
-###b
+\###b
 "####"#####
     );
 }
