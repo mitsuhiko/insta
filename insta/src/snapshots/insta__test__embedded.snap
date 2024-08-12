@@ -1,5 +1,5 @@
 ---
-source: src/test.rs
+source: insta/src/test.rs
 expression: "\"Just a string\""
 ---
 Just a string
