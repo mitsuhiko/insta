@@ -71,7 +71,7 @@ fn assert_success(output: &std::process::Output) {
     // we would otherwise lose any output from the command such as `dbg!`
     // statements.
     eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    // eprint!("{}", String::from_utf8_lossy(&output.stdout));
+    eprint!("{}", String::from_utf8_lossy(&output.stdout));
     assert!(
         output.status.success(),
         "Tests failed: {}\n{}",
@@ -724,15 +724,12 @@ fn test_force_update_inline_snapshot() {
             "Cargo.toml",
             r#"
 [package]
-name = "inline-force-update"
+name = "force-update-inline"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-doctest = false
-
 [dependencies]
-insta = { path = "$PROJECT_PATH" }
+insta = { path = '$PROJECT_PATH' }
 "#
             .to_string(),
         )
