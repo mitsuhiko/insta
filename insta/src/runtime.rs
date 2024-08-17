@@ -397,6 +397,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             }
             SnapshotUpdateBehavior::NewFile => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
+                    // File snapshot
                     if let Some(new_path) = new_snapshot.save_new(snapshot_file)? {
                         if should_print {
                             elog!(
@@ -415,19 +416,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                                 .bold(),
                         );
                     }
-
-                // special case for pending inline snapshots.  Here we really only want
-                // to write the contents if the snapshot contents changed as the metadata
-                // is not retained for inline snapshots.  This used to have different
-                // behavior in the past where we did indeed want to rewrite the snapshots
-                // entirely since we used to change the canonical snapshot format, but now
-                // this is significantly less likely to happen and seeing hundreds of unchanged
-                // inline snapshots in the review screen is not a lot of fun.
-                } else if self
-                    .old_snapshot
-                    .as_ref()
-                    .map_or(true, |x| x.contents() != new_snapshot.contents())
-                {
+                } else {
                     PendingInlineSnapshot::new(
                         Some(new_snapshot),
                         self.old_snapshot.clone(),
