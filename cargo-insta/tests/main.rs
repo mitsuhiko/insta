@@ -763,7 +763,6 @@ fn test_excessive_hashes() {
 
     assert_success(&output);
 
-    // Check the contents of the updated file
     assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
