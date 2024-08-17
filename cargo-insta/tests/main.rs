@@ -71,7 +71,7 @@ fn assert_success(output: &std::process::Output) {
     // we would otherwise lose any output from the command such as `dbg!`
     // statements.
     eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    eprint!("{}", String::from_utf8_lossy(&output.stdout));
+    // eprint!("{}", String::from_utf8_lossy(&output.stdout));
     assert!(
         output.status.success(),
         "Tests failed: {}\n{}",
