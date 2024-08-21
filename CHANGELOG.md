@@ -35,6 +35,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Add a new integration test approach for `cargo-insta` and a set of integration tests.  #537
 
+- Enable Filters to be created from `IntoIterator` types, rather than just `Vec`s.  #570
+
 ## 1.39.0
 
 - Fixed a bug in `require_full_match`.  #485
