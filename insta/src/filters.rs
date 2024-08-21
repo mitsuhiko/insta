@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::iter::FromIterator;
+use std::iter::IntoIterator;
 
 use regex::Regex;
 
@@ -10,9 +11,12 @@ pub struct Filters {
     rules: Vec<(Regex, String)>,
 }
 
-impl<'a> From<Vec<(&'a str, &'a str)>> for Filters {
-    fn from(value: Vec<(&'a str, &'a str)>) -> Self {
-        Self::from_iter(value)
+impl<'a, I> From<I> for Filters
+where
+    I: IntoIterator<Item = (&'a str, &'a str)>,
+{
+    fn from(value: I) -> Self {
+        Self::from_iter(value.into_iter())
     }
 }
 
