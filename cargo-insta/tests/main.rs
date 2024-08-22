@@ -715,3 +715,54 @@ fn test_virtual_manifest_single_crate() {
          member-2/src
     "###     );
 }
+
+#[test]
+fn test_hashtag_escape_in_inline_snapshot() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_hashtag_escape"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_hashtag_escape() {
+    insta::assert_snapshot!("Value with #### hashtags\n", @"");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.diff("src/main.rs"), @r######"
+    --- Original: src/main.rs
+    +++ Updated: src/main.rs
+    @@ -1,5 +1,7 @@
+     
+     #[test]
+     fn test_hashtag_escape() {
+    -    insta::assert_snapshot!("Value with #### hashtags\n", @"");
+    +    insta::assert_snapshot!("Value with #### hashtags\n", @r#####"
+    +    Value with #### hashtags
+    +    "#####);
+     }
+    "######);
+}
