@@ -369,6 +369,17 @@ impl<'a> SnapshotAssertionContext<'a> {
         let should_print = self.tool_config.output_behavior() != OutputBehavior::Nothing;
         let snapshot_update = snapshot_update_behavior(&self.tool_config, unseen);
 
+        // If snapshot_update is `InPlace` and we have an inline snapshot, then
+        // use `NewFile`, since we can't use `InPlace` for inline. `cargo-insta`
+        // then accepts all snapshots at the end of the test.
+
+        let snapshot_update =
+            if snapshot_update == SnapshotUpdateBehavior::InPlace && self.snapshot_file.is_none() {
+                SnapshotUpdateBehavior::NewFile
+            } else {
+                snapshot_update
+            };
+
         match snapshot_update {
             SnapshotUpdateBehavior::InPlace => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
@@ -384,16 +395,9 @@ impl<'a> SnapshotAssertionContext<'a> {
                             style(snapshot_file.display()).cyan().underlined(),
                         );
                     }
-                } else if should_print {
-                    elog!(
-                        "{}",
-                        style(
-                            "error: cannot update inline snapshots in-place \
-                        (https://github.com/mitsuhiko/insta/issues/272)"
-                        )
-                        .red()
-                        .bold(),
-                    );
+                } else {
+                    // Checked self.snapshot_file.is_none() above
+                    unreachable!()
                 }
             }
             SnapshotUpdateBehavior::NewFile => {
