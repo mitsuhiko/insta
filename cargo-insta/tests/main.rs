@@ -71,6 +71,7 @@ fn assert_success(output: &std::process::Output) {
     // we would otherwise lose any output from the command such as `dbg!`
     // statements.
     eprint!("{}", String::from_utf8_lossy(&output.stderr));
+    eprint!("{}", String::from_utf8_lossy(&output.stdout));
     assert!(
         output.status.success(),
         "Tests failed: {}\n{}",
@@ -714,6 +715,62 @@ fn test_virtual_manifest_single_crate() {
          member-2/Cargo.toml
          member-2/src
     "###     );
+}
+
+#[test]
+fn test_force_update_inline_snapshot() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "force-update-inline"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#####"
+#[test]
+fn test_excessive_hashes() {
+    insta::assert_snapshot!("foo", @r####"foo"####);
+}
+"#####
+                .to_string(),
+        )
+        .create_project();
+
+    // Run the test with --force-update-snapshots and --accept
+    let output = test_project
+        .cmd()
+        .args([
+            "test",
+            "--force-update-snapshots",
+            "--accept",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,5 +1,5 @@
+     
+     #[test]
+     fn test_excessive_hashes() {
+    -    insta::assert_snapshot!("foo", @r####"foo"####);
+    +    insta::assert_snapshot!("foo", @"foo");
+     }
+    "#####);
 }
 
 #[test]
