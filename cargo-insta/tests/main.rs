@@ -114,14 +114,13 @@ impl TestProject {
         let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
         // Remove environment variables so we don't inherit anything (such as
         // `CI` or `INSTA_FORCE_PASS` or `CARGO_INSTA_*`) from a cargo-insta process which runs
-        // this test.
-        // for var in command.e
+        // this test. We could iterate through the current `env` if we find this
+        // removes too many.
         command.env_clear();
-
         command.env("PATH", env::var("PATH").unwrap());
 
         // Turn off CI flag so that cargo insta test behaves as we expect
-        // under normal operation
+        // under normal operation (likely unneeded given the above, could remove)
         command.env("CI", "0");
 
         command.current_dir(self.workspace_dir.as_path());
