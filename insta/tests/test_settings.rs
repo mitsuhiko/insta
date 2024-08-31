@@ -17,7 +17,6 @@ fn test_simple() {
     settings.set_sort_maps(true);
     settings.bind(|| {
         assert_yaml_snapshot!(&map, @r###"
-        ---
         a: first value
         b: second value
         c: third value
@@ -40,7 +39,6 @@ fn test_bound_to_scope() {
         settings.set_sort_maps(true);
         let _guard = settings.bind_to_scope();
         assert_yaml_snapshot!(&map, @r###"
-        ---
         a: first value
         b: second value
         c: third value
@@ -62,7 +60,6 @@ fn test_settings_macro() {
 
     with_settings!({sort_maps => true}, {
         insta::assert_yaml_snapshot!(&map, @r###"
-        ---
         a: first value
         b: second value
         c: third value

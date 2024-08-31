@@ -290,21 +290,20 @@ fn test_yaml_snapshot() {
 
     assert_success(&output);
 
-    assert_snapshot!(test_project.diff("src/main.rs"), @r##"
+    assert_snapshot!(test_project.diff("src/main.rs"), @r###"
     --- Original: src/main.rs
     +++ Updated: src/main.rs
-    @@ -15,5 +15,9 @@
+    @@ -15,5 +15,8 @@
          };
          insta::assert_yaml_snapshot!(&user, {
              ".id" => "[user_id]",
     -    }, @"");
     +    }, @r#"
-    +    ---
     +    id: "[user_id]"
     +    email: john.doe@example.com
     +    "#);
      }
-    "##);
+    "###);
 }
 
 #[test]

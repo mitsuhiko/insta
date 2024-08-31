@@ -431,7 +431,7 @@ impl Snapshot {
 
     /// Snapshot contents _and_ metadata match another snapshot's.
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
-        self.matches(other)
+        self.snapshot.matches_fully(&other.snapshot)
             && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
     }
 
@@ -520,7 +520,23 @@ impl SnapshotContents {
 
     /// Returns the snapshot contents as string with surrounding whitespace removed.
     pub fn as_str(&self) -> &str {
-        self.0.trim_start_matches(['\r', '\n']).trim_end()
+        let out = self.0.trim_start_matches(['\r', '\n']).trim_end();
+        // Old inline snapshots have `---` at the start, so this strips that if
+        // it exists. Soon we can start printing a warning and then eventually
+        // remove it in the next version.
+        match out.strip_prefix("---\n") {
+            Some(s) => s,
+            None => out,
+        }
+    }
+
+    /// Returns the snapshot contents as string without any trimming.
+    pub fn as_str_exact(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn matches_fully(&self, other: &SnapshotContents) -> bool {
+        self.as_str_exact() == other.as_str_exact()
     }
 
     pub fn to_inline(&self, indentation: usize) -> String {
