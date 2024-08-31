@@ -19,6 +19,8 @@ All notable changes to insta and cargo-insta are documented here.
   themselves contain `###`. If there are no existing `#` characters in the
   snapshot value, a single `#` will be used.  #540
 
+- Inline snapshots can now be updated with `--force-update-snapshots`.  #569
+
 - `cargo insta test` accepts multiple `--exclude` flags.  #520
 
 - `test` `runner` in insta's yaml config works.  #544
@@ -34,6 +36,8 @@ All notable changes to insta and cargo-insta are documented here.
 - Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
 
 - Add a new integration test approach for `cargo-insta` and a set of integration tests.  #537
+
+- Enable Filters to be created from `IntoIterator` types, rather than just `Vec`s.  #570
 
 ## 1.39.0
 

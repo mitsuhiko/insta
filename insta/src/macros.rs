@@ -223,49 +223,31 @@ macro_rules! assert_compact_json_snapshot {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_serialized_snapshot {
-    // If there are redaction expressions and an inline snapshot, capture
-    // the redactions expressions and pass to `_assert_snapshot_base`
-    //
-    // Note that if we could unify the Inline & File representations of snapshots
-    // redactions we could unify some of these branches.
-    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, @$snapshot:literal $(,)?) => {{
+    // If there are redaction expressions, capture the redactions expressions
+    // and pass to `_assert_snapshot_base`
+    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?} $($arg:tt)*) => {{
         let transform = |value| {
-            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, Inline);
+            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format);
             value
         };
-        $crate::_assert_snapshot_base!(transform=transform, $value, @$snapshot);
+        $crate::_assert_snapshot_base!(transform=transform, $value $($arg)*);
     }};
-    // If there are redaction expressions and no name, add a auto-generated name, call self
-    (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?} $(,)?) => {{
-        $crate::_assert_serialized_snapshot!(format=$format, $crate::_macro_support::AutoName, $value, {$($k => $v),*});
-    }};
-    // If there are redaction expressions, capture and pass to `_assert_snapshot_base`
+    // If there's a name and redaction expressions, capture and pass to `_assert_snapshot_base`
     (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?} $(,)?) => {{
         let transform = |value| {
-            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format, File);
+            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format);
             value
         };
         $crate::_assert_snapshot_base!(transform=transform, $name, $value);
     }};
-    // If there's an inline snapshot, capture serialization function and pass to
-    // `_assert_snapshot_base`, specifying `Inline`
-    (format=$format:ident, $($arg:expr),*, @$snapshot:literal $(,)?) => {{
+    // Capture serialization function and pass to `_assert_snapshot_base`
+    //
+    (format=$format:ident, $($arg:tt)*) => {{
         let transform = |value| {$crate::_macro_support::serialize_value(
             &value,
             $crate::_macro_support::SerializationFormat::$format,
-            $crate::_macro_support::SnapshotLocation::Inline
         )};
-        $crate::_assert_snapshot_base!(transform = transform, $($arg),*, @$snapshot);
-    }};
-    // Capture serialization function and pass to `_assert_snapshot_base`,
-    // specifying `File`
-    (format=$format:ident, $($arg:expr),* $(,)?) => {{
-        let transform = |value| {$crate::_macro_support::serialize_value(
-            &value,
-            $crate::_macro_support::SerializationFormat::$format,
-            $crate::_macro_support::SnapshotLocation::File
-        )};
-        $crate::_assert_snapshot_base!(transform = transform, $($arg),*);
+        $crate::_assert_snapshot_base!(transform = transform, $($arg)*);
     }};
 }
 
@@ -273,7 +255,7 @@ macro_rules! _assert_serialized_snapshot {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _prepare_snapshot_for_redaction {
-    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
+    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident) => {
         {
             let vec = std::vec![
                 $((
@@ -285,7 +267,6 @@ macro_rules! _prepare_snapshot_for_redaction {
                 &$value,
                 &vec,
                 $crate::_macro_support::SerializationFormat::$format,
-                $crate::_macro_support::SnapshotLocation::$location
             );
             (vec, value)
         }
@@ -296,10 +277,10 @@ macro_rules! _prepare_snapshot_for_redaction {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _prepare_snapshot_for_redaction {
-    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident, $location:ident) => {
+    ($value:expr, {$($k:expr => $v:expr),*}, $format:ident) => {
         compile_error!(
             "insta was compiled without redactions support. Enable the `redactions` feature."
-        );
+        )
     };
 }
 

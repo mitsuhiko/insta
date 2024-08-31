@@ -431,7 +431,7 @@ impl Snapshot {
 
     /// Snapshot contents _and_ metadata match another snapshot's.
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
-        self.matches(other)
+        self.snapshot.matches_fully(&other.snapshot)
             && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
     }
 
@@ -520,16 +520,33 @@ impl SnapshotContents {
 
     /// Returns the snapshot contents as string with surrounding whitespace removed.
     pub fn as_str(&self) -> &str {
-        self.0.trim_start_matches(['\r', '\n']).trim_end()
+        let out = self.0.trim_start_matches(['\r', '\n']).trim_end();
+        // Old inline snapshots have `---` at the start, so this strips that if
+        // it exists. Soon we can start printing a warning and then eventually
+        // remove it in the next version.
+        match out.strip_prefix("---\n") {
+            Some(s) => s,
+            None => out,
+        }
+    }
+
+    /// Returns the snapshot contents as string without any trimming.
+    pub fn as_str_exact(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn matches_fully(&self, other: &SnapshotContents) -> bool {
+        self.as_str_exact() == other.as_str_exact()
     }
 
     pub fn to_inline(&self, indentation: usize) -> String {
         let contents = &self.0;
         let mut out = String::new();
 
+        // We don't technically need to escape on newlines, but it reduces diffs
+        let is_escape = contents.contains(['\\', '"', '\n']);
         // Escape the string if needed, with `r#`, using with 1 more `#` than
         // the maximum number of existing contiguous `#`.
-        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
         let delimiter = if is_escape {
             let max_contiguous_hash = contents
                 .split(|c| c != '#')
@@ -754,21 +771,23 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r#\"
+        r##"r#"
 a
 b
-\"#"
+"#"##
     );
 
-    let t = &"
-a
-b"[1..];
     assert_eq!(
-        SnapshotContents(t.to_string()).to_inline(4),
-        "r#\"
+        SnapshotContents(
+            "a
+b"
+            .to_string()
+        )
+        .to_inline(4),
+        r##"r#"
     a
     b
-    \"#"
+    "#"##
     );
 
     let t = &"
@@ -776,10 +795,10 @@ b"[1..];
     b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r#\"
+        r##"r#"
     a
     b
-\"#"
+"#"##
     );
 
     let t = &"
@@ -788,11 +807,11 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(4),
-        "r#\"
+        r##"r#"
     a
 
     b
-    \"#"
+    "#"##
     );
 
     let t = &"
@@ -800,9 +819,9 @@ b"[1..];
 "[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r#\"
+        r##"r#"
     ab
-\"#"
+"#"##
     );
 
     let t = "ab";
@@ -814,12 +833,12 @@ fn test_snapshot_contents_hashes() {
     let t = "a###b";
     assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""a###b""#);
 
-    let t = "a\n###b";
+    let t = "a\n\\###b";
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
         r#####"r####"
 a
-###b
+\###b
 "####"#####
     );
 }
