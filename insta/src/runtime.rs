@@ -667,8 +667,23 @@ pub fn assert_snapshot(
     if pass {
         ctx.cleanup_passing()?;
 
-        if tool_config.force_update_snapshots() {
-            ctx.update_snapshot(new_snapshot)?;
+        if dbg!(tool_config.force_update_snapshots()) {
+            // Inline snapshots currently create lots of files even when they
+            // match. So we don't update them if they fully match.
+            //
+            // Note that there's a check down the stack on whether the files
+            // match for file snapshots; probably we should combine that check
+            // with `matches_fully` and then use a single check for whether we
+            // force update snapshots. Currently the bad user experience is for
+            // inline snapshots only, so that's the check we do here.
+            let matches_fully = dbg!(&ctx.old_snapshot)
+                .as_ref()
+                .map(|x| x.matches_fully(dbg!(&new_snapshot)))
+                .unwrap_or(false);
+            let inline = ctx.snapshot_file.is_none();
+            if !dbg!(matches_fully) || !dbg!(inline) {
+                ctx.update_snapshot(new_snapshot)?;
+            }
         }
     // otherwise print information and update snapshots.
     } else {

@@ -255,7 +255,12 @@ impl MetaData {
         // snapshot. But we don't know that from here (notably
         // `self.input_file.is_none()` is not a correct approach). Given that
         // `--require-full-match` is experimental and we're working on making
-        // inline & file snapshots more coherent, I'm leaving this as is for now.
+        // inline & file snapshots more coherent, I'm leaving this as is for
+        // now.
+        //
+        // FIXME: for the current issue around `matches_fully` not passing
+        // correctly for inline snapshots, we need to figure that out here and
+        // remove metadata if so.
         if self.assertion_line.is_some() {
             let mut rv = self.clone();
             rv.assertion_line = None;
