@@ -111,15 +111,25 @@ impl TestProject {
     }
     fn cmd(&self) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
+        // Remove environment variables so we don't inherit anything (such as
+        // `INSTA_FORCE_PASS` or `CARGO_INSTA_*`) from a cargo-insta process
+        // which runs this integration test.
+        for (key, _) in env::vars() {
+            if key.starts_with("CARGO_INSTA") || key.starts_with("INSTA") {
+                command.env_remove(&key);
+            }
+        }
+        // Turn off CI flag so that cargo insta test behaves as we expect
+        // under normal operation
+        command.env("CI", "0");
+
         command.current_dir(self.workspace_dir.as_path());
         // Use the same target directory as other tests, consistent across test
         // run. This makes the compilation much faster (though do some tests
         // tread on the toes of others? We could have a different cache for each
         // project if so...)
         command.env("CARGO_TARGET_DIR", target_dir());
-        // Turn off CI flag so that cargo insta test behaves as we expect
-        // under normal operation
-        command.env("CI", "0");
+
         command
     }
 
