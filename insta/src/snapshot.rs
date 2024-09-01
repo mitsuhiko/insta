@@ -848,86 +848,97 @@ fn test_normalize_inline_snapshot() {
     use similar_asserts::assert_eq;
     // here we do exact matching (rather than `assert_snapshot`)
     // to ensure we're not incorporating the modifications this library makes
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
    1
    2
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
+    "#
+        ),
+        r###"1
+2"###
     );
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
             1
-    2"#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-        1
-2"###[1..]
+    2"#
+        ),
+        r###"        1
+2"###
     );
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
             1
             2
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
+    "#
+        ),
+        r###"1
+2"###
     );
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
    1
    2
-"#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
+"#
+        ),
+        r###"1
+2"###
     );
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
         a
-    "#;
-    assert_eq!(normalize_inline_snapshot(t), "a");
+    "#
+        ),
+        "a"
+    );
 
-    let t = "";
-    assert_eq!(normalize_inline_snapshot(t), "");
+    assert_eq!(normalize_inline_snapshot(""), "");
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
     a
     b
 c
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-    a
+    "#
+        ),
+        r###"    a
     b
-c"###[1..]
+c"###
     );
 
-    let t = r#"
-a
-    "#;
-    assert_eq!(normalize_inline_snapshot(t), "a");
-
-    let t = "
-    a";
-    assert_eq!(normalize_inline_snapshot(t), "a");
-
-    let t = r#"a
-  a"#;
     assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
+        normalize_inline_snapshot(
+            r#"
 a
-  a"###[1..]
+    "#
+        ),
+        "a"
+    );
+
+    assert_eq!(
+        normalize_inline_snapshot(
+            "
+    a"
+        ),
+        "a"
+    );
+
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"a
+  a"#
+        ),
+        r###"a
+  a"###
     );
 }
 
