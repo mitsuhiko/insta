@@ -16,7 +16,7 @@ where
     I: IntoIterator<Item = (&'a str, &'a str)>,
 {
     fn from(value: I) -> Self {
-        Self::from_iter(value.into_iter())
+        Self::from_iter(value)
     }
 }
 
