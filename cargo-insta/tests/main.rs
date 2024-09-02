@@ -1009,16 +1009,14 @@ fn test_wrong_indent_force() {
     assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -5,7 +5,9 @@
+    @@ -5,7 +5,7 @@
          foo
          foo
          "#, @r#"
     -                foo
     -                foo
-    +
-    +        foo
-    +        foo
-    +        
+    +    foo
+    +    foo
          "#);
      }
     "##);
@@ -1045,7 +1043,7 @@ insta = { path = '$PROJECT_PATH' }
             r#"
 #[test]
 fn test_hashtag_escape() {
-    insta::assert_snapshot!("Value with #### hashtags\n", @"");
+    insta::assert_snapshot!("Value with\n#### hashtags\n", @"");
 }
 "#
             .to_string(),
@@ -1063,13 +1061,14 @@ fn test_hashtag_escape() {
     assert_snapshot!(test_project.diff("src/main.rs"), @r######"
     --- Original: src/main.rs
     +++ Updated: src/main.rs
-    @@ -1,5 +1,7 @@
+    @@ -1,5 +1,8 @@
      
      #[test]
      fn test_hashtag_escape() {
-    -    insta::assert_snapshot!("Value with #### hashtags\n", @"");
-    +    insta::assert_snapshot!("Value with #### hashtags\n", @r#####"
-    +    Value with #### hashtags
+    -    insta::assert_snapshot!("Value with\n#### hashtags\n", @"");
+    +    insta::assert_snapshot!("Value with\n#### hashtags\n", @r#####"
+    +    Value with
+    +    #### hashtags
     +    "#####);
      }
     "######);

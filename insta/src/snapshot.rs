@@ -448,14 +448,16 @@ impl Snapshot {
         self.snapshot.kind
     }
 
-    /// Both exact snapshot contents and metadata matches another snapshot's.
+    /// Both the exact snapshot contents and the persisted metadata match another snapshot's.
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
         match self.kind() {
             SnapshotKind::File => {
                 self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
                     && self.contents().as_str_exact() == other.contents().as_str_exact()
             }
-            SnapshotKind::Inline => self.contents().to_inline(0) == other.contents().to_inline(0),
+            SnapshotKind::Inline => {
+                self.contents().as_str_exact() == other.contents().as_str_exact()
+            }
         }
     }
 
