@@ -392,7 +392,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     elog!(
                         "{}",
                         style(
-                            "error: cannot update inline snapshots in-place \
+                            "error: cannot update inline snapshots in-place. Please use `cargo-insta` \
                         (https://github.com/mitsuhiko/insta/issues/272)"
                         )
                         .red()
@@ -403,14 +403,13 @@ impl<'a> SnapshotAssertionContext<'a> {
             SnapshotUpdateBehavior::NewFile => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
                     // File snapshot
-                    if let Some(new_path) = new_snapshot.save_new(snapshot_file)? {
-                        if should_print {
-                            elog!(
-                                "{} {}",
-                                style("stored new snapshot").green(),
-                                style(new_path.display()).cyan().underlined(),
-                            );
-                        }
+                    let new_path = new_snapshot.save_new(snapshot_file)?;
+                    if should_print {
+                        elog!(
+                            "{} {}",
+                            style("stored new snapshot").green(),
+                            style(new_path.display()).cyan().underlined(),
+                        );
                     }
                 } else if self.is_doctest {
                     if should_print {

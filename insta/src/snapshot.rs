@@ -496,12 +496,11 @@ impl Snapshot {
     /// Same as `save` but instead of writing a normal snapshot file this will write
     /// a `.snap.new` file with additional information.
     ///
-    /// If the existing snapshot matches the new file, then `None` is returned, otherwise
-    /// the name of the new snapshot file.
-    pub(crate) fn save_new(&self, path: &Path) -> Result<Option<PathBuf>, Box<dyn Error>> {
+    /// The name of the new snapshot file is returned.
+    pub(crate) fn save_new(&self, path: &Path) -> Result<PathBuf, Box<dyn Error>> {
         let new_path = path.to_path_buf().with_extension("snap.new");
         self.save_with_metadata(&new_path, &self.metadata)?;
-        Ok(Some(new_path))
+        Ok(new_path)
     }
 }
 
