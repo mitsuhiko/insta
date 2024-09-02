@@ -474,40 +474,14 @@ impl Snapshot {
         buf
     }
 
-    fn save_with_metadata(
-        &self,
-        path: &Path,
-        ref_file: Option<&Path>,
-        md: &MetaData,
-    ) -> Result<bool, Box<dyn Error>> {
+    fn save_with_metadata(&self, path: &Path, md: &MetaData) -> Result<(), Box<dyn Error>> {
         if let Some(folder) = path.parent() {
             fs::create_dir_all(folder)?;
         }
 
         let serialized_snapshot = self.serialize_snapshot(md);
-
-        // check the reference file for contents.  Note that we always want to
-        // compare snapshots that were trimmed to persistence here.  This is a
-        // stricter check than even `matches_fully`, since it's comparing the
-        // exact contents of the file.
-        if let Ok(old) = fs::read_to_string(ref_file.unwrap_or(path)) {
-            let persisted = match md.trim_for_persistence() {
-                Cow::Owned(trimmed) => Cow::Owned(self.serialize_snapshot(&trimmed)),
-                Cow::Borrowed(trimmed) => {
-                    // This condition needs to hold, otherwise we need to
-                    // compare the old value to a newly trimmed serialized snapshot
-                    debug_assert_eq!(trimmed, md);
-
-                    Cow::Borrowed(&serialized_snapshot)
-                }
-            };
-            if old == persisted.as_str() {
-                return Ok(false);
-            }
-        }
-
         fs::write(path, serialized_snapshot)?;
-        Ok(true)
+        Ok(())
     }
 
     /// Saves the snapshot.
@@ -515,8 +489,8 @@ impl Snapshot {
     /// Returns `true` if the snapshot was saved.  This will return `false` if there
     /// was already a snapshot with matching contents.
     #[doc(hidden)]
-    pub fn save(&self, path: &Path) -> Result<bool, Box<dyn Error>> {
-        self.save_with_metadata(path, None, &self.metadata.trim_for_persistence())
+    pub fn save(&self, path: &Path) -> Result<(), Box<dyn Error>> {
+        self.save_with_metadata(path, &self.metadata.trim_for_persistence())
     }
 
     /// Same as `save` but instead of writing a normal snapshot file this will write
@@ -526,11 +500,8 @@ impl Snapshot {
     /// the name of the new snapshot file.
     pub(crate) fn save_new(&self, path: &Path) -> Result<Option<PathBuf>, Box<dyn Error>> {
         let new_path = path.to_path_buf().with_extension("snap.new");
-        if self.save_with_metadata(&new_path, Some(path), &self.metadata)? {
-            Ok(Some(new_path))
-        } else {
-            Ok(None)
-        }
+        self.save_with_metadata(&new_path, &self.metadata)?;
+        Ok(Some(new_path))
     }
 }
 

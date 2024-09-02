@@ -35,6 +35,7 @@ thread_local! {
 
 // This macro is basically eprintln but without being captured and
 // hidden by the test runner.
+#[macro_export]
 macro_rules! elog {
     () => (write!(std::io::stderr()).ok());
     ($($arg:tt)*) => ({
@@ -375,8 +376,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         match snapshot_update {
             SnapshotUpdateBehavior::InPlace => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
-                    let saved = new_snapshot.save(snapshot_file)?;
-                    if should_print && saved {
+                    new_snapshot.save(snapshot_file)?;
+                    if should_print {
                         elog!(
                             "{} {}",
                             if unseen {
@@ -680,11 +681,6 @@ pub fn assert_snapshot(
             // Avoid creating new files if contents match exactly. In
             // particular, this would otherwise create lots of unneeded files
             // for inline snapshots
-            //
-            // Note that there's a check down the stack on whether the file
-            // contents match exactly for file snapshots; probably we should
-            // combine that check with `matches_fully` and then use a single
-            // check for whether we force update snapshots.
             let matches_fully = &ctx
                 .old_snapshot
                 .as_ref()
