@@ -259,3 +259,51 @@ impl FilePatcher {
         visitor.1
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use insta::assert_debug_snapshot;
+
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_find_snapshot_macro() {
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    assert_snapshot!("test\ntest", @r###"
+    test
+    test
+    "###);
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        // The snapshot macro starts on line 5 (1-based index)
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+
+        // Extract the snapshot content
+        let snapshot_content: Vec<String> =
+            file_patcher.lines[snapshot.start.0..=snapshot.end.0].to_vec();
+
+        assert_debug_snapshot!(snapshot_content, @r####"
+        [
+            "    assert_snapshot!(\"test\\ntest\", @r###\"",
+            "    test",
+            "    test",
+            "    \"###);",
+        ]
+        "####);
+
+        // Assert the indentation
+        assert_debug_snapshot!(snapshot.indentation, @"4");
+    }
+}
