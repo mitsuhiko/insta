@@ -197,8 +197,8 @@ fn get_snapshot_filename(
     })
 }
 
-/// A single snapshot including surrounding context which allows us to assert
-/// and save the snapshot.
+/// A single snapshot including surrounding context which asserts and save the
+/// snapshot.
 #[derive(Debug)]
 struct SnapshotAssertionContext<'a> {
     tool_config: Arc<ToolConfig>,
