@@ -19,6 +19,8 @@ lazy_static::lazy_static! {
     };
 }
 
+/// Holds a pending inline snapshot loaded from a json file or read from an assert
+/// macro (doesn't write to the rust file, which is done by `cargo-insta`)
 #[derive(Debug)]
 pub struct PendingInlineSnapshot {
     pub run_id: String,
