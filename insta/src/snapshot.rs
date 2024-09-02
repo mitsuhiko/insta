@@ -553,7 +553,7 @@ impl SnapshotContents {
     /// Returns the string literal, including `#` delimiters, to insert into a
     /// Rust source file.
     pub fn to_inline(&self, indentation: usize) -> String {
-        let contents = &self.contents;
+        let contents = self.normalize();
         let mut out = String::new();
 
         // We don't technically need to escape on newlines, but it reduces diffs
@@ -595,7 +595,7 @@ impl SnapshotContents {
                     .chain(Some(format!("\n{:width$}", "", width = indentation))),
             );
         } else {
-            out.push_str(contents);
+            out.push_str(contents.as_str());
         }
 
         out.push('"');
@@ -796,8 +796,8 @@ b
     assert_eq!(
         SnapshotContents::new("\n    a\n    b".to_string(), SnapshotKind::Inline).to_inline(0),
         r##"r#"
-    a
-    b
+a
+b
 "#"##
     );
 
@@ -812,9 +812,7 @@ b
 
     assert_eq!(
         SnapshotContents::new("\n    ab\n".to_string(), SnapshotKind::Inline).to_inline(0),
-        r##"r#"
-    ab
-"#"##
+        r##""ab""##
     );
 
     assert_eq!(
