@@ -290,8 +290,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     module_path.replace("::", "__"),
                     None,
                     MetaData::default(),
-                    SnapshotKind::Inline,
-                    SnapshotContents::from_inline(contents),
+                    SnapshotContents::new(contents.to_string(), SnapshotKind::Inline),
                 ));
             }
         };
@@ -319,12 +318,7 @@ impl<'a> SnapshotAssertionContext<'a> {
     }
 
     /// Creates the new snapshot from input values.
-    pub fn new_snapshot(
-        &self,
-        contents: SnapshotContents,
-        expr: &str,
-        kind: SnapshotKind,
-    ) -> Snapshot {
+    pub fn new_snapshot(&self, contents: SnapshotContents, expr: &str) -> Snapshot {
         Snapshot::from_components(
             self.module_path.replace("::", "__"),
             self.snapshot_name.as_ref().map(|x| x.to_string()),
@@ -343,7 +337,6 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .and_then(|x| self.localize_path(x))
                     .map(|x| path_to_storage(&x)),
             }),
-            kind,
             contents,
         )
     }
@@ -651,7 +644,8 @@ pub fn assert_snapshot(
         Some(_) => SnapshotKind::File,
         None => SnapshotKind::Inline,
     };
-    let new_snapshot = ctx.new_snapshot(new_snapshot_value.into(), expr, kind);
+    let new_snapshot =
+        ctx.new_snapshot(SnapshotContents::new(new_snapshot_value.into(), kind), expr);
 
     // memoize the snapshot file if requested.
     if let Some(ref snapshot_file) = ctx.snapshot_file {

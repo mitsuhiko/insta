@@ -1061,12 +1061,14 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         let is_inline = snapshot_container.snapshot_file().is_none();
         for snapshot_ref in snapshot_container.iter_snapshots() {
             if cmd.as_json {
+                let old_snapshot = snapshot_ref.old.as_ref().map(|x| x.contents_str());
+                let new_snapshot = snapshot_ref.new.contents_str();
                 let info = if is_inline {
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,
                         line: snapshot_ref.line.unwrap(),
-                        old_snapshot: snapshot_ref.old.as_ref().map(|x| x.contents_str()),
-                        new_snapshot: snapshot_ref.new.contents_str(),
+                        old_snapshot: old_snapshot.as_deref(),
+                        new_snapshot: &new_snapshot,
                         expression: snapshot_ref.new.metadata().expression(),
                     }
                 } else {

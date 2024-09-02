@@ -843,7 +843,7 @@ fn test_force_update_inline_snapshot_linebreaks() {
             "Cargo.toml",
             r#"
 [package]
-name = "force-update-inline-linkbreaks"
+name = "force-update-inline-linebreaks"
 version = "0.1.0"
 edition = "2021"
 
@@ -905,7 +905,7 @@ fn test_force_update_inline_snapshot_hashes() {
             "Cargo.toml",
             r#"
 [package]
-name = "force-update-inline"
+name = "force-update-inline-hashes"
 version = "0.1.0"
 edition = "2021"
 
@@ -945,6 +945,83 @@ fn test_excessive_hashes() {
     // given the reasons at https://github.com/mitsuhiko/insta/pull/573. So this
     // result asserts the current state rather than the desired state.
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
+}
+
+#[test]
+fn test_inline_snapshot_indent() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "inline-indent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#####"
+#[test]
+fn test_wrong_indent_force() {
+    insta::assert_snapshot!(r#"
+    foo
+    foo
+    "#, @r#"
+                foo
+                foo
+    "#);
+}
+"#####
+                .to_string(),
+        )
+        .create_project();
+
+    // Confirm the test passes despite the indent
+    let output = test_project
+        .cmd()
+        .args(["test", "--check", "--", "--nocapture"])
+        .output()
+        .unwrap();
+    assert_success(&output);
+
+    // Then run the test with --force-update-snapshots and --accept to confirm
+    // the new snapshot is written
+    let output = test_project
+        .cmd()
+        .args([
+            "test",
+            "--force-update-snapshots",
+            "--accept",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+    assert_success(&output);
+
+    // https://github.com/mitsuhiko/insta/pull/563 will fix the starting &
+    // ending newlines
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -5,7 +5,9 @@
+         foo
+         foo
+         "#, @r#"
+    -                foo
+    -                foo
+    +
+    +        foo
+    +        foo
+    +        
+         "#);
+     }
+    "##);
 }
 
 #[test]
