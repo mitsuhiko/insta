@@ -288,7 +288,7 @@ mod glob;
 mod test;
 
 pub use crate::settings::Settings;
-pub use crate::snapshot::{MetaData, Snapshot};
+pub use crate::snapshot::{MetaData, Snapshot, SnapshotKind};
 
 /// Exposes some library internals.
 ///

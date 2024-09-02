@@ -87,8 +87,12 @@ impl PendingInlineSnapshot {
                 match key.as_str() {
                     Some("run_id") => run_id = value.as_str().map(|x| x.to_string()),
                     Some("line") => line = value.as_u64().map(|x| x as u32),
-                    Some("old") if !value.is_nil() => old = Some(Snapshot::from_content(value)?),
-                    Some("new") if !value.is_nil() => new = Some(Snapshot::from_content(value)?),
+                    Some("old") if !value.is_nil() => {
+                        old = Some(Snapshot::from_content(value, SnapshotKind::Inline)?)
+                    }
+                    Some("new") if !value.is_nil() => {
+                        new = Some(Snapshot::from_content(value, SnapshotKind::Inline)?)
+                    }
                     _ => {}
                 }
             }
@@ -255,7 +259,8 @@ impl MetaData {
         // snapshot. But we don't know that from here (notably
         // `self.input_file.is_none()` is not a correct approach). Given that
         // `--require-full-match` is experimental and we're working on making
-        // inline & file snapshots more coherent, I'm leaving this as is for now.
+        // inline & file snapshots more coherent, I'm leaving this as is for
+        // now.
         if self.assertion_line.is_some() {
             let mut rv = self.clone();
             rv.assertion_line = None;
@@ -266,12 +271,19 @@ impl MetaData {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum SnapshotKind {
+    Inline,
+    File,
+}
+
 /// A helper to work with stored snapshots.
 #[derive(Debug, Clone)]
 pub struct Snapshot {
     module_name: String,
     snapshot_name: Option<String>,
     metadata: MetaData,
+    kind: SnapshotKind,
     snapshot: SnapshotContents,
 }
 
@@ -338,6 +350,7 @@ impl Snapshot {
             module_name,
             Some(snapshot_name),
             metadata,
+            SnapshotKind::File,
             buf.into(),
         ))
     }
@@ -347,18 +360,20 @@ impl Snapshot {
         module_name: String,
         snapshot_name: Option<String>,
         metadata: MetaData,
+        kind: SnapshotKind,
         snapshot: SnapshotContents,
     ) -> Snapshot {
         Snapshot {
             module_name,
             snapshot_name,
             metadata,
+            kind,
             snapshot,
         }
     }
 
     #[cfg(feature = "_cargo_insta_internal")]
-    fn from_content(content: Content) -> Result<Snapshot, Box<dyn Error>> {
+    fn from_content(content: Content, kind: SnapshotKind) -> Result<Snapshot, Box<dyn Error>> {
         if let Content::Map(map) = content {
             let mut module_name = None;
             let mut snapshot_name = None;
@@ -386,6 +401,7 @@ impl Snapshot {
                 module_name: module_name.ok_or(content::Error::MissingField)?,
                 snapshot_name,
                 metadata: metadata.ok_or(content::Error::MissingField)?,
+                kind,
                 snapshot: snapshot.ok_or(content::Error::MissingField)?,
             })
         } else {
@@ -429,10 +445,15 @@ impl Snapshot {
         self.contents() == other.contents()
     }
 
-    /// Snapshot contents _and_ metadata match another snapshot's.
+    /// Both exact snapshot contents and metadata matches another snapshot's.
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
-        self.snapshot.matches_fully(&other.snapshot)
-            && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
+        match self.kind {
+            SnapshotKind::File => {
+                self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
+                    && self.contents().as_str_exact() == other.contents().as_str_exact()
+            }
+            SnapshotKind::Inline => self.contents().to_inline(0) == other.contents().to_inline(0),
+        }
     }
 
     /// The snapshot contents as a &str
@@ -515,6 +536,11 @@ pub struct SnapshotContents(String);
 
 impl SnapshotContents {
     pub fn from_inline(value: &str) -> SnapshotContents {
+        // Note that if we wanted to allow for `matches_fully` to return false
+        // when indentation is different, we would need to store the unnormalize
+        // inline snapshot in this object, and then normalize it on request.
+        // Currently we normalize away the indentation and then can't compare
+        // values.
         SnapshotContents(get_inline_snapshot_value(value))
     }
 
@@ -533,10 +559,6 @@ impl SnapshotContents {
     /// Returns the snapshot contents as string without any trimming.
     pub fn as_str_exact(&self) -> &str {
         self.0.as_str()
-    }
-
-    pub fn matches_fully(&self, other: &SnapshotContents) -> bool {
-        self.as_str_exact() == other.as_str_exact()
     }
 
     pub fn to_inline(&self, indentation: usize) -> String {
@@ -651,9 +673,7 @@ fn min_indentation(snapshot: &str) -> usize {
 fn normalize_inline_snapshot(snapshot: &str) -> String {
     let indentation = min_indentation(snapshot);
     snapshot
-        .trim_end()
         .lines()
-        .skip_while(|l| l.is_empty())
         .map(|l| l.get(indentation..).unwrap_or(""))
         .collect::<Vec<&str>>()
         .join("\n")
@@ -853,10 +873,12 @@ fn test_normalize_inline_snapshot() {
             r#"
    1
    2
-    "#
+   "#
         ),
-        r###"1
-2"###
+        r###"
+1
+2
+"###
     );
 
     assert_eq!(
@@ -865,7 +887,8 @@ fn test_normalize_inline_snapshot() {
             1
     2"#
         ),
-        r###"        1
+        r###"
+        1
 2"###
     );
 
@@ -876,8 +899,10 @@ fn test_normalize_inline_snapshot() {
             2
     "#
         ),
-        r###"1
-2"###
+        r###"
+1
+2
+"###
     );
 
     assert_eq!(
@@ -887,7 +912,8 @@ fn test_normalize_inline_snapshot() {
    2
 "#
         ),
-        r###"1
+        r###"
+1
 2"###
     );
 
@@ -897,7 +923,9 @@ fn test_normalize_inline_snapshot() {
         a
     "#
         ),
-        "a"
+        "
+a
+"
     );
 
     assert_eq!(normalize_inline_snapshot(""), "");
@@ -910,9 +938,11 @@ fn test_normalize_inline_snapshot() {
 c
     "#
         ),
-        r###"    a
+        r###"
+    a
     b
-c"###
+c
+    "###
     );
 
     assert_eq!(
@@ -921,7 +951,9 @@ c"###
 a
     "#
         ),
-        "a"
+        "
+a
+    "
     );
 
     assert_eq!(
@@ -929,7 +961,8 @@ a
             "
     a"
         ),
-        "a"
+        "
+a"
     );
 
     assert_eq!(
