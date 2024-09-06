@@ -39,6 +39,9 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Enable Filters to be created from `IntoIterator` types, rather than just `Vec`s.  #570
 
+- Implemented total sort order for an internal `Key` type correctly.  This prevents potential
+  crashes introduced by the new sort algorithm in Rust 1.81.  #586
+
 ## 1.39.0
 
 - Fixed a bug in `require_full_match`.  #485
