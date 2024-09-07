@@ -5,7 +5,7 @@ use crate::content::Content;
 
 use serde::{ser, Serialize, Serializer};
 
-#[derive(PartialEq, PartialOrd, Debug)]
+#[derive(PartialEq, Debug)]
 pub enum Key<'a> {
     Bool(bool),
     U64(u64),
@@ -18,15 +18,59 @@ pub enum Key<'a> {
     Other,
 }
 
+impl<'a> Key<'a> {
+    /// Needed because std::mem::discriminant is not Ord
+    fn discriminant(&self) -> usize {
+        match self {
+            Key::Bool(_) => 1,
+            Key::U64(_) => 2,
+            Key::I64(_) => 3,
+            Key::F64(_) => 4,
+            Key::U128(_) => 5,
+            Key::I128(_) => 6,
+            Key::Str(_) => 7,
+            Key::Bytes(_) => 8,
+            Key::Other => 9,
+        }
+    }
+}
+
 impl<'a> Eq for Key<'a> {}
 
-// We're making a deliberate choice to just "round down" here, so ignoring the
-// clippy lint
-#[allow(clippy::derive_ord_xor_partial_ord)]
 impl<'a> Ord for Key<'a> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Less)
+        let self_discriminant = self.discriminant();
+        let other_discriminant = other.discriminant();
+        match Ord::cmp(&self_discriminant, &other_discriminant) {
+            Ordering::Equal => match (self, other) {
+                (Key::Bool(a), Key::Bool(b)) => Ord::cmp(a, b),
+                (Key::U64(a), Key::U64(b)) => Ord::cmp(a, b),
+                (Key::I64(a), Key::I64(b)) => Ord::cmp(a, b),
+                (Key::F64(a), Key::F64(b)) => f64_total_cmp(*a, *b),
+                (Key::U128(a), Key::U128(b)) => Ord::cmp(a, b),
+                (Key::I128(a), Key::I128(b)) => Ord::cmp(a, b),
+                (Key::Str(a), Key::Str(b)) => Ord::cmp(a, b),
+                (Key::Bytes(a), Key::Bytes(b)) => Ord::cmp(a, b),
+                _ => Ordering::Equal,
+            },
+            cmp => cmp,
+        }
     }
+}
+
+impl<'a> PartialOrd for Key<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn f64_total_cmp(left: f64, right: f64) -> Ordering {
+    // this is taken from f64::total_cmp on newer rust versions
+    let mut left = left.to_bits() as i64;
+    let mut right = right.to_bits() as i64;
+    left ^= (((left >> 63) as u64) >> 1) as i64;
+    right ^= (((right >> 63) as u64) >> 1) as i64;
+    left.cmp(&right)
 }
 
 impl Content {
