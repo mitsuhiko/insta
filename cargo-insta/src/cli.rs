@@ -1041,7 +1041,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     #[derive(Serialize, Debug)]
     #[serde(rename_all = "snake_case", tag = "type")]
     enum SnapshotKey<'a> {
-        NamedSnapshot {
+        FileSnapshot {
             path: &'a Path,
         },
         InlineSnapshot {
@@ -1070,7 +1070,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                         expression: snapshot_ref.new.metadata().expression(),
                     }
                 } else {
-                    SnapshotKey::NamedSnapshot { path: &target_file }
+                    SnapshotKey::FileSnapshot { path: &target_file }
                 };
                 println!("{}", serde_json::to_string(&info).unwrap());
             } else if is_inline {
