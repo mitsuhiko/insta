@@ -778,7 +778,7 @@ Hello, world!
 
     let test_current_insta =
         create_test_force_update_project("current", "{ path = '$PROJECT_PATH' }");
-    let test_insta_1_39_0 = create_test_force_update_project("1_39_0", "\"1.39.0\"");
+    let test_insta_1_40_0 = create_test_force_update_project("1_40_0", "\"1.40.0\"");
 
     // Test with current insta version
     let output_current = test_current_insta
@@ -789,14 +789,14 @@ Hello, world!
 
     assert_success(&output_current);
 
-    // Test with insta 1.39.0
-    let output_1_39_0 = test_insta_1_39_0
+    // Test with insta 1.40.0
+    let output_1_40_0 = test_insta_1_40_0
         .cmd()
         .args(["test", "--accept", "--force-update-snapshots"])
         .output()
         .unwrap();
 
-    assert_success(&output_1_39_0);
+    assert_success(&output_1_40_0);
 
     // Check that both versions updated the snapshot correctly
     assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
@@ -814,9 +814,9 @@ Hello, world!
     -
     "#);
 
-    assert_snapshot!(test_insta_1_39_0.diff("src/snapshots/test_force_update_1_39_0__force_update.snap"), @r#"
-    --- Original: src/snapshots/test_force_update_1_39_0__force_update.snap
-    +++ Updated: src/snapshots/test_force_update_1_39_0__force_update.snap
+    assert_snapshot!(test_insta_1_40_0.diff("src/snapshots/test_force_update_1_40_0__force_update.snap"), @r#"
+    --- Original: src/snapshots/test_force_update_1_40_0__force_update.snap
+    +++ Updated: src/snapshots/test_force_update_1_40_0__force_update.snap
     @@ -1,8 +1,5 @@
     -
      ---

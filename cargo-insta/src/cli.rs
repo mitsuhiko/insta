@@ -950,7 +950,7 @@ fn prepare_test_runner<'snapshot_ref>(
         "INSTA_UPDATE",
         // Don't set `INSTA_UPDATE=force` for `--force-update-snapshots` on
         // older versions
-        if *INSTA_VERSION >= Version::new(1,40,0) {
+        if *INSTA_VERSION >= Version::new(1,41,0) {
             match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
                 (true, false, false) => "no",
                 (false, true, false) => "unseen",
