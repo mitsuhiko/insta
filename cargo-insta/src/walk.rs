@@ -21,8 +21,8 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-/// Finds all snapshots
-pub(crate) fn find_snapshots<'a>(
+/// Finds all pending snapshots
+pub(crate) fn find_pending_snapshots<'a>(
     package_root: &Path,
     extensions: &'a [&'a str],
     flags: FindFlags,
