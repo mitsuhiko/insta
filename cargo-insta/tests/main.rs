@@ -123,6 +123,10 @@ impl TestProject {
         // Turn off CI flag so that cargo insta test behaves as we expect
         // under normal operation
         command.env("CI", "0");
+        // And any others that can affect the output
+        command.env_remove("CARGO_TERM_COLOR");
+        command.env_remove("CLICOLOR_FORCE");
+        command.env_remove("RUSTDOCFLAGS");
 
         command.current_dir(self.workspace_dir.as_path());
         // Use the same target directory as other tests, consistent across test
@@ -528,7 +532,8 @@ fn test_root_crate_workspace() {
 
     let output = test_project
         .cmd()
-        .args(["test", "--workspace"])
+        // Need to disable colors to assert the output below
+        .args(["test", "--workspace", "--color=never"])
         .output()
         .unwrap();
 
