@@ -533,7 +533,11 @@ fn test_root_crate_workspace() {
         .unwrap();
 
     // 1.39 had a bug where it would claim there were 3 snapshots here
-    assert!(String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review"));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
