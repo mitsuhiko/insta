@@ -47,6 +47,9 @@ impl PendingSnapshot {
     }
 }
 
+/// A snapshot and its immediate context, which loads & saves the snapshot. It
+/// holds either a single file snapshot, or all the inline snapshots from a
+/// single rust file.
 #[derive(Debug)]
 pub(crate) struct SnapshotContainer {
     snapshot_path: PathBuf,
@@ -209,6 +212,7 @@ impl SnapshotContainer {
             }
         } else {
             // should only be one or this is weird
+            debug_assert!(self.snapshots.len() == 1);
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
                     Operation::Accept => {

@@ -1,8 +1,9 @@
-use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-pub(crate) use cargo_metadata::{Metadata, Package};
+pub(crate) use cargo_metadata::Package;
 
+/// Find snapshot roots within a package
+// (I'm not sure how necessary this is; relative to just using all paths?)
 pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     let mut roots = Vec::new();
 
@@ -29,6 +30,9 @@ pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
         roots.push(root.to_path_buf());
     }
 
+    // TODO: I think this root reduction is duplicative over the logic in
+    // `make_snapshot_walker`; could try removing.
+
     // reduce roots to avoid traversing into paths twice.  If we have both
     // /foo and /foo/bar as roots we would only walk into /foo.  Otherwise
     // we would encounter paths twice.  If we don't skip them here we run
@@ -43,34 +47,4 @@ pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     }
 
     reduced_roots
-}
-
-pub(crate) fn get_metadata(
-    manifest_path: Option<&Path>,
-    all: bool,
-) -> Result<Metadata, Box<dyn Error>> {
-    let mut cmd = cargo_metadata::MetadataCommand::new();
-    if let Some(manifest_path) = manifest_path {
-        cmd.manifest_path(manifest_path);
-    }
-    if all {
-        cmd.no_deps();
-    }
-    let mut metadata = cmd.exec()?;
-    let Metadata {
-        packages,
-        workspace_members,
-        resolve,
-        ..
-    } = &mut metadata;
-    match resolve
-        .as_ref()
-        .and_then(|cargo_metadata::Resolve { root, .. }| root.as_ref())
-    {
-        Some(root) => packages.retain(|Package { id, .. }| id == root),
-        None => {
-            packages.retain(|Package { id, .. }| workspace_members.contains(id));
-        }
-    }
-    Ok(metadata)
 }

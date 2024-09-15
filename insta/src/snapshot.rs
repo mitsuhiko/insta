@@ -19,6 +19,8 @@ lazy_static::lazy_static! {
     };
 }
 
+/// Holds a pending inline snapshot loaded from a json file or read from an assert
+/// macro (doesn't write to the rust file, which is done by `cargo-insta`)
 #[derive(Debug)]
 pub struct PendingInlineSnapshot {
     pub run_id: String,
@@ -247,20 +249,15 @@ impl MetaData {
         Content::Struct("MetaData", fields)
     }
 
-    /// Trims the metadata of fields that we don't save to `.snap` files; we
-    /// only use for display while reviewing
+    /// Trims the metadata of fields that we don't save to `.snap` files (those
+    /// we only use for display while reviewing)
     fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
-        let is_inline = self.input_file.is_none();
-        // If it's inline, we don't persist any metadata
-        if is_inline {
-            return Cow::Owned(MetaData {
-                source: None,
-                assertion_line: None,
-                input_file: None,
-                expression: None,
-                ..self.clone()
-            });
-        }
+        // TODO: in order for `--require-full-match` to work on inline snapshots
+        // without cargo-insta, we need to trim all fields if there's an inline
+        // snapshot. But we don't know that from here (notably
+        // `self.input_file.is_none()` is not a correct approach). Given that
+        // `--require-full-match` is experimental and we're working on making
+        // inline & file snapshots more coherent, I'm leaving this as is for now.
         if self.assertion_line.is_some() {
             let mut rv = self.clone();
             rv.assertion_line = None;
@@ -324,6 +321,7 @@ impl Snapshot {
                     }
                 }
             }
+            crate::elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
@@ -440,7 +438,7 @@ impl Snapshot {
 
     /// Snapshot contents _and_ metadata match another snapshot's.
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
-        self.matches(other)
+        self.snapshot.matches_fully(&other.snapshot)
             && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
     }
 
@@ -471,11 +469,19 @@ impl Snapshot {
         let serialized_snapshot = self.serialize_snapshot(md);
 
         // check the reference file for contents.  Note that we always want to
-        // compare snapshots that were trimmed to persistence here.
+        // compare snapshots that were trimmed to persistence here.  This is a
+        // stricter check than even `matches_fully`, since it's comparing the
+        // exact contents of the file.
         if let Ok(old) = fs::read_to_string(ref_file.unwrap_or(path)) {
             let persisted = match md.trim_for_persistence() {
                 Cow::Owned(trimmed) => Cow::Owned(self.serialize_snapshot(&trimmed)),
-                Cow::Borrowed(_) => Cow::Borrowed(&serialized_snapshot),
+                Cow::Borrowed(trimmed) => {
+                    // This condition needs to hold, otherwise we need to
+                    // compare the old value to a newly trimmed serialized snapshot
+                    debug_assert_eq!(trimmed, md);
+
+                    Cow::Borrowed(&serialized_snapshot)
+                }
             };
             if old == persisted.as_str() {
                 return Ok(false);
@@ -522,17 +528,48 @@ impl SnapshotContents {
 
     /// Returns the snapshot contents as string with surrounding whitespace removed.
     pub fn as_str(&self) -> &str {
-        self.0
-            .trim_start_matches(|x| x == '\r' || x == '\n')
-            .trim_end()
+        let out = self.0.trim_start_matches(['\r', '\n']).trim_end();
+        // Old inline snapshots have `---` at the start, so this strips that if
+        // it exists. Soon we can start printing a warning and then eventually
+        // remove it in the next version.
+        match out.strip_prefix("---\n") {
+            Some(s) => s,
+            None => out,
+        }
+    }
+
+    /// Returns the snapshot contents as string without any trimming.
+    pub fn as_str_exact(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn matches_fully(&self, other: &SnapshotContents) -> bool {
+        self.as_str_exact() == other.as_str_exact()
     }
 
     pub fn to_inline(&self, indentation: usize) -> String {
         let contents = &self.0;
         let mut out = String::new();
-        let is_escape = contents.contains(&['\n', '\\', '"'][..]);
 
-        out.push_str(if is_escape { "r###\"" } else { "\"" });
+        // We don't technically need to escape on newlines, but it reduces diffs
+        let is_escape = contents.contains(['\\', '"', '\n']);
+        // Escape the string if needed, with `r#`, using with 1 more `#` than
+        // the maximum number of existing contiguous `#`.
+        let delimiter = if is_escape {
+            let max_contiguous_hash = contents
+                .split(|c| c != '#')
+                .map(|group| group.len())
+                .max()
+                .unwrap_or(0);
+            out.push('r');
+            "#".repeat(max_contiguous_hash + 1)
+        } else {
+            "".to_string()
+        };
+
+        out.push_str(&delimiter);
+        out.push('"');
+
         // if we have more than one line we want to change into the block
         // representation mode
         if contents.contains('\n') {
@@ -556,7 +593,8 @@ impl SnapshotContents {
             out.push_str(contents);
         }
 
-        out.push_str(if is_escape { "\"###" } else { "\"" });
+        out.push('"');
+        out.push_str(&delimiter);
 
         out
     }
@@ -687,6 +725,8 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
     // (the only call site)
 
     if frozen_value.trim_start().starts_with('⋮') {
+        crate::elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", frozen_value);
+
         // legacy format - retain so old snapshots still work
         let mut buf = String::new();
         let mut line_iter = frozen_value.lines();
@@ -739,45 +779,47 @@ a
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        r##"r#"
 a
 b
-\"###"
+"#"##
+    );
+
+    assert_eq!(
+        SnapshotContents(
+            "a
+b"
+            .to_string()
+        )
+        .to_inline(4),
+        r##"r#"
+    a
+    b
+    "#"##
+    );
+
+    let t = &"
+    a
+    b"[1..];
+    assert_eq!(
+        SnapshotContents(t.to_string()).to_inline(0),
+        r##"r#"
+    a
+    b
+"#"##
     );
 
     let t = &"
 a
+
 b"[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(4),
-        "r###\"
-    a
-    b
-    \"###"
-    );
-
-    let t = &"
-    a
-    b"[1..];
-    assert_eq!(
-        SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
-    a
-    b
-\"###"
-    );
-
-    let t = &"
-    a
-
-    b"[1..];
-    assert_eq!(
-        SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        r##"r#"
     a
 
     b
-\"###"
+    "#"##
     );
 
     let t = &"
@@ -785,9 +827,9 @@ b"[1..];
 "[1..];
     assert_eq!(
         SnapshotContents(t.to_string()).to_inline(0),
-        "r###\"
+        r##"r#"
     ab
-\"###"
+"#"##
     );
 
     let t = "ab";
@@ -795,90 +837,116 @@ b"[1..];
 }
 
 #[test]
+fn test_snapshot_contents_hashes() {
+    let t = "a###b";
+    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""a###b""#);
+
+    let t = "a\n\\###b";
+    assert_eq!(
+        SnapshotContents(t.to_string()).to_inline(0),
+        r#####"r####"
+a
+\###b
+"####"#####
+    );
+}
+
+#[test]
 fn test_normalize_inline_snapshot() {
     use similar_asserts::assert_eq;
     // here we do exact matching (rather than `assert_snapshot`)
     // to ensure we're not incorporating the modifications this library makes
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
    1
    2
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
+    "#
+        ),
+        r###"1
+2"###
     );
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
             1
-    2"#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-        1
-2"###[1..]
+    2"#
+        ),
+        r###"        1
+2"###
     );
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
             1
             2
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
+    "#
+        ),
+        r###"1
+2"###
     );
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
    1
    2
-"#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-1
-2"###[1..]
+"#
+        ),
+        r###"1
+2"###
     );
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
         a
-    "#;
-    assert_eq!(normalize_inline_snapshot(t), "a");
+    "#
+        ),
+        "a"
+    );
 
-    let t = "";
-    assert_eq!(normalize_inline_snapshot(t), "");
+    assert_eq!(normalize_inline_snapshot(""), "");
 
-    let t = r#"
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
     a
     b
 c
-    "#;
-    assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
-    a
+    "#
+        ),
+        r###"    a
     b
-c"###[1..]
+c"###
     );
 
-    let t = r#"
-a
-    "#;
-    assert_eq!(normalize_inline_snapshot(t), "a");
-
-    let t = "
-    a";
-    assert_eq!(normalize_inline_snapshot(t), "a");
-
-    let t = r#"a
-  a"#;
     assert_eq!(
-        normalize_inline_snapshot(t),
-        r###"
+        normalize_inline_snapshot(
+            r#"
 a
-  a"###[1..]
+    "#
+        ),
+        "a"
+    );
+
+    assert_eq!(
+        normalize_inline_snapshot(
+            "
+    a"
+        ),
+        "a"
+    );
+
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"a
+  a"#
+        ),
+        r###"a
+  a"###
     );
 }
 

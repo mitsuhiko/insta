@@ -62,15 +62,7 @@
 //!
 //! Note that `cargo-insta` is entirely optional.  You can also just use insta
 //! directly from `cargo test` and control it via the `INSTA_UPDATE` environment
-//! variable.  The default is `auto` which will write all new snapshots into
-//! `.snap.new` files if no CI is detected so that `cargo-insta` can pick them
-//! up.  The following other modes are possible:
-//!
-//! - `auto`: the default. `no` for CI environments or `new` otherwise
-//! - `always`: overwrites old snapshot files with new ones unasked
-//! - `unseen`: behaves like `always` for new snapshots and `new` for others
-//! - `new`: write new snapshots into `.snap.new` files
-//! - `no`: does not update snapshot files at all (just runs tests)
+//! variable — see [Updating snapshots](#updating-snapshots) for details.
 //!
 //! You can for instance first run the tests and not write and new snapshots, and
 //! if you like them run the tests again and update them:
@@ -119,7 +111,7 @@
 //! partial values.  See [redactions in the
 //! documentation](https://insta.rs/docs/redactions/) for more information.
 //!
-//! # Snapshot updating
+//! # Updating snapshots
 //!
 //! During test runs snapshots will be updated according to the `INSTA_UPDATE`
 //! environment variable.  The default is `auto` which will write snapshots for
@@ -137,6 +129,7 @@
 //! - `unseen`: `always` for previously unseen snapshots or `new` for existing
 //!   snapshots
 //! - `no`: does not write to snapshot files at all; just runs tests
+//! - `force`: forcibly updates snapshot files, even if assertions pass
 //!
 //! When `new`, `auto` or `unseen` is used, the
 //! [`cargo-insta`](https://crates.io/crates/cargo-insta) command can be used to
@@ -215,8 +208,6 @@
 //!
 //! ```yaml
 //! behavior:
-//!   # also set by INSTA_FORCE_UPDATE
-//!   force_update: true/false
 //!   # also set by INSTA_REQUIRE_FULL_MATCH
 //!   require_full_match: true/false
 //!   # also set by INSTA_FORCE_PASS
@@ -224,7 +215,7 @@
 //!   # also set by INSTA_OUTPUT
 //!   output: "diff" | "summary" | "minimal" | "none"
 //!   # also set by INSTA_UPDATE
-//!   update: "auto" | "always" | "new" | "unseen" | "no"
+//!   update: "auto" | "new" | "always" | "no" | "unseen" | "force"
 //!   # also set by INSTA_GLOB_FAIL_FAST
 //!   glob_fail_fast: true/false
 //!
@@ -232,6 +223,9 @@
 //! test:
 //!   # also set by INSTA_TEST_RUNNER
 //!   runner: "auto" | "cargo-test" | "nextest"
+//!   # whether to fallback to `cargo-test` if `nextest` is not available,
+//!   # also set by INSTA_TEST_RUNNER_FALLBACK, default false
+//!   test_runner_fallback: true/false
 //!   # automatically assume --review was passed to cargo insta test
 //!   auto_review: true/false
 //!   # automatically assume --accept-unseen was passed to cargo insta test

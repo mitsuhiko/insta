@@ -26,37 +26,46 @@ jobs:
       - name: Test
         run: make test
 
-  test-stable:
-    name: Test on 1.61.0
+  test-current-cargo-insta:
+    name: Run the in-tree version of cargo-insta on ourselves
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.61.0
+          toolchain: stable
       - uses: Swatinem/rust-cache@v2
-      - name: Use Cargo.lock.msrv
-        run: cp Cargo.lock.msrv Cargo.lock
       - name: Test
-        run: make cargotest
+        run: cargo run -p cargo-insta -- test
 
-  build-old-stable:
-    name: Check on 1.51.0
+  build-on-msrv:
+    name: Check on MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-msrv
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify minimum rust version
+        run: make check-msrv
+
+  test-latest-dependencies:
+    name: Test latest deps
+    # Note that we don't test MSRV after running `cargo update`, since that
+    # would increase our maintenance burden — we'd need to be constantly pinning
+    # sub-dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.51.0
+          toolchain: stable
       - uses: Swatinem/rust-cache@v2
-      - name: Use Cargo.lock.msrv
-        run: cp Cargo.lock.msrv Cargo.lock
-      - name: Remove named profile
-        run: |
-          perl -ni -e 'print unless /\[profile\.dist\]/ .. eof' Cargo.toml
-      - name: Check
-        run: cargo check -p insta --no-default-features
+      - run: cargo update
+      - name: Test
+        run: make test
 
   build-docs:
     name: Build docs
@@ -69,3 +78,43 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: doc
         run: cargo doc --all-features
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Run clippy
+        run: make lint
+
+  check-minver:
+    name: Test with minimal version resolution
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-hack
+      - uses: taiki-e/install-action@cargo-minimal-versions
+      - name: Test
+        run: make check-minver
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Run rustfmt
+        run: make format-check

@@ -2,17 +2,47 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.41.0
+
 ## 1.40.0
+
+- `cargo-insta` no longer panics when running `cargo insta test --accept --workspace`
+  on a workspace with a default crate.  #532
+
+- MSRV for `insta` has been raised to 1.60, and for `cargo-insta` to 1.64.
+
+- Added support for compact debug snapshots (`assert_compact_debug_snapshot`).  #514
+
+- Deprecate `--no-force-pass` in `cargo-insta`.  The `--check` option covers the
+  same functionality and has a clearer name.  #513
+
+- Inline snapshots now use the required number of `#`s to escape the snapshot
+  value, rather than always using `###`. This allows snapshotting values which
+  themselves contain `###`. If there are no existing `#` characters in the
+  snapshot value, a single `#` will be used.  #540
+
+- Inline snapshots can now be updated with `--force-update-snapshots`.  #569
+
+- `cargo insta test` accepts multiple `--exclude` flags.  #520
+
+- `test` `runner` in insta's yaml config works.  #544
+
+- Print a warning when encountering old snapshot formats.  #503
+
+- Group the options in `cargo insta --help`, upgrade to `clap` from `structopt`.  #518
 
 - No longer suggest running `cargo insta` message when running `cargo insta test --check`.  #515
 
 - Print a clearer error message when accepting a snapshot that was removed.  #516
 
-- Fix `require-full-match` when running on inline snapshots outside of `cargo insta`.  #496
-
 - Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
 
-- `cargo insta test` now accepts multiple `--exclude` flags.  #520
+- Add a new integration test approach for `cargo-insta` and a set of integration tests.  #537
+
+- Enable Filters to be created from `IntoIterator` types, rather than just `Vec`s.  #570
+
+- Implemented total sort order for an internal `Key` type correctly.  This prevents potential
+  crashes introduced by the new sort algorithm in Rust 1.81.  #586
 
 ## 1.39.0
 
@@ -20,7 +50,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Fixed a bug that caused snapshot and module names to sometimes be inaccurate.  #483
 
-- Insta will no longer error when removing snapshots that were already removed.  #484
+- Insta will no longer error when attempting to remove snapshots that were already removed.  #484
 
 - Added support for trailing commas in inline snapshots.  #472
 
