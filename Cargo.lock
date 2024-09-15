@@ -66,7 +66,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-insta"
-version = "1.40.0"
+version = "1.41.0"
 dependencies = [
  "cargo_metadata",
  "clap",
@@ -74,7 +74,9 @@ dependencies = [
  "ignore",
  "insta",
  "itertools",
+ "lazy_static",
  "proc-macro2",
+ "semver",
  "serde",
  "serde_json",
  "similar",
@@ -349,7 +351,7 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.40.0"
+version = "1.41.0"
 dependencies = [
  "clap",
  "console",

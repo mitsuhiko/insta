@@ -10,12 +10,14 @@ use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
+use semver::Version;
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::cargo_insta_version;
+use crate::utils::INSTA_VERSION;
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_pending_snapshots, make_snapshot_walker, FindFlags};
 
@@ -592,6 +594,9 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
                 cmd.accept = false;
             }
         }
+        SnapshotUpdate::Force => {
+            cmd.force_update_snapshots = true;
+        }
     }
 
     // --check always implies --no-force-pass as otherwise this command does not
@@ -943,16 +948,27 @@ fn prepare_test_runner<'snapshot_ref>(
 
     proc.env(
         "INSTA_UPDATE",
-        match (cmd.check, cmd.accept_unseen) {
-            (true, _) => "no",
-            (_, true) => "unseen",
-            (_, false) => "new",
-        },
+        // Don't set `INSTA_UPDATE=force` for `--force-update-snapshots` on
+        // older versions
+        if *INSTA_VERSION >= Version::new(1,41,0) {
+            match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
+                (true, false, false) => "no",
+                (false, true, false) => "unseen",
+                (false, false, false) => "new",
+                (false, _, true) => "force",
+                _ => return Err(err_msg(format!("invalid combination of flags: check={}, accept-unseen={}, force-update-snapshots={}", cmd.check, cmd.accept_unseen, cmd.force_update_snapshots))),
+            }
+        } else {
+            match (cmd.check, cmd.accept_unseen) {
+                (true, _) => "no",
+                (_, true) => "unseen",
+                (_, false) => "new",
+            }
+        }
     );
-    if cmd.force_update_snapshots {
-        // for old versions of insta
+    if cmd.force_update_snapshots && *INSTA_VERSION < Version::new(1, 40, 0) {
+        // Currently compatible with older versions of insta.
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
-        // for newer versions of insta
         proc.env("INSTA_FORCE_UPDATE", "1");
     }
     if cmd.require_full_match {
