@@ -103,7 +103,7 @@ impl<'a> SnapshotPrinter<'a> {
     fn print_snapshot(&self) {
         print_line(term_width());
 
-        let new_contents = self.new_snapshot.contents_str();
+        let new_contents = self.new_snapshot.contents_string();
 
         let width = term_width();
         if self.show_info {
@@ -120,8 +120,8 @@ impl<'a> SnapshotPrinter<'a> {
     fn print_changeset(&self) {
         let old: String = self
             .old_snapshot
-            .map_or("".to_string(), |x| x.contents_str());
-        let new = self.new_snapshot.contents_str();
+            .map_or("".to_string(), |x| x.contents_string());
+        let new = self.new_snapshot.contents_string();
         let newlines_matter = newlines_matter(old.as_str(), new.as_str());
 
         let width = term_width();

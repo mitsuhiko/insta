@@ -682,7 +682,10 @@ pub fn assert_snapshot(
     if pass {
         ctx.cleanup_passing()?;
 
-        if tool_config.force_update_snapshots() {
+        if matches!(
+            tool_config.snapshot_update(),
+            crate::env::SnapshotUpdate::Force
+        ) {
             // Avoid creating new files if contents match exactly. In
             // particular, this would otherwise create lots of unneeded files
             // for inline snapshots

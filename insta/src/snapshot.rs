@@ -451,27 +451,29 @@ impl Snapshot {
     }
 
     /// Both the exact snapshot contents and the persisted metadata match another snapshot's.
+    // (could rename to `matches_exact` for consistency, after some current
+    // pending merge requests are merged)
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
+        let contents_match_exact =
+            self.contents().as_str_exact() == other.contents().as_str_exact();
         match self.kind() {
             SnapshotKind::File => {
                 self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
-                    && self.contents().as_str_exact() == other.contents().as_str_exact()
+                    && contents_match_exact
             }
-            SnapshotKind::Inline => {
-                self.contents().as_str_exact() == other.contents().as_str_exact()
-            }
+            SnapshotKind::Inline => contents_match_exact,
         }
     }
 
-    /// The snapshot contents as a String
-    pub fn contents_str(&self) -> String {
+    /// The normalized snapshot contents as a String
+    pub fn contents_string(&self) -> String {
         self.snapshot.to_string()
     }
 
     fn serialize_snapshot(&self, md: &MetaData) -> String {
         let mut buf = yaml::to_string(&md.as_content());
         buf.push_str("---\n");
-        buf.push_str(self.contents_str().as_str());
+        buf.push_str(self.contents_string().as_str());
         buf.push('\n');
         buf
     }
@@ -516,6 +518,10 @@ pub struct SnapshotContents {
 
 impl SnapshotContents {
     pub fn new(contents: String, kind: SnapshotKind) -> SnapshotContents {
+        // We could store a normalized version of the string as part of `new`;
+        // it would avoid allocating a new `String` when we getting normalized
+        // versions, which we may do a few times. (We want to store the
+        // unnormalized version because it allows us to use `matches_fully`.)
         SnapshotContents { contents, kind }
     }
 
