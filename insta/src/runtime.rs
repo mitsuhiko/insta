@@ -53,39 +53,39 @@ pub struct AutoName;
 
 impl From<AutoName> for ReferenceValue<'static> {
     fn from(_value: AutoName) -> ReferenceValue<'static> {
-        ReferenceValue::Named(None)
+        ReferenceValue::File(None)
     }
 }
 
 impl From<Option<String>> for ReferenceValue<'static> {
     fn from(value: Option<String>) -> ReferenceValue<'static> {
-        ReferenceValue::Named(value.map(Cow::Owned))
+        ReferenceValue::File(value.map(Cow::Owned))
     }
 }
 
 impl From<String> for ReferenceValue<'static> {
     fn from(value: String) -> ReferenceValue<'static> {
-        ReferenceValue::Named(Some(Cow::Owned(value)))
+        ReferenceValue::File(Some(Cow::Owned(value)))
     }
 }
 
 impl<'a> From<Option<&'a str>> for ReferenceValue<'a> {
     fn from(value: Option<&'a str>) -> ReferenceValue<'a> {
-        ReferenceValue::Named(value.map(Cow::Borrowed))
+        ReferenceValue::File(value.map(Cow::Borrowed))
     }
 }
 
 impl<'a> From<&'a str> for ReferenceValue<'a> {
     fn from(value: &'a str) -> ReferenceValue<'a> {
-        ReferenceValue::Named(Some(Cow::Borrowed(value)))
+        ReferenceValue::File(Some(Cow::Borrowed(value)))
     }
 }
 
 #[derive(Debug)]
 /// A reference to a snapshot
 pub enum ReferenceValue<'a> {
-    /// A named snapshot, where the inner value is the snapshot name.
-    Named(Option<Cow<'a, str>>),
+    /// A file snapshot, where the inner value is the snapshot name.
+    File(Option<Cow<'a, str>>),
     /// An inline snapshot, where the inner value is the snapshot contents.
     Inline(&'a str),
 }
@@ -202,6 +202,8 @@ fn get_snapshot_filename(
     })
 }
 
+/// A single snapshot including surrounding context which asserts and save the
+/// snapshot.
 #[derive(Debug)]
 struct SnapshotAssertionContext<'a> {
     tool_config: Arc<ToolConfig>,
@@ -236,7 +238,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         let is_doctest = is_doctest(function_name);
 
         match refval {
-            ReferenceValue::Named(name) => {
+            ReferenceValue::File(name) => {
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name),
                     None => {
@@ -373,6 +375,17 @@ impl<'a> SnapshotAssertionContext<'a> {
         let should_print = self.tool_config.output_behavior() != OutputBehavior::Nothing;
         let snapshot_update = snapshot_update_behavior(&self.tool_config, unseen);
 
+        // If snapshot_update is `InPlace` and we have an inline snapshot, then
+        // use `NewFile`, since we can't use `InPlace` for inline. `cargo-insta`
+        // then accepts all snapshots at the end of the test.
+
+        let snapshot_update =
+            if snapshot_update == SnapshotUpdateBehavior::InPlace && self.snapshot_file.is_none() {
+                SnapshotUpdateBehavior::NewFile
+            } else {
+                snapshot_update
+            };
+
         match snapshot_update {
             SnapshotUpdateBehavior::InPlace => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
@@ -388,16 +401,9 @@ impl<'a> SnapshotAssertionContext<'a> {
                             style(snapshot_file.display()).cyan().underlined(),
                         );
                     }
-                } else if should_print {
-                    elog!(
-                        "{}",
-                        style(
-                            "error: cannot update inline snapshots in-place. Please use `cargo-insta` \
-                        (https://github.com/mitsuhiko/insta/issues/272)"
-                        )
-                        .red()
-                        .bold(),
-                    );
+                } else {
+                    // Checked self.snapshot_file.is_none() above
+                    unreachable!()
                 }
             }
             SnapshotUpdateBehavior::NewFile => {

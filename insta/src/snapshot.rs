@@ -19,6 +19,8 @@ lazy_static::lazy_static! {
     };
 }
 
+/// Holds a pending inline snapshot loaded from a json file or read from an assert
+/// macro (doesn't write to the rust file, which is done by `cargo-insta`)
 #[derive(Debug)]
 pub struct PendingInlineSnapshot {
     pub run_id: String,
@@ -330,7 +332,7 @@ impl Snapshot {
                     }
                 }
             }
-            eprintln!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nSnapshot is at: {}", p.to_string_lossy());
+            crate::elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
@@ -698,7 +700,7 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
     // (the only call site)
 
     if frozen_value.trim_start().starts_with('⋮') {
-        eprintln!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta --force-update-snapshots.\n\nValue: {}", frozen_value);
+        crate::elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", frozen_value);
 
         // legacy format - retain so old snapshots still work
         let mut buf = String::new();

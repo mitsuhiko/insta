@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 pub(crate) use cargo_metadata::Package;
 
+/// Find snapshot roots within a package
+// (I'm not sure how necessary this is; relative to just using all paths?)
 pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     let mut roots = Vec::new();
 
@@ -27,6 +29,9 @@ pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
         let root = target.src_path.parent().unwrap().as_std_path();
         roots.push(root.to_path_buf());
     }
+
+    // TODO: I think this root reduction is duplicative over the logic in
+    // `make_snapshot_walker`; could try removing.
 
     // reduce roots to avoid traversing into paths twice.  If we have both
     // /foo and /foo/bar as roots we would only walk into /foo.  Otherwise

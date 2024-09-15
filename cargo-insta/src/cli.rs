@@ -10,14 +10,16 @@ use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
+use semver::Version;
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::cargo_insta_version;
+use crate::utils::INSTA_VERSION;
 use crate::utils::{err_msg, QuietExit};
-use crate::walk::{find_snapshots, make_snapshot_walker, FindFlags};
+use crate::walk::{find_pending_snapshots, make_snapshot_walker, FindFlags};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -451,7 +453,7 @@ fn load_snapshot_containers<'a>(
     for package in &loc.packages {
         for root in find_snapshot_roots(package) {
             roots.insert(root.clone());
-            for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
+            for snapshot_container in find_pending_snapshots(&root, &loc.exts, loc.find_flags) {
                 snapshot_containers.push((snapshot_container?, package));
             }
         }
@@ -591,6 +593,9 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
                 cmd.review = true;
                 cmd.accept = false;
             }
+        }
+        SnapshotUpdate::Force => {
+            cmd.force_update_snapshots = true;
         }
     }
 
@@ -762,7 +767,7 @@ fn handle_unreferenced_snapshots(
     let mut encountered_any = false;
 
     for package in loc.packages.clone() {
-        let walker = make_snapshot_walker(
+        let unreferenced_snapshots = make_snapshot_walker(
             package.manifest_path.parent().unwrap().as_std_path(),
             &[".snap"],
             FindFlags {
@@ -781,7 +786,7 @@ fn handle_unreferenced_snapshots(
         .filter_map(|e| e.path().canonicalize().ok())
         .filter(|path| !files.contains(path));
 
-        for path in walker {
+        for path in unreferenced_snapshots {
             if !encountered_any {
                 match action {
                     Action::Delete => {
@@ -943,16 +948,27 @@ fn prepare_test_runner<'snapshot_ref>(
 
     proc.env(
         "INSTA_UPDATE",
-        match (cmd.check, cmd.accept_unseen) {
-            (true, _) => "no",
-            (_, true) => "unseen",
-            (_, false) => "new",
-        },
+        // Don't set `INSTA_UPDATE=force` for `--force-update-snapshots` on
+        // older versions
+        if *INSTA_VERSION >= Version::new(1,41,0) {
+            match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
+                (true, false, false) => "no",
+                (false, true, false) => "unseen",
+                (false, false, false) => "new",
+                (false, _, true) => "force",
+                _ => return Err(err_msg(format!("invalid combination of flags: check={}, accept-unseen={}, force-update-snapshots={}", cmd.check, cmd.accept_unseen, cmd.force_update_snapshots))),
+            }
+        } else {
+            match (cmd.check, cmd.accept_unseen) {
+                (true, _) => "no",
+                (_, true) => "unseen",
+                (_, false) => "new",
+            }
+        }
     );
-    if cmd.force_update_snapshots {
-        // for old versions of insta
+    if cmd.force_update_snapshots && *INSTA_VERSION < Version::new(1, 40, 0) {
+        // Currently compatible with older versions of insta.
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
-        // for newer versions of insta
         proc.env("INSTA_FORCE_UPDATE", "1");
     }
     if cmd.require_full_match {
@@ -1041,7 +1057,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     #[derive(Serialize, Debug)]
     #[serde(rename_all = "snake_case", tag = "type")]
     enum SnapshotKey<'a> {
-        NamedSnapshot {
+        FileSnapshot {
             path: &'a Path,
         },
         InlineSnapshot {
@@ -1072,7 +1088,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                         expression: snapshot_ref.new.metadata().expression(),
                     }
                 } else {
-                    SnapshotKey::NamedSnapshot { path: &target_file }
+                    SnapshotKey::FileSnapshot { path: &target_file }
                 };
                 println!("{}", serde_json::to_string(&info).unwrap());
             } else if is_inline {
