@@ -123,6 +123,10 @@ impl TestProject {
         // Turn off CI flag so that cargo insta test behaves as we expect
         // under normal operation
         command.env("CI", "0");
+        // And any others that can affect the output
+        command.env_remove("CARGO_TERM_COLOR");
+        command.env_remove("CLICOLOR_FORCE");
+        command.env_remove("RUSTDOCFLAGS");
 
         command.current_dir(self.workspace_dir.as_path());
         // Use the same target directory as other tests, consistent across test
@@ -484,11 +488,12 @@ fn test_root() {
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
-/// test --workspace` will update snapsnots in both the root crate and the
+/// test --workspace --accept` will update snapsnots in both the root crate and the
 /// member crate.
 #[test]
-fn test_root_crate_all() {
-    let test_project = workspace_with_root_crate("root-crate-all".to_string()).create_project();
+fn test_root_crate_workspace_accept() {
+    let test_project =
+        workspace_with_root_crate("root-crate-workspace-accept".to_string()).create_project();
 
     let output = test_project
         .cmd()
@@ -510,16 +515,38 @@ fn test_root_crate_all() {
          member/src
            member/src/lib.rs
     +      member/src/snapshots
-    +        member/src/snapshots/root_crate_all_member__member.snap
+    +        member/src/snapshots/root_crate_workspace_accept_member__member.snap
        src
          src/main.rs
     +    src/snapshots
-    +      src/snapshots/root_crate_all__root.snap
+    +      src/snapshots/root_crate_workspace_accept__root.snap
     "###     );
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
-/// test` will only update snapsnots in the root crate
+/// test --workspace` will correctly report the number of pending snapshots
+#[test]
+fn test_root_crate_workspace() {
+    let test_project =
+        workspace_with_root_crate("root-crate-workspace".to_string()).create_project();
+
+    let output = test_project
+        .cmd()
+        // Need to disable colors to assert the output below
+        .args(["test", "--workspace", "--color=never"])
+        .output()
+        .unwrap();
+
+    // 1.39 had a bug where it would claim there were 3 snapshots here
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// Check that in a workspace with a default root crate, running `cargo insta
+/// test --accept` will only update snapsnots in the root crate
 #[test]
 fn test_root_crate_no_all() {
     let test_project = workspace_with_root_crate("root-crate-no-all".to_string()).create_project();
@@ -619,8 +646,8 @@ fn test_member_2() {
         )
 }
 
-/// Check that in a workspace with a virtual manifest, running `cargo insta test --workspace`
-/// will update snapshots in all member crates.
+/// Check that in a workspace with a virtual manifest, running `cargo insta test
+/// --workspace --accept` updates snapshots in all member crates.
 #[test]
 fn test_virtual_manifest_all() {
     let test_project =
@@ -656,8 +683,8 @@ fn test_virtual_manifest_all() {
     "###     );
 }
 
-/// Check that in a workspace with a virtual manifest, running `cargo insta test`
-/// updates snapshots in all member crates.
+/// Check that in a workspace with a virtual manifest, running `cargo insta test
+/// --accept` updates snapshots in all member crates.
 #[test]
 fn test_virtual_manifest_default() {
     let test_project =
@@ -729,12 +756,6 @@ fn test_virtual_manifest_single_crate() {
 
 #[test]
 fn test_force_update_snapshots() {
-    // We test with both 1.39 and `master`. These currently test the same code!
-    // But I copied the test from
-    // https://github.com/mitsuhiko/insta/pull/482/files where they'll test
-    // different code. If we don't end up merging that, we can remove one of the
-    // tests (but didn't think it was worthwhile to do the work to then undo it)
-
     fn create_test_force_update_project(name: &str, insta_dependency: &str) -> TestProject {
         TestFiles::new()
             .add_file(
@@ -784,7 +805,7 @@ Hello, world!
 
     let test_current_insta =
         create_test_force_update_project("current", "{ path = '$PROJECT_PATH' }");
-    let test_insta_1_39_0 = create_test_force_update_project("1_39_0", "\"1.39.0\"");
+    let test_insta_1_40_0 = create_test_force_update_project("1_40_0", "\"1.40.0\"");
 
     // Test with current insta version
     let output_current = test_current_insta
@@ -795,14 +816,14 @@ Hello, world!
 
     assert_success(&output_current);
 
-    // Test with insta 1.39.0
-    let output_1_39_0 = test_insta_1_39_0
+    // Test with insta 1.40.0
+    let output_1_40_0 = test_insta_1_40_0
         .cmd()
         .args(["test", "--accept", "--force-update-snapshots"])
         .output()
         .unwrap();
 
-    assert_success(&output_1_39_0);
+    assert_success(&output_1_40_0);
 
     // Check that both versions updated the snapshot correctly
     assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
@@ -820,9 +841,9 @@ Hello, world!
     -
     "#);
 
-    assert_snapshot!(test_insta_1_39_0.diff("src/snapshots/test_force_update_1_39_0__force_update.snap"), @r#"
-    --- Original: src/snapshots/test_force_update_1_39_0__force_update.snap
-    +++ Updated: src/snapshots/test_force_update_1_39_0__force_update.snap
+    assert_snapshot!(test_insta_1_40_0.diff("src/snapshots/test_force_update_1_40_0__force_update.snap"), @r#"
+    --- Original: src/snapshots/test_force_update_1_40_0__force_update.snap
+    +++ Updated: src/snapshots/test_force_update_1_40_0__force_update.snap
     @@ -1,8 +1,5 @@
     -
      ---

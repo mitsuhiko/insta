@@ -21,8 +21,8 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-/// Finds all snapshots
-pub(crate) fn find_snapshots<'a>(
+/// Finds all pending snapshots
+pub(crate) fn find_pending_snapshots<'a>(
     package_root: &Path,
     extensions: &'a [&'a str],
     flags: FindFlags,
@@ -64,21 +64,24 @@ pub(crate) fn make_snapshot_walker(
     if flags.include_hidden {
         builder.hidden(false);
     } else {
-        // We add a custom hidden filter to avoid skipping over `.pending-snap` files
+        // We add a custom hidden filter; if we used the standard filter we'd skip over `.pending-snap` files
         builder.filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
     }
 
     let mut override_builder = OverrideBuilder::new(package_root);
-    override_builder
-        .add(".*.pending-snap")
-        .unwrap()
-        .add("*.snap.new")
-        .unwrap();
-    for ext in extensions {
-        override_builder.add(&format!("*.{}.new", ext)).unwrap();
-    }
-    builder.overrides(override_builder.build().unwrap());
+    extensions
+        .iter()
+        .map(|ext| format!("*.{}.new", ext))
+        .chain(
+            ["*.pending-snap", "*.snap.new"]
+                .iter()
+                .map(ToString::to_string),
+        )
+        .for_each(|pattern| {
+            override_builder.add(&pattern).unwrap();
+        });
 
+    builder.overrides(override_builder.build().unwrap());
     let root_path = package_root.to_path_buf();
 
     // Add a custom filter to skip interior crates; otherwise we get duplicate
@@ -91,7 +94,7 @@ pub(crate) fn make_snapshot_walker(
                 return false;
             }
         }
-        // We always want to skip target even if it was not excluded by
+        // We always want to skip `target` even if it was not excluded by
         // ignore files.
         if entry.path().file_name() == Some(OsStr::new("target")) {
             return false;
