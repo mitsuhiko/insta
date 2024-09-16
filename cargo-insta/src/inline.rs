@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use insta::_cargo_insta_support::SnapshotContents;
 use proc_macro2::TokenTree;
 
+use syn::__private::ToTokens;
 use syn::spanned::Spanned;
 
 #[derive(Debug)]
@@ -217,21 +218,17 @@ impl FilePatcher {
         impl<'ast> syn::visit::Visit<'ast> for Visitor {
             fn visit_attribute(&mut self, i: &'ast syn::Attribute) {
                 let start = i.span().start().line;
-                let end = i
-                    .tokens
-                    .clone()
-                    .into_iter()
-                    .last()
-                    .map_or(start, |t| t.span().end().line);
+                let end = i.span().end().line;
 
-                if start > self.0 || end < self.0 || i.path.segments.is_empty() {
+                if start > self.0 || end < self.0 || i.path().segments.is_empty() {
                     return;
                 }
 
-                let tokens: Vec<_> = i.tokens.clone().into_iter().collect();
-                self.scan_nested_macros(&tokens);
+                let tokens: Vec<_> = i.meta.to_token_stream().into_iter().collect();
+                if !tokens.is_empty() {
+                    self.scan_nested_macros(&tokens);
+                }
             }
-
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
                 let indentation = i.span().start().column;
                 let start = i.span().start().line;
@@ -264,5 +261,53 @@ impl FilePatcher {
         let mut visitor = Visitor(line, None);
         syn::visit::visit_file(&mut visitor, &self.source);
         visitor.1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use insta::assert_debug_snapshot;
+
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_find_snapshot_macro() {
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    assert_snapshot!("test\ntest", @r###"
+    test
+    test
+    "###);
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        // The snapshot macro starts on line 5 (1-based index)
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+
+        // Extract the snapshot content
+        let snapshot_content: Vec<String> =
+            file_patcher.lines[snapshot.start.0..=snapshot.end.0].to_vec();
+
+        assert_debug_snapshot!(snapshot_content, @r####"
+        [
+            "    assert_snapshot!(\"test\\ntest\", @r###\"",
+            "    test",
+            "    test",
+            "    \"###);",
+        ]
+        "####);
+
+        // Assert the indentation
+        assert_debug_snapshot!(snapshot.indentation, @"4");
     }
 }

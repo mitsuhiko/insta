@@ -1,15 +1,20 @@
 [workspace]
 members = ["cargo-insta"]
+resolver = "2"
 
 [workspace.metadata.dist]
 cargo-dist-version = "0.12.0"
 ci = ["github"]
-installers = ["shell", "powershell"]
-targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "x86_64-pc-windows-msvc"]
-pr-run-mode = "plan"
 install-updater = false
+installers = ["shell", "powershell"]
+pr-run-mode = "plan"
 precise-builds = true
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "x86_64-pc-windows-msvc"]
 
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[workspace.dependencies]
+# Needs pinning in Cargo.lock because of MSRV
+clap = {version = "4.1", features = ["derive", "env"]}

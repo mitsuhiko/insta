@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
@@ -7,6 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::{Arc, Mutex};
+use std::{borrow::Cow, env};
 
 use crate::env::{
     get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
@@ -32,6 +32,7 @@ thread_local! {
 
 // This macro is basically eprintln but without being captured and
 // hidden by the test runner.
+#[macro_export]
 macro_rules! elog {
     () => (write!(std::io::stderr()).ok());
     ($($arg:tt)*) => ({
@@ -49,36 +50,39 @@ pub struct AutoName;
 
 impl From<AutoName> for ReferenceValue<'static> {
     fn from(_value: AutoName) -> ReferenceValue<'static> {
-        ReferenceValue::Named(None)
+        ReferenceValue::File(None)
     }
 }
 
 impl From<Option<String>> for ReferenceValue<'static> {
     fn from(value: Option<String>) -> ReferenceValue<'static> {
-        ReferenceValue::Named(value.map(Cow::Owned))
+        ReferenceValue::File(value.map(Cow::Owned))
     }
 }
 
 impl From<String> for ReferenceValue<'static> {
     fn from(value: String) -> ReferenceValue<'static> {
-        ReferenceValue::Named(Some(Cow::Owned(value)))
+        ReferenceValue::File(Some(Cow::Owned(value)))
     }
 }
 
 impl<'a> From<Option<&'a str>> for ReferenceValue<'a> {
     fn from(value: Option<&'a str>) -> ReferenceValue<'a> {
-        ReferenceValue::Named(value.map(Cow::Borrowed))
+        ReferenceValue::File(value.map(Cow::Borrowed))
     }
 }
 
 impl<'a> From<&'a str> for ReferenceValue<'a> {
     fn from(value: &'a str) -> ReferenceValue<'a> {
-        ReferenceValue::Named(Some(Cow::Borrowed(value)))
+        ReferenceValue::File(Some(Cow::Borrowed(value)))
     }
 }
 
+/// A reference to a snapshot
 pub enum ReferenceValue<'a> {
-    Named(Option<Cow<'a, str>>),
+    /// A file snapshot, where the inner value is the snapshot name.
+    File(Option<Cow<'a, str>>),
+    /// An inline snapshot, where the inner value is the snapshot contents.
     Inline(&'a str),
 }
 
@@ -86,18 +90,8 @@ fn is_doctest(function_name: &str) -> bool {
     function_name.starts_with("rust_out::main::_doctest")
 }
 
-fn detect_snapshot_name(
-    function_name: &str,
-    module_path: &str,
-    inline: bool,
-    is_doctest: bool,
-) -> Result<String, &'static str> {
+fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String, &'static str> {
     let mut name = function_name;
-
-    // simplify doctest names
-    if is_doctest && !inline {
-        panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
-    }
 
     // clean test name first
     name = name.rsplit("::").next().unwrap();
@@ -204,6 +198,8 @@ fn get_snapshot_filename(
     })
 }
 
+/// A single snapshot including surrounding context which asserts and save the
+/// snapshot.
 #[derive(Debug)]
 struct SnapshotAssertionContext<'a> {
     tool_config: Arc<ToolConfig>,
@@ -238,12 +234,17 @@ impl<'a> SnapshotAssertionContext<'a> {
         let is_doctest = is_doctest(function_name);
 
         match refval {
-            ReferenceValue::Named(name) => {
+            ReferenceValue::File(name) => {
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name),
-                    None => detect_snapshot_name(function_name, module_path, false, is_doctest)
-                        .unwrap()
-                        .into(),
+                    None => {
+                        if is_doctest {
+                            panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
+                        }
+                        detect_snapshot_name(function_name, module_path)
+                            .unwrap()
+                            .into()
+                    }
                 };
                 if allow_duplicates() {
                     duplication_key = Some(format!("named:{}|{}", module_path, name));
@@ -271,7 +272,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 } else {
                     prevent_inline_duplicate(function_name, assertion_file, assertion_line);
                 }
-                snapshot_name = detect_snapshot_name(function_name, module_path, true, is_doctest)
+                snapshot_name = detect_snapshot_name(function_name, module_path)
                     .ok()
                     .map(Cow::Owned);
                 let mut pending_file = cargo_workspace.join(assertion_file);
@@ -395,6 +396,17 @@ impl<'a> SnapshotAssertionContext<'a> {
         let should_print = self.tool_config.output_behavior() != OutputBehavior::Nothing;
         let snapshot_update = snapshot_update_behavior(&self.tool_config, unseen);
 
+        // If snapshot_update is `InPlace` and we have an inline snapshot, then
+        // use `NewFile`, since we can't use `InPlace` for inline. `cargo-insta`
+        // then accepts all snapshots at the end of the test.
+
+        let snapshot_update =
+            if snapshot_update == SnapshotUpdateBehavior::InPlace && self.snapshot_file.is_none() {
+                SnapshotUpdateBehavior::NewFile
+            } else {
+                snapshot_update
+            };
+
         match snapshot_update {
             SnapshotUpdateBehavior::InPlace => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
@@ -410,20 +422,14 @@ impl<'a> SnapshotAssertionContext<'a> {
                             style(snapshot_file.display()).cyan().underlined(),
                         );
                     }
-                } else if should_print {
-                    elog!(
-                        "{}",
-                        style(
-                            "error: cannot update inline snapshots in-place \
-                        (https://github.com/mitsuhiko/insta/issues/272)"
-                        )
-                        .red()
-                        .bold(),
-                    );
+                } else {
+                    // Checked self.snapshot_file.is_none() above
+                    unreachable!()
                 }
             }
             SnapshotUpdateBehavior::NewFile => {
                 if let Some(ref snapshot_file) = self.snapshot_file {
+                    // File snapshot
                     if let Some(new_path) = new_snapshot.save_new(snapshot_file)? {
                         if should_print {
                             elog!(
@@ -442,19 +448,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                                 .bold(),
                         );
                     }
-
-                // special case for pending inline snapshots.  Here we really only want
-                // to write the contents if the snapshot contents changed as the metadata
-                // is not retained for inline snapshots.  This used to have different
-                // behavior in the past where we did indeed want to rewrite the snapshots
-                // entirely since we used to change the canonical snapshot format, but now
-                // this is significantly less likely to happen and seeing hundreds of unchanged
-                // inline snapshots in the review screen is not a lot of fun.
-                } else if self
-                    .old_snapshot
-                    .as_ref()
-                    .map_or(true, |x| x.contents() != new_snapshot.contents())
-                {
+                } else {
                     PendingInlineSnapshot::new(
                         Some(new_snapshot.clone()),
                         self.old_snapshot.clone(),
@@ -551,13 +545,12 @@ fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpd
 
     if update_result != SnapshotUpdateBehavior::InPlace && !ctx.tool_config.force_pass() {
         if fail_fast && ctx.tool_config.output_behavior() != OutputBehavior::Nothing {
-            println!(
-                "{hint}",
-                hint = style(
-                    "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
-                )
-                .dim(),
-            );
+            let msg = if env::var("INSTA_CARGO_INSTA") == Ok("1".to_string()) {
+                "Stopped on the first failure."
+            } else {
+                "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
+            };
+            println!("{hint}", hint = style(msg).dim(),);
         }
 
         // if we are in glob mode, count the failures and print the
@@ -676,6 +669,7 @@ pub fn assert_snapshot(
         assertion_file,
         assertion_line,
     )?;
+
     let tool_config = get_tool_config(manifest_dir);
 
     if let Some(snapshot_file) = &ctx.snapshot_file {
@@ -735,7 +729,10 @@ pub fn assert_snapshot(
     if pass {
         ctx.cleanup_passing()?;
 
-        if tool_config.force_update_snapshots() {
+        if matches!(
+            tool_config.snapshot_update(),
+            crate::env::SnapshotUpdate::Force
+        ) {
             ctx.update_snapshot(&mut new_snapshot)?;
         }
 

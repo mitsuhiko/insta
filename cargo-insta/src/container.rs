@@ -47,6 +47,9 @@ impl PendingSnapshot {
     }
 }
 
+/// A snapshot and its immediate context, which loads & saves the snapshot. It
+/// holds either a single file snapshot, or all the inline snapshots from a
+/// single rust file.
 #[derive(Debug)]
 pub(crate) struct SnapshotContainer {
     snapshot_path: PathBuf,
@@ -209,10 +212,22 @@ impl SnapshotContainer {
             }
         } else {
             // should only be one or this is weird
+            debug_assert!(self.snapshots.len() == 1);
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
                     Operation::Accept => {
-                        let mut new_snapshot = Snapshot::from_file(&self.snapshot_path)?;
+                        let mut new_snapshot =
+                            Snapshot::from_file(&self.snapshot_path).map_err(|e| {
+                                // If it's an IO error, pass a ContentError back so
+                                // we get a slightly clearer error message
+                                match e.downcast::<std::io::Error>() {
+                                    Ok(io_error) => Box::new(ContentError::FileIo(
+                                        *io_error,
+                                        self.snapshot_path.to_path_buf(),
+                                    )),
+                                    Err(other_error) => other_error,
+                                }
+                            })?;
                         new_snapshot.save(&self.target_path)?;
                         try_removing_snapshot(&self.snapshot_path);
                     }
