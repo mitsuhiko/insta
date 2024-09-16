@@ -533,7 +533,10 @@ impl Snapshot {
 
     /// Snapshot contents _and_ metadata match another snapshot's.
     pub fn matches_fully(&self, other: &Snapshot) -> Result<bool, Box<dyn Error>> {
-        Ok(self.snapshot.matches_fully(&other.snapshot)
+        Ok(self.matches(other)?
+            // If they're both None in the binary case that is also ok since self.matches already
+            // takes care of matching those contents exactly.
+            && self.snapshot.as_str_exact() == other.snapshot.as_str_exact()
             && self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence())
     }
 
@@ -709,22 +712,21 @@ impl SnapshotContents {
                 // Old inline snapshots have `---` at the start, so this strips that if
                 // it exists. Soon we can start printing a warning and then eventually
                 // remove it in the next version.
-                match out.strip_prefix("---\n") {
+                Some(match out.strip_prefix("---\n") {
                     Some(s) => s,
                     None => out,
-                }
+                })
             }
             _ => None,
         }
     }
 
     /// Returns the snapshot contents as string without any trimming.
-    pub fn as_str_exact(&self) -> &str {
-        self.0.as_str()
-    }
-
-    pub fn matches_fully(&self, other: &SnapshotContents) -> bool {
-        self.as_str_exact() == other.as_str_exact()
+    pub fn as_str_exact(&self) -> Option<&str> {
+        match self {
+            SnapshotContents::String(content) => Some(content.as_str()),
+            _ => None,
+        }
     }
 
     pub fn to_inline(&self, indentation: usize) -> Option<String> {
@@ -776,7 +778,7 @@ impl SnapshotContents {
             out.push('"');
             out.push_str(&delimiter);
 
-            out
+            Some(out)
         } else {
             None
         }
@@ -1028,11 +1030,18 @@ b"[1..];
 #[test]
 fn test_snapshot_contents_hashes() {
     let t = "a###b";
-    assert_eq!(SnapshotContents(t.to_string()).to_inline(0), r#""a###b""#);
+    assert_eq!(
+        SnapshotContents::String(t.to_string())
+            .to_inline(0)
+            .unwrap(),
+        r#""a###b""#
+    );
 
     let t = "a\n\\###b";
     assert_eq!(
-        SnapshotContents(t.to_string()).to_inline(0),
+        SnapshotContents::String(t.to_string())
+            .to_inline(0)
+            .unwrap(),
         r#####"r####"
 a
 \###b
