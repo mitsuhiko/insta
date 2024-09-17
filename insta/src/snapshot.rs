@@ -6,7 +6,11 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{borrow::Cow, fmt};
 
-use crate::content::{self, json, yaml, Content};
+use crate::{
+    content::{self, json, yaml, Content},
+    elog,
+    utils::style,
+};
 
 lazy_static::lazy_static! {
     static ref RUN_ID: String = {
@@ -279,7 +283,7 @@ pub enum SnapshotKind {
     File,
 }
 
-/// A helper to work with stored snapshots.
+/// A helper to work with file snapshots.
 #[derive(Debug, Clone)]
 pub struct Snapshot {
     module_name: String,
@@ -332,7 +336,7 @@ impl Snapshot {
                     }
                 }
             }
-            crate::elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
+            elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
@@ -525,9 +529,38 @@ impl SnapshotContents {
         SnapshotContents { contents, kind }
     }
 
-    /// Returns the snapshot contents as string without any normalization.
+    /// Returns the snapshot contents as a normalized string (for example,
+    /// removing surrounding whitespace)
+    pub fn as_str(&self) -> String {
+        self.normalize()
+    }
+
+    /// Returns the snapshot contents as string without any normalization
     pub fn as_str_exact(&self) -> &str {
         self.contents.as_str()
+    }
+
+    /// Matches another snapshot without any normalization
+    pub fn matches_fully(&self, other: &SnapshotContents) -> bool {
+        self.as_str_exact() == other.as_str_exact()
+    }
+
+    /// Snapshot matches based on the latest format.
+    pub fn matches_latest(&self, other: &SnapshotContents) -> bool {
+        self.as_str() == other.as_str()
+    }
+
+    pub fn matches_legacy(&self, other: &SnapshotContents) -> bool {
+        fn as_str_legacy(sc: &SnapshotContents) -> String {
+            let out = sc.as_str();
+            // Legacy inline snapshots have `---` at the start, so this strips that if
+            // it exists.
+            match out.strip_prefix("---\n") {
+                Some(old_snapshot) => old_snapshot.to_string(),
+                None => out,
+            }
+        }
+        as_str_legacy(self) == as_str_legacy(other)
     }
 
     /// Returns the string literal, including `#` delimiters, to insert into a
@@ -561,8 +594,9 @@ impl SnapshotContents {
             out.extend(
                 contents
                     .lines()
-                    // newline needs to be at the start, since we don't want the end
-                    // finishing with a newline - the closing suffix should be on the same line
+                    // Adds an additional newline at the start of multiline
+                    // string (not sure this is the clearest way of representing
+                    // it, but it works...)
                     .map(|l| {
                         format!(
                             "\n{:width$}{l}",
@@ -571,7 +605,8 @@ impl SnapshotContents {
                             l = l
                         )
                     })
-                    // `lines` removes the final line ending - add back
+                    // `lines` removes the final line ending — add back. Include
+                    // indentation so the closing delimited aligns with the full string.
                     .chain(Some(format!("\n{:width$}", "", width = indentation))),
             );
         } else {
@@ -593,15 +628,7 @@ impl SnapshotContents {
         let out = kind_specific_normalization
             .trim_start_matches(['\r', '\n'])
             .trim_end();
-        let out = out.replace("\r\n", "\n");
-        // Old inline snapshots have `---` at the start, so this strips that if
-        // it exists. Soon we can start printing a warning and then eventually
-        // remove it in the next version. (this will move into a
-        // `normalize_legacy` method at some point)
-        match out.strip_prefix("---\n") {
-            Some(s) => s.to_string(),
-            None => out,
-        }
+        out.replace("\r\n", "\n")
     }
 }
 
@@ -614,7 +641,15 @@ impl fmt::Display for SnapshotContents {
 
 impl PartialEq for SnapshotContents {
     fn eq(&self, other: &Self) -> bool {
-        self.to_string() == other.to_string()
+        // Ideally match on current rules, but otherwise fall back to legacy rules
+        if self.matches_latest(other) {
+            true
+        } else if self.matches_legacy(other) {
+            elog!("{} {}\n{}",style("Snapshot passes but is a legacy format. Please run `cargo insta test --force-update-snapshots --accept` to update to a newer format.").yellow().bold(),"Snapshot contents:", self.as_str());
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -706,7 +741,7 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
     // (the only call site)
 
     if frozen_value.trim_start().starts_with('⋮') {
-        crate::elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", frozen_value);
+        elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", frozen_value);
 
         // legacy format - retain so old snapshots still work
         let mut buf = String::new();
