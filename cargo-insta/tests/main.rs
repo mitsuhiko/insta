@@ -754,6 +754,53 @@ fn test_virtual_manifest_single_crate() {
     "###     );
 }
 
+/// Test the old format of inline YAML snapshots with a leading `---` still passes
+#[test]
+fn test_old_yaml_format() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "old-yaml-format"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["yaml"] }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#####"
+#[test]
+fn test_old_yaml_format() {
+    insta::assert_yaml_snapshot!("foo", @r####"
+    ---
+    foo
+"####);
+}
+"#####
+                .to_string(),
+        )
+        .create_project();
+
+    // Run the test with --force-update-snapshots and --accept
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
+}
+
 #[test]
 fn test_force_update_snapshots() {
     fn create_test_force_update_project(name: &str, insta_dependency: &str) -> TestProject {
