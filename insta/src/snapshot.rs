@@ -657,7 +657,7 @@ impl PartialEq for SnapshotContents {
         if self.matches_latest(other) {
             true
         } else if self.matches_legacy(other) {
-            elog!("{} {}\n{}",style("Snapshot passes but is a legacy format. Please run `cargo insta test --force-update-snapshots` to update to a newer format.").yellow().bold(),"Snapshot contents:", self.as_str());
+            elog!("{} {}\n{}",style("Snapshot passes but is a legacy format. Please run `cargo insta test --force-update-snapshots --accept` to update to a newer format.").yellow().bold(),"Snapshot contents:", self.as_str());
             true
         } else {
             false
