@@ -471,7 +471,7 @@ impl Snapshot {
 
     /// The normalized snapshot contents as a String
     pub fn contents_string(&self) -> String {
-        self.snapshot.to_string()
+        self.snapshot.normalize()
     }
 
     fn serialize_snapshot(&self, md: &MetaData) -> String {
