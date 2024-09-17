@@ -159,15 +159,4 @@ fn test_yaml_serialization() {
       - my-tool
       - run
     "###);
-
-    // Old approach with leading `---`:
-    crate::assert_snapshot!(&inline_yaml, @r###"
-    ---
-    env:
-      - ENVIRONMENT
-      - production
-    cmdline:
-      - my-tool
-      - run
-    "###);
 }
