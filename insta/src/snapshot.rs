@@ -524,8 +524,8 @@ impl SnapshotContents {
         SnapshotContents(get_inline_snapshot_value(value))
     }
 
-    /// Returns the snapshot contents as string with closing whitespace removed,
-    /// which we currently trim
+    /// Returns the snapshot contents as a normalized string (for example,
+    /// removing surrounding whitespace)
     pub fn as_str(&self) -> &str {
         let out = self.0.trim_start_matches(['\r', '\n']).trim_end();
         // Old inline snapshots have `---` at the start, so this strips that if
@@ -537,12 +537,12 @@ impl SnapshotContents {
         }
     }
 
-    /// Returns the snapshot contents as string without any trimming.
+    /// Returns the snapshot contents as string without any normalization
     pub fn as_str_exact(&self) -> &str {
         self.0.as_str()
     }
 
-    /// Matches another snapshot without any trimming
+    /// Matches another snapshot without any normalization
     pub fn matches_fully(&self, other: &SnapshotContents) -> bool {
         self.as_str_exact() == other.as_str_exact()
     }
