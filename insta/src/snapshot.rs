@@ -315,6 +315,8 @@ impl Snapshot {
             let content = yaml::parse_str(&buf, p)?;
             MetaData::from_content(content)?
         // legacy format
+        // (but not viable to move into `match_legacy` given it's more than
+        // just the snapshot value itself...)
         } else {
             let mut rv = MetaData::default();
             loop {
@@ -420,7 +422,7 @@ impl Snapshot {
             fields.push(("snapshot_name", Content::from(name)));
         }
         fields.push(("metadata", self.metadata.as_content()));
-        fields.push(("snapshot", Content::from(self.snapshot.contents.as_str())));
+        fields.push(("snapshot", Content::from(self.snapshot.to_string())));
 
         Content::Struct("Content", fields)
     }
@@ -553,16 +555,10 @@ pub struct SnapshotContents {
 impl SnapshotContents {
     pub fn new(contents: String, kind: SnapshotKind) -> SnapshotContents {
         // We could store a normalized version of the string as part of `new`;
-        // it would avoid allocating a new `String` when we getting normalized
+        // it would avoid allocating a new `String` when we get the normalized
         // versions, which we may do a few times. (We want to store the
         // unnormalized version because it allows us to use `matches_fully`.)
         SnapshotContents { contents, kind }
-    }
-
-    /// Returns the snapshot contents as a normalized string (for example,
-    /// removing surrounding whitespace)
-    pub fn as_str(&self) -> String {
-        self.normalize()
     }
 
     /// Returns the snapshot contents as string without any normalization
@@ -577,12 +573,12 @@ impl SnapshotContents {
 
     /// Snapshot matches based on the latest format.
     pub fn matches_latest(&self, other: &SnapshotContents) -> bool {
-        self.as_str() == other.as_str()
+        self.to_string() == other.to_string()
     }
 
     pub fn matches_legacy(&self, other: &SnapshotContents) -> bool {
         fn as_str_legacy(sc: &SnapshotContents) -> String {
-            let out = sc.as_str();
+            let out = sc.to_string();
             // Legacy inline snapshots have `---` at the start, so this strips that if
             // it exists.
             match out.strip_prefix("---\n") {
@@ -649,7 +645,7 @@ impl SnapshotContents {
         out
     }
 
-    pub fn normalize(&self) -> String {
+    fn normalize(&self) -> String {
         let kind_specific_normalization = match self.kind {
             SnapshotKind::Inline => get_inline_snapshot_value(&self.contents),
             SnapshotKind::File => self.contents.clone(),
@@ -663,7 +659,8 @@ impl SnapshotContents {
 }
 
 impl fmt::Display for SnapshotContents {
-    /// Returns the snapshot contents as string with surrounding whitespace removed.
+    /// Returns the snapshot contents as a normalized string (for example,
+    /// removing surrounding whitespace)
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.normalize())
     }
@@ -675,7 +672,7 @@ impl PartialEq for SnapshotContents {
         if self.matches_latest(other) {
             true
         } else if self.matches_legacy(other) {
-            elog!("{} {}\n{}",style("Snapshot passes but is a legacy format. Please run `cargo insta test --force-update-snapshots --accept` to update to a newer format.").yellow().bold(),"Snapshot contents:", self.as_str());
+            elog!("{} {}\n{}",style("Snapshot passes but is a legacy format. Please run `cargo insta test --force-update-snapshots --accept` to update to a newer format.").yellow().bold(),"Snapshot contents:", self.to_string());
             true
         } else {
             false
@@ -774,6 +771,8 @@ fn get_inline_snapshot_value(frozen_value: &str) -> String {
         elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", frozen_value);
 
         // legacy format - retain so old snapshots still work
+        // TODO: move this into `matches_legacy` after the current merge
+        // requests have settled.
         let mut buf = String::new();
         let mut line_iter = frozen_value.lines();
         let mut indentation = 0;
