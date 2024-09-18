@@ -235,6 +235,12 @@ impl SnapshotContainer {
                     }
                     Operation::Skip => {}
                 }
+
+                if let Operation::Accept | Operation::Reject = snapshot.op {
+                    let snapshot = Snapshot::from_file(&self.target_path).ok();
+
+                    Snapshot::cleanup_extra_files(snapshot.as_ref(), &self.target_path)?;
+                }
             }
         }
         Ok(())

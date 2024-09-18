@@ -326,7 +326,7 @@ macro_rules! _assert_snapshot_base {
         $crate::_assert_snapshot_base!(
             transform = $transform,
             #[allow(clippy::needless_raw_string_hashes)]
-            $crate::_macro_support::ReferenceValue::Inline($snapshot),
+            $crate::_macro_support::InlineValue($snapshot),
             $($arg),*
         )
     };
@@ -346,9 +346,39 @@ macro_rules! _assert_snapshot_base {
     // The main macro body — every call to this macro should end up here.
     (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
         $crate::_macro_support::assert_snapshot(
-            $name.into(),
-            #[allow(clippy::redundant_closure_call)]
-            &$transform(&$value),
+            (
+                $name,
+                #[allow(clippy::redundant_closure_call)]
+                $transform(&$value).as_str(),
+            ).into(),
+            env!("CARGO_MANIFEST_DIR"),
+            $crate::_function_name!(),
+            module_path!(),
+            file!(),
+            line!(),
+            $debug_expr,
+        )
+        .unwrap()
+    };
+}
+
+#[macro_export]
+macro_rules! assert_binary_snapshot {
+    ($extension:expr, $value:expr $(,)?) => {
+        $crate::assert_binary_snapshot!($extension, $crate::_macro_support::AutoName, $value);
+    };
+
+    ($extension:expr, $name:expr, $value:expr $(,)?) => {
+        $crate::assert_binary_snapshot!($extension, $name, $value, stringify!($value));
+    };
+
+    ($extension:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
+        $crate::_macro_support::assert_snapshot(
+            $crate::_macro_support::SnapshotValue::Binary {
+                name: $name.into(),
+                content: $value,
+                extension: $extension,
+            },
             env!("CARGO_MANIFEST_DIR"),
             $crate::_function_name!(),
             module_path!(),
