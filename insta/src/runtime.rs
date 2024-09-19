@@ -8,14 +8,17 @@ use std::str;
 use std::sync::{Arc, Mutex};
 use std::{borrow::Cow, env};
 
-use crate::env::{
-    get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
-    OutputBehavior, SnapshotUpdateBehavior, ToolConfig,
-};
 use crate::output::SnapshotPrinter;
 use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
 use crate::utils::{path_to_storage, style};
+use crate::{
+    env::{
+        get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
+        OutputBehavior, SnapshotUpdateBehavior, ToolConfig,
+    },
+    snapshot::SnapshotKind,
+};
 
 lazy_static::lazy_static! {
     static ref TEST_NAME_COUNTERS: Mutex<BTreeMap<String, usize>> =
@@ -78,6 +81,7 @@ impl<'a> From<&'a str> for ReferenceValue<'a> {
     }
 }
 
+#[derive(Debug)]
 /// A reference to a snapshot
 pub enum ReferenceValue<'a> {
     /// A file snapshot, where the inner value is the snapshot name.
@@ -289,7 +293,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     module_path.replace("::", "__"),
                     None,
                     MetaData::default(),
-                    SnapshotContents::from_inline(contents),
+                    SnapshotContents::new(contents.to_string(), SnapshotKind::Inline),
                 ));
             }
         };
@@ -643,7 +647,12 @@ pub fn assert_snapshot(
     let new_snapshot_value =
         Settings::with(|settings| settings.filters().apply_to(new_snapshot_value));
 
-    let new_snapshot = ctx.new_snapshot(new_snapshot_value.into(), expr);
+    let kind = match ctx.snapshot_file {
+        Some(_) => SnapshotKind::File,
+        None => SnapshotKind::Inline,
+    };
+    let new_snapshot =
+        ctx.new_snapshot(SnapshotContents::new(new_snapshot_value.into(), kind), expr);
 
     // memoize the snapshot file if requested.
     if let Some(ref snapshot_file) = ctx.snapshot_file {
@@ -678,7 +687,22 @@ pub fn assert_snapshot(
             tool_config.snapshot_update(),
             crate::env::SnapshotUpdate::Force
         ) {
-            ctx.update_snapshot(new_snapshot)?;
+            // Avoid creating new files if contents match exactly. In
+            // particular, this would otherwise create lots of unneeded files
+            // for inline snapshots
+            //
+            // Note that there's a check down the stack on whether the file
+            // contents match exactly for file snapshots; probably we should
+            // combine that check with `matches_fully` and then use a single
+            // check for whether we force update snapshots.
+            let matches_fully = &ctx
+                .old_snapshot
+                .as_ref()
+                .map(|x| x.matches_fully(&new_snapshot))
+                .unwrap_or(false);
+            if !matches_fully {
+                ctx.update_snapshot(new_snapshot)?;
+            }
         }
     // otherwise print information and update snapshots.
     } else {

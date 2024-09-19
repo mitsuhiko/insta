@@ -4,6 +4,11 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.41.0
 
+- `--force-update-snapshots` has more conservative and consistent behavior for
+  inline snapshots. As a side-effect of this, only the content within the inline
+  snapshot delimiters are assessed for changes, not the delimiters (e.g. `###`).
+  #581
+
 ## 1.40.0
 
 - `cargo-insta` no longer panics when running `cargo insta test --accept --workspace`
