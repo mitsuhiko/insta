@@ -103,7 +103,7 @@ impl<'a> SnapshotPrinter<'a> {
     fn print_snapshot(&self) {
         print_line(term_width());
 
-        let new_contents = self.new_snapshot.contents_str();
+        let new_contents = self.new_snapshot.contents_string();
 
         let width = term_width();
         if self.show_info {
@@ -118,15 +118,17 @@ impl<'a> SnapshotPrinter<'a> {
     }
 
     fn print_changeset(&self) {
-        let old = self.old_snapshot.as_ref().map_or("", |x| x.contents_str());
-        let new = self.new_snapshot.contents_str();
-        let newlines_matter = newlines_matter(old, new);
+        let old: String = self
+            .old_snapshot
+            .map_or("".to_string(), |x| x.contents_string());
+        let new = self.new_snapshot.contents_string();
+        let newlines_matter = newlines_matter(old.as_str(), new.as_str());
 
         let width = term_width();
         let diff = TextDiff::configure()
             .algorithm(Algorithm::Patience)
             .timeout(Duration::from_millis(500))
-            .diff_lines(old, new);
+            .diff_lines(old.as_str(), new.as_str());
         print_line(width);
 
         if self.show_info {
