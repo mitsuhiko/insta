@@ -5,7 +5,7 @@ use std::path::Path;
 use ignore::overrides::OverrideBuilder;
 use ignore::{DirEntry, Walk, WalkBuilder};
 
-use crate::container::{SnapshotContainer, SnapshotContainerKind};
+use crate::container::{SnapshotContainer, SnapshotKind};
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct FindFlags {
@@ -37,7 +37,7 @@ pub(crate) fn find_pending_snapshots<'a>(
                 Some(SnapshotContainer::load(
                     new_path,
                     old_path,
-                    SnapshotContainerKind::External,
+                    SnapshotKind::File,
                 ))
             } else if fname.starts_with('.') && fname.ends_with(".pending-snap") {
                 let mut target_path = e.path().to_path_buf();
@@ -45,7 +45,7 @@ pub(crate) fn find_pending_snapshots<'a>(
                 Some(SnapshotContainer::load(
                     e.path().to_path_buf(),
                     target_path,
-                    SnapshotContainerKind::Inline,
+                    SnapshotKind::Inline,
                 ))
             } else {
                 None

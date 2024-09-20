@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use insta::Snapshot;
+pub(crate) use insta::SnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
 
 use crate::inline::FilePatcher;
@@ -12,12 +13,6 @@ pub(crate) enum Operation {
     Accept,
     Reject,
     Skip,
-}
-
-#[derive(Debug)]
-pub(crate) enum SnapshotContainerKind {
-    Inline,
-    External,
 }
 
 #[derive(Debug)]
@@ -54,7 +49,7 @@ impl PendingSnapshot {
 pub(crate) struct SnapshotContainer {
     snapshot_path: PathBuf,
     target_path: PathBuf,
-    kind: SnapshotContainerKind,
+    kind: SnapshotKind,
     snapshots: Vec<PendingSnapshot>,
     patcher: Option<FilePatcher>,
 }
@@ -63,11 +58,11 @@ impl SnapshotContainer {
     pub(crate) fn load(
         snapshot_path: PathBuf,
         target_path: PathBuf,
-        kind: SnapshotContainerKind,
+        kind: SnapshotKind,
     ) -> Result<SnapshotContainer, Box<dyn Error>> {
         let mut snapshots = Vec::new();
         let patcher = match kind {
-            SnapshotContainerKind::External => {
+            SnapshotKind::File => {
                 let old = if fs::metadata(&target_path).is_err() {
                     None
                 } else {
@@ -83,7 +78,7 @@ impl SnapshotContainer {
                 });
                 None
             }
-            SnapshotContainerKind::Inline => {
+            SnapshotKind::Inline => {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
                 let mut have_new = false;
 
@@ -139,8 +134,8 @@ impl SnapshotContainer {
 
     pub(crate) fn snapshot_file(&self) -> Option<&Path> {
         match self.kind {
-            SnapshotContainerKind::External => Some(&self.target_path),
-            SnapshotContainerKind::Inline => None,
+            SnapshotKind::File => Some(&self.target_path),
+            SnapshotKind::Inline => None,
         }
     }
 
