@@ -9,7 +9,7 @@ All notable changes to insta and cargo-insta are documented here.
   snapshot delimiters are assessed for changes, not the delimiters (e.g. `###`).
   #581
 
-- Inline snapshots only use `#` characters as delimiters when required.
+- Inline snapshots only use `#` characters as delimiters when required.  #603
 
 ## 1.40.0
 
