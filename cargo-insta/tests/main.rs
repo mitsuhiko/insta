@@ -1040,6 +1040,7 @@ fn test_wrong_indent_force() {
     foo
     foo
     "#, @r#"
+
                 foo
                 foo
     "#);
@@ -1072,15 +1073,13 @@ fn test_wrong_indent_force() {
         .unwrap();
     assert_success(&output);
 
-    // https://github.com/mitsuhiko/insta/pull/563 will fix the starting &
-    // ending newlines
     assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -5,7 +5,7 @@
-         foo
+    @@ -6,7 +6,7 @@
          foo
          "#, @r#"
+     
     -                foo
     -                foo
     +    foo
