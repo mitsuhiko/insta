@@ -570,16 +570,10 @@ impl SnapshotContents {
 
         // We don't technically need to escape on newlines, but it reduces diffs
         let is_escape = contents.contains(['\\', '"', '\n']);
-        // Escape the string if needed, with `r#`, using with 1 more `#` than
-        // the maximum number of existing contiguous `#`.
+        // Escape the string if needed, with `r#`, using the required number of `#`s
         let delimiter = if is_escape {
-            let max_contiguous_hash = contents
-                .split(|c| c != '#')
-                .map(|group| group.len())
-                .max()
-                .unwrap_or(0);
             out.push('r');
-            "#".repeat(max_contiguous_hash + 1)
+            "#".repeat(required_hashes(&contents))
         } else {
             "".to_string()
         };
@@ -651,6 +645,34 @@ impl PartialEq for SnapshotContents {
             false
         }
     }
+}
+
+/// The number of `#` we need to surround a raw string literal with.
+fn required_hashes(text: &str) -> usize {
+    let splits = text.split('"');
+    if splits.clone().count() <= 1 {
+        return 0;
+    }
+
+    splits
+        .map(|s| s.chars().take_while(|&c| c == '#').count() + 1)
+        .max()
+        .unwrap()
+}
+
+#[test]
+fn test_required_hashes() {
+    assert_snapshot!(required_hashes(""), @"0");
+    assert_snapshot!(required_hashes("Hello, world!"), @"0");
+    assert_snapshot!(required_hashes("\"\""), @"1");
+    assert_snapshot!(required_hashes("##"), @"0");
+    assert_snapshot!(required_hashes("\"#\"#"), @"2");
+    assert_snapshot!(required_hashes(r##""#"##), @"2");
+    assert_snapshot!(required_hashes(r######"foo ""##### bar "###" baz"######), @"6");
+    assert_snapshot!(required_hashes("\"\"\""), @"1");
+    assert_snapshot!(required_hashes("####"), @"0");
+    assert_snapshot!(required_hashes(r###"\"\"##\"\""###), @"3");
+    assert_snapshot!(required_hashes(r###"r"#"Raw string"#""###), @"2");
 }
 
 fn count_leading_spaces(value: &str) -> usize {
@@ -782,35 +804,35 @@ fn test_snapshot_contents() {
 
     assert_eq!(
         SnapshotContents::new("\na\nb".to_string(), SnapshotKind::Inline).to_inline(0),
-        r##"r#"
+        r##"r"
 a
 b
-"#"##
+""##
     );
 
     assert_eq!(
         SnapshotContents::new("a\nb".to_string(), SnapshotKind::Inline).to_inline(4),
-        r##"r#"
+        r##"r"
     a
     b
-    "#"##
+    ""##
     );
 
     assert_eq!(
         SnapshotContents::new("\n    a\n    b".to_string(), SnapshotKind::Inline).to_inline(0),
-        r##"r#"
+        r##"r"
 a
 b
-"#"##
+""##
     );
 
     assert_eq!(
         SnapshotContents::new("\na\n\nb".to_string(), SnapshotKind::Inline).to_inline(4),
-        r##"r#"
+        r##"r"
     a
 
     b
-    "#"##
+    ""##
     );
 
     assert_eq!(
@@ -833,10 +855,10 @@ fn test_snapshot_contents_hashes() {
 
     assert_eq!(
         SnapshotContents::new("a\n\\###b".to_string(), SnapshotKind::Inline).to_inline(0),
-        r#####"r####"
+        r#####"r"
 a
 \###b
-"####"#####
+""#####
     );
 }
 
