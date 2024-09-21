@@ -966,6 +966,15 @@ fn test_linebreaks() {
     "#####);
 }
 
+/// Given the reasons at https://github.com/mitsuhiko/insta/pull/573, we can't
+/// assess whether the hashes are correct without `cargo-insta`, and we
+/// don't want to update all snapshots without confirming that there is some
+/// difference, even when `--force-update-snapshots` is passed, which we can't
+/// do from the insta test runner. So this tests the current state rather than
+/// the desired state.
+///
+/// We could change the behavior of `--force-update-snapshots`, but may want to
+/// reduce the amount of noise it would generate.
 #[test]
 fn test_force_update_inline_snapshot_hashes() {
     let test_project = TestFiles::new()
@@ -1009,9 +1018,7 @@ fn test_excessive_hashes() {
 
     assert_success(&output);
 
-    // TODO: we would like to update the number of hashes, but that's not easy
-    // given the reasons at https://github.com/mitsuhiko/insta/pull/573. So this
-    // result asserts the current state rather than the desired state.
+    // this tests the current state rather than the desired state.
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
 }
 
