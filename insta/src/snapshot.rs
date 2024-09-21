@@ -650,15 +650,14 @@ impl PartialEq for SnapshotContents {
 /// The number of `#` we need to surround a raw string literal with.
 fn required_hashes(text: &str) -> usize {
     let splits = text.split('"');
-    if dbg!(splits.clone().count()) <= 1 {
+    if splits.clone().count() <= 1 {
         return 0;
     }
 
     splits
-        .map(|s| s.chars().take_while(|&c| c == '#').count())
+        .map(|s| s.chars().take_while(|&c| c == '#').count() + 1)
         .max()
-        .map(|x| x + 1)
-        .unwrap_or(0)
+        .unwrap()
 }
 
 #[test]
