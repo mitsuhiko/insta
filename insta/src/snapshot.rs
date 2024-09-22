@@ -460,8 +460,7 @@ impl Snapshot {
     // (could rename to `matches_exact` for consistency, after some current
     // pending merge requests are merged)
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
-        let contents_match_exact =
-            self.contents().as_str_exact() == other.contents().as_str_exact();
+        let contents_match_exact = self.contents().matches_fully(other.contents());
         match self.kind() {
             SnapshotKind::File => {
                 self.metadata.trim_for_persistence() == other.metadata.trim_for_persistence()
@@ -554,9 +553,13 @@ impl SnapshotContents {
             let out = out.trim_start_matches(['\r', '\n']);
             // Legacy inline snapshots have `---` at the start, so this strips that if
             // it exists.
-            match out.strip_prefix("---\n") {
-                Some(old_snapshot) => old_snapshot.to_string(),
-                None => out.to_string(),
+            let out = match out.strip_prefix("---\n") {
+                Some(old_snapshot) => old_snapshot,
+                None => out,
+            };
+            match sc.kind {
+                SnapshotKind::Inline => legacy_inline_normalize(out),
+                SnapshotKind::File => out.to_string(),
             }
         }
         as_str_legacy(self) == as_str_legacy(other)
@@ -603,16 +606,10 @@ impl SnapshotContents {
 
         // We don't technically need to escape on newlines, but it reduces diffs
         let is_escape = contents.contains(['\\', '"', '\n']);
-        // Escape the string if needed, with `r#`, using with 1 more `#` than
-        // the maximum number of existing contiguous `#`.
+        // Escape the string if needed, with `r#`, using the required number of `#`s
         let delimiter = if is_escape {
-            let max_contiguous_hash = contents
-                .split(|c| c != '#')
-                .map(|group| group.len())
-                .max()
-                .unwrap_or(0);
             out.push('r');
-            "#".repeat(max_contiguous_hash + 1)
+            "#".repeat(required_hashes(&contents))
         } else {
             "".to_string()
         };
@@ -653,7 +650,7 @@ impl SnapshotContents {
 
     fn normalize(&self) -> String {
         let kind_specific_normalization = match self.kind {
-            SnapshotKind::Inline => get_inline_snapshot_value(&self.contents),
+            SnapshotKind::Inline => normalize_inline(&self.contents),
             SnapshotKind::File => self.contents.clone(),
         };
         // Then this we do for both kinds
@@ -682,6 +679,34 @@ impl PartialEq for SnapshotContents {
             false
         }
     }
+}
+
+/// The number of `#` we need to surround a raw string literal with.
+fn required_hashes(text: &str) -> usize {
+    let splits = text.split('"');
+    if splits.clone().count() <= 1 {
+        return 0;
+    }
+
+    splits
+        .map(|s| s.chars().take_while(|&c| c == '#').count() + 1)
+        .max()
+        .unwrap()
+}
+
+#[test]
+fn test_required_hashes() {
+    assert_snapshot!(required_hashes(""), @"0");
+    assert_snapshot!(required_hashes("Hello, world!"), @"0");
+    assert_snapshot!(required_hashes("\"\""), @"1");
+    assert_snapshot!(required_hashes("##"), @"0");
+    assert_snapshot!(required_hashes("\"#\"#"), @"2");
+    assert_snapshot!(required_hashes(r##""#"##), @"2");
+    assert_snapshot!(required_hashes(r######"foo ""##### bar "###" baz"######), @"6");
+    assert_snapshot!(required_hashes("\"\"\""), @"1");
+    assert_snapshot!(required_hashes("####"), @"0");
+    assert_snapshot!(required_hashes(r###"\"\"##\"\""###), @"3");
+    assert_snapshot!(required_hashes(r###"r"#"Raw string"#""###), @"2");
 }
 
 fn count_leading_spaces(value: &str) -> usize {
@@ -887,60 +912,46 @@ fn test_names_of_path() {
     );
 }
 
-/// Helper function that returns the real inline snapshot value from a given
-/// frozen value string.  If the string starts with the '⋮' character
-/// (optionally prefixed by whitespace) the alternative serialization format
-/// is picked which has slightly improved indentation semantics.
-///
-/// This also changes all newlines to \n
-fn get_inline_snapshot_value(frozen_value: &str) -> String {
-    // TODO: could move this into the SnapshotContents struct
-    // (the only call site)
-
-    if frozen_value.trim_start().starts_with('⋮') {
-        elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", frozen_value);
-
-        // legacy format - retain so old snapshots still work
-        // TODO: move this into `matches_legacy` after the current merge
-        // requests have settled.
-        let mut buf = String::new();
-        let mut line_iter = frozen_value.lines();
-        let mut indentation = 0;
-
-        for line in &mut line_iter {
-            let line_trimmed = line.trim_start();
-            if line_trimmed.is_empty() {
-                continue;
-            }
-            indentation = line.len() - line_trimmed.len();
-            // 3 because '⋮' is three utf-8 bytes long
-            buf.push_str(&line_trimmed[3..]);
-            buf.push('\n');
-            break;
-        }
-
-        for line in &mut line_iter {
-            if let Some(prefix) = line.get(..indentation) {
-                if !prefix.trim().is_empty() {
-                    return "".to_string();
-                }
-            }
-            if let Some(remainder) = line.get(indentation..) {
-                if let Some(rest) = remainder.strip_prefix('⋮') {
-                    buf.push_str(rest);
-                    buf.push('\n');
-                } else if remainder.trim().is_empty() {
-                    continue;
-                } else {
-                    return "".to_string();
-                }
-            }
-        }
-
-        buf.trim_end().to_string()
-    } else {
-        normalize_inline(frozen_value)
+/// legacy format - retain so old snapshots still work
+fn legacy_inline_normalize(frozen_value: &str) -> String {
+    if !frozen_value.trim_start().starts_with('⋮') {
+        return frozen_value.to_string();
     }
+    let mut buf = String::new();
+    let mut line_iter = frozen_value.lines();
+    let mut indentation = 0;
+
+    for line in &mut line_iter {
+        let line_trimmed = line.trim_start();
+        if line_trimmed.is_empty() {
+            continue;
+        }
+        indentation = line.len() - line_trimmed.len();
+        // 3 because '⋮' is three utf-8 bytes long
+        buf.push_str(&line_trimmed[3..]);
+        buf.push('\n');
+        break;
+    }
+
+    for line in &mut line_iter {
+        if let Some(prefix) = line.get(..indentation) {
+            if !prefix.trim().is_empty() {
+                return "".to_string();
+            }
+        }
+        if let Some(remainder) = line.get(indentation..) {
+            if let Some(rest) = remainder.strip_prefix('⋮') {
+                buf.push_str(rest);
+                buf.push('\n');
+            } else if remainder.trim().is_empty() {
+                continue;
+            } else {
+                return "".to_string();
+            }
+        }
+    }
+
+    buf.trim_end().to_string()
 }
 
 #[test]
@@ -952,69 +963,36 @@ fn test_snapshot_contents_to_inline() {
     );
 
     assert_eq!(
-        SnapshotContents::new(
-            "
-testing"
-                .to_string(),
-            SnapshotKind::Inline
-        )
-        .to_inline(0),
-        r##"r#"
-
-testing
-"#"##
-    );
-
-    assert_eq!(
-        SnapshotContents::new(
-            "a
-b"
-            .to_string(),
-            SnapshotKind::Inline
-        )
-        .to_inline(0),
-        r##"r#"
+        SnapshotContents::new("\na\nb".to_string(), SnapshotKind::Inline).to_inline(0),
+        r##"r"
 a
 b
-"#"##
+""##
     );
 
     assert_eq!(
         SnapshotContents::new("a\nb".to_string(), SnapshotKind::Inline).to_inline(4),
-        r##"r#"
+        r##"r"
     a
     b
-    "#"##
+    ""##
     );
 
     assert_eq!(
-        SnapshotContents::new(
-            "    a
-    b"
-            .to_string(),
-            SnapshotKind::Inline
-        )
-        .to_inline(0),
-        r##"r#"
+        SnapshotContents::new("\n    a\n    b".to_string(), SnapshotKind::Inline).to_inline(0),
+        r##"r"
 a
 b
-"#"##
+""##
     );
 
     assert_eq!(
-        SnapshotContents::new(
-            "a
-
-    b"
-            .to_string(),
-            SnapshotKind::Inline
-        )
-        .to_inline(4),
-        r##"r#"
+        SnapshotContents::new("\na\n\nb".to_string(), SnapshotKind::Inline).to_inline(4),
+        r##"r"
     a
 
-        b
-    "#"##
+    b
+    ""##
     );
 
     assert_eq!(
@@ -1054,10 +1032,10 @@ fn test_snapshot_contents_hashes() {
 
     assert_eq!(
         SnapshotContents::new("a\n\\###b".to_string(), SnapshotKind::Inline).to_inline(0),
-        r#####"r####"
+        r#####"r"
 a
 \###b
-"####"#####
+""#####
     );
 }
 
@@ -1153,7 +1131,7 @@ a
 #[test]
 fn test_inline_snapshot_value_newline() {
     // https://github.com/mitsuhiko/insta/issues/39
-    assert_eq!(normalize_inline("\n"), "\n");
+    assert_eq!(normalize_inline("\n"), "");
 }
 
 #[test]
