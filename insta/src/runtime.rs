@@ -12,8 +12,8 @@ use std::{borrow::Cow, env};
 use crate::output::SnapshotPrinter;
 use crate::settings::Settings;
 use crate::snapshot::{
-    MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents, SnapshotContentsBinary,
-    SnapshotContentsString, SnapshotType,
+    BinarySnapshotContents, MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents,
+    SnapshotType, TextSnapshotContents,
 };
 use crate::utils::{path_to_storage, style};
 use crate::{
@@ -21,7 +21,7 @@ use crate::{
         get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
         OutputBehavior, SnapshotUpdateBehavior, ToolConfig,
     },
-    snapshot::StringSnapshotKind,
+    snapshot::TextSnapshotKind,
 };
 
 lazy_static::lazy_static! {
@@ -66,12 +66,12 @@ impl From<AutoName> for SnapshotName<'static> {
 type SnapshotName<'a> = Option<Cow<'a, str>>;
 
 pub enum SnapshotValue<'a> {
-    String {
+    Text {
         name: SnapshotName<'a>,
         content: &'a str,
     },
 
-    InlineString {
+    InlineText {
         reference_content: &'a str,
         content: &'a str,
     },
@@ -85,7 +85,7 @@ pub enum SnapshotValue<'a> {
 
 impl<'a> From<(AutoName, &'a str)> for SnapshotValue<'a> {
     fn from((_, content): (AutoName, &'a str)) -> Self {
-        SnapshotValue::String {
+        SnapshotValue::Text {
             name: None,
             content,
         }
@@ -94,7 +94,7 @@ impl<'a> From<(AutoName, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(Option<String>, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (Option<String>, &'a str)) -> Self {
-        SnapshotValue::String {
+        SnapshotValue::Text {
             name: name.map(Cow::Owned),
             content,
         }
@@ -103,7 +103,7 @@ impl<'a> From<(Option<String>, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(String, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (String, &'a str)) -> Self {
-        SnapshotValue::String {
+        SnapshotValue::Text {
             name: Some(Cow::Owned(name)),
             content,
         }
@@ -112,7 +112,7 @@ impl<'a> From<(String, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(Option<&'a str>, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (Option<&'a str>, &'a str)) -> Self {
-        SnapshotValue::String {
+        SnapshotValue::Text {
             name: name.map(Cow::Borrowed),
             content,
         }
@@ -121,7 +121,7 @@ impl<'a> From<(Option<&'a str>, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(&'a str, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (&'a str, &'a str)) -> Self {
-        SnapshotValue::String {
+        SnapshotValue::Text {
             name: Some(Cow::Borrowed(name)),
             content,
         }
@@ -130,7 +130,7 @@ impl<'a> From<(&'a str, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(InlineValue<'a>, &'a str)> for SnapshotValue<'a> {
     fn from((InlineValue(reference_content), content): (InlineValue<'a>, &'a str)) -> Self {
-        SnapshotValue::InlineString {
+        SnapshotValue::InlineText {
             reference_content,
             content,
         }
@@ -285,7 +285,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         let is_doctest = is_doctest(function_name);
 
         match new_snapshot_value {
-            SnapshotValue::String { name, .. } | SnapshotValue::Binary { name, .. } => {
+            SnapshotValue::Text { name, .. } | SnapshotValue::Binary { name, .. } => {
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name.clone()),
                     None => {
@@ -314,7 +314,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_name = Some(name);
                 snapshot_file = Some(file);
             }
-            SnapshotValue::InlineString {
+            SnapshotValue::InlineText {
                 reference_content: contents,
                 ..
             } => {
@@ -343,7 +343,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     module_path.replace("::", "__"),
                     None,
                     MetaData::default(),
-                    SnapshotContentsString::new(contents.to_string(), StringSnapshotKind::Inline)
+                    TextSnapshotContents::new(contents.to_string(), TextSnapshotKind::Inline)
                         .into(),
                 ));
             }
@@ -391,7 +391,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .and_then(|x| self.localize_path(x))
                     .map(|x| path_to_storage(&x)),
                 snapshot_type: match contents {
-                    SnapshotContents::String(_) => SnapshotType::String,
+                    SnapshotContents::Text(_) => SnapshotType::Text,
                     SnapshotContents::Binary(ref contents) => SnapshotType::Binary {
                         extension: contents.extension.clone(),
                     },
@@ -702,17 +702,17 @@ pub fn assert_snapshot(
     }
 
     let content = match new_snapshot_value {
-        SnapshotValue::String { content, .. } | SnapshotValue::InlineString { content, .. } => {
+        SnapshotValue::Text { content, .. } | SnapshotValue::InlineText { content, .. } => {
             // apply filters if they are available
             #[cfg(feature = "filters")]
             let content = Settings::with(|settings| settings.filters().apply_to(content));
 
             let kind = match ctx.snapshot_file {
-                Some(_) => StringSnapshotKind::File,
-                None => StringSnapshotKind::Inline,
+                Some(_) => TextSnapshotKind::File,
+                None => TextSnapshotKind::Inline,
             };
 
-            SnapshotContentsString::new(content.into(), kind).into()
+            TextSnapshotContents::new(content.into(), kind).into()
         }
         SnapshotValue::Binary {
             content, extension, ..
@@ -723,7 +723,7 @@ pub fn assert_snapshot(
                 "file extensions starting with 'new.' are not allowed",
             );
 
-            SnapshotContentsBinary {
+            BinarySnapshotContents {
                 contents: Rc::new(content),
                 extension: extension.to_string(),
             }

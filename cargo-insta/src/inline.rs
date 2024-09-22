@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use insta::_cargo_insta_support::SnapshotContentsString;
+use insta::_cargo_insta_support::TextSnapshotContents;
 use proc_macro2::TokenTree;
 
 use syn::__private::ToTokens;
@@ -90,7 +90,7 @@ impl FilePatcher {
         self.inline_snapshots[id].start.0 + 1
     }
 
-    pub(crate) fn set_new_content(&mut self, id: usize, snapshot: &SnapshotContentsString) {
+    pub(crate) fn set_new_content(&mut self, id: usize, snapshot: &TextSnapshotContents) {
         let inline = &mut self.inline_snapshots[id];
 
         // find prefix and suffix on the first and last lines

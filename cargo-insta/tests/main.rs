@@ -882,7 +882,7 @@ Hello, world!
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
-    +snapshot_type: string
+    +snapshot_type: text
      ---
      Hello, world!
     -
@@ -898,7 +898,7 @@ Hello, world!
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
-    +snapshot_type: string
+    +snapshot_type: text
      ---
      Hello, world!
     -

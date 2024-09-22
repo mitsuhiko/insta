@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use insta::Snapshot;
-pub(crate) use insta::StringSnapshotKind;
+pub(crate) use insta::TextSnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
 
 use crate::inline::FilePatcher;
@@ -49,7 +49,7 @@ impl PendingSnapshot {
 pub(crate) struct SnapshotContainer {
     snapshot_path: PathBuf,
     target_path: PathBuf,
-    kind: StringSnapshotKind,
+    kind: TextSnapshotKind,
     snapshots: Vec<PendingSnapshot>,
     patcher: Option<FilePatcher>,
 }
@@ -58,11 +58,11 @@ impl SnapshotContainer {
     pub(crate) fn load(
         snapshot_path: PathBuf,
         target_path: PathBuf,
-        kind: StringSnapshotKind,
+        kind: TextSnapshotKind,
     ) -> Result<SnapshotContainer, Box<dyn Error>> {
         let mut snapshots = Vec::new();
         let patcher = match kind {
-            StringSnapshotKind::File => {
+            TextSnapshotKind::File => {
                 let old = if fs::metadata(&target_path).is_err() {
                     None
                 } else {
@@ -78,7 +78,7 @@ impl SnapshotContainer {
                 });
                 None
             }
-            StringSnapshotKind::Inline => {
+            TextSnapshotKind::Inline => {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
                 let mut have_new = false;
 
@@ -134,8 +134,8 @@ impl SnapshotContainer {
 
     pub(crate) fn snapshot_file(&self) -> Option<&Path> {
         match self.kind {
-            StringSnapshotKind::File => Some(&self.target_path),
-            StringSnapshotKind::Inline => None,
+            TextSnapshotKind::File => Some(&self.target_path),
+            TextSnapshotKind::Inline => None,
         }
     }
 

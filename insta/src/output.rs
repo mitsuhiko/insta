@@ -110,7 +110,7 @@ impl<'a> SnapshotPrinter<'a> {
         println!("Snapshot Contents:");
 
         match self.new_snapshot.contents() {
-            SnapshotContents::String(new_contents) => {
+            SnapshotContents::Text(new_contents) => {
                 let new_contents = new_contents.to_string();
 
                 println!("──────┬{:─^1$}", "", width.saturating_sub(7));
@@ -173,13 +173,13 @@ impl<'a> SnapshotPrinter<'a> {
             self.old_snapshot.as_ref().map(|o| o.contents()),
             self.new_snapshot.contents(),
         ) {
-            (Some(SnapshotContents::Binary(_)) | None, SnapshotContents::String(new)) => {
+            (Some(SnapshotContents::Binary(_)) | None, SnapshotContents::Text(new)) => {
                 Some((None, Some(new.to_string())))
             }
-            (Some(SnapshotContents::String(old)), SnapshotContents::Binary { .. }) => {
+            (Some(SnapshotContents::Text(old)), SnapshotContents::Binary { .. }) => {
                 Some((Some(old.to_string()), None))
             }
-            (Some(SnapshotContents::String(old)), SnapshotContents::String(new)) => {
+            (Some(SnapshotContents::Text(old)), SnapshotContents::Text(new)) => {
                 Some((Some(old.to_string()), Some(new.to_string())))
             }
             _ => None,

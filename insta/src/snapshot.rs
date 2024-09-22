@@ -95,10 +95,10 @@ impl PendingInlineSnapshot {
                     Some("run_id") => run_id = value.as_str().map(|x| x.to_string()),
                     Some("line") => line = value.as_u64().map(|x| x as u32),
                     Some("old") if !value.is_nil() => {
-                        old = Some(Snapshot::from_content(value, StringSnapshotKind::Inline)?)
+                        old = Some(Snapshot::from_content(value, TextSnapshotKind::Inline)?)
                     }
                     Some("new") if !value.is_nil() => {
-                        new = Some(Snapshot::from_content(value, StringSnapshotKind::Inline)?)
+                        new = Some(Snapshot::from_content(value, TextSnapshotKind::Inline)?)
                     }
                     _ => {}
                 }
@@ -141,13 +141,13 @@ impl PendingInlineSnapshot {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SnapshotType {
-    String,
+    Text,
     Binary { extension: String },
 }
 
 impl Default for SnapshotType {
     fn default() -> Self {
-        SnapshotType::String
+        SnapshotType::Text
     }
 }
 
@@ -222,11 +222,11 @@ impl MetaData {
             let mut expression = None;
             let mut info = None;
             let mut input_file = None;
-            let mut snapshot_type = TmpSnapshotType::String;
+            let mut snapshot_type = TmpSnapshotType::Text;
             let mut extension = None;
 
             enum TmpSnapshotType {
-                String,
+                Text,
                 Binary,
             }
 
@@ -241,7 +241,7 @@ impl MetaData {
                     Some("snapshot_type") => {
                         snapshot_type = match value.as_str() {
                             Some("binary") => TmpSnapshotType::Binary,
-                            _ => TmpSnapshotType::String,
+                            _ => TmpSnapshotType::Text,
                         }
                     }
                     Some("extension") => {
@@ -259,7 +259,7 @@ impl MetaData {
                 info,
                 input_file,
                 snapshot_type: match snapshot_type {
-                    TmpSnapshotType::String => SnapshotType::String,
+                    TmpSnapshotType::Text => SnapshotType::Text,
                     TmpSnapshotType::Binary => SnapshotType::Binary {
                         extension: extension.ok_or(content::Error::MissingField)?,
                     },
@@ -292,7 +292,7 @@ impl MetaData {
         }
 
         let snapshot_type = Content::from(match self.snapshot_type {
-            SnapshotType::String => "string",
+            SnapshotType::Text => "text",
             SnapshotType::Binary { ref extension } => {
                 fields.push(("extension", Content::from(extension.clone())));
                 "binary"
@@ -325,7 +325,7 @@ impl MetaData {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum StringSnapshotKind {
+pub enum TextSnapshotKind {
     Inline,
     File,
 }
@@ -390,7 +390,7 @@ impl Snapshot {
         };
 
         let contents = match metadata.snapshot_type {
-            SnapshotType::String => {
+            SnapshotType::Text => {
                 buf.clear();
                 for (idx, line) in f.lines().enumerate() {
                     let line = line?;
@@ -400,9 +400,9 @@ impl Snapshot {
                     buf.push_str(&line);
                 }
 
-                SnapshotContentsString {
+                TextSnapshotContents {
                     contents: buf,
-                    kind: StringSnapshotKind::File,
+                    kind: TextSnapshotKind::File,
                 }
                 .into()
             }
@@ -410,7 +410,7 @@ impl Snapshot {
                 let path = build_binary_path(extension, p);
                 let contents = fs::read(path)?;
 
-                SnapshotContentsBinary {
+                BinarySnapshotContents {
                     contents: Rc::new(contents),
                     extension: extension.clone(),
                 }
@@ -444,10 +444,7 @@ impl Snapshot {
     }
 
     #[cfg(feature = "_cargo_insta_internal")]
-    fn from_content(
-        content: Content,
-        kind: StringSnapshotKind,
-    ) -> Result<Snapshot, Box<dyn Error>> {
+    fn from_content(content: Content, kind: TextSnapshotKind) -> Result<Snapshot, Box<dyn Error>> {
         if let Content::Map(map) = content {
             let mut module_name = None;
             let mut snapshot_name = None;
@@ -461,7 +458,7 @@ impl Snapshot {
                     Some("metadata") => metadata = Some(MetaData::from_content(value)?),
                     Some("snapshot") => {
                         snapshot = Some(
-                            SnapshotContentsString {
+                            TextSnapshotContents {
                                 contents: value
                                     .as_str()
                                     .ok_or(content::Error::UnexpectedDataType)?
@@ -493,7 +490,7 @@ impl Snapshot {
         }
         fields.push(("metadata", self.metadata.as_content()));
 
-        if let SnapshotContents::String(ref content) = self.snapshot {
+        if let SnapshotContents::Text(ref content) = self.snapshot {
             fields.push(("snapshot", Content::from(content.to_string())));
         }
 
@@ -525,24 +522,20 @@ impl Snapshot {
         self.contents() == other.contents()
     }
 
-    // pub fn kind(&self) -> StringSnapshotKind {
-    //     self.snapshot.kind
-    // }
-
     /// Both the exact snapshot contents and the persisted metadata match another snapshot's.
     // (could rename to `matches_exact` for consistency, after some current
     // pending merge requests are merged)
     pub fn matches_fully(&self, other: &Snapshot) -> bool {
         match (self.contents(), other.contents()) {
-            (SnapshotContents::String(self_contents), SnapshotContents::String(other_contents)) => {
+            (SnapshotContents::Text(self_contents), SnapshotContents::Text(other_contents)) => {
                 let contents_match_exact = self_contents == other_contents;
                 match self_contents.kind {
-                    StringSnapshotKind::File => {
+                    TextSnapshotKind::File => {
                         self.metadata.trim_for_persistence()
                             == other.metadata.trim_for_persistence()
                             && contents_match_exact
                     }
-                    StringSnapshotKind::Inline => contents_match_exact,
+                    TextSnapshotKind::Inline => contents_match_exact,
                 }
             }
             (SnapshotContents::Binary(a), SnapshotContents::Binary(b)) => a == b,
@@ -553,7 +546,7 @@ impl Snapshot {
     /// The normalized snapshot contents as a String
     pub fn contents_string(&self) -> Option<String> {
         match self.contents() {
-            SnapshotContents::String(contents) => Some(contents.normalize()),
+            SnapshotContents::Text(contents) => Some(contents.normalize()),
             SnapshotContents::Binary(_) => None,
         }
     }
@@ -606,7 +599,7 @@ impl Snapshot {
 
     pub fn cleanup_extra_files(snapshot: Option<&Self>, path: &Path) -> Result<(), Box<dyn Error>> {
         let binary_path = snapshot.and_then(|snapshot| match &snapshot.contents() {
-            SnapshotContents::String(_) => None,
+            SnapshotContents::Text(_) => None,
             SnapshotContents::Binary(contents) => Some(contents.build_path(path)),
         });
         let binary_file_name = binary_path.as_ref().map(|path| path.file_name().unwrap());
@@ -642,19 +635,19 @@ impl Snapshot {
 /// The contents of a Snapshot
 #[derive(Debug, Clone)]
 pub enum SnapshotContents {
-    String(SnapshotContentsString),
-    Binary(SnapshotContentsBinary),
+    Text(TextSnapshotContents),
+    Binary(BinarySnapshotContents),
 }
 
 // Could be Cow, but I think limited savings
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct SnapshotContentsString {
+pub struct TextSnapshotContents {
     contents: String,
-    pub kind: StringSnapshotKind,
+    pub kind: TextSnapshotKind,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct SnapshotContentsBinary {
+pub struct BinarySnapshotContents {
     // This is in an `Rc` because we need to be able to clone this struct cheaply and the contents
     // of the `Vec` could be rather large. The reason it's not an `Rc<[u8]>` is because creating one
     // of those would require re-allocating because of the additional size needed for the reference
@@ -663,52 +656,47 @@ pub struct SnapshotContentsBinary {
     pub extension: String,
 }
 
-impl From<SnapshotContentsString> for SnapshotContents {
-    fn from(value: SnapshotContentsString) -> Self {
-        SnapshotContents::String(value)
+impl From<TextSnapshotContents> for SnapshotContents {
+    fn from(value: TextSnapshotContents) -> Self {
+        SnapshotContents::Text(value)
     }
 }
 
-impl From<SnapshotContentsBinary> for SnapshotContents {
-    fn from(value: SnapshotContentsBinary) -> Self {
+impl From<BinarySnapshotContents> for SnapshotContents {
+    fn from(value: BinarySnapshotContents) -> Self {
         SnapshotContents::Binary(value)
     }
 }
 
-impl SnapshotContentsString {
-    pub fn new(contents: String, kind: StringSnapshotKind) -> SnapshotContentsString {
+impl SnapshotContents {
+    pub fn is_binary(&self) -> bool {
+        matches!(self, SnapshotContents::Binary(_))
+    }
+
+    pub fn as_string_contents(&self) -> Option<&TextSnapshotContents> {
+        match self {
+            SnapshotContents::Text(contents) => Some(contents),
+            SnapshotContents::Binary(_) => None,
+        }
+    }
+}
+
+impl TextSnapshotContents {
+    pub fn new(contents: String, kind: TextSnapshotKind) -> TextSnapshotContents {
         // We could store a normalized version of the string as part of `new`;
         // it would avoid allocating a new `String` when we get the normalized
         // versions, which we may do a few times. (We want to store the
         // unnormalized version because it allows us to use `matches_fully`.)
-        SnapshotContentsString { contents, kind }
+        TextSnapshotContents { contents, kind }
     }
 
-    // /// Returns the snapshot contents as a normalized string (for example,
-    // /// removing surrounding whitespace)
-    // pub fn as_str(&self) -> &str {
-    //     let out = self.0.trim_start_matches(['\r', '\n']).trim_end();
-    //     // Old inline snapshots have `---` at the start, so this strips that if
-    //     // it exists. Soon we can start printing a warning and then eventually
-    //     // remove it in the next version.
-    //     match out.strip_prefix("---\n") {
-    //         Some(s) => s,
-    //         None => out,
-    //     }
-    // }
-
-    // /// Returns the snapshot contents as string without any normalization
-    // pub fn as_str_exact(&self) -> &str {
-    //     self.contents.as_str()
-    // }
-
     /// Snapshot matches based on the latest format.
-    pub fn matches_latest(&self, other: &SnapshotContentsString) -> bool {
+    pub fn matches_latest(&self, other: &TextSnapshotContents) -> bool {
         self.to_string() == other.to_string()
     }
 
-    pub fn matches_legacy(&self, other: &SnapshotContentsString) -> bool {
-        fn as_str_legacy(sc: &SnapshotContentsString) -> String {
+    pub fn matches_legacy(&self, other: &TextSnapshotContents) -> bool {
+        fn as_str_legacy(sc: &TextSnapshotContents) -> String {
             let out = sc.to_string();
             // Legacy inline snapshots have `---` at the start, so this strips that if
             // it exists.
@@ -717,8 +705,8 @@ impl SnapshotContentsString {
                 None => out,
             };
             match sc.kind {
-                StringSnapshotKind::Inline => legacy_inline_normalize(&out),
-                StringSnapshotKind::File => out,
+                TextSnapshotKind::Inline => legacy_inline_normalize(&out),
+                TextSnapshotKind::File => out,
             }
         }
         as_str_legacy(self) == as_str_legacy(other)
@@ -726,8 +714,8 @@ impl SnapshotContentsString {
 
     fn normalize(&self) -> String {
         let kind_specific_normalization = match self.kind {
-            StringSnapshotKind::Inline => normalize_inline_snapshot(&self.contents),
-            StringSnapshotKind::File => self.contents.clone(),
+            TextSnapshotKind::Inline => normalize_inline_snapshot(&self.contents),
+            TextSnapshotKind::File => self.contents.clone(),
         };
         // Then this we do for both kinds
         let out = kind_specific_normalization
@@ -786,26 +774,13 @@ impl SnapshotContentsString {
     }
 }
 
-impl SnapshotContentsBinary {
+impl BinarySnapshotContents {
     pub fn build_path(&self, path: impl Into<PathBuf>) -> PathBuf {
         build_binary_path(&self.extension, path)
     }
 }
 
-impl SnapshotContents {
-    pub fn is_binary(&self) -> bool {
-        matches!(self, SnapshotContents::Binary(_))
-    }
-
-    pub fn as_string_contents(&self) -> Option<&SnapshotContentsString> {
-        match self {
-            SnapshotContents::String(contents) => Some(contents),
-            SnapshotContents::Binary(_) => None,
-        }
-    }
-}
-
-impl fmt::Display for SnapshotContentsString {
+impl fmt::Display for TextSnapshotContents {
     /// Returns the snapshot contents as a normalized string (for example,
     /// removing surrounding whitespace)
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -816,7 +791,7 @@ impl fmt::Display for SnapshotContentsString {
 impl PartialEq for SnapshotContents {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (SnapshotContents::String(this), SnapshotContents::String(other)) => {
+            (SnapshotContents::Text(this), SnapshotContents::Text(other)) => {
                 // Ideally match on current rules, but otherwise fall back to legacy rules
                 if this.matches_latest(other) {
                     true
@@ -993,14 +968,14 @@ fn legacy_inline_normalize(frozen_value: &str) -> String {
 fn test_snapshot_contents() {
     use similar_asserts::assert_eq;
     let snapshot_contents =
-        SnapshotContentsString::new("testing".to_string(), StringSnapshotKind::Inline);
+        TextSnapshotContents::new("testing".to_string(), TextSnapshotKind::Inline);
     assert_eq!(snapshot_contents.to_inline(0), r#""testing""#);
 
     let t = &"
 a
 b"[1..];
     assert_eq!(
-        SnapshotContentsString::new(t.to_string(), StringSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new(t.to_string(), TextSnapshotKind::Inline).to_inline(0),
         r##"r"
 a
 b
@@ -1008,7 +983,7 @@ b
     );
 
     assert_eq!(
-        SnapshotContentsString::new("a\nb".to_string(), StringSnapshotKind::Inline).to_inline(4),
+        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline(4),
         r##"r"
     a
     b
@@ -1016,7 +991,7 @@ b
     );
 
     assert_eq!(
-        SnapshotContentsString::new("\n    a\n    b".to_string(), StringSnapshotKind::Inline)
+        TextSnapshotContents::new("\n    a\n    b".to_string(), TextSnapshotKind::Inline)
             .to_inline(0),
         r##"r"
 a
@@ -1025,8 +1000,7 @@ b
     );
 
     assert_eq!(
-        SnapshotContentsString::new("\na\n\nb".to_string(), StringSnapshotKind::Inline)
-            .to_inline(4),
+        TextSnapshotContents::new("\na\n\nb".to_string(), TextSnapshotKind::Inline).to_inline(4),
         r##"r"
     a
 
@@ -1035,13 +1009,12 @@ b
     );
 
     assert_eq!(
-        SnapshotContentsString::new("\n    ab\n".to_string(), StringSnapshotKind::Inline)
-            .to_inline(0),
+        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline(0),
         r##""ab""##
     );
 
     assert_eq!(
-        SnapshotContentsString::new("ab".to_string(), StringSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline(0),
         r#""ab""#
     );
 }
@@ -1049,13 +1022,12 @@ b
 #[test]
 fn test_snapshot_contents_hashes() {
     assert_eq!(
-        SnapshotContentsString::new("a###b".to_string(), StringSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline).to_inline(0),
         r#""a###b""#
     );
 
     assert_eq!(
-        SnapshotContentsString::new("a\n\\###b".to_string(), StringSnapshotKind::Inline)
-            .to_inline(0),
+        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline).to_inline(0),
         r#####"r"
 a
 \###b

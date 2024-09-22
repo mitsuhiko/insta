@@ -287,7 +287,7 @@ mod glob;
 mod test;
 
 pub use crate::settings::Settings;
-pub use crate::snapshot::{MetaData, Snapshot, StringSnapshotKind};
+pub use crate::snapshot::{MetaData, Snapshot, TextSnapshotKind};
 
 /// Exposes some library internals.
 ///
@@ -320,7 +320,7 @@ pub mod _cargo_insta_support {
         output::SnapshotPrinter,
         snapshot::PendingInlineSnapshot,
         snapshot::SnapshotContents,
-        snapshot::SnapshotContentsString,
+        snapshot::TextSnapshotContents,
         utils::is_ci,
     };
 }
