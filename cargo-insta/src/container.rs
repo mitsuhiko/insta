@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use insta::Snapshot;
-pub(crate) use insta::SnapshotKind;
+pub(crate) use insta::StringSnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
 
 use crate::inline::FilePatcher;
@@ -49,7 +49,7 @@ impl PendingSnapshot {
 pub(crate) struct SnapshotContainer {
     snapshot_path: PathBuf,
     target_path: PathBuf,
-    kind: SnapshotKind,
+    kind: StringSnapshotKind,
     snapshots: Vec<PendingSnapshot>,
     patcher: Option<FilePatcher>,
 }
@@ -58,11 +58,11 @@ impl SnapshotContainer {
     pub(crate) fn load(
         snapshot_path: PathBuf,
         target_path: PathBuf,
-        kind: SnapshotKind,
+        kind: StringSnapshotKind,
     ) -> Result<SnapshotContainer, Box<dyn Error>> {
         let mut snapshots = Vec::new();
         let patcher = match kind {
-            SnapshotKind::File => {
+            StringSnapshotKind::File => {
                 let old = if fs::metadata(&target_path).is_err() {
                     None
                 } else {
@@ -78,7 +78,7 @@ impl SnapshotContainer {
                 });
                 None
             }
-            SnapshotKind::Inline => {
+            StringSnapshotKind::Inline => {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
                 let mut have_new = false;
 
@@ -134,8 +134,8 @@ impl SnapshotContainer {
 
     pub(crate) fn snapshot_file(&self) -> Option<&Path> {
         match self.kind {
-            SnapshotKind::File => Some(&self.target_path),
-            SnapshotKind::Inline => None,
+            StringSnapshotKind::File => Some(&self.target_path),
+            StringSnapshotKind::Inline => None,
         }
     }
 
@@ -182,7 +182,10 @@ impl SnapshotContainer {
             for (idx, snapshot) in self.snapshots.iter().enumerate() {
                 match snapshot.op {
                     Operation::Accept => {
-                        patcher.set_new_content(idx, snapshot.new.contents());
+                        patcher.set_new_content(
+                            idx,
+                            snapshot.new.contents().as_string_contents().unwrap(),
+                        );
                         did_accept = true;
                     }
                     Operation::Reject => {}

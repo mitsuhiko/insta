@@ -4,7 +4,7 @@ use std::{path::Path, time::Duration};
 use similar::{Algorithm, ChangeTag, TextDiff};
 
 use crate::content::yaml;
-use crate::snapshot::{MetaData, Snapshot, SnapshotContents, SnapshotContentsString};
+use crate::snapshot::{MetaData, Snapshot, SnapshotContents};
 use crate::utils::{format_rust_expression, style, term_width};
 
 /// Snapshot printer utility.
@@ -103,16 +103,16 @@ impl<'a> SnapshotPrinter<'a> {
     fn print_snapshot(&self) {
         print_line(term_width());
 
-        let new_contents = self.new_snapshot.contents();
-
         let width = term_width();
         if self.show_info {
             self.print_info();
         }
         println!("Snapshot Contents:");
 
-        match new_contents {
-            SnapshotContents::String(SnapshotContentsString(new_contents)) => {
+        match self.new_snapshot.contents() {
+            SnapshotContents::String(new_contents) => {
+                let new_contents = new_contents.to_string();
+
                 println!("──────┬{:─^1$}", "", width.saturating_sub(7));
                 for (idx, line) in new_contents.lines().enumerate() {
                     println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
@@ -173,19 +173,19 @@ impl<'a> SnapshotPrinter<'a> {
             self.old_snapshot.as_ref().map(|o| o.contents()),
             self.new_snapshot.contents(),
         ) {
-            (Some(SnapshotContents::Binary { .. }) | None, SnapshotContents::String(new)) => {
-                Some((None, Some(&new.0)))
+            (Some(SnapshotContents::Binary(_)) | None, SnapshotContents::String(new)) => {
+                Some((None, Some(new.to_string())))
             }
             (Some(SnapshotContents::String(old)), SnapshotContents::Binary { .. }) => {
-                Some((Some(&old.0), None))
+                Some((Some(old.to_string()), None))
             }
             (Some(SnapshotContents::String(old)), SnapshotContents::String(new)) => {
-                Some((Some(&old.0), Some(&new.0)))
+                Some((Some(old.to_string()), Some(new.to_string())))
             }
             _ => None,
         } {
-            let old_text = dbg!(old).map(String::as_str).unwrap_or("");
-            let new_text = dbg!(new).map(String::as_str).unwrap_or("");
+            let old_text = old.as_deref().unwrap_or("");
+            let new_text = new.as_deref().unwrap_or("");
 
             let newlines_matter = newlines_matter(old_text, new_text);
             let diff = TextDiff::configure()

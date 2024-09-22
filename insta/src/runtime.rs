@@ -13,7 +13,7 @@ use crate::output::SnapshotPrinter;
 use crate::settings::Settings;
 use crate::snapshot::{
     MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents, SnapshotContentsBinary,
-    SnapshotType,
+    SnapshotContentsString, SnapshotType,
 };
 use crate::utils::{path_to_storage, style};
 use crate::{
@@ -21,7 +21,7 @@ use crate::{
         get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
         OutputBehavior, SnapshotUpdateBehavior, ToolConfig,
     },
-    snapshot::SnapshotKind,
+    snapshot::StringSnapshotKind,
 };
 
 lazy_static::lazy_static! {
@@ -343,7 +343,8 @@ impl<'a> SnapshotAssertionContext<'a> {
                     module_path.replace("::", "__"),
                     None,
                     MetaData::default(),
-                    SnapshotContents::new(contents.to_string(), SnapshotKind::Inline),
+                    SnapshotContentsString::new(contents.to_string(), StringSnapshotKind::Inline)
+                        .into(),
                 ));
             }
         };
@@ -706,7 +707,12 @@ pub fn assert_snapshot(
             #[cfg(feature = "filters")]
             let content = Settings::with(|settings| settings.filters().apply_to(content));
 
-            content.into()
+            let kind = match ctx.snapshot_file {
+                Some(_) => StringSnapshotKind::File,
+                None => StringSnapshotKind::Inline,
+            };
+
+            SnapshotContentsString::new(content.into(), kind).into()
         }
         SnapshotValue::Binary {
             content, extension, ..
@@ -717,17 +723,14 @@ pub fn assert_snapshot(
                 "file extensions starting with 'new.' are not allowed",
             );
 
-            SnapshotContents::Binary(SnapshotContentsBinary {
+            SnapshotContentsBinary {
                 contents: Rc::new(content),
                 extension: extension.to_string(),
-            })
+            }
+            .into()
         }
     };
 
-    let kind = match ctx.snapshot_file {
-        Some(_) => SnapshotKind::File,
-        None => SnapshotKind::Inline,
-    };
     let new_snapshot = ctx.new_snapshot(content, expr);
 
     // memoize the snapshot file if requested.
