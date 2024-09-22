@@ -149,19 +149,22 @@ impl FilePatcher {
         impl Visitor {
             fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
                 for idx in 0..tokens.len() {
+                    // Look for the start of a macro (potential snapshot location)
                     if let Some(TokenTree::Ident(_)) = tokens.get(idx) {
                         if let Some(TokenTree::Punct(ref punct)) = tokens.get(idx + 1) {
                             if punct.as_char() == '!' {
                                 if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
+                                    // Found a macro, determine its indentation
                                     let indentation = scan_for_path_start(tokens, idx);
+                                    // Extract tokens from the macro arguments
                                     let tokens: Vec<_> = group.stream().into_iter().collect();
+                                    // Try to extract a snapshot, passing the calculated indentation
                                     self.try_extract_snapshot(&tokens, indentation);
                                 }
                             }
                         }
                     }
                 }
-
                 for token in tokens {
                     // recurse into groups
                     if let TokenTree::Group(group) = token {
