@@ -574,7 +574,7 @@ impl SnapshotContents {
     pub(crate) fn from_inline_literal(contents: &str) -> SnapshotContents {
         // If it's a single line string, then we don't do anything.
         if contents.trim_end().lines().count() <= 1 {
-            return SnapshotContents::new(contents.to_string(), SnapshotKind::Inline);
+            return SnapshotContents::new(contents.trim_end().to_string(), SnapshotKind::Inline);
         }
 
         // If it's multiline, we trim the first line, which should be empty.
@@ -729,7 +729,7 @@ fn min_indentation(snapshot: &str) -> usize {
 fn normalize_inline(snapshot: &str) -> String {
     // If it's a single line string, then we don't do anything.
     if snapshot.trim_end().lines().count() <= 1 {
-        return snapshot.to_string();
+        return snapshot.trim_end().to_string();
     }
 
     let indentation = min_indentation(snapshot);
@@ -802,8 +802,7 @@ fn test_normalize_inline_snapshot() {
         a
     "
         ),
-        "        a
-    "
+        "        a"
     );
 
     assert_eq!(normalized_of_literal(""), "");
@@ -828,8 +827,7 @@ c
 a
     "
         ),
-        "a
-    "
+        "a"
     );
 
     // This is a bit of a weird case, but because it's not a true multiline
@@ -842,16 +840,6 @@ a
     a"
         ),
         "    a"
-    );
-
-    assert_eq!(
-        normalized_of_literal(
-            "
-    a
-    "
-        ),
-        "    a
-    "
     );
 
     // This test will pass but raise a warning, so we comment it out for the moment.
