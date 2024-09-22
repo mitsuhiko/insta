@@ -1,7 +1,7 @@
 use std::env;
 use std::error::Error;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -613,7 +613,16 @@ impl Snapshot {
 
         let file_name = path.file_name().unwrap();
 
-        for entry in path.parent().unwrap().read_dir()? {
+        let read_dir = path.parent().unwrap().read_dir();
+
+        if read_dir
+            .as_ref()
+            .is_err_and(|e| e.kind() == ErrorKind::NotFound)
+        {
+            return Ok(());
+        }
+
+        for entry in read_dir? {
             let entry = entry?;
             let entry_file_name = entry.file_name();
             if entry_file_name
