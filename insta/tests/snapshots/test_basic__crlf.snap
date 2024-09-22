@@ -1,5 +1,5 @@
 ---
-source: insta/tests/test_bugs.rs
+source: insta/tests/test_basic.rs
 expression: "\"foo\\r\\nbar\\r\\nbaz\""
 ---
 foo
