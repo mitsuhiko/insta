@@ -1145,3 +1145,56 @@ fn test_hashtag_escape() {
      }
     "####);
 }
+
+#[test]
+fn test_snapshot_name_clash() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "snapshot_name_clash_test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    use insta::assert_debug_snapshot;
+
+    #[test]
+    fn test_foo_always_missing() {
+        assert_debug_snapshot!(42);
+    }
+
+    #[test]
+    fn foo_always_missing() {
+        assert_debug_snapshot!(42);
+    }
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    // The test should fail due to the name clash
+    assert!(!output.status.success());
+
+    let error_output = String::from_utf8_lossy(&output.stderr);
+
+    // Check for the name clash error message
+    assert!(error_output.contains("Insta snapshot name clash detected between 'foo_always_missing' and 'test_foo_always_missing' in 'snapshot_name_clash_test::tests'. Rename one function."));
+}
