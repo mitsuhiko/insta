@@ -965,6 +965,7 @@ fn test_snapshot_contents_to_inline() {
     assert_eq!(
         SnapshotContents::new("\na\nb".to_string(), SnapshotKind::Inline).to_inline(0),
         r##"r"
+
 a
 b
 ""##
@@ -981,6 +982,7 @@ b
     assert_eq!(
         SnapshotContents::new("\n    a\n    b".to_string(), SnapshotKind::Inline).to_inline(0),
         r##"r"
+
 a
 b
 ""##
@@ -989,6 +991,7 @@ b
     assert_eq!(
         SnapshotContents::new("\na\n\nb".to_string(), SnapshotKind::Inline).to_inline(4),
         r##"r"
+
     a
 
     b
