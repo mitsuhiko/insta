@@ -9,7 +9,7 @@ All notable changes to insta and cargo-insta are documented here.
   assertions with different leading newlines will pass with a warning suggesting
   using `--force-update-snapshots` to update snapshots, and will fail in the
   future. (Note that we currently allowing differing trailing newlines but may
-  adjust this in the future).  #569
+  adjust this in the future).  #563
 
 - `--force-update-snapshots` has more conservative and consistent behavior for
   inline snapshots. As a side-effect of this, only the content within the inline
