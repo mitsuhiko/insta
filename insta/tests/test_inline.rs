@@ -304,3 +304,14 @@ fn test_inline_snapshot_whitespace() {
 
     "###);
 }
+
+#[test]
+fn test_indentation() {
+    assert_snapshot!("aaa\nbbb\nccc\nddd", @r"
+    aaa
+    bbb
+    ccc
+    ddd
+    "
+    );
+}
