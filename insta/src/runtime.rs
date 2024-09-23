@@ -63,29 +63,38 @@ impl From<AutoName> for SnapshotName<'static> {
     }
 }
 
+/// The name of a snapshot, from which the path is derived.
 type SnapshotName<'a> = Option<Cow<'a, str>>;
 
 pub enum SnapshotValue<'a> {
-    Text {
+    /// A text snapshot that gets stored along with the metadata in the same file.
+    FileText {
         name: SnapshotName<'a>,
         content: &'a str,
     },
 
+    /// An inline snapshot.
     InlineText {
+        /// The reference content from the macro invocation that will be compared against.
         reference_content: &'a str,
+
+        /// The new content from the expression that is passed to the macro.
         content: &'a str,
     },
 
+    /// A binary snapshot that gets stored as a separate file next to the metadata file.
     Binary {
         name: SnapshotName<'a>,
         content: Vec<u8>,
+
+        /// The extension of the separate file.
         extension: &'a str,
     },
 }
 
 impl<'a> From<(AutoName, &'a str)> for SnapshotValue<'a> {
     fn from((_, content): (AutoName, &'a str)) -> Self {
-        SnapshotValue::Text {
+        SnapshotValue::FileText {
             name: None,
             content,
         }
@@ -94,7 +103,7 @@ impl<'a> From<(AutoName, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(Option<String>, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (Option<String>, &'a str)) -> Self {
-        SnapshotValue::Text {
+        SnapshotValue::FileText {
             name: name.map(Cow::Owned),
             content,
         }
@@ -103,7 +112,7 @@ impl<'a> From<(Option<String>, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(String, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (String, &'a str)) -> Self {
-        SnapshotValue::Text {
+        SnapshotValue::FileText {
             name: Some(Cow::Owned(name)),
             content,
         }
@@ -112,7 +121,7 @@ impl<'a> From<(String, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(Option<&'a str>, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (Option<&'a str>, &'a str)) -> Self {
-        SnapshotValue::Text {
+        SnapshotValue::FileText {
             name: name.map(Cow::Borrowed),
             content,
         }
@@ -121,7 +130,7 @@ impl<'a> From<(Option<&'a str>, &'a str)> for SnapshotValue<'a> {
 
 impl<'a> From<(&'a str, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (&'a str, &'a str)) -> Self {
-        SnapshotValue::Text {
+        SnapshotValue::FileText {
             name: Some(Cow::Borrowed(name)),
             content,
         }
@@ -285,7 +294,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         let is_doctest = is_doctest(function_name);
 
         match new_snapshot_value {
-            SnapshotValue::Text { name, .. } | SnapshotValue::Binary { name, .. } => {
+            SnapshotValue::FileText { name, .. } | SnapshotValue::Binary { name, .. } => {
                 let name = match name {
                     Some(name) => add_suffix_to_snapshot_name(name.clone()),
                     None => {
@@ -702,7 +711,7 @@ pub fn assert_snapshot(
     }
 
     let content = match new_snapshot_value {
-        SnapshotValue::Text { content, .. } | SnapshotValue::InlineText { content, .. } => {
+        SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
             // apply filters if they are available
             #[cfg(feature = "filters")]
             let content = Settings::with(|settings| settings.filters().apply_to(content));
