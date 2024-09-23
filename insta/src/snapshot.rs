@@ -518,14 +518,14 @@ impl Snapshot {
     }
 
     /// Snapshot contents match another snapshot's.
-    pub fn matches(&self, other: &Snapshot) -> bool {
+    pub fn matches(&self, other: &Self) -> bool {
         self.contents() == other.contents()
     }
 
     /// Both the exact snapshot contents and the persisted metadata match another snapshot's.
     // (could rename to `matches_exact` for consistency, after some current
     // pending merge requests are merged)
-    pub fn matches_fully(&self, other: &Snapshot) -> bool {
+    pub fn matches_fully(&self, other: &Self) -> bool {
         match (self.contents(), other.contents()) {
             (SnapshotContents::Text(self_contents), SnapshotContents::Text(other_contents)) => {
                 let contents_match_exact = self_contents == other_contents;
@@ -691,11 +691,11 @@ impl TextSnapshotContents {
     }
 
     /// Snapshot matches based on the latest format.
-    pub fn matches_latest(&self, other: &TextSnapshotContents) -> bool {
+    pub fn matches_latest(&self, other: &Self) -> bool {
         self.to_string() == other.to_string()
     }
 
-    pub fn matches_legacy(&self, other: &TextSnapshotContents) -> bool {
+    pub fn matches_legacy(&self, other: &Self) -> bool {
         fn as_str_legacy(sc: &TextSnapshotContents) -> String {
             let out = sc.to_string();
             // Legacy inline snapshots have `---` at the start, so this strips that if
