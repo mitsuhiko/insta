@@ -717,7 +717,10 @@ pub fn assert_snapshot(
         SnapshotValue::Binary {
             content, extension, ..
         } => {
-            assert!(extension != "new", "this file extension is not allowed");
+            assert!(
+                extension != "new",
+                "'.new' is not allowed as a file extension"
+            );
             assert!(
                 !extension.starts_with("new."),
                 "file extensions starting with 'new.' are not allowed",

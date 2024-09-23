@@ -4,7 +4,7 @@ fn test_binary_snapshot() {
 }
 
 #[test]
-#[should_panic(expected = "this file extension is not allowed")]
+#[should_panic(expected = "'.new' is not allowed as a file extension")]
 fn test_new_extension() {
     insta::assert_binary_snapshot!("new", b"test".to_vec());
 }
