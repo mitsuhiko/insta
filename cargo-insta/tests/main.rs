@@ -81,6 +81,17 @@ fn assert_success(output: &std::process::Output) {
     );
 }
 
+fn assert_failure(output: &std::process::Output) {
+    eprint!("{}", String::from_utf8_lossy(&output.stderr));
+    eprint!("{}", String::from_utf8_lossy(&output.stdout));
+    assert!(
+        !output.status.success(),
+        "Tests succeeded: {}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 struct TestProject {
     /// Temporary directory where the project is created
     workspace_dir: PathBuf,
@@ -182,6 +193,10 @@ impl TestProject {
             3,
             Some(("Original file tree", "Updated file tree")),
         )
+    }
+
+    fn update_file<P: AsRef<Path>>(&self, path: P, content: String) {
+        fs::write(self.workspace_dir.join(path), content).unwrap();
     }
 }
 
@@ -1146,4 +1161,192 @@ fn test_hashtag_escape() {
     +    "###);
      }
     "####);
+}
+
+#[test]
+fn test_binary_pending() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_pending"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project.cmd().args(["test"]).output().unwrap();
+
+    assert_failure(&output);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_pending__binary_snapshot.snap.new
+    +      src/snapshots/test_binary_pending__binary_snapshot.snap.new.txt
+    ");
+}
+
+#[test]
+fn test_binary_accept() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_accept"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_accept__binary_snapshot.snap
+    +      src/snapshots/test_binary_accept__binary_snapshot.snap.txt
+    ");
+}
+
+#[test]
+fn test_binary_change_extension() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_change_extension"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    test_project.update_file(
+        "src/main.rs",
+        r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!("json", b"test".to_vec());
+}
+"#
+        .to_string(),
+    );
+
+    let output = test_project.cmd().args(["test"]).output().unwrap();
+
+    assert_failure(&output);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,10 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.new
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.new.json
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.txt
+    ");
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.json
+    ");
 }
