@@ -323,7 +323,7 @@ fn query_snapshot(
         );
 
         let new_is_binary = new.contents().is_binary();
-        let old_is_binary = old.is_some_and(|o| o.contents().is_binary());
+        let old_is_binary = old.map(|o| o.contents().is_binary()).unwrap_or(false);
 
         if new_is_binary || old_is_binary {
             println!(
