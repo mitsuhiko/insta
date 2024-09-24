@@ -151,15 +151,14 @@ fn is_doctest(function_name: &str) -> bool {
 }
 
 fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String, &'static str> {
-    let mut name = function_name;
-
     // clean test name first
-    name = name.rsplit("::").next().unwrap();
-    let mut test_prefixed = false;
-    if name.starts_with("test_") {
-        name = &name[5..];
-        test_prefixed = true;
-    }
+    let name = function_name.rsplit("::").next().unwrap();
+
+    let (name, test_prefixed) = if let Some(stripped) = name.strip_prefix("test_") {
+        (stripped, true)
+    } else {
+        (name, false)
+    };
 
     // next check if we need to add a suffix
     let name = add_suffix_to_snapshot_name(Cow::Borrowed(name));
