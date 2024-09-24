@@ -201,7 +201,8 @@ fn get_snapshot_filename(
     })
 }
 
-/// A single snapshot including surrounding context which asserts and save the
+/// The context around a snapshot, such as the reference value, location, etc.
+/// (but not including the generated value). Responsible for saving the
 /// snapshot.
 #[derive(Debug)]
 struct SnapshotAssertionContext<'a> {
@@ -620,7 +621,7 @@ where
 /// assertion with a panic if needed.
 #[allow(clippy::too_many_arguments)]
 pub fn assert_snapshot(
-    refval: ReferenceValue<'_>,
+    refval: ReferenceValue,
     new_snapshot_value: &str,
     manifest_dir: &str,
     function_name: &str,

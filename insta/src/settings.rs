@@ -269,10 +269,10 @@ impl Settings {
 
     /// Sets the input file reference.
     ///
-    /// This value is completely unused by the snapshot testing system but
-    /// it lets you store some meta data with a snapshot that refers you back
-    /// to the input file.  The path stored here is made relative to the
-    /// workspace root before storing with the snapshot.
+    /// This value is completely unused by the snapshot testing system but it
+    /// allows storing some metadata with a snapshot that refers back to the
+    /// input file.  The path stored here is made relative to the workspace root
+    /// before storing with the snapshot.
     pub fn set_input_file<P: AsRef<Path>>(&mut self, p: P) {
         self._private_inner_mut().input_file(p);
     }
