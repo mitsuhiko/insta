@@ -28,23 +28,25 @@ pub(crate) fn find_pending_snapshots<'a>(
     flags: FindFlags,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
     make_snapshot_walker(package_root, extensions, flags)
-        .filter_map(|e| e.ok())
-        .filter_map(move |e| {
-            let fname = e.file_name().to_string_lossy();
-            if fname.ends_with(".new") {
-                let new_path = e.into_path();
-                let old_path = new_path.clone().with_extension("");
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let fname = entry.file_name().to_string_lossy();
+            let path = entry.clone().into_path();
+
+            #[allow(clippy::manual_map)]
+            if let Some(new_fname) = fname.strip_suffix(".new") {
                 Some(SnapshotContainer::load(
-                    new_path,
-                    old_path,
+                    path.clone(),
+                    path.with_file_name(new_fname),
                     SnapshotKind::File,
                 ))
-            } else if fname.starts_with('.') && fname.ends_with(".pending-snap") {
-                let mut target_path = e.path().to_path_buf();
-                target_path.set_file_name(&fname[1..fname.len() - 13]);
+            } else if let Some(new_fname) = fname
+                .strip_prefix('.')
+                .and_then(|f| f.strip_suffix(".pending-snap"))
+            {
                 Some(SnapshotContainer::load(
-                    e.path().to_path_buf(),
-                    target_path,
+                    path.clone(),
+                    path.with_file_name(new_fname),
                     SnapshotKind::Inline,
                 ))
             } else {
