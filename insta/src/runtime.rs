@@ -70,6 +70,8 @@ pub enum SnapshotValue<'a> {
     /// A text snapshot that gets stored along with the metadata in the same file.
     FileText {
         name: SnapshotName<'a>,
+
+        /// The new generated value to compare against any previously approved content.
         content: &'a str,
     },
 
@@ -78,13 +80,15 @@ pub enum SnapshotValue<'a> {
         /// The reference content from the macro invocation that will be compared against.
         reference_content: &'a str,
 
-        /// The new content from the expression that is passed to the macro.
+        /// The new generated value to compare against any previously approved content.
         content: &'a str,
     },
 
     /// A binary snapshot that gets stored as a separate file next to the metadata file.
     Binary {
         name: SnapshotName<'a>,
+
+        /// The new generated value to compare against any previously approved content.
         content: Vec<u8>,
 
         /// The extension of the separate file.
