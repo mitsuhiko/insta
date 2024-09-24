@@ -86,7 +86,7 @@ fn assert_failure(output: &std::process::Output) {
     eprint!("{}", String::from_utf8_lossy(&output.stdout));
     assert!(
         !output.status.success(),
-        "Tests succeeded: {}\n{}",
+        "Tests unexpectedly succeeded: {}\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
