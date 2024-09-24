@@ -257,7 +257,8 @@ fn get_snapshot_filename(
     })
 }
 
-/// A single snapshot including surrounding context which asserts and save the
+/// The context around a snapshot, such as the reference value, location, etc.
+/// (but not including the generated value). Responsible for saving the
 /// snapshot.
 #[derive(Debug)]
 struct SnapshotAssertionContext<'a> {
