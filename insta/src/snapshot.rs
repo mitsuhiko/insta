@@ -418,6 +418,8 @@ impl Snapshot {
 
     fn as_content(&self) -> Content {
         let mut fields = vec![("module_name", Content::from(self.module_name.as_str()))];
+        // Note this is currently never used, since this method is only used for
+        // inline snapshots
         if let Some(name) = self.snapshot_name.as_deref() {
             fields.push(("snapshot_name", Content::from(name)));
         }

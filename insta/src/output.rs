@@ -226,13 +226,8 @@ pub fn print_snapshot_summary(
     workspace_root: &Path,
     snapshot: &Snapshot,
     snapshot_file: Option<&Path>,
-    mut line: Option<u32>,
+    line: Option<u32>,
 ) {
-    // default to old assertion line from snapshot.
-    if line.is_none() {
-        line = snapshot.metadata().assertion_line();
-    }
-
     if let Some(snapshot_file) = snapshot_file {
         let snapshot_file = workspace_root
             .join(snapshot_file)
@@ -255,11 +250,12 @@ pub fn print_snapshot_summary(
         println!(
             "Source: {}{}",
             style(value.display()).cyan(),
-            if let Some(line) = line {
-                format!(":{}", style(line).bold())
-            } else {
-                "".to_string()
-            }
+            line.or(
+                // default to old assertion line from snapshot.
+                snapshot.metadata().assertion_line()
+            )
+            .map(|line| format!(":{}", style(line).bold()))
+            .unwrap_or_default()
         );
     }
 
