@@ -19,3 +19,8 @@ fn test_extension_starting_with_new() {
 fn test_multipart_extension() {
     insta::assert_binary_snapshot!("tar.gz", b"test".to_vec());
 }
+
+#[test]
+fn test_named() {
+    insta::assert_binary_snapshot!("json", "name", b"null".to_vec());
+}

@@ -320,37 +320,45 @@ macro_rules! assert_compact_debug_snapshot {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _assert_snapshot_base {
-    // If there's an inline literal value, wrap the literal in a
-    // `ReferenceValue::Inline`, call self.
-    (transform=$transform:expr, $($arg:expr),*, @$snapshot:literal $(,)?) => {
+    // If there's an inline literal value, wrap the literal and value in a
+    // `SnapshotValue::InlineText`, call self.
+    (transform=$transform:expr, $value:expr $(, $debug_expr:expr)?, @$snapshot:literal $(,)?) => {
         $crate::_assert_snapshot_base!(
-            transform = $transform,
             #[allow(clippy::needless_raw_string_hashes)]
-            $crate::_macro_support::InlineValue($snapshot),
-            $($arg),*
+            $crate::_macro_support::SnapshotValue::InlineText {
+                reference_content: $snapshot,
+                content: $transform(&$value).as_str(),
+            },
+            $($debug_expr,)?
+            stringify!($value),
         )
-    };
-    // If there's no debug_expr, use the stringified value, call self.
-    (transform=$transform:expr, $name:expr, $value:expr $(,)?) => {
-        $crate::_assert_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
     };
     // If there's no name (and necessarily no debug expr), auto generate the
     // name, call self.
     (transform=$transform:expr, $value:expr $(,)?) => {
         $crate::_assert_snapshot_base!(
-            transform = $transform,
+            transform=$transform,
             $crate::_macro_support::AutoName,
-            $value
+            $value,
+        )
+    };
+    // If there's a name, wrap the name and value in a SnapshotValue::FileText, call self.
+    (transform=$transform:expr, $name:expr, $value:expr $(, $debug_expr:expr)? $(,)?) => {
+        $crate::_assert_snapshot_base!(
+            $crate::_macro_support::SnapshotValue::FileText {
+                name: $name.into(),
+                content: $transform(&$value).as_str(),
+            },
+            $($debug_expr,)?
+            stringify!($value),
         )
     };
     // The main macro body — every call to this macro should end up here.
-    (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
+    // The extra value gets ignored here because above we can't only pass $value if there's no
+    // $debug_expr due to macro_rules not having anything like an else.
+    ($snapshot_value:expr, $debug_expr:expr $(, $_:expr)? $(,)?) => {
         $crate::_macro_support::assert_snapshot(
-            (
-                $name,
-                #[allow(clippy::redundant_closure_call)]
-                $transform(&$value).as_str(),
-            ).into(),
+            $snapshot_value,
             env!("CARGO_MANIFEST_DIR"),
             $crate::_function_name!(),
             module_path!(),
