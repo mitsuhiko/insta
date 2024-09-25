@@ -411,34 +411,29 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
 
 /// Returns the cargo workspace for a manifest
 pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
-    // we really do not care about poisoning here.
-    let mut workspaces = WORKSPACES.lock().unwrap_or_else(|x| x.into_inner());
-    if let Some(rv) = workspaces.get(manifest_dir) {
-        rv.clone()
-    } else {
-        let output = std::process::Command::new(
-            env::var("CARGO")
-                .ok()
-                .unwrap_or_else(|| "cargo".to_string()),
-        )
-        .arg("metadata")
-        .arg("--format-version=1")
-        .arg("--no-deps")
-        .current_dir(manifest_dir)
-        .output()
-        .unwrap();
-        let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
-            std::str::from_utf8(&output.stdout).unwrap(),
-        )
-        .unwrap();
-        let manifest = docs.first().expect("Unable to parse cargo manifest");
-        let workspace_root = PathBuf::from(manifest["workspace_root"].as_str().unwrap());
-        let path = Arc::new(workspace_root);
-        workspaces.insert(manifest_dir.to_string(), path.clone());
-        path
-    }
-}
+    let mut workspaces = WORKSPACES.lock().expect("Failed to lock WORKSPACES");
 
+    workspaces
+        .entry(manifest_dir.to_string())
+        .or_insert_with(|| {
+            let output = std::process::Command::new(
+                env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()),
+            )
+            .args(["metadata", "--format-version=1", "--no-deps"])
+            .current_dir(manifest_dir)
+            .output()
+            .expect("Failed to execute cargo metadata");
+
+            let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
+                std::str::from_utf8(&output.stdout).unwrap(),
+            )
+            .unwrap();
+            let manifest = docs.first().expect("Unable to parse cargo manifest");
+
+            PathBuf::from(manifest["workspace_root"].as_str().unwrap()).into()
+        })
+        .clone()
+}
 #[cfg(feature = "_cargo_insta_internal")]
 impl std::str::FromStr for TestRunner {
     type Err = ();
