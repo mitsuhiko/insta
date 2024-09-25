@@ -16,11 +16,11 @@ lazy_static::lazy_static! {
 }
 
 pub fn get_tool_config(manifest_dir: &str) -> Arc<ToolConfig> {
-    let mut configs = TOOL_CONFIGS.lock().unwrap();
-
-    configs
+    TOOL_CONFIGS
+        .lock()
+        .unwrap()
         .entry(manifest_dir.to_string())
-        .or_insert_with(|| Arc::new(ToolConfig::from_manifest_dir(manifest_dir).unwrap()))
+        .or_insert_with(|| ToolConfig::from_manifest_dir(manifest_dir).unwrap().into())
         .clone()
 }
 
@@ -409,10 +409,10 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
 
 /// Returns the cargo workspace for a manifest
 pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
-    // we really do not care about poisoning here.
-    let mut workspaces = WORKSPACES.lock().unwrap();
-
-    workspaces
+    WORKSPACES
+        .lock()
+        // we really do not care about poisoning here.
+        .unwrap()
         .entry(manifest_dir.to_string())
         .or_insert_with(|| {
             let output = std::process::Command::new(
@@ -421,18 +421,18 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
             .args(["metadata", "--format-version=1", "--no-deps"])
             .current_dir(manifest_dir)
             .output()
-            .expect("Failed to execute cargo metadata");
+            .unwrap();
 
             let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
                 std::str::from_utf8(&output.stdout).unwrap(),
             )
             .unwrap();
-            let manifest = docs.first().expect("Unable to parse cargo manifest");
 
-            PathBuf::from(manifest["workspace_root"].as_str().unwrap()).into()
+            PathBuf::from(docs.first().unwrap()["workspace_root"].as_str().unwrap()).into()
         })
         .clone()
 }
+
 #[cfg(feature = "_cargo_insta_internal")]
 impl std::str::FromStr for TestRunner {
     type Err = ();
