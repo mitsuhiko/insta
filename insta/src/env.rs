@@ -17,13 +17,11 @@ lazy_static::lazy_static! {
 
 pub fn get_tool_config(manifest_dir: &str) -> Arc<ToolConfig> {
     let mut configs = TOOL_CONFIGS.lock().unwrap();
-    if let Some(rv) = configs.get(manifest_dir) {
-        return rv.clone();
-    }
-    let config =
-        Arc::new(ToolConfig::from_manifest_dir(manifest_dir).expect("failed to load tool config"));
-    configs.insert(manifest_dir.to_string(), config.clone());
-    config
+
+    configs
+        .entry(manifest_dir.to_string())
+        .or_insert_with(|| Arc::new(ToolConfig::from_manifest_dir(manifest_dir).unwrap()))
+        .clone()
 }
 
 /// The test runner to use.
@@ -411,7 +409,8 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
 
 /// Returns the cargo workspace for a manifest
 pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
-    let mut workspaces = WORKSPACES.lock().expect("Failed to lock WORKSPACES");
+    // we really do not care about poisoning here.
+    let mut workspaces = WORKSPACES.lock().unwrap();
 
     workspaces
         .entry(manifest_dir.to_string())
