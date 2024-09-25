@@ -127,7 +127,7 @@ pub struct ToolConfig {
 impl ToolConfig {
     /// Loads the tool config for a specific manifest.
     pub fn from_manifest_dir(manifest_dir: &str) -> Result<ToolConfig, Error> {
-        ToolConfig::from_workspace(&get_cargo_workspace(manifest_dir))
+        Self::from_workspace(&get_cargo_workspace(manifest_dir))
     }
 
     /// Loads the tool config from a cargo workspace.
@@ -416,35 +416,24 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
     if let Some(rv) = workspaces.get(manifest_dir) {
         rv.clone()
     } else {
-        // If INSTA_WORKSPACE_ROOT environment variable is set, use the value
-        // as-is. This is useful for those users where the compiled in
-        // CARGO_MANIFEST_DIR points to some transient location. This can easily
-        // happen if the user builds the test in one directory but then tries to
-        // run it in another: even if sources are available in the new
-        // directory, in the past we would always go with the compiled-in value.
-        // The compiled-in directory may not even exist anymore.
-        let path = if let Ok(workspace_root) = std::env::var("INSTA_WORKSPACE_ROOT") {
-            Arc::new(PathBuf::from(workspace_root))
-        } else {
-            let output = std::process::Command::new(
-                env::var("CARGO")
-                    .ok()
-                    .unwrap_or_else(|| "cargo".to_string()),
-            )
-            .arg("metadata")
-            .arg("--format-version=1")
-            .arg("--no-deps")
-            .current_dir(manifest_dir)
-            .output()
-            .unwrap();
-            let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
-                std::str::from_utf8(&output.stdout).unwrap(),
-            )
-            .unwrap();
-            let manifest = docs.first().expect("Unable to parse cargo manifest");
-            let workspace_root = PathBuf::from(manifest["workspace_root"].as_str().unwrap());
-            Arc::new(workspace_root)
-        };
+        let output = std::process::Command::new(
+            env::var("CARGO")
+                .ok()
+                .unwrap_or_else(|| "cargo".to_string()),
+        )
+        .arg("metadata")
+        .arg("--format-version=1")
+        .arg("--no-deps")
+        .current_dir(manifest_dir)
+        .output()
+        .unwrap();
+        let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
+            std::str::from_utf8(&output.stdout).unwrap(),
+        )
+        .unwrap();
+        let manifest = docs.first().expect("Unable to parse cargo manifest");
+        let workspace_root = PathBuf::from(manifest["workspace_root"].as_str().unwrap());
+        let path = Arc::new(workspace_root);
         workspaces.insert(manifest_dir.to_string(), path.clone());
         path
     }
