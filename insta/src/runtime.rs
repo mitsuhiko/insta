@@ -639,8 +639,6 @@ pub fn assert_snapshot(
         assertion_line,
     )?;
 
-    let tool_config = get_tool_config(manifest_dir);
-
     // apply filters if they are available
     #[cfg(feature = "filters")]
     let new_snapshot_value =
@@ -671,7 +669,7 @@ pub fn assert_snapshot(
         .old_snapshot
         .as_ref()
         .map(|x| {
-            if tool_config.require_full_match() {
+            if ctx.tool_config.require_full_match() {
                 x.matches_fully(&new_snapshot)
             } else {
                 x.matches(&new_snapshot)
@@ -683,7 +681,7 @@ pub fn assert_snapshot(
         ctx.cleanup_passing()?;
 
         if matches!(
-            tool_config.snapshot_update(),
+            ctx.tool_config.snapshot_update(),
             crate::env::SnapshotUpdate::Force
         ) {
             // Avoid creating new files if contents match exactly. In
