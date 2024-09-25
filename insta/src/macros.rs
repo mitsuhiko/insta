@@ -25,11 +25,7 @@ macro_rules! _get_workspace_root {
     () => {{
         use std::env;
 
-        if let Ok(workspace_root) = env::var("INSTA_WORKSPACE_ROOT") {
-            workspace_root.to_string()
-        } else {
-            env!("CARGO_MANIFEST_DIR").to_string()
-        }
+        env::var("INSTA_WORKSPACE_ROOT").unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_string())
     }};
 }
 
