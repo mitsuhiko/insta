@@ -1401,3 +1401,165 @@ fn test_binary_snapshot() {
     +    src/snapshots
     ");
 }
+
+#[test]
+fn test_change_text_to_binary() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_change_text_to_binary"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test() {
+    insta::assert_snapshot!("test");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_change_text_to_binary__test.snap
+    ");
+
+    test_project.update_file(
+        "src/main.rs",
+        r#"
+#[test]
+fn test() {
+    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+}
+"#
+        .to_string(),
+    );
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_change_text_to_binary__test.snap
+    +      src/snapshots/test_change_text_to_binary__test.snap.txt
+    ");
+}
+
+#[test]
+fn test_change_binary_to_text() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_change_binary_to_text"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test() {
+    insta::assert_binary_snapshot!("json", "some_name", b"{}".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_change_binary_to_text__some_name.snap
+    +      src/snapshots/test_change_binary_to_text__some_name.snap.json
+    ");
+
+    test_project.update_file(
+        "src/main.rs",
+        r#"
+#[test]
+fn test() {
+    insta::assert_snapshot!("some_name", "test");
+}
+"#
+        .to_string(),
+    );
+
+    let output = test_project
+        .cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_change_binary_to_text__some_name.snap
+    ");
+}
