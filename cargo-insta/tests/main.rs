@@ -1350,3 +1350,54 @@ fn test_binary_snapshot() {
     +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.json
     ");
 }
+
+#[test]
+fn test_binary_pending_snapshot_removal() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_pending_snapshot_removal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project.cmd().args(["test"]).output().unwrap();
+
+    assert_failure(&output);
+
+    test_project.update_file("src/main.rs", "".to_string());
+
+    let output = test_project.cmd().args(["test"]).output().unwrap();
+
+    assert_success(&output);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,6 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    ");
+}
