@@ -409,6 +409,21 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
 
 /// Returns the cargo workspace for a manifest
 pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
+    // If INSTA_WORKSPACE_ROOT environment variable is set, use the value as-is.
+    // This is useful where CARGO_MANIFEST_DIR at compilation points to some
+    // transient location. This can easily happen when building the test in one
+    // directory but running it in another.
+    if let Ok(workspace_root) = env::var("INSTA_WORKSPACE_ROOT") {
+        return PathBuf::from(workspace_root).into();
+    }
+
+    let error_message = || {
+        format!(
+            "`cargo metadata --format-version=1 --no-deps` in path `{}`",
+            manifest_dir
+        )
+    };
+
     WORKSPACES
         .lock()
         // we really do not care about poisoning here.
@@ -421,14 +436,32 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
             .args(["metadata", "--format-version=1", "--no-deps"])
             .current_dir(manifest_dir)
             .output()
-            .unwrap();
+            .unwrap_or_else(|e| panic!("failed to run {}\n\n{}", error_message(), e));
 
-            let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
+            crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
                 std::str::from_utf8(&output.stdout).unwrap(),
             )
-            .unwrap();
-
-            PathBuf::from(docs.first().unwrap()["workspace_root"].as_str().unwrap()).into()
+            .map_err(|e| e.to_string())
+            .and_then(|docs| {
+                docs.into_iter()
+                    .next()
+                    .ok_or_else(|| "No content found in yaml".to_string())
+            })
+            .and_then(|metadata| {
+                metadata["workspace_root"]
+                    .clone()
+                    .into_string()
+                    .ok_or_else(|| "Couldn't find `workspace_root`".to_string())
+            })
+            .map(|path| PathBuf::from(path).into())
+            .unwrap_or_else(|e| {
+                panic!(
+                    "failed to parse cargo metadata output from {}: {}\n\n{:?}",
+                    error_message(),
+                    e,
+                    output.stdout
+                )
+            })
         })
         .clone()
 }

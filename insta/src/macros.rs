@@ -15,20 +15,6 @@ macro_rules! _function_name {
     }};
 }
 
-// If INSTA_WORKSPACE_ROOT environment variable is set, use the value as-is.
-// This is useful where CARGO_MANIFEST_DIR at compilation points to some
-// transient location. This can easily happen when building the test in one
-// directory but running it in another.
-#[doc(hidden)]
-#[macro_export]
-macro_rules! _get_workspace_root {
-    () => {{
-        use std::env;
-
-        env::var("INSTA_WORKSPACE_ROOT").unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_string())
-    }};
-}
-
 /// Asserts a `Serialize` snapshot in CSV format.
 ///
 /// **Feature:** `csv` (disabled by default)
@@ -363,7 +349,7 @@ macro_rules! _assert_snapshot_base {
             $name.into(),
             #[allow(clippy::redundant_closure_call)]
             &$transform(&$value),
-            &$crate::_get_workspace_root!(),
+            env!("CARGO_MANIFEST_DIR"),
             $crate::_function_name!(),
             module_path!(),
             file!(),
@@ -501,7 +487,7 @@ macro_rules! with_settings {
 macro_rules! glob {
     ($base_path:expr, $glob:expr, $closure:expr) => {{
         use std::path::Path;
-        let base = $crate::_macro_support::get_cargo_workspace(&$crate::_get_workspace_root!())
+        let base = $crate::_macro_support::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"))
             .join(Path::new(file!()).parent().unwrap())
             .join($base_path)
             .to_path_buf();
@@ -509,7 +495,7 @@ macro_rules! glob {
         // we try to canonicalize but on some platforms (eg: wasm) that might not work, so
         // we instead silently fall back.
         let base = base.canonicalize().unwrap_or_else(|_| base);
-        $crate::_macro_support::glob_exec(&$crate::_get_workspace_root!(), &base, $glob, $closure);
+        $crate::_macro_support::glob_exec(env!("CARGO_MANIFEST_DIR"), &base, $glob, $closure);
     }};
 
     ($glob:expr, $closure:expr) => {{
