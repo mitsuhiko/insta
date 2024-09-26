@@ -1215,7 +1215,6 @@ fn test_insta_workspace_root() {
     #[cfg(test)]
     mod tests {
         use insta::assert_snapshot;
-        use super::*;
 
         #[test]
         fn test_snapshot() {
