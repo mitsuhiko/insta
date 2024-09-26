@@ -1,6 +1,18 @@
 /// Integration tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
 ///
+/// Often we want to see output from the test commands we run here; for example
+/// a `dbg!` statement we add while debugging. Cargo by default hides the output
+/// of passing tests.
+/// - Like any test, to forward the output of an outer test (i.e. one of the
+///   `#[test]`s in this file) to the terminal, pass `--nocapture` to the test
+///   runner, like `cargo insta test -- --nocapture`.
+/// - To forward the output of an inner test (i.e. the test commands we create
+///   and run within an outer test) to the output of an outer test, pass
+///   `--nocapture` in the command we create; for example `.args(["test",
+///   "--accept", "--", "--nocapture"])`. We then also need to pass
+///   `--nocapture` to the outer test to forward that to the terminal.
+///
 /// We can write more docs if that would be helpful. For the moment one thing to
 /// be aware of: it seems the packages must have different names, or we'll see
 /// interference between the tests.
@@ -20,6 +32,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use console::style;
 use ignore::WalkBuilder;
 use insta::assert_snapshot;
 use itertools::Itertools;
@@ -67,18 +80,26 @@ fn target_dir() -> PathBuf {
 }
 
 fn assert_success(output: &std::process::Output) {
-    // Print stderr. Cargo test hides this when tests are successful, but if a
-    // test successfully exectues a command but then fails (e.g. on a snapshot),
-    // we would otherwise lose any output from the command such as `dbg!`
-    // statements.
-    eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    eprint!("{}", String::from_utf8_lossy(&output.stdout));
+    // Color the inner output so we can tell what's coming from there vs our own
+    // output
+
+    // Should we also do something like indent them? Or add a prefix?
+    let stdout = format!("{}", style(String::from_utf8_lossy(&output.stdout)).green());
+    let stderr = format!("{}", style(String::from_utf8_lossy(&output.stderr)).red());
+
     assert!(
         output.status.success(),
         "Tests failed: {}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        stdout,
+        stderr
     );
+
+    // Print stdout & stderr. Cargo test hides this when tests are successful, but if an
+    // test function in this file successfully executes an inner test command
+    // but then fails (e.g. on a snapshot), we would otherwise lose any output
+    // from that inner command, such as `dbg!` statements.
+    eprint!("{}", stdout);
+    eprint!("{}", stderr);
 }
 
 fn assert_failure(output: &std::process::Output) {
@@ -245,7 +266,7 @@ fn test_json_snapshot() {
 
     let output = test_project
         .cmd()
-        .args(["test", "--accept"])
+        .args(["test", "--accept", "--", "--nocapture"])
         .output()
         .unwrap();
 
