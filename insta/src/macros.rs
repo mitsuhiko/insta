@@ -15,7 +15,7 @@ macro_rules! _function_name {
     }};
 }
 
-/// Asserts a `Serialize` snapshot in CSV format.
+/// Asserts a [`serde::Serialize`] snapshot in CSV format.
 ///
 /// **Feature:** `csv` (disabled by default)
 ///
@@ -44,7 +44,7 @@ macro_rules! assert_csv_snapshot {
     };
 }
 
-/// Asserts a `Serialize` snapshot in TOML format.
+/// Asserts a [`serde::Serialize`] snapshot in TOML format.
 ///
 /// **Feature:** `toml` (disabled by default)
 ///
@@ -74,14 +74,14 @@ macro_rules! assert_toml_snapshot {
     };
 }
 
-/// Asserts a `Serialize` snapshot in YAML format.
+/// Asserts a [`serde::Serialize`] snapshot in YAML format.
 ///
 /// **Feature:** `yaml`
 ///
-/// The value needs to implement the `serde::Serialize` trait and the snapshot
+/// The value needs to implement the [`serde::Serialize`] trait and the snapshot
 /// will be serialized in YAML format.  This does mean that unlike the debug
 /// snapshot variant the type of the value does not appear in the output.
-/// You can however use the `assert_ron_snapshot!` macro to dump out
+/// You can however use the [`crate::assert_ron_snapshot!`] macro to dump out
 /// the value in [RON](https://github.com/ron-rs/ron/) format which retains some
 /// type information for more accurate comparisons.
 ///
@@ -128,11 +128,11 @@ macro_rules! assert_yaml_snapshot {
     };
 }
 
-/// Asserts a `Serialize` snapshot in RON format.
+/// Asserts a [`serde::Serialize`] snapshot in RON format.
 ///
 /// **Feature:** `ron` (disabled by default)
 ///
-/// This works exactly like [`assert_yaml_snapshot!`]
+/// This works exactly like [`crate::assert_yaml_snapshot!`]
 /// but serializes in [RON](https://github.com/ron-rs/ron/) format instead of
 /// YAML which retains some type information for more accurate comparisons.
 ///
@@ -158,11 +158,11 @@ macro_rules! assert_ron_snapshot {
     };
 }
 
-/// Asserts a `Serialize` snapshot in JSON format.
+/// Asserts a [`serde::Serialize`] snapshot in JSON format.
 ///
 /// **Feature:** `json`
 ///
-/// This works exactly like [`assert_yaml_snapshot!`] but serializes in JSON format.
+/// This works exactly like [`crate::assert_yaml_snapshot!`] but serializes in JSON format.
 /// This is normally not recommended because it makes diffs less reliable, but it can
 /// be useful for certain specialized situations.
 ///
@@ -188,11 +188,11 @@ macro_rules! assert_json_snapshot {
     };
 }
 
-/// Asserts a `Serialize` snapshot in compact JSON format.
+/// Asserts a [`serde::Serialize`] snapshot in compact JSON format.
 ///
 /// **Feature:** `json`
 ///
-/// This works exactly like [`assert_json_snapshot!`] but serializes into a single
+/// This works exactly like [`crate::assert_json_snapshot!`] but serializes into a single
 /// line for as long as the output is less than 120 characters.  This can be useful
 /// in cases where you are working with small result outputs but comes at the cost
 /// of slightly worse diffing behavior.
@@ -284,10 +284,10 @@ macro_rules! _prepare_snapshot_for_redaction {
     };
 }
 
-/// Asserts a `Debug` snapshot.
+/// Asserts a [`Debug`] snapshot.
 ///
-/// The value needs to implement the `fmt::Debug` trait.  This is useful for
-/// simple values that do not implement the `Serialize` trait, but does not
+/// The value needs to implement the [`std::fmt::Debug`] trait.  This is useful for
+/// simple values that do not implement the [`serde::Serialize`] trait, but does not
 /// permit redactions.
 ///
 /// Debug is called with `"{:#?}"`, which means this uses pretty-print.
@@ -298,10 +298,10 @@ macro_rules! assert_debug_snapshot {
     };
 }
 
-/// Asserts a `Debug` snapshot in compact format.
+/// Asserts a [`Debug`] snapshot in compact format.
 ///
-/// The value needs to implement the `fmt::Debug` trait.  This is useful for
-/// simple values that do not implement the `Serialize` trait, but does not
+/// The value needs to implement the [`std::fmt::Debug`] trait.  This is useful for
+/// simple values that do not implement the [`serde::Serialize`] trait, but does not
 /// permit redactions.
 ///
 /// Debug is called with `"{:?}"`, which means this does not use pretty-print.
@@ -360,9 +360,9 @@ macro_rules! _assert_snapshot_base {
     };
 }
 
-/// Asserts a `Display` snapshot.
+/// Asserts a [`std::fmt::Display`] snapshot.
 ///
-/// This is now deprecated, replaced by the more generic `assert_snapshot!()`
+/// This is now deprecated, replaced by the more generic [`crate::assert_snapshot!`]
 #[macro_export]
 #[deprecated = "use assert_snapshot!() instead"]
 macro_rules! assert_display_snapshot {
@@ -371,10 +371,10 @@ macro_rules! assert_display_snapshot {
     };
 }
 
-/// Asserts a string snapshot.
+/// Asserts a [`String`] snapshot.
 ///
-/// This is the simplest of all assertion methods.  It accepts any value that
-/// implements `fmt::Display`.
+/// This is the simplest of all assertion methods.
+/// It accepts any value that implements [`std::fmt::Display`].
 ///
 /// ```no_run
 /// # use insta::*;
@@ -398,7 +398,7 @@ macro_rules! assert_snapshot {
 
 /// Settings configuration macro.
 ///
-/// This macro lets you bind some [`Settings`](crate::Settings) temporarily.  The first argument
+/// This macro lets you bind some [`crate::Settings`] temporarily.  The first argument
 /// takes key value pairs that should be set, the second is the block to
 /// execute.  All settings can be set (`sort_maps => value` maps to `set_sort_maps(value)`).
 /// The exception are redactions which can only be set to a vector this way.
@@ -423,7 +423,7 @@ macro_rules! assert_snapshot {
 /// ```
 ///
 /// Note: before insta 0.17 this macro used
-/// [`Settings::new`](crate::Settings::new) which meant that original settings
+/// [`crate::Settings::new`] which meant that original settings
 /// were always reset rather than extended.
 #[macro_export]
 macro_rules! with_settings {

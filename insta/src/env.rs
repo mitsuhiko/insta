@@ -328,7 +328,7 @@ impl ToolConfig {
         self.snapshot_update
     }
 
-    /// Returns the value of glob_fail_fast
+    /// Returns the value of [`Self::glob_fail_fast`]
     #[cfg(feature = "glob")]
     pub fn glob_fail_fast(&self) -> bool {
         self.glob_fail_fast

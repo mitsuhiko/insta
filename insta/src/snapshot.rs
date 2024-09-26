@@ -504,7 +504,7 @@ impl Snapshot {
         self.save_with_metadata(path, &self.metadata.trim_for_persistence())
     }
 
-    /// Same as `save` but instead of writing a normal snapshot file this will write
+    /// Same as [`Self::save`] but instead of writing a normal snapshot file this will write
     /// a `.snap.new` file with additional information.
     ///
     /// The name of the new snapshot file is returned.

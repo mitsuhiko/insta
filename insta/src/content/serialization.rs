@@ -19,7 +19,7 @@ pub enum Key<'a> {
 }
 
 impl<'a> Key<'a> {
-    /// Needed because std::mem::discriminant is not Ord
+    /// Needed because [`std::mem::discriminant`] is not [`Ord`]
     fn discriminant(&self) -> usize {
         match self {
             Key::Bool(_) => 1,

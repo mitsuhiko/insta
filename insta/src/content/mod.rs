@@ -57,7 +57,7 @@ impl std::error::Error for Error {}
 ///
 /// Some enum variants are intentionally not exposed to user code.
 /// It's generally recommended to construct content objects by
-/// using the [`From`](std::convert::From) trait and by using the
+/// using the [`From`] trait and by using the
 /// accessor methods to assert on it.
 ///
 /// While matching on the content is possible in theory it is
@@ -65,12 +65,12 @@ impl std::error::Error for Error {}
 /// enum holds variants that can "wrap" values where it's not
 /// expected.  For instance if a field holds an `Option<String>`
 /// you cannot use pattern matching to extract the string as it
-/// will be contained in an internal `Some` variant that is not
-/// exposed.  On the other hand the `as_str` method will
+/// will be contained in an internal [`Some`] variant that is not
+/// exposed.  On the other hand the [`Content::as_str`] method will
 /// automatically resolve such internal wrappers.
 ///
 /// If you do need to pattern match you should use the
-/// `resolve_inner` method to resolve such internal wrappers.
+/// [`Content::resolve_inner`] method to resolve such internal wrappers.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Content {
     Bool(bool),
@@ -196,7 +196,7 @@ impl Content {
         }
     }
 
-    /// Mutable version of [`resolve_inner`](Self::resolve_inner).
+    /// Mutable version of [`Self::resolve_inner`].
     pub fn resolve_inner_mut(&mut self) -> &mut Content {
         match *self {
             Content::Some(ref mut v)
