@@ -1,6 +1,3 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
 /// Integration tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
 ///
@@ -17,7 +14,10 @@ use std::process::Command;
 /// repeatedly running the tests locally. To demonstrate the effect, name crates
 /// the same...). This also causes issues when running the same tests
 /// concurrently.
-use std::{collections::HashMap, os::unix::fs::PermissionsExt};
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::{env, fs::remove_dir_all};
 
 use ignore::WalkBuilder;
@@ -1176,10 +1176,6 @@ fn test_insta_workspace_root() {
                 file_name_str.starts_with("insta_workspace_root_test-") // Matches our test name
                     && !file_name_str.contains('.') // Doesn't have an extension (it's the executable, not a metadata file)
                     && entry.metadata().map(|m| m.is_file()).unwrap_or(false) // Is a file, not a directory
-                    && entry
-                        .metadata()
-                        .map(|m| m.permissions().mode() & 0o111 != 0)
-                        .unwrap_or(false) // Has executable permissions
             })
             .map(|entry| entry.path())
             .expect("Failed to find test binary")
