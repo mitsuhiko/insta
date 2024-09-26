@@ -1212,10 +1212,9 @@ fn test_insta_workspace_root() {
         .add_file(
             "src/lib.rs",
             r#"
-    use insta::assert_snapshot;
-
     #[cfg(test)]
     mod tests {
+        use insta::assert_snapshot;
         use super::*;
 
         #[test]
