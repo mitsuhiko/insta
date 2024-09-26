@@ -35,3 +35,4 @@ clap = { workspace=true }
 walkdir = "2.3.1"
 similar= "2.2.1"
 itertools = "0.10.0"
+termcolor = "1.1.2"
