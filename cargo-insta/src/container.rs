@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use insta::internals::SnapshotContents;
 use insta::Snapshot;
 pub(crate) use insta::TextSnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
@@ -167,7 +168,7 @@ impl SnapshotContainer {
         // Try removing the snapshot file. If it fails, it's
         // likely because it another process removed it; which
         // is fine — print a message and continue.
-        let try_removing_snapshot = |p| {
+        let try_removing_snapshot = |p: &Path| {
             fs::remove_file(p).unwrap_or_else(|_| {
                     eprintln!(
                         "Pending snapshot file at {:?} couldn't be removed. It was likely removed by another process.",
@@ -216,30 +217,30 @@ impl SnapshotContainer {
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
                     Operation::Accept => {
-                        let snapshot = Snapshot::from_file(&self.pending_path).map_err(|e| {
-                            // If it's an IO error, pass a ContentError back so
-                            // we get a slightly clearer error message
-                            match e.downcast::<std::io::Error>() {
-                                Ok(io_error) => Box::new(ContentError::FileIo(
-                                    *io_error,
-                                    self.pending_path.to_path_buf(),
-                                )),
-                                Err(other_error) => other_error,
-                            }
-                        })?;
-                        snapshot.save(&self.target_path)?;
                         try_removing_snapshot(&self.pending_path);
+
+                        if let Some(ref old) = snapshot.old {
+                            if let SnapshotContents::Binary(contents) = old.contents() {
+                                try_removing_snapshot(&contents.build_path(&self.target_path));
+                            }
+                        }
+
+                        if let SnapshotContents::Binary(contents) = snapshot.new.contents() {
+                            try_removing_snapshot(&contents.build_path(&self.pending_path));
+                        }
+
+                        // We save at the end because we might write a binary file into the same
+                        // path again.
+                        snapshot.new.save(&self.target_path)?;
                     }
                     Operation::Reject => {
                         try_removing_snapshot(&self.pending_path);
+
+                        if let SnapshotContents::Binary(contents) = snapshot.new.contents() {
+                            try_removing_snapshot(&contents.build_path(&self.pending_path));
+                        }
                     }
                     Operation::Skip => {}
-                }
-
-                if let Operation::Accept | Operation::Reject = snapshot.op {
-                    let snapshot = Snapshot::from_file(&self.target_path).ok();
-
-                    Snapshot::cleanup_extra_files(snapshot.as_ref(), &self.target_path)?;
                 }
             }
         }
