@@ -750,7 +750,7 @@ pub fn assert_snapshot(
 
     let new_snapshot = ctx.new_snapshot(content, expr);
 
-    // memoize the snapshot file if requested.
+    // memoize the snapshot file if requested, as part of potentially removing unreferenced snapshots
     if let Some(ref snapshot_file) = ctx.snapshot_file {
         memoize_snapshot_file(snapshot_file);
     }
