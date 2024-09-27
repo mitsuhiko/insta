@@ -100,11 +100,11 @@
 )]
 #![cfg_attr(
     feature = "json",
-    doc = "- [`assert_json_snapshot!`] for comparing `JSON` serialized output. (requires the `json` feature)"
+    doc = "- [`assert_json_snapshot!`] for comparing JSON serialized output. (requires the `json` feature)"
 )]
 #![cfg_attr(
     feature = "json",
-    doc = "- [`assert_compact_json_snapshot!`] for comparing `JSON` serialized output while preferring single-line formatting. (requires the `json` feature)"
+    doc = "- [`assert_compact_json_snapshot!`] for comparing JSON serialized output while preferring single-line formatting. (requires the `json` feature)"
 )]
 //!
 //! For macros that work with [`serde`] this crate also permits redacting of
@@ -171,7 +171,7 @@
 //! The following features exist:
 //!
 //! * `csv`: enables CSV support (via [`serde`])
-//! * `json`: enables `JSON` support (via [`serde`])
+//! * `json`: enables JSON support (via [`serde`])
 //! * `ron`: enables RON support (via [`serde`])
 //! * `toml`: enables TOML support (via [`serde`])
 //! * `yaml`: enables YAML support (via [`serde`])
