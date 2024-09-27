@@ -15,19 +15,15 @@ macro_rules! _function_name {
     }};
 }
 
-// If INSTA_WORKSPACE_ROOT environment variable is set, use the value as-is.
-// This is useful where CARGO_MANIFEST_DIR at compilation points to some
-// transient location. This can easily happen when building the test in one
-// directory but running it in another.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _get_workspace_root {
     () => {{
         use std::env;
 
-        // Note the `env!("CARGO_MANIFEST_DIR")` needs to be in the macro rather
-        // than a function because the macro is expanded at the call site and
-        // needs to capture the value in the caller lib.
+        // Note the `env!("CARGO_MANIFEST_DIR")` needs to be in the macro (in
+        // contrast to a function in insta) because the macro needs to capture
+        // the value in the caller library, an exclusive property of macros.
         $crate::_macro_support::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"))
     }};
 }
