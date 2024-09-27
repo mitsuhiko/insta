@@ -83,7 +83,7 @@ enum Command {
 
 #[derive(Args, Debug, Clone)]
 struct TargetArgs {
-    /// Path to Cargo.toml
+    /// Path to `Cargo.toml`
     #[arg(long, value_name = "PATH")]
     manifest_path: Option<PathBuf>,
     /// Explicit path to the workspace root
@@ -95,7 +95,7 @@ struct TargetArgs {
     /// Work on all packages in the workspace
     #[arg(long)]
     workspace: bool,
-    /// Alias for --workspace (deprecated)
+    /// Alias for `--workspace` (deprecated)
     #[arg(long)]
     all: bool,
     /// Also walk into ignored paths.

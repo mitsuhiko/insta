@@ -15,9 +15,9 @@ pub(crate) struct GlobCollector {
     pub(crate) show_insta_hint: bool,
 }
 
-// the glob stack holds failure count + an indication if cargo insta review
-// should be run.
 lazy_static::lazy_static! {
+    /// the glob stack holds failure count and an indication if `cargo insta review`
+    /// should be run.
     pub(crate) static ref GLOB_STACK: Mutex<Vec<GlobCollector>> = Mutex::default();
 }
 

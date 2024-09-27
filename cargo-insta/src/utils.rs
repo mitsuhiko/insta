@@ -48,7 +48,7 @@ lazy_static! {
     pub static ref INSTA_VERSION: Version = read_insta_version().unwrap();
 }
 
-/// cargo-insta version
+/// `cargo-insta` version
 // We could put this in a lazy_static
 pub(crate) fn cargo_insta_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
