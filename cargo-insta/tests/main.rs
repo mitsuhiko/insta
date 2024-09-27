@@ -1186,6 +1186,7 @@ fn test_hashtag_escape() {
     "####);
 }
 
+/// A pending binary snapshot should have a binary file with the passed extension alongside it.
 #[test]
 fn test_binary_pending() {
     let test_project = TestFiles::new()
@@ -1233,6 +1234,7 @@ fn test_binary_snapshot() {
     ");
 }
 
+/// An accepted binary snapshot should have a binary file with the passed extension alongside it.
 #[test]
 fn test_binary_accept() {
     let test_project = TestFiles::new()
@@ -1284,6 +1286,9 @@ fn test_binary_snapshot() {
     ");
 }
 
+/// Changing the extension passed to the `assert_binary_snapshot` macro should create a new pending
+/// snapshot with a binary file with the new extension alongside it and once approved the old binary
+/// file with the old extension should be deleted.
 #[test]
 fn test_binary_change_extension() {
     let test_project = TestFiles::new()
@@ -1374,6 +1379,8 @@ fn test_binary_snapshot() {
     ");
 }
 
+/// An assert with a pending binary snapshot should have both the metadata file and the binary file
+/// deleted when the assert is removed and the tests are re-run.
 #[test]
 fn test_binary_pending_snapshot_removal() {
     let test_project = TestFiles::new()
@@ -1425,6 +1432,8 @@ fn test_binary_snapshot() {
     ");
 }
 
+/// Replacing a text snapshot with binary one should work and simply replace the text snapshot file
+/// with the new metadata file and a new binary snapshot file alongside it.
 #[test]
 fn test_change_text_to_binary() {
     let test_project = TestFiles::new()
@@ -1506,6 +1515,8 @@ fn test() {
     ");
 }
 
+/// When changing a snapshot from a binary to a text snapshot the previous binary file should be
+/// gone after having approved the the binary snapshot.
 #[test]
 fn test_change_binary_to_text() {
     let test_project = TestFiles::new()
