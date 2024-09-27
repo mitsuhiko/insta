@@ -77,7 +77,7 @@
 //! This crate exports multiple macros for snapshot testing:
 //!
 //! - [`assert_snapshot!`] for comparing basic snapshots of
-//!   [`std::fmt::Display`] outputs, often strings.
+//!   [`Display`](std::fmt::Display) outputs, often strings.
 //! - [`assert_debug_snapshot!`] for comparing [`Debug`] outputs of values.
 //!
 //! The following macros require the use of [`serde::Serialize`]:
