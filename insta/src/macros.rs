@@ -19,7 +19,7 @@ macro_rules! _function_name {
 ///
 /// **Feature:** `csv` (disabled by default)
 ///
-/// This works exactly like [`crate::assert_yaml_snapshot!`]
+/// This works exactly like [`assert_yaml_snapshot!`](crate::assert_yaml_snapshot!)
 /// but serializes in [CSV](https://github.com/burntsushi/rust-csv) format instead of
 /// YAML.
 ///
@@ -48,7 +48,7 @@ macro_rules! assert_csv_snapshot {
 ///
 /// **Feature:** `toml` (disabled by default)
 ///
-/// This works exactly like [`crate::assert_yaml_snapshot!`]
+/// This works exactly like [`assert_yaml_snapshot!`](crate::assert_yaml_snapshot!)
 /// but serializes in [TOML](https://github.com/alexcrichton/toml-rs) format instead of
 /// YAML.  Note that TOML cannot represent all values due to limitations in the
 /// format.
@@ -81,7 +81,7 @@ macro_rules! assert_toml_snapshot {
 /// The value needs to implement the [`serde::Serialize`] trait and the snapshot
 /// will be serialized in YAML format.  This does mean that unlike the debug
 /// snapshot variant the type of the value does not appear in the output.
-/// You can however use the [`crate::assert_ron_snapshot!`] macro to dump out
+/// You can however use the [`assert_ron_snapshot!`](crate::assert_ron_snapshot!) macro to dump out
 /// the value in [RON](https://github.com/ron-rs/ron/) format which retains some
 /// type information for more accurate comparisons.
 ///
@@ -92,7 +92,7 @@ macro_rules! assert_toml_snapshot {
 /// assert_yaml_snapshot!(vec![1, 2, 3]);
 /// ```
 ///
-/// Unlike the [`crate::assert_debug_snapshot!`]
+/// Unlike the [`assert_debug_snapshot!`](crate::assert_debug_snapshot!)
 /// macro, this one has a secondary mode where redactions can be defined.
 ///
 /// The third argument to the macro can be an object expression for redaction.
@@ -132,7 +132,7 @@ macro_rules! assert_yaml_snapshot {
 ///
 /// **Feature:** `ron` (disabled by default)
 ///
-/// This works exactly like [`crate::assert_yaml_snapshot!`]
+/// This works exactly like [`assert_yaml_snapshot!`](crate::assert_yaml_snapshot!)
 /// but serializes in [RON](https://github.com/ron-rs/ron/) format instead of
 /// YAML which retains some type information for more accurate comparisons.
 ///
@@ -162,7 +162,7 @@ macro_rules! assert_ron_snapshot {
 ///
 /// **Feature:** `json`
 ///
-/// This works exactly like [`crate::assert_yaml_snapshot!`] but serializes in JSON format.
+/// This works exactly like [`assert_yaml_snapshot!`](crate::assert_yaml_snapshot!) but serializes in JSON format.
 /// This is normally not recommended because it makes diffs less reliable, but it can
 /// be useful for certain specialized situations.
 ///
@@ -192,7 +192,7 @@ macro_rules! assert_json_snapshot {
 ///
 /// **Feature:** `json`
 ///
-/// This works exactly like [`crate::assert_json_snapshot!`] but serializes into a single
+/// This works exactly like [`assert_json_snapshot!`](crate::assert_json_snapshot!) but serializes into a single
 /// line for as long as the output is less than 120 characters.  This can be useful
 /// in cases where you are working with small result outputs but comes at the cost
 /// of slightly worse diffing behavior.
@@ -362,7 +362,7 @@ macro_rules! _assert_snapshot_base {
 
 /// Asserts a [`Display`](std::fmt::Display) snapshot.
 ///
-/// This is now deprecated, replaced by the more generic [`crate::assert_snapshot!`]
+/// This is now deprecated, replaced by the more generic [`assert_snapshot!`](crate::assert_snapshot!)
 #[macro_export]
 #[deprecated = "use assert_snapshot!() instead"]
 macro_rules! assert_display_snapshot {
@@ -398,7 +398,7 @@ macro_rules! assert_snapshot {
 
 /// Settings configuration macro.
 ///
-/// This macro lets you bind some [`crate::Settings`] temporarily.  The first argument
+/// This macro lets you bind some [`Settings`](crate::Settings) temporarily.  The first argument
 /// takes key value pairs that should be set, the second is the block to
 /// execute.  All settings can be set (`sort_maps => value` maps to `set_sort_maps(value)`).
 /// The exception are redactions which can only be set to a vector this way.
@@ -423,7 +423,7 @@ macro_rules! assert_snapshot {
 /// ```
 ///
 /// Note: before insta 0.17 this macro used
-/// [`crate::Settings::new`] which meant that original settings
+/// [`Settings::new`](crate::Settings::new) which meant that original settings
 /// were always reset rather than extended.
 #[macro_export]
 macro_rules! with_settings {

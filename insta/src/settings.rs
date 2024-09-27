@@ -196,7 +196,7 @@ impl Settings {
     /// Enables forceful sorting of maps before serialization.
     ///
     /// Note that this only applies to snapshots that undergo serialization
-    /// (eg: does not work for [`crate::assert_debug_snapshot!`].)
+    /// (eg: does not work for [`assert_debug_snapshot!`](crate::assert_debug_snapshot!).)
     ///
     /// The default value is `false`.
     pub fn set_sort_maps(&mut self, value: bool) {
@@ -365,7 +365,7 @@ impl Settings {
     /// snapshots.
     ///
     /// Note that this only applies to snapshots that undergo serialization
-    /// (eg: does not work for [`crate::assert_debug_snapshot!`].)
+    /// (eg: does not work for [`assert_debug_snapshot!`](crate::assert_debug_snapshot!).)
     #[cfg(feature = "redactions")]
     #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub fn add_redaction<R: Into<Redaction>>(&mut self, selector: &str, replacement: R) {
