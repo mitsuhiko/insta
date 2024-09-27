@@ -491,7 +491,7 @@ impl std::str::FromStr for UnreferencedSnapshots {
     }
 }
 
-/// Memoizes a snapshot file in the reference file.
+/// Memoizes a snapshot file in the reference file, as part of removing unreferenced snapshots.
 pub fn memoize_snapshot_file(snapshot_file: &Path) {
     if let Ok(path) = env::var("INSTA_SNAPSHOT_REFERENCES_FILE") {
         let mut f = fs::OpenOptions::new()
