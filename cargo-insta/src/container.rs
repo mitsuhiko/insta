@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use insta::internals::SnapshotContents;
 use insta::Snapshot;
 pub(crate) use insta::TextSnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
@@ -220,13 +219,13 @@ impl SnapshotContainer {
                         try_removing_snapshot(&self.pending_path);
 
                         if let Some(ref old) = snapshot.old {
-                            if let SnapshotContents::Binary(contents) = old.contents() {
-                                try_removing_snapshot(&contents.build_path(&self.target_path));
+                            if let Some(path) = old.build_binary_path(&self.target_path) {
+                                try_removing_snapshot(&path);
                             }
                         }
 
-                        if let SnapshotContents::Binary(contents) = snapshot.new.contents() {
-                            try_removing_snapshot(&contents.build_path(&self.pending_path));
+                        if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
+                            try_removing_snapshot(&path);
                         }
 
                         // We save at the end because we might write a binary file into the same
@@ -236,8 +235,8 @@ impl SnapshotContainer {
                     Operation::Reject => {
                         try_removing_snapshot(&self.pending_path);
 
-                        if let SnapshotContents::Binary(contents) = snapshot.new.contents() {
-                            try_removing_snapshot(&contents.build_path(&self.pending_path));
+                        if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
+                            try_removing_snapshot(&path);
                         }
                     }
                     Operation::Skip => {}

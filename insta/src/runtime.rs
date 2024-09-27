@@ -11,8 +11,7 @@ use std::{borrow::Cow, env};
 
 use crate::settings::Settings;
 use crate::snapshot::{
-    BinarySnapshotContents, MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents,
-    SnapshotType, TextSnapshotContents,
+    MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents, SnapshotType, TextSnapshotContents,
 };
 use crate::utils::{path_to_storage, style};
 use crate::{env::get_tool_config, output::SnapshotPrinter};
@@ -256,6 +255,7 @@ struct SnapshotAssertionContext<'a> {
     assertion_file: &'a str,
     assertion_line: u32,
     is_doctest: bool,
+    snapshot_type: SnapshotType,
 }
 
 impl<'a> SnapshotAssertionContext<'a> {
@@ -340,6 +340,13 @@ impl<'a> SnapshotAssertionContext<'a> {
             }
         };
 
+        let snapshot_type = match new_snapshot_value {
+            SnapshotValue::FileText { .. } | SnapshotValue::InlineText { .. } => SnapshotType::Text,
+            &SnapshotValue::Binary { extension, .. } => SnapshotType::Binary {
+                extension: extension.to_string(),
+            },
+        };
+
         Ok(SnapshotAssertionContext {
             tool_config,
             workspace,
@@ -352,6 +359,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             assertion_line,
             duplication_key,
             is_doctest,
+            snapshot_type,
         })
     }
 
@@ -364,6 +372,11 @@ impl<'a> SnapshotAssertionContext<'a> {
 
     /// Creates the new snapshot from input values.
     pub fn new_snapshot(&self, contents: SnapshotContents, expr: &str) -> Snapshot {
+        assert_eq!(
+            contents.is_binary(),
+            matches!(self.snapshot_type, SnapshotType::Binary { .. })
+        );
+
         Snapshot::from_components(
             self.module_path.replace("::", "__"),
             self.snapshot_name.as_ref().map(|x| x.to_string()),
@@ -381,12 +394,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .input_file()
                     .and_then(|x| self.localize_path(x))
                     .map(|x| path_to_storage(&x)),
-                snapshot_type: match contents {
-                    SnapshotContents::Text(_) => SnapshotType::Text,
-                    SnapshotContents::Binary(ref contents) => SnapshotType::Binary {
-                        extension: contents.extension.clone(),
-                    },
-                },
+                snapshot_type: self.snapshot_type.clone(),
             }),
             contents,
         )
@@ -735,11 +743,7 @@ pub fn assert_snapshot(
                 "file extensions starting with 'new.' are not allowed",
             );
 
-            BinarySnapshotContents {
-                contents: Rc::new(content),
-                extension: extension.to_string(),
-            }
-            .into()
+            SnapshotContents::Binary(Rc::new(content))
         }
     };
 

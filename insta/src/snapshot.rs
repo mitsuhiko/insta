@@ -410,11 +410,7 @@ impl Snapshot {
                 let path = build_binary_path(extension, p);
                 let contents = fs::read(path)?;
 
-                BinarySnapshotContents {
-                    contents: Rc::new(contents),
-                    extension: extension.clone(),
-                }
-                .into()
+                SnapshotContents::Binary(Rc::new(contents))
             }
         };
 
@@ -522,6 +518,8 @@ impl Snapshot {
     /// Snapshot contents match another snapshot's.
     pub fn matches(&self, other: &Self) -> bool {
         self.contents() == other.contents()
+            // For binary snapshots the extension also need to be the same:
+            && self.metadata.snapshot_type == other.metadata.snapshot_type
     }
 
     /// Both the exact snapshot contents and the persisted metadata match another snapshot's.
@@ -540,7 +538,10 @@ impl Snapshot {
                     TextSnapshotKind::Inline => contents_match_exact,
                 }
             }
-            (SnapshotContents::Binary(a), SnapshotContents::Binary(b)) => a == b,
+            (SnapshotContents::Binary(a), SnapshotContents::Binary(b)) => {
+                // For binary snapshots the extension also need to be the same:
+                a == b && self.metadata.snapshot_type == other.metadata.snapshot_type
+            }
             _ => false,
         }
     }
@@ -574,10 +575,18 @@ impl Snapshot {
         fs::write(path, serialized_snapshot)?;
 
         if let SnapshotContents::Binary(ref contents) = self.snapshot {
-            fs::write(contents.build_path(path), &*contents.contents)?;
+            fs::write(self.build_binary_path(path).unwrap(), &**contents)?;
         }
 
         Ok(())
+    }
+
+    pub fn build_binary_path(&self, path: impl Into<PathBuf>) -> Option<PathBuf> {
+        if let SnapshotType::Binary { ref extension } = self.metadata.snapshot_type {
+            Some(build_binary_path(extension, path))
+        } else {
+            None
+        }
     }
 
     /// Saves the snapshot.
@@ -604,7 +613,12 @@ impl Snapshot {
 #[derive(Debug, Clone)]
 pub enum SnapshotContents {
     Text(TextSnapshotContents),
-    Binary(BinarySnapshotContents),
+
+    // This is in an `Rc` because we need to be able to clone this struct cheaply and the contents
+    // of the `Vec` could be rather large. The reason it's not an `Rc<[u8]>` is because creating one
+    // of those would require re-allocating because of the additional size needed for the reference
+    // count.
+    Binary(Rc<Vec<u8>>),
 }
 
 // Could be Cow, but I think limited savings
@@ -614,25 +628,9 @@ pub struct TextSnapshotContents {
     pub kind: TextSnapshotKind,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct BinarySnapshotContents {
-    // This is in an `Rc` because we need to be able to clone this struct cheaply and the contents
-    // of the `Vec` could be rather large. The reason it's not an `Rc<[u8]>` is because creating one
-    // of those would require re-allocating because of the additional size needed for the reference
-    // count.
-    pub contents: Rc<Vec<u8>>,
-    pub extension: String,
-}
-
 impl From<TextSnapshotContents> for SnapshotContents {
     fn from(value: TextSnapshotContents) -> Self {
         SnapshotContents::Text(value)
-    }
-}
-
-impl From<BinarySnapshotContents> for SnapshotContents {
-    fn from(value: BinarySnapshotContents) -> Self {
-        SnapshotContents::Binary(value)
     }
 }
 
@@ -739,12 +737,6 @@ impl TextSnapshotContents {
         out.push('"');
         out.push_str(&delimiter);
         out
-    }
-}
-
-impl BinarySnapshotContents {
-    pub fn build_path(&self, path: impl Into<PathBuf>) -> PathBuf {
-        build_binary_path(&self.extension, path)
     }
 }
 

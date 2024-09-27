@@ -6,7 +6,6 @@ use std::{env, fs};
 use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
-use insta::internals::SnapshotContents;
 use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
@@ -354,14 +353,16 @@ fn query_snapshot(
                     break;
                 }
                 Key::Char('o') => {
-                    if let Some(SnapshotContents::Binary(contents)) = old.map(|o| o.contents()) {
-                        open::that_detached(contents.build_path(snapshot_file.unwrap()))?;
+                    if let Some(old) = old {
+                        if let Some(path) = old.build_binary_path(snapshot_file.unwrap()) {
+                            open::that_detached(path)?;
+                        }
                     }
 
-                    if let SnapshotContents::Binary(contents) = new.contents() {
-                        open::that_detached(
-                            contents.build_path(snapshot_file.unwrap().with_extension("snap.new")),
-                        )?;
+                    if let Some(path) =
+                        new.build_binary_path(snapshot_file.unwrap().with_extension("snap.new"))
+                    {
+                        open::that_detached(path)?;
                     }
 
                     // there's no break here because there's no need to re-output anything

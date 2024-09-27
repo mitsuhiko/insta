@@ -119,12 +119,16 @@ impl<'a> SnapshotPrinter<'a> {
                 }
                 println!("──────┴{:─^1$}", "", width.saturating_sub(7));
             }
-            SnapshotContents::Binary(new_contents) => {
+            SnapshotContents::Binary(_) => {
                 println!(
                     "{}",
                     encode_file_link_escape(
-                        &new_contents
-                            .build_path(self.snapshot_file.unwrap().with_extension("snap.new"))
+                        &self
+                            .new_snapshot
+                            .build_binary_path(
+                                self.snapshot_file.unwrap().with_extension("snap.new")
+                            )
+                            .unwrap()
                     )
                 );
             }
@@ -139,30 +143,37 @@ impl<'a> SnapshotPrinter<'a> {
             self.print_info();
         }
 
-        let old_contents = self.old_snapshot.as_ref().map(|o| o.contents());
-        let new_contents = self.new_snapshot.contents();
-
-        if let Some(SnapshotContents::Binary(contents)) = old_contents {
-            println!(
-                "{}",
-                style(format_args!(
-                    "-{}: {}",
-                    self.old_snapshot_hint,
-                    encode_file_link_escape(&contents.build_path(self.snapshot_file.unwrap())),
-                ))
-                .red()
-            );
+        if let Some(old_snapshot) = self.old_snapshot {
+            if old_snapshot.contents().is_binary() {
+                println!(
+                    "{}",
+                    style(format_args!(
+                        "-{}: {}",
+                        self.old_snapshot_hint,
+                        encode_file_link_escape(
+                            &old_snapshot
+                                .build_binary_path(self.snapshot_file.unwrap())
+                                .unwrap()
+                        ),
+                    ))
+                    .red()
+                );
+            }
         }
 
-        if let SnapshotContents::Binary(contents) = new_contents {
+        if self.new_snapshot.contents().is_binary() {
             println!(
                 "{}",
                 style(format_args!(
                     "+{}: {}",
                     self.new_snapshot_hint,
                     encode_file_link_escape(
-                        &contents
-                            .build_path(self.snapshot_file.unwrap().with_extension("snap.new"))
+                        &self
+                            .new_snapshot
+                            .build_binary_path(
+                                self.snapshot_file.unwrap().with_extension("snap.new")
+                            )
+                            .unwrap()
                     ),
                 ))
                 .green()
