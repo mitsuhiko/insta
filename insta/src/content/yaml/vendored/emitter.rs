@@ -249,7 +249,7 @@ impl<'a> YamlEmitter<'a> {
 }
 
 /// Check if the string requires quoting.
-/// 
+///
 /// Strings starting with any of the following characters must be quoted.
 /// `:`, `&`, `*`, `?`, `|`, `-`, `<`, `>`, `=`, `!`, `%`, `@`
 /// Strings containing any of the following characters must be quoted.
