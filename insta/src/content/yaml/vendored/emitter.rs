@@ -248,6 +248,7 @@ impl<'a> YamlEmitter<'a> {
     }
 }
 
+#[allow(clippy::doc_markdown)] // \` is recognised as unbalanced backticks
 /// Check if the string requires quoting.
 ///
 /// Strings starting with any of the following characters must be quoted.
