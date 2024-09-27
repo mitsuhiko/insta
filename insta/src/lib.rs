@@ -1,3 +1,6 @@
+#![warn(clippy::doc_markdown)]
+#![warn(rustdoc::all)]
+
 //! <div align="center">
 //!  <img src="https://github.com/mitsuhiko/insta/blob/master/assets/logo.png?raw=true" width="250" height="250">
 //!  <p><strong>insta: a snapshot testing library for Rust</strong></p>
@@ -7,7 +10,7 @@
 //!
 //! Snapshots tests (also sometimes called approval tests) are tests that
 //! assert values against a reference value (the snapshot).  This is similar
-//! to how `assert_eq!` lets you compare a value against a reference value but
+//! to how [`assert_eq!`] lets you compare a value against a reference value but
 //! unlike simple string assertions, snapshot tests let you test against complex
 //! values and come with comprehensive tools to review changes.
 //!
@@ -81,7 +84,7 @@
 //!   [`Display`](std::fmt::Display) outputs, often strings.
 //! - [`assert_debug_snapshot!`] for comparing [`Debug`] outputs of values.
 //!
-//! The following macros require the use of serde's [`Serialize`](serde::Serialize):
+//! The following macros require the use of [`serde::Serialize`]:
 //!
 #![cfg_attr(
     feature = "csv",
@@ -171,11 +174,11 @@
 //!
 //! The following features exist:
 //!
-//! * `csv`: enables CSV support (via serde)
-//! * `json`: enables JSON support (via serde)
-//! * `ron`: enables RON support (via serde)
-//! * `toml`: enables TOML support (via serde)
-//! * `yaml`: enables YAML support (via serde)
+//! * `csv`: enables CSV support (via [`serde`])
+//! * `json`: enables JSON support (via [`serde`])
+//! * `ron`: enables RON support (via [`serde`])
+//! * `toml`: enables TOML support (via [`serde`])
+//! * `yaml`: enables YAML support (via [`serde`])
 //! * `redactions`: enables support for redactions
 //! * `filters`: enables support for filters
 //! * `glob`: enables support for globbing ([`glob!`])
@@ -185,13 +188,14 @@
 //! limited capacity.  You will receive a deprecation warning if you are not
 //! opting into them but for now the macros will continue to function.
 //!
-//! Enabling any of the serde based formats enables the hidden `serde` feature
-//! which gates some serde specific APIs such as [`Settings::set_info`].
+//! Enabling any of the [`serde`] based formats enables the hidden `serde` feature
+//! which gates some [`serde`] specific APIs such as [`Settings::set_info`].
 //!
 //! # Dependencies
 //!
-//! `insta` tries to be light in dependencies but this is tricky to accomplish
-//! given what it tries to do.  By default, it currently depends on `serde` for
+//! [`insta`] tries to be light in dependencies but this is tricky to accomplish
+//! given what it tries to do.
+//! By default, it currently depends on [`serde`] for
 //! the [`assert_toml_snapshot!`] and [`assert_yaml_snapshot!`] macros.  In the
 //! future this default dependencies will be removed.  To already benefit from
 //! this optimization you can disable the default features and manually opt into
@@ -202,7 +206,7 @@
 //! There are some settings that can be changed on a per-thread (and thus
 //! per-test) basis.  For more information see [Settings].
 //!
-//! Additionally Insta will load a YAML config file with settings that change
+//! Additionally, Insta will load a YAML config file with settings that change
 //! the behavior of insta between runs.  It's loaded from any of the following
 //! locations: `.config/insta.yaml`, `insta.yaml` and `.insta.yaml` from the
 //! workspace root.  The following config options exist:
@@ -247,8 +251,8 @@
 //!
 //! Insta benefits from being compiled in release mode, even as dev dependency.
 //! It will compile slightly slower once, but use less memory, have faster diffs
-//! and just generally be more fun to use.  To achieve that, opt `insta` and
-//! `similar` (the diffing library) into higher optimization in your
+//! and just generally be more fun to use.  To achieve that, opt [`insta`] and
+//! [`similar`] (the diffing library) into higher optimization in your
 //! `Cargo.toml`:
 //!
 //! ```yaml
@@ -259,8 +263,10 @@
 //! opt-level = 3
 //! ```
 //!
-//! You can also disable the default features of `insta` which will cut down on
+//! You can also disable the default features of [`insta`] which will cut down on
 //! the compile time a bit by removing some quality of life features.
+//!
+//!  [`insta`]: https://docs.rs/insta
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[macro_use]

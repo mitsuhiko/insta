@@ -701,6 +701,7 @@ pub fn assert_snapshot(
     Ok(())
 }
 
+#[allow(rustdoc::private_doc_tests)]
 /// Test snapshots in doctests.
 ///
 /// ```
