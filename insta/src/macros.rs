@@ -286,7 +286,7 @@ macro_rules! _prepare_snapshot_for_redaction {
 
 /// Asserts a [`Debug`] snapshot.
 ///
-/// The value needs to implement the [`std::fmt::Debug`] trait.  This is useful for
+/// The value needs to implement the [`Debug`] trait.  This is useful for
 /// simple values that do not implement the [`serde::Serialize`] trait, but does not
 /// permit redactions.
 ///
@@ -300,7 +300,7 @@ macro_rules! assert_debug_snapshot {
 
 /// Asserts a [`Debug`] snapshot in compact format.
 ///
-/// The value needs to implement the [`std::fmt::Debug`] trait.  This is useful for
+/// The value needs to implement the [`Debug`] trait.  This is useful for
 /// simple values that do not implement the [`serde::Serialize`] trait, but does not
 /// permit redactions.
 ///
@@ -360,7 +360,7 @@ macro_rules! _assert_snapshot_base {
     };
 }
 
-/// Asserts a [`std::fmt::Display`] snapshot.
+/// Asserts a [`Display`](std::fmt::Display) snapshot.
 ///
 /// This is now deprecated, replaced by the more generic [`crate::assert_snapshot!`]
 #[macro_export]
@@ -374,7 +374,7 @@ macro_rules! assert_display_snapshot {
 /// Asserts a [`String`] snapshot.
 ///
 /// This is the simplest of all assertion methods.
-/// It accepts any value that implements [`std::fmt::Display`].
+/// It accepts any value that implements [`Display`](std::fmt::Display).
 ///
 /// ```no_run
 /// # use insta::*;
