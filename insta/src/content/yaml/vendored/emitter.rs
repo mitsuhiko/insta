@@ -1,6 +1,5 @@
 use crate::content::yaml::vendored::yaml::{Hash, Yaml};
 
-use std::convert::From;
 use std::error::Error;
 use std::fmt::{self, Display};
 
@@ -103,7 +102,7 @@ fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> Result<(), fmt::Error> {
 }
 
 impl<'a> YamlEmitter<'a> {
-    pub fn new(writer: &'a mut dyn fmt::Write) -> YamlEmitter {
+    pub fn new(writer: &'a mut dyn fmt::Write) -> YamlEmitter<'a> {
         YamlEmitter {
             writer,
             best_indent: 2,
@@ -250,19 +249,20 @@ impl<'a> YamlEmitter<'a> {
 }
 
 /// Check if the string requires quoting.
+///
 /// Strings starting with any of the following characters must be quoted.
-/// :, &, *, ?, |, -, <, >, =, !, %, @
+/// `:`, `&`, `*`, `?`, `|`, `-`, `<`, `>`, `=`, `!`, `%`, `@`
 /// Strings containing any of the following characters must be quoted.
-/// {, }, [, ], ,, #, `
+/// `{`, `}`, `[`, `]`, `,`, `#`, `\``
 ///
 /// If the string contains any of the following control characters, it must be escaped with double quotes:
-/// \0, \x01, \x02, \x03, \x04, \x05, \x06, \a, \b, \t, \n, \v, \f, \r, \x0e, \x0f, \x10, \x11, \x12, \x13, \x14, \x15, \x16, \x17, \x18, \x19, \x1a, \e, \x1c, \x1d, \x1e, \x1f, \N, \_, \L, \P
+/// `\0`, `\x01`, `\x02`, `\x03`, `\x04`, `\x05`, `\x06`, `\a`, `\b`, `\t`, `\n, `\v, `\f`, `\r`, `\x0e`, `\x0f`, `\x10`, `\x11`, `\x12`, `\x13`, `\x14`, `\x15`, `\x16`, `\x17`, `\x18`, `\x19`, `\x1a`, `\e`, `\x1c`, `\x1d`, `\x1e`, `\x1f`, `\N`, `\_`, `\L`, `\P`
 ///
 /// Finally, there are other cases when the strings must be quoted, no matter if you're using single or double quotes:
-/// * When the string is true or false (otherwise, it would be treated as a boolean value);
-/// * When the string is null or ~ (otherwise, it would be considered as a null value);
-/// * When the string looks like a number, such as integers (e.g. 2, 14, etc.), floats (e.g. 2.6, 14.9) and exponential numbers (e.g. 12e7, etc.) (otherwise, it would be treated as a numeric value);
-/// * When the string looks like a date (e.g. 2014-12-31) (otherwise it would be automatically converted into a Unix timestamp).
+/// * When the string is `true` or `false` (otherwise, it would be treated as a boolean value);
+/// * When the string is `null` or `~` (otherwise, it would be considered as a null value);
+/// * When the string looks like a number, such as integers (e.g. `2`, `14`, etc.), floats (e.g. `2.6`, `14.9`) and exponential numbers (e.g. `12e7`, etc.) (otherwise, it would be treated as a numeric value);
+/// * When the string looks like a date (e.g. `2014-12-31`) (otherwise it would be automatically converted into a Unix timestamp).
 fn need_quotes(string: &str) -> bool {
     fn need_quotes_spaces(string: &str) -> bool {
         string.starts_with(' ') || string.ends_with(' ')

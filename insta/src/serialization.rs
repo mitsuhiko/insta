@@ -22,11 +22,7 @@ pub enum SnapshotLocation {
     File,
 }
 
-pub fn serialize_content(
-    mut content: Content,
-    format: SerializationFormat,
-    location: SnapshotLocation,
-) -> String {
+pub fn serialize_content(mut content: Content, format: SerializationFormat) -> String {
     content = Settings::with(|settings| {
         if settings.sort_maps() {
             content.sort_maps();
@@ -41,20 +37,14 @@ pub fn serialize_content(
     });
 
     match format {
-        SerializationFormat::Yaml => {
-            let serialized = yaml::to_string(&content);
-            match location {
-                SnapshotLocation::Inline => serialized,
-                SnapshotLocation::File => serialized[4..].to_string(),
-            }
-        }
+        SerializationFormat::Yaml => yaml::to_string(&content)[4..].to_string(),
         SerializationFormat::Json => json::to_string_pretty(&content),
         SerializationFormat::JsonCompact => json::to_string_compact(&content),
         #[cfg(feature = "csv")]
         SerializationFormat::Csv => {
             let mut buf = Vec::with_capacity(128);
             {
-                let mut writer = dep_csv::Writer::from_writer(&mut buf);
+                let mut writer = csv::Writer::from_writer(&mut buf);
                 // if the top-level content we're serializing is a vector we
                 // want to serialize it multiple times once for each item.
                 if let Some(content_slice) = content.as_slice() {
@@ -74,14 +64,14 @@ pub fn serialize_content(
         #[cfg(feature = "ron")]
         SerializationFormat::Ron => {
             let mut buf = Vec::new();
-            let mut config = dep_ron::ser::PrettyConfig::new();
+            let mut config = ron::ser::PrettyConfig::new();
             config.new_line = "\n".to_string();
             config.indentor = "  ".to_string();
             config.struct_names = true;
-            let mut serializer = dep_ron::ser::Serializer::with_options(
+            let mut serializer = ron::ser::Serializer::with_options(
                 &mut buf,
                 Some(config),
-                dep_ron::options::Options::default(),
+                ron::options::Options::default(),
             )
             .unwrap();
             content.serialize(&mut serializer).unwrap();
@@ -89,7 +79,7 @@ pub fn serialize_content(
         }
         #[cfg(feature = "toml")]
         SerializationFormat::Toml => {
-            let mut rv = dep_toml::to_string_pretty(&content).unwrap();
+            let mut rv = toml::to_string_pretty(&content).unwrap();
             if rv.ends_with('\n') {
                 rv.truncate(rv.len() - 1);
             }
@@ -98,14 +88,10 @@ pub fn serialize_content(
     }
 }
 
-pub fn serialize_value<S: Serialize>(
-    s: &S,
-    format: SerializationFormat,
-    location: SnapshotLocation,
-) -> String {
+pub fn serialize_value<S: Serialize>(s: &S, format: SerializationFormat) -> String {
     let serializer = ContentSerializer::<ValueError>::new();
     let content = Serialize::serialize(s, serializer).unwrap();
-    serialize_content(content, format, location)
+    serialize_content(content, format)
 }
 
 #[cfg(feature = "redactions")]
@@ -113,14 +99,13 @@ pub fn serialize_value_redacted<S: Serialize>(
     s: &S,
     redactions: &[(crate::redaction::Selector, crate::redaction::Redaction)],
     format: SerializationFormat,
-    location: SnapshotLocation,
 ) -> String {
     let serializer = ContentSerializer::<ValueError>::new();
     let mut content = Serialize::serialize(s, serializer).unwrap();
     for (selector, redaction) in redactions {
         content = selector.redact(content, redaction);
     }
-    serialize_content(content, format, location)
+    serialize_content(content, format)
 }
 
 #[test]
@@ -140,7 +125,6 @@ fn test_yaml_serialization() {
             ),
         ]),
         SerializationFormat::Yaml,
-        SnapshotLocation::File,
     );
     crate::assert_snapshot!(&yaml, @r###"
     env:
@@ -166,10 +150,8 @@ fn test_yaml_serialization() {
             ),
         ]),
         SerializationFormat::Yaml,
-        SnapshotLocation::Inline,
     );
     crate::assert_snapshot!(&inline_yaml, @r###"
-    ---
     env:
       - ENVIRONMENT
       - production

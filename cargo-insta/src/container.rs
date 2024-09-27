@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use insta::Snapshot;
+pub(crate) use insta::SnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
 
 use crate::inline::FilePatcher;
@@ -12,12 +13,6 @@ pub(crate) enum Operation {
     Accept,
     Reject,
     Skip,
-}
-
-#[derive(Debug)]
-pub(crate) enum SnapshotContainerKind {
-    Inline,
-    External,
 }
 
 #[derive(Debug)]
@@ -47,30 +42,35 @@ impl PendingSnapshot {
     }
 }
 
+/// A snapshot and its immediate context, which loads & saves the snapshot. It
+/// holds either a single file snapshot, or all the inline snapshots from a
+/// single rust file.
 #[derive(Debug)]
 pub(crate) struct SnapshotContainer {
-    snapshot_path: PathBuf,
+    // Path of the pending snapshot file (generally a `.new` or `.pending-snap` file)
+    pending_path: PathBuf,
+    // Path of the target snapshot file (generally a `.snap` file)
     target_path: PathBuf,
-    kind: SnapshotContainerKind,
+    kind: SnapshotKind,
     snapshots: Vec<PendingSnapshot>,
     patcher: Option<FilePatcher>,
 }
 
 impl SnapshotContainer {
     pub(crate) fn load(
-        snapshot_path: PathBuf,
+        pending_path: PathBuf,
         target_path: PathBuf,
-        kind: SnapshotContainerKind,
+        kind: SnapshotKind,
     ) -> Result<SnapshotContainer, Box<dyn Error>> {
         let mut snapshots = Vec::new();
         let patcher = match kind {
-            SnapshotContainerKind::External => {
+            SnapshotKind::File => {
                 let old = if fs::metadata(&target_path).is_err() {
                     None
                 } else {
                     Some(Snapshot::from_file(&target_path)?)
                 };
-                let new = Snapshot::from_file(&snapshot_path)?;
+                let new = Snapshot::from_file(&pending_path)?;
                 snapshots.push(PendingSnapshot {
                     id: 0,
                     old,
@@ -80,8 +80,8 @@ impl SnapshotContainer {
                 });
                 None
             }
-            SnapshotContainerKind::Inline => {
-                let mut pending_vec = PendingInlineSnapshot::load_batch(&snapshot_path)?;
+            SnapshotKind::Inline => {
+                let mut pending_vec = PendingInlineSnapshot::load_batch(&pending_path)?;
                 let mut have_new = false;
 
                 let rv = if fs::metadata(&target_path).is_ok() {
@@ -113,8 +113,8 @@ impl SnapshotContainer {
                 // The runtime code will issue something like this:
                 //   PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
                 if !have_new {
-                    fs::remove_file(&snapshot_path)
-                        .map_err(|e| ContentError::FileIo(e, snapshot_path.to_path_buf()))?;
+                    fs::remove_file(&pending_path)
+                        .map_err(|e| ContentError::FileIo(e, pending_path.to_path_buf()))?;
                 }
 
                 rv
@@ -122,7 +122,7 @@ impl SnapshotContainer {
         };
 
         Ok(SnapshotContainer {
-            snapshot_path,
+            pending_path,
             target_path,
             kind,
             snapshots,
@@ -136,14 +136,14 @@ impl SnapshotContainer {
 
     pub(crate) fn snapshot_file(&self) -> Option<&Path> {
         match self.kind {
-            SnapshotContainerKind::External => Some(&self.target_path),
-            SnapshotContainerKind::Inline => None,
+            SnapshotKind::File => Some(&self.target_path),
+            SnapshotKind::Inline => None,
         }
     }
 
     pub(crate) fn snapshot_sort_key(&self) -> impl Ord + '_ {
         let path = self
-            .snapshot_path
+            .pending_path
             .file_name()
             .and_then(|x| x.to_str())
             .unwrap_or_default();
@@ -203,9 +203,9 @@ impl SnapshotContainer {
                 patcher.save()?;
             }
             if did_skip {
-                PendingInlineSnapshot::save_batch(&self.snapshot_path, &new_pending)?;
+                PendingInlineSnapshot::save_batch(&self.pending_path, &new_pending)?;
             } else {
-                try_removing_snapshot(&self.snapshot_path);
+                try_removing_snapshot(&self.pending_path);
             }
         } else {
             // should only be one or this is weird
@@ -213,22 +213,22 @@ impl SnapshotContainer {
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
                     Operation::Accept => {
-                        let snapshot = Snapshot::from_file(&self.snapshot_path).map_err(|e| {
+                        let snapshot = Snapshot::from_file(&self.pending_path).map_err(|e| {
                             // If it's an IO error, pass a ContentError back so
                             // we get a slightly clearer error message
                             match e.downcast::<std::io::Error>() {
                                 Ok(io_error) => Box::new(ContentError::FileIo(
                                     *io_error,
-                                    self.snapshot_path.to_path_buf(),
+                                    self.pending_path.to_path_buf(),
                                 )),
                                 Err(other_error) => other_error,
                             }
                         })?;
                         snapshot.save(&self.target_path)?;
-                        try_removing_snapshot(&self.snapshot_path);
+                        try_removing_snapshot(&self.pending_path);
                     }
                     Operation::Reject => {
-                        try_removing_snapshot(&self.snapshot_path);
+                        try_removing_snapshot(&self.pending_path);
                     }
                     Operation::Skip => {}
                 }

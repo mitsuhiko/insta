@@ -149,19 +149,22 @@ impl FilePatcher {
         impl Visitor {
             fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
                 for idx in 0..tokens.len() {
+                    // Look for the start of a macro (potential snapshot location)
                     if let Some(TokenTree::Ident(_)) = tokens.get(idx) {
                         if let Some(TokenTree::Punct(ref punct)) = tokens.get(idx + 1) {
                             if punct.as_char() == '!' {
                                 if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
+                                    // Found a macro, determine its indentation
                                     let indentation = scan_for_path_start(tokens, idx);
+                                    // Extract tokens from the macro arguments
                                     let tokens: Vec<_> = group.stream().into_iter().collect();
+                                    // Try to extract a snapshot, passing the calculated indentation
                                     self.try_extract_snapshot(&tokens, indentation);
                                 }
                             }
                         }
                     }
                 }
-
                 for token in tokens {
                     // recurse into groups
                     if let TokenTree::Group(group) = token {
@@ -257,5 +260,53 @@ impl FilePatcher {
         let mut visitor = Visitor(line, None);
         syn::visit::visit_file(&mut visitor, &self.source);
         visitor.1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use insta::assert_debug_snapshot;
+
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_find_snapshot_macro() {
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    assert_snapshot!("test\ntest", @r###"
+    test
+    test
+    "###);
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        // The snapshot macro starts on line 5 (1-based index)
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+
+        // Extract the snapshot content
+        let snapshot_content: Vec<String> =
+            file_patcher.lines[snapshot.start.0..=snapshot.end.0].to_vec();
+
+        assert_debug_snapshot!(snapshot_content, @r####"
+        [
+            "    assert_snapshot!(\"test\\ntest\", @r###\"",
+            "    test",
+            "    test",
+            "    \"###);",
+        ]
+        "####);
+
+        // Assert the indentation
+        assert_debug_snapshot!(snapshot.indentation, @"4");
     }
 }

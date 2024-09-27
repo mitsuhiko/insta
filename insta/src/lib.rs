@@ -46,7 +46,8 @@
 //! ```
 //!
 //! The recommended flow is to run the tests once, have them fail and check
-//! if the result is okay.  By default the new snapshots are stored next
+//! if the result is okay.
+//! By default, the new snapshots are stored next
 //! to the old ones with the extra `.new` extension.  Once you are satisfied
 //! move the new files over.  To simplify this workflow you can use
 //! `cargo insta review` (requires
@@ -129,6 +130,7 @@
 //! - `unseen`: `always` for previously unseen snapshots or `new` for existing
 //!   snapshots
 //! - `no`: does not write to snapshot files at all; just runs tests
+//! - `force`: forcibly updates snapshot files, even if assertions pass
 //!
 //! When `new`, `auto` or `unseen` is used, the
 //! [`cargo-insta`](https://crates.io/crates/cargo-insta) command can be used to
@@ -189,7 +191,7 @@
 //! # Dependencies
 //!
 //! `insta` tries to be light in dependencies but this is tricky to accomplish
-//! given what it tries to do.  By default it currently depends on `serde` for
+//! given what it tries to do.  By default, it currently depends on `serde` for
 //! the [`assert_toml_snapshot!`] and [`assert_yaml_snapshot!`] macros.  In the
 //! future this default dependencies will be removed.  To already benefit from
 //! this optimization you can disable the default features and manually opt into
@@ -207,8 +209,6 @@
 //!
 //! ```yaml
 //! behavior:
-//!   # also set by INSTA_FORCE_UPDATE
-//!   force_update: true/false
 //!   # also set by INSTA_REQUIRE_FULL_MATCH
 //!   require_full_match: true/false
 //!   # also set by INSTA_FORCE_PASS
@@ -216,7 +216,7 @@
 //!   # also set by INSTA_OUTPUT
 //!   output: "diff" | "summary" | "minimal" | "none"
 //!   # also set by INSTA_UPDATE
-//!   update: "auto" | "always" | "new" | "unseen" | "no"
+//!   update: "auto" | "new" | "always" | "no" | "unseen" | "force"
 //!   # also set by INSTA_GLOB_FAIL_FAST
 //!   glob_fail_fast: true/false
 //!
@@ -288,7 +288,7 @@ mod glob;
 mod test;
 
 pub use crate::settings::Settings;
-pub use crate::snapshot::{MetaData, Snapshot};
+pub use crate::snapshot::{MetaData, Snapshot, SnapshotKind};
 
 /// Exposes some library internals.
 ///

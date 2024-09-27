@@ -19,8 +19,9 @@ use uuid::Uuid;
 use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::cargo_insta_version;
+use crate::utils::INSTA_VERSION;
 use crate::utils::{err_msg, QuietExit};
-use crate::walk::{find_snapshots, make_snapshot_walker, FindFlags};
+use crate::walk::{find_pending_snapshots, make_snapshot_walker, FindFlags};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -84,7 +85,7 @@ enum Command {
 
 #[derive(Args, Debug, Clone)]
 struct TargetArgs {
-    /// Path to Cargo.toml
+    /// Path to `Cargo.toml`
     #[arg(long, value_name = "PATH")]
     manifest_path: Option<PathBuf>,
     /// Explicit path to the workspace root
@@ -96,7 +97,7 @@ struct TargetArgs {
     /// Work on all packages in the workspace
     #[arg(long)]
     workspace: bool,
-    /// Alias for --workspace (deprecated)
+    /// Alias for `--workspace` (deprecated)
     #[arg(long)]
     all: bool,
     /// Also walk into ignored paths.
@@ -454,7 +455,7 @@ fn load_snapshot_containers<'a>(
     for package in &loc.packages {
         for root in find_snapshot_roots(package) {
             roots.insert(root.clone());
-            for snapshot_container in find_snapshots(&root, &loc.exts, loc.find_flags) {
+            for snapshot_container in find_pending_snapshots(&root, &loc.exts, loc.find_flags) {
                 snapshot_containers.push((snapshot_container?, package));
             }
         }
@@ -594,6 +595,9 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
                 cmd.review = true;
                 cmd.accept = false;
             }
+        }
+        SnapshotUpdate::Force => {
+            cmd.force_update_snapshots = true;
         }
     }
 
@@ -765,7 +769,7 @@ fn handle_unreferenced_snapshots(
     let mut encountered_any = false;
 
     for package in loc.packages.clone() {
-        let walker = make_snapshot_walker(
+        let unreferenced_snapshots = make_snapshot_walker(
             package.manifest_path.parent().unwrap().as_std_path(),
             &[".snap"],
             FindFlags {
@@ -784,7 +788,7 @@ fn handle_unreferenced_snapshots(
         .filter_map(|e| e.path().canonicalize().ok())
         .filter(|path| !files.contains(path));
 
-        for path in walker {
+        for path in unreferenced_snapshots {
             if !encountered_any {
                 match action {
                     Action::Delete => {
@@ -931,26 +935,42 @@ fn prepare_test_runner<'snapshot_ref>(
     if !cmd.fail_fast {
         proc.arg("--no-fail-fast");
     }
-    if !cmd.no_force_pass {
+    if !cmd.check {
         proc.env("INSTA_FORCE_PASS", "1");
-    } else {
+    } else if !cmd.no_force_pass {
+        proc.env("INSTA_FORCE_PASS", "1");
+        // If we're not running under cargo insta, raise a warning that this option
+        // is deprecated. (cargo insta still uses it when running under `--check`,
+        // but this will stop soon too)
         eprintln!(
             "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
             style("warning").bold().yellow()
-        );
+    );
     }
+
     proc.env(
         "INSTA_UPDATE",
-        match (cmd.check, cmd.accept_unseen) {
-            (true, _) => "no",
-            (_, true) => "unseen",
-            (_, false) => "new",
-        },
+        // Don't set `INSTA_UPDATE=force` for `--force-update-snapshots` on
+        // older versions
+        if *INSTA_VERSION >= Version::new(1,41,0) {
+            match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
+                (true, false, false) => "no",
+                (false, true, false) => "unseen",
+                (false, false, false) => "new",
+                (false, _, true) => "force",
+                _ => return Err(err_msg(format!("invalid combination of flags: check={}, accept-unseen={}, force-update-snapshots={}", cmd.check, cmd.accept_unseen, cmd.force_update_snapshots))),
+            }
+        } else {
+            match (cmd.check, cmd.accept_unseen) {
+                (true, _) => "no",
+                (_, true) => "unseen",
+                (_, false) => "new",
+            }
+        }
     );
-    if cmd.force_update_snapshots {
-        // for old versions of insta
+    if cmd.force_update_snapshots && *INSTA_VERSION < Version::new(1, 40, 0) {
+        // Currently compatible with older versions of insta.
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
-        // for newer versions of insta
         proc.env("INSTA_FORCE_UPDATE", "1");
     }
     if cmd.require_full_match {
@@ -1039,7 +1059,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     #[derive(Serialize, Debug)]
     #[serde(rename_all = "snake_case", tag = "type")]
     enum SnapshotKey<'a> {
-        NamedSnapshot {
+        FileSnapshot {
             path: &'a Path,
         },
         InlineSnapshot {
@@ -1059,16 +1079,18 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         let is_inline = snapshot_container.snapshot_file().is_none();
         for snapshot_ref in snapshot_container.iter_snapshots() {
             if cmd.as_json {
+                let old_snapshot = snapshot_ref.old.as_ref().map(|x| x.contents_string());
+                let new_snapshot = snapshot_ref.new.contents_string();
                 let info = if is_inline {
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,
                         line: snapshot_ref.line.unwrap(),
-                        old_snapshot: snapshot_ref.old.as_ref().map(|x| x.contents_str()),
-                        new_snapshot: snapshot_ref.new.contents_str(),
+                        old_snapshot: old_snapshot.as_deref(),
+                        new_snapshot: &new_snapshot,
                         expression: snapshot_ref.new.metadata().expression(),
                     }
                 } else {
-                    SnapshotKey::NamedSnapshot { path: &target_file }
+                    SnapshotKey::FileSnapshot { path: &target_file }
                 };
                 println!("{}", serde_json::to_string(&info).unwrap());
             } else if is_inline {

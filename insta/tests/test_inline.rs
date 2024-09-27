@@ -191,7 +191,6 @@ fn test_yaml_inline() {
         username: "peter-pan".into(),
         email: "peterpan@wonderland.invalid".into()
     }, @r###"
-    ---
     id: 42
     username: peter-pan
     email: peterpan@wonderland.invalid
@@ -215,7 +214,6 @@ fn test_yaml_inline_redacted() {
     }, {
         ".id" => "[user-id]"
     }, @r###"
-    ---
     id: "[user-id]"
     username: peter-pan
     email: peterpan@wonderland.invalid
@@ -305,4 +303,15 @@ fn test_inline_snapshot_whitespace() {
         bar
 
     "###);
+}
+
+#[test]
+fn test_indentation() {
+    assert_snapshot!("aaa\nbbb\nccc\nddd", @r"
+    aaa
+    bbb
+    ccc
+    ddd
+    "
+    );
 }

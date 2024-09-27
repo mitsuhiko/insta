@@ -2,14 +2,23 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.41.0
+
+- `--force-update-snapshots` has more conservative and consistent behavior for
+  inline snapshots. As a side-effect of this, only the content within the inline
+  snapshot delimiters are assessed for changes, not the delimiters (e.g. `###`).
+  #581
+
+- Inline snapshots only use `#` characters as delimiters when required.  #603
+
 ## 1.40.0
 
-- `cargo-insta` no longer panics when running `cargo test --accept --workspace`
-  on a workspace with a default crate. #532
+- `cargo-insta` no longer panics when running `cargo insta test --accept --workspace`
+  on a workspace with a default crate.  #532
 
 - MSRV for `insta` has been raised to 1.60, and for `cargo-insta` to 1.64.
 
-- Added support for compact debug snapshots (`assert_compact_debug_snapshot`). #514
+- Added support for compact debug snapshots (`assert_compact_debug_snapshot`).  #514
 
 - Deprecate `--no-force-pass` in `cargo-insta`.  The `--check` option covers the
   same functionality and has a clearer name.  #513
@@ -18,6 +27,8 @@ All notable changes to insta and cargo-insta are documented here.
   value, rather than always using `###`. This allows snapshotting values which
   themselves contain `###`. If there are no existing `#` characters in the
   snapshot value, a single `#` will be used.  #540
+
+- Inline snapshots can now be updated with `--force-update-snapshots`.  #569
 
 - `cargo insta test` accepts multiple `--exclude` flags.  #520
 
@@ -34,6 +45,11 @@ All notable changes to insta and cargo-insta are documented here.
 - Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
 
 - Add a new integration test approach for `cargo-insta` and a set of integration tests.  #537
+
+- Enable Filters to be created from `IntoIterator` types, rather than just `Vec`s.  #570
+
+- Implemented total sort order for an internal `Key` type correctly.  This prevents potential
+  crashes introduced by the new sort algorithm in Rust 1.81.  #586
 
 ## 1.39.0
 

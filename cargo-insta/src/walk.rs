@@ -5,7 +5,7 @@ use std::path::Path;
 use ignore::overrides::OverrideBuilder;
 use ignore::{DirEntry, Walk, WalkBuilder};
 
-use crate::container::{SnapshotContainer, SnapshotContainerKind};
+use crate::container::{SnapshotContainer, SnapshotKind};
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct FindFlags {
@@ -21,31 +21,33 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-/// Finds all snapshots
-pub(crate) fn find_snapshots<'a>(
+/// Finds all pending snapshots
+pub(crate) fn find_pending_snapshots<'a>(
     package_root: &Path,
     extensions: &'a [&'a str],
     flags: FindFlags,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
     make_snapshot_walker(package_root, extensions, flags)
-        .filter_map(|e| e.ok())
-        .filter_map(move |e| {
-            let fname = e.file_name().to_string_lossy();
-            if fname.ends_with(".new") {
-                let new_path = e.into_path();
-                let old_path = new_path.clone().with_extension("");
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let fname = entry.file_name().to_string_lossy();
+            let path = entry.clone().into_path();
+
+            #[allow(clippy::manual_map)]
+            if let Some(new_fname) = fname.strip_suffix(".new") {
                 Some(SnapshotContainer::load(
-                    new_path,
-                    old_path,
-                    SnapshotContainerKind::External,
+                    path.clone(),
+                    path.with_file_name(new_fname),
+                    SnapshotKind::File,
                 ))
-            } else if fname.starts_with('.') && fname.ends_with(".pending-snap") {
-                let mut target_path = e.path().to_path_buf();
-                target_path.set_file_name(&fname[1..fname.len() - 13]);
+            } else if let Some(new_fname) = fname
+                .strip_prefix('.')
+                .and_then(|f| f.strip_suffix(".pending-snap"))
+            {
                 Some(SnapshotContainer::load(
-                    e.path().to_path_buf(),
-                    target_path,
-                    SnapshotContainerKind::Inline,
+                    path.clone(),
+                    path.with_file_name(new_fname),
+                    SnapshotKind::Inline,
                 ))
             } else {
                 None
@@ -64,21 +66,24 @@ pub(crate) fn make_snapshot_walker(
     if flags.include_hidden {
         builder.hidden(false);
     } else {
-        // We add a custom hidden filter to avoid skipping over `.pending-snap` files
+        // We add a custom hidden filter; if we used the standard filter we'd skip over `.pending-snap` files
         builder.filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
     }
 
     let mut override_builder = OverrideBuilder::new(package_root);
-    override_builder
-        .add(".*.pending-snap")
-        .unwrap()
-        .add("*.snap.new")
-        .unwrap();
-    for ext in extensions {
-        override_builder.add(&format!("*.{}.new", ext)).unwrap();
-    }
-    builder.overrides(override_builder.build().unwrap());
+    extensions
+        .iter()
+        .map(|ext| format!("*.{}.new", ext))
+        .chain(
+            ["*.pending-snap", "*.snap.new"]
+                .iter()
+                .map(ToString::to_string),
+        )
+        .for_each(|pattern| {
+            override_builder.add(&pattern).unwrap();
+        });
 
+    builder.overrides(override_builder.build().unwrap());
     let root_path = package_root.to_path_buf();
 
     // Add a custom filter to skip interior crates; otherwise we get duplicate
@@ -91,7 +96,7 @@ pub(crate) fn make_snapshot_walker(
                 return false;
             }
         }
-        // We always want to skip target even if it was not excluded by
+        // We always want to skip `target` even if it was not excluded by
         // ignore files.
         if entry.path().file_name() == Some(OsStr::new("target")) {
             return false;
