@@ -42,6 +42,17 @@ macro_rules! elog {
         writeln!(std::io::stderr(), $($arg)*).ok();
     })
 }
+#[cfg(feature = "glob")]
+macro_rules! print_or_panic {
+    ($fail_fast:expr, $($tokens:tt)*) => {{
+        if (!$fail_fast) {
+            eprintln!($($tokens)*);
+            eprintln!();
+        } else {
+            panic!($($tokens)*);
+        }
+    }}
+}
 
 /// Special marker to use an automatic name.
 ///
@@ -440,6 +451,102 @@ impl<'a> SnapshotAssertionContext<'a> {
 
         Ok(snapshot_update)
     }
+
+    /// This prints the information about the snapshot
+    fn print_snapshot_info(&self, new_snapshot: &Snapshot) {
+        let mut printer = SnapshotPrinter::new(
+            self.cargo_workspace.as_path(),
+            self.old_snapshot.as_ref(),
+            new_snapshot,
+        );
+        printer.set_line(Some(self.assertion_line));
+        printer.set_snapshot_file(self.snapshot_file.as_deref());
+        printer.set_title(Some("Snapshot Summary"));
+        printer.set_show_info(true);
+        match self.tool_config.output_behavior() {
+            OutputBehavior::Summary => {
+                printer.print();
+            }
+            OutputBehavior::Diff => {
+                printer.set_show_diff(true);
+                printer.print();
+            }
+            _ => {}
+        }
+    }
+
+    /// Finalizes the assertion when the snapshot comparison fails, potentially
+    /// panicking to fail the test
+    fn finalize(&self, update_result: SnapshotUpdateBehavior) {
+        // if we are in glob mode, we want to adjust the finalization
+        // so that we do not show the hints immediately.
+        let fail_fast = {
+            #[cfg(feature = "glob")]
+            {
+                if let Some(top) = crate::glob::GLOB_STACK.lock().unwrap().last() {
+                    top.fail_fast
+                } else {
+                    true
+                }
+            }
+            #[cfg(not(feature = "glob"))]
+            {
+                true
+            }
+        };
+
+        if fail_fast
+            && update_result == SnapshotUpdateBehavior::NewFile
+            && self.tool_config.output_behavior() != OutputBehavior::Nothing
+            && !self.is_doctest
+        {
+            println!(
+                "{hint}",
+                hint = style("To update snapshots run `cargo insta review`").dim(),
+            );
+        }
+
+        if update_result != SnapshotUpdateBehavior::InPlace && !self.tool_config.force_pass() {
+            if fail_fast && self.tool_config.output_behavior() != OutputBehavior::Nothing {
+                let msg = if env::var("INSTA_CARGO_INSTA") == Ok("1".to_string()) {
+                    "Stopped on the first failure."
+                } else {
+                    "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
+                };
+                println!("{hint}", hint = style(msg).dim(),);
+            }
+
+            // if we are in glob mode, count the failures and print the
+            // errors instead of panicking.  The glob will then panic at
+            // the end.
+            #[cfg(feature = "glob")]
+            {
+                let mut stack = crate::glob::GLOB_STACK.lock().unwrap();
+                if let Some(glob_collector) = stack.last_mut() {
+                    glob_collector.failed += 1;
+                    if update_result == SnapshotUpdateBehavior::NewFile
+                        && self.tool_config.output_behavior() != OutputBehavior::Nothing
+                    {
+                        glob_collector.show_insta_hint = true;
+                    }
+
+                    print_or_panic!(
+                        fail_fast,
+                        "snapshot assertion from glob for '{}' failed in line {}",
+                        self.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),
+                        self.assertion_line
+                    );
+                    return;
+                }
+            }
+
+            panic!(
+                "snapshot assertion for '{}' failed in line {}",
+                self.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),
+                self.assertion_line
+            );
+        }
+    }
 }
 
 fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion_line: u32) {
@@ -454,113 +561,6 @@ fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion
         );
     }
     set.insert(key);
-}
-
-/// This prints the information about the snapshot
-fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) {
-    let mut printer = SnapshotPrinter::new(
-        ctx.cargo_workspace.as_path(),
-        ctx.old_snapshot.as_ref(),
-        new_snapshot,
-    );
-    printer.set_line(Some(ctx.assertion_line));
-    printer.set_snapshot_file(ctx.snapshot_file.as_deref());
-    printer.set_title(Some("Snapshot Summary"));
-    printer.set_show_info(true);
-    match ctx.tool_config.output_behavior() {
-        OutputBehavior::Summary => {
-            printer.print();
-        }
-        OutputBehavior::Diff => {
-            printer.set_show_diff(true);
-            printer.print();
-        }
-        _ => {}
-    }
-}
-
-#[cfg(feature = "glob")]
-macro_rules! print_or_panic {
-    ($fail_fast:expr, $($tokens:tt)*) => {{
-        if (!$fail_fast) {
-            eprintln!($($tokens)*);
-            eprintln!();
-        } else {
-            panic!($($tokens)*);
-        }
-    }}
-}
-
-/// Finalizes the assertion based on the update result.
-fn finalize_assertion(ctx: &SnapshotAssertionContext, update_result: SnapshotUpdateBehavior) {
-    // if we are in glob mode, we want to adjust the finalization
-    // so that we do not show the hints immediately.
-    let fail_fast = {
-        #[cfg(feature = "glob")]
-        {
-            if let Some(top) = crate::glob::GLOB_STACK.lock().unwrap().last() {
-                top.fail_fast
-            } else {
-                true
-            }
-        }
-        #[cfg(not(feature = "glob"))]
-        {
-            true
-        }
-    };
-
-    if fail_fast
-        && update_result == SnapshotUpdateBehavior::NewFile
-        && ctx.tool_config.output_behavior() != OutputBehavior::Nothing
-        && !ctx.is_doctest
-    {
-        println!(
-            "{hint}",
-            hint = style("To update snapshots run `cargo insta review`").dim(),
-        );
-    }
-
-    if update_result != SnapshotUpdateBehavior::InPlace && !ctx.tool_config.force_pass() {
-        if fail_fast && ctx.tool_config.output_behavior() != OutputBehavior::Nothing {
-            let msg = if env::var("INSTA_CARGO_INSTA") == Ok("1".to_string()) {
-                "Stopped on the first failure."
-            } else {
-                "Stopped on the first failure. Run `cargo insta test` to run all snapshots."
-            };
-            println!("{hint}", hint = style(msg).dim(),);
-        }
-
-        // if we are in glob mode, count the failures and print the
-        // errors instead of panicking.  The glob will then panic at
-        // the end.
-        #[cfg(feature = "glob")]
-        {
-            let mut stack = crate::glob::GLOB_STACK.lock().unwrap();
-            if let Some(glob_collector) = stack.last_mut() {
-                glob_collector.failed += 1;
-                if update_result == SnapshotUpdateBehavior::NewFile
-                    && ctx.tool_config.output_behavior() != OutputBehavior::Nothing
-                {
-                    glob_collector.show_insta_hint = true;
-                }
-
-                print_or_panic!(
-                    fail_fast,
-                    "snapshot assertion from glob for '{}' failed in line {}",
-                    ctx.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),
-                    ctx.assertion_line
-                );
-                return;
-            }
-        }
-
-        panic!(
-            "snapshot assertion for '{}' failed in line {}",
-            ctx.snapshot_name.as_deref().unwrap_or("unnamed snapshot"),
-            ctx.assertion_line
-        );
-    }
 }
 
 fn record_snapshot_duplicate(
@@ -651,7 +651,7 @@ pub fn assert_snapshot(
     let new_snapshot =
         ctx.new_snapshot(SnapshotContents::new(new_snapshot_value.into(), kind), expr);
 
-    // memoize the snapshot file if requested.
+    // memoize the snapshot file if requested, as part of potentially removing unreferenced snapshots
     if let Some(ref snapshot_file) = ctx.snapshot_file {
         memoize_snapshot_file(snapshot_file);
     }
@@ -698,9 +698,9 @@ pub fn assert_snapshot(
         }
     // otherwise print information and update snapshots.
     } else {
-        print_snapshot_info(&ctx, &new_snapshot);
+        ctx.print_snapshot_info(&new_snapshot);
         let update_result = ctx.update_snapshot(new_snapshot)?;
-        finalize_assertion(&ctx, update_result);
+        ctx.finalize(update_result);
     }
 
     Ok(())

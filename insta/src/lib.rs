@@ -49,7 +49,8 @@
 //! ```
 //!
 //! The recommended flow is to run the tests once, have them fail and check
-//! if the result is okay.  By default the new snapshots are stored next
+//! if the result is okay.
+//! By default, the new snapshots are stored next
 //! to the old ones with the extra `.new` extension.  Once you are satisfied
 //! move the new files over.  To simplify this workflow you can use
 //! `cargo insta review` (requires
