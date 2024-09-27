@@ -46,7 +46,8 @@
 //! ```
 //!
 //! The recommended flow is to run the tests once, have them fail and check
-//! if the result is okay.  By default the new snapshots are stored next
+//! if the result is okay.
+//! By default, the new snapshots are stored next
 //! to the old ones with the extra `.new` extension.  Once you are satisfied
 //! move the new files over.  To simplify this workflow you can use
 //! `cargo insta review` (requires
@@ -190,7 +191,7 @@
 //! # Dependencies
 //!
 //! `insta` tries to be light in dependencies but this is tricky to accomplish
-//! given what it tries to do.  By default it currently depends on `serde` for
+//! given what it tries to do.  By default, it currently depends on `serde` for
 //! the [`assert_toml_snapshot!`] and [`assert_yaml_snapshot!`] macros.  In the
 //! future this default dependencies will be removed.  To already benefit from
 //! this optimization you can disable the default features and manually opt into

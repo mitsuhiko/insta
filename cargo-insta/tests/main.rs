@@ -27,10 +27,10 @@
 /// the same...). This also causes issues when running the same tests
 /// concurrently.
 use std::collections::HashMap;
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::{env, fs::remove_dir_all};
 
 use console::style;
 use ignore::WalkBuilder;
@@ -112,7 +112,6 @@ fn assert_failure(output: &std::process::Output) {
         String::from_utf8_lossy(&output.stderr)
     );
 }
-
 struct TestProject {
     /// Temporary directory where the project is created
     workspace_dir: PathBuf,
@@ -142,23 +141,26 @@ impl TestProject {
             workspace_dir,
         }
     }
-    fn cmd(&self) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
+    fn clean_env(cmd: &mut Command) {
         // Remove environment variables so we don't inherit anything (such as
         // `INSTA_FORCE_PASS` or `CARGO_INSTA_*`) from a cargo-insta process
         // which runs this integration test.
         for (key, _) in env::vars() {
             if key.starts_with("CARGO_INSTA") || key.starts_with("INSTA") {
-                command.env_remove(&key);
+                cmd.env_remove(&key);
             }
         }
         // Turn off CI flag so that cargo insta test behaves as we expect
         // under normal operation
-        command.env("CI", "0");
+        cmd.env("CI", "0");
         // And any others that can affect the output
-        command.env_remove("CARGO_TERM_COLOR");
-        command.env_remove("CLICOLOR_FORCE");
-        command.env_remove("RUSTDOCFLAGS");
+        cmd.env_remove("CARGO_TERM_COLOR");
+        cmd.env_remove("CLICOLOR_FORCE");
+        cmd.env_remove("RUSTDOCFLAGS");
+    }
+    fn cmd(&self) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
+        Self::clean_env(&mut command);
 
         command.current_dir(self.workspace_dir.as_path());
         // Use the same target directory as other tests, consistent across test
@@ -1583,4 +1585,128 @@ fn test() {
     +    src/snapshots
     +      src/snapshots/test_change_binary_to_text__some_name.snap
     ");
+}
+
+// Can't get the test binary discovery to work, don't have a windows machine to
+// hand, others are welcome to fix it. (No specific reason to think that insta
+// doesn't work on windows, just that the test doesn't work.)
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn test_insta_workspace_root() {
+    // This function locates the compiled test binary in the target directory.
+    // It's necessary because the exact filename of the test binary includes a hash
+    // that we can't predict, so we need to search for it.
+    fn find_test_binary(dir: &Path) -> PathBuf {
+        dir.join("target/debug/deps")
+            .read_dir()
+            .unwrap()
+            .filter_map(Result::ok)
+            .find(|entry| {
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_str().unwrap_or("");
+                // We're looking for a file that:
+                file_name_str.starts_with("insta_workspace_root_test-") // Matches our test name
+                    && !file_name_str.contains('.') // Doesn't have an extension (it's the executable, not a metadata file)
+                    && entry.metadata().map(|m| m.is_file()).unwrap_or(false) // Is a file, not a directory
+            })
+            .map(|entry| entry.path())
+            .expect("Failed to find test binary")
+    }
+
+    fn run_test_binary(
+        binary_path: &Path,
+        current_dir: &Path,
+        env: Option<(&str, &str)>,
+    ) -> std::process::Output {
+        let mut cmd = Command::new(binary_path);
+        TestProject::clean_env(&mut cmd);
+        cmd.current_dir(current_dir);
+        if let Some((key, value)) = env {
+            cmd.env(key, value);
+        }
+        cmd.output().unwrap()
+    }
+
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+    [package]
+    name = "insta_workspace_root_test"
+    version = "0.1.0"
+    edition = "2021"
+
+    [dependencies]
+    insta = { path = '$PROJECT_PATH' }
+    "#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+    #[cfg(test)]
+    mod tests {
+        use insta::assert_snapshot;
+
+        #[test]
+        fn test_snapshot() {
+            assert_snapshot!("Hello, world!");
+        }
+    }
+    "#
+            .to_string(),
+        )
+        .create_project();
+
+    let mut cargo_cmd = Command::new("cargo");
+    TestProject::clean_env(&mut cargo_cmd);
+    let output = cargo_cmd
+        .args(["test", "--no-run"])
+        .current_dir(&test_project.workspace_dir)
+        .output()
+        .unwrap();
+    assert_success(&output);
+
+    let test_binary_path = find_test_binary(&test_project.workspace_dir);
+
+    // Run the test without snapshot (should fail)
+    assert_failure(&run_test_binary(
+        &test_binary_path,
+        &test_project.workspace_dir,
+        None,
+    ));
+
+    // Create the snapshot
+    assert_success(&run_test_binary(
+        &test_binary_path,
+        &test_project.workspace_dir,
+        Some(("INSTA_UPDATE", "always")),
+    ));
+
+    // Verify snapshot creation
+    assert!(test_project.workspace_dir.join("src/snapshots").exists());
+    assert!(test_project
+        .workspace_dir
+        .join("src/snapshots/insta_workspace_root_test__tests__snapshot.snap")
+        .exists());
+
+    // Move the workspace
+    let moved_workspace = {
+        let moved_workspace = PathBuf::from("/tmp/cargo-insta-test-moved");
+        remove_dir_all(&moved_workspace).ok();
+        fs::create_dir(&moved_workspace).unwrap();
+        fs::rename(&test_project.workspace_dir, &moved_workspace).unwrap();
+        moved_workspace
+    };
+    let moved_binary_path = find_test_binary(&moved_workspace);
+
+    // Run test in moved workspace without INSTA_WORKSPACE_ROOT (should fail)
+    assert_failure(&run_test_binary(&moved_binary_path, &moved_workspace, None));
+
+    // Run test in moved workspace with INSTA_WORKSPACE_ROOT (should pass)
+    assert_success(&run_test_binary(
+        &moved_binary_path,
+        &moved_workspace,
+        Some(("INSTA_WORKSPACE_ROOT", moved_workspace.to_str().unwrap())),
+    ));
 }

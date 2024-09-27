@@ -15,9 +15,9 @@ pub(crate) struct GlobCollector {
     pub(crate) show_insta_hint: bool,
 }
 
-// the glob stack holds failure count + an indication if cargo insta review
-// should be run.
 lazy_static::lazy_static! {
+    /// the glob stack holds failure count and an indication if `cargo insta review`
+    /// should be run.
     pub(crate) static ref GLOB_STACK: Mutex<Vec<GlobCollector>> = Mutex::default();
 }
 
@@ -38,7 +38,7 @@ lazy_static::lazy_static! {
     };
 }
 
-pub fn glob_exec<F: FnMut(&Path)>(manifest_dir: &str, base: &Path, pattern: &str, mut f: F) {
+pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &str, mut f: F) {
     // If settings.allow_empty_glob() == true and `base` doesn't exist, skip
     // everything. This is necessary as `base` is user-controlled via `glob!/3`
     // and may not exist.
@@ -61,7 +61,7 @@ pub fn glob_exec<F: FnMut(&Path)>(manifest_dir: &str, base: &Path, pattern: &str
     GLOB_STACK.lock().unwrap().push(GlobCollector {
         failed: 0,
         show_insta_hint: false,
-        fail_fast: get_tool_config(manifest_dir).glob_fail_fast(),
+        fail_fast: get_tool_config(workspace_dir).glob_fail_fast(),
     });
 
     // step 1: collect all matching files
