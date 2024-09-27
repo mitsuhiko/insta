@@ -12,15 +12,15 @@ use crate::{
 
 lazy_static::lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
-    static ref TOOL_CONFIGS: Mutex<BTreeMap<String, Arc<ToolConfig>>> = Mutex::new(BTreeMap::new());
+    static ref TOOL_CONFIGS: Mutex<BTreeMap<PathBuf, Arc<ToolConfig>>> = Mutex::new(BTreeMap::new());
 }
 
-pub fn get_tool_config(manifest_dir: &str) -> Arc<ToolConfig> {
+pub fn get_tool_config(workspace_dir: &Path) -> Arc<ToolConfig> {
     TOOL_CONFIGS
         .lock()
         .unwrap()
-        .entry(manifest_dir.to_string())
-        .or_insert_with(|| ToolConfig::from_manifest_dir(manifest_dir).unwrap().into())
+        .entry(workspace_dir.to_path_buf())
+        .or_insert_with(|| ToolConfig::from_workspace(workspace_dir).unwrap().into())
         .clone()
 }
 
@@ -123,11 +123,6 @@ pub struct ToolConfig {
 }
 
 impl ToolConfig {
-    /// Loads the tool config for a specific manifest.
-    pub fn from_manifest_dir(manifest_dir: &str) -> Result<ToolConfig, Error> {
-        Self::from_workspace(&get_cargo_workspace(manifest_dir))
-    }
-
     /// Loads the tool config from a cargo workspace.
     pub fn from_workspace(workspace_dir: &Path) -> Result<ToolConfig, Error> {
         let mut cfg = None;

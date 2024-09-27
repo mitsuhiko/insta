@@ -8,14 +8,14 @@ use std::str;
 use std::sync::{Arc, Mutex};
 use std::{borrow::Cow, env};
 
-use crate::output::SnapshotPrinter;
 use crate::settings::Settings;
 use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
 use crate::utils::{path_to_storage, style};
+use crate::{env::get_tool_config, output::SnapshotPrinter};
 use crate::{
     env::{
-        get_cargo_workspace, get_tool_config, memoize_snapshot_file, snapshot_update_behavior,
-        OutputBehavior, SnapshotUpdateBehavior, ToolConfig,
+        memoize_snapshot_file, snapshot_update_behavior, OutputBehavior, SnapshotUpdateBehavior,
+        ToolConfig,
     },
     snapshot::SnapshotKind,
 };
@@ -207,7 +207,7 @@ fn get_snapshot_filename(
 #[derive(Debug)]
 struct SnapshotAssertionContext<'a> {
     tool_config: Arc<ToolConfig>,
-    cargo_workspace: Arc<PathBuf>,
+    workspace: &'a Path,
     module_path: &'a str,
     snapshot_name: Option<Cow<'a, str>>,
     snapshot_file: Option<PathBuf>,
@@ -222,14 +222,13 @@ struct SnapshotAssertionContext<'a> {
 impl<'a> SnapshotAssertionContext<'a> {
     fn prepare(
         refval: ReferenceValue<'a>,
-        manifest_dir: &'a str,
+        workspace: &'a Path,
         function_name: &'a str,
         module_path: &'a str,
         assertion_file: &'a str,
         assertion_line: u32,
     ) -> Result<SnapshotAssertionContext<'a>, Box<dyn Error>> {
-        let tool_config = get_tool_config(manifest_dir);
-        let cargo_workspace = get_cargo_workspace(manifest_dir);
+        let tool_config = get_tool_config(workspace);
         let snapshot_name;
         let mut duplication_key = None;
         let mut snapshot_file = None;
@@ -257,7 +256,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     module_path,
                     assertion_file,
                     &name,
-                    &cargo_workspace,
+                    workspace,
                     assertion_file,
                     is_doctest,
                 );
@@ -279,7 +278,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_name = detect_snapshot_name(function_name, module_path)
                     .ok()
                     .map(Cow::Owned);
-                let mut pending_file = cargo_workspace.join(assertion_file);
+                let mut pending_file = workspace.join(assertion_file);
                 pending_file.set_file_name(format!(
                     ".{}.pending-snap",
                     pending_file
@@ -300,7 +299,7 @@ impl<'a> SnapshotAssertionContext<'a> {
 
         Ok(SnapshotAssertionContext {
             tool_config,
-            cargo_workspace,
+            workspace,
             module_path,
             snapshot_name,
             snapshot_file,
@@ -315,8 +314,8 @@ impl<'a> SnapshotAssertionContext<'a> {
 
     /// Given a path returns the local path within the workspace.
     pub fn localize_path(&self, p: &Path) -> Option<PathBuf> {
-        let workspace = self.cargo_workspace.canonicalize().ok()?;
-        let p = self.cargo_workspace.join(p).canonicalize().ok()?;
+        let workspace = self.workspace.canonicalize().ok()?;
+        let p = self.workspace.join(p).canonicalize().ok()?;
         p.strip_prefix(&workspace).ok().map(|x| x.to_path_buf())
     }
 
@@ -458,11 +457,7 @@ fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion
 
 /// This prints the information about the snapshot
 fn print_snapshot_info(ctx: &SnapshotAssertionContext, new_snapshot: &Snapshot) {
-    let mut printer = SnapshotPrinter::new(
-        ctx.cargo_workspace.as_path(),
-        ctx.old_snapshot.as_ref(),
-        new_snapshot,
-    );
+    let mut printer = SnapshotPrinter::new(ctx.workspace, ctx.old_snapshot.as_ref(), new_snapshot);
     printer.set_line(Some(ctx.assertion_line));
     printer.set_snapshot_file(ctx.snapshot_file.as_deref());
     printer.set_title(Some("Snapshot Summary"));
@@ -572,8 +567,7 @@ fn record_snapshot_duplicate(
     if let Some(prev_snapshot) = results.get(key) {
         if prev_snapshot.contents() != snapshot.contents() {
             println!("Snapshots in allow-duplicates block do not match.");
-            let mut printer =
-                SnapshotPrinter::new(ctx.cargo_workspace.as_path(), Some(prev_snapshot), snapshot);
+            let mut printer = SnapshotPrinter::new(ctx.workspace, Some(prev_snapshot), snapshot);
             printer.set_line(Some(ctx.assertion_line));
             printer.set_snapshot_file(ctx.snapshot_file.as_deref());
             printer.set_title(Some("Differences in Block"));
@@ -623,7 +617,7 @@ where
 pub fn assert_snapshot(
     refval: ReferenceValue,
     new_snapshot_value: &str,
-    manifest_dir: &str,
+    workspace: &Path,
     function_name: &str,
     module_path: &str,
     assertion_file: &str,
@@ -632,7 +626,7 @@ pub fn assert_snapshot(
 ) -> Result<(), Box<dyn Error>> {
     let ctx = SnapshotAssertionContext::prepare(
         refval,
-        manifest_dir,
+        workspace,
         function_name,
         module_path,
         assertion_file,
