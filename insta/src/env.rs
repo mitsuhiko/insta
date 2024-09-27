@@ -12,18 +12,16 @@ use crate::{
 
 lazy_static::lazy_static! {
     static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
-    static ref TOOL_CONFIGS: Mutex<BTreeMap<String, Arc<ToolConfig>>> = Mutex::new(BTreeMap::new());
+    static ref TOOL_CONFIGS: Mutex<BTreeMap<PathBuf, Arc<ToolConfig>>> = Mutex::new(BTreeMap::new());
 }
 
-pub fn get_tool_config(manifest_dir: &str) -> Arc<ToolConfig> {
-    let mut configs = TOOL_CONFIGS.lock().unwrap();
-    if let Some(rv) = configs.get(manifest_dir) {
-        return rv.clone();
-    }
-    let config =
-        Arc::new(ToolConfig::from_manifest_dir(manifest_dir).expect("failed to load tool config"));
-    configs.insert(manifest_dir.to_string(), config.clone());
-    config
+pub fn get_tool_config(workspace_dir: &Path) -> Arc<ToolConfig> {
+    TOOL_CONFIGS
+        .lock()
+        .unwrap()
+        .entry(workspace_dir.to_path_buf())
+        .or_insert_with(|| ToolConfig::from_workspace(workspace_dir).unwrap().into())
+        .clone()
 }
 
 /// The test runner to use.
@@ -125,11 +123,6 @@ pub struct ToolConfig {
 }
 
 impl ToolConfig {
-    /// Loads the tool config for a specific manifest.
-    pub fn from_manifest_dir(manifest_dir: &str) -> Result<ToolConfig, Error> {
-        ToolConfig::from_workspace(&get_cargo_workspace(manifest_dir))
-    }
-
     /// Loads the tool config from a cargo workspace.
     pub fn from_workspace(workspace_dir: &Path) -> Result<ToolConfig, Error> {
         let mut cfg = None;
@@ -411,43 +404,61 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
 
 /// Returns the cargo workspace for a manifest
 pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
-    // we really do not care about poisoning here.
-    let mut workspaces = WORKSPACES.lock().unwrap_or_else(|x| x.into_inner());
-    if let Some(rv) = workspaces.get(manifest_dir) {
-        rv.clone()
-    } else {
-        // If INSTA_WORKSPACE_ROOT environment variable is set, use the value
-        // as-is. This is useful for those users where the compiled in
-        // CARGO_MANIFEST_DIR points to some transient location. This can easily
-        // happen if the user builds the test in one directory but then tries to
-        // run it in another: even if sources are available in the new
-        // directory, in the past we would always go with the compiled-in value.
-        // The compiled-in directory may not even exist anymore.
-        let path = if let Ok(workspace_root) = std::env::var("INSTA_WORKSPACE_ROOT") {
-            Arc::new(PathBuf::from(workspace_root))
-        } else {
+    // If INSTA_WORKSPACE_ROOT environment variable is set, use the value as-is.
+    // This is useful where CARGO_MANIFEST_DIR at compilation points to some
+    // transient location. This can easily happen when building the test in one
+    // directory but running it in another.
+    if let Ok(workspace_root) = env::var("INSTA_WORKSPACE_ROOT") {
+        return PathBuf::from(workspace_root).into();
+    }
+
+    let error_message = || {
+        format!(
+            "`cargo metadata --format-version=1 --no-deps` in path `{}`",
+            manifest_dir
+        )
+    };
+
+    WORKSPACES
+        .lock()
+        // we really do not care about poisoning here.
+        .unwrap()
+        .entry(manifest_dir.to_string())
+        .or_insert_with(|| {
             let output = std::process::Command::new(
-                env::var("CARGO")
-                    .ok()
-                    .unwrap_or_else(|| "cargo".to_string()),
+                env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()),
             )
-            .arg("metadata")
-            .arg("--format-version=1")
-            .arg("--no-deps")
+            .args(["metadata", "--format-version=1", "--no-deps"])
             .current_dir(manifest_dir)
             .output()
-            .unwrap();
-            let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
+            .unwrap_or_else(|e| panic!("failed to run {}\n\n{}", error_message(), e));
+
+            crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
                 std::str::from_utf8(&output.stdout).unwrap(),
             )
-            .unwrap();
-            let manifest = docs.first().expect("Unable to parse cargo manifest");
-            let workspace_root = PathBuf::from(manifest["workspace_root"].as_str().unwrap());
-            Arc::new(workspace_root)
-        };
-        workspaces.insert(manifest_dir.to_string(), path.clone());
-        path
-    }
+            .map_err(|e| e.to_string())
+            .and_then(|docs| {
+                docs.into_iter()
+                    .next()
+                    .ok_or_else(|| "No content found in yaml".to_string())
+            })
+            .and_then(|metadata| {
+                metadata["workspace_root"]
+                    .clone()
+                    .into_string()
+                    .ok_or_else(|| "Couldn't find `workspace_root`".to_string())
+            })
+            .map(|path| PathBuf::from(path).into())
+            .unwrap_or_else(|e| {
+                panic!(
+                    "failed to parse cargo metadata output from {}: {}\n\n{:?}",
+                    error_message(),
+                    e,
+                    output.stdout
+                )
+            })
+        })
+        .clone()
 }
 
 #[cfg(feature = "_cargo_insta_internal")]
@@ -480,7 +491,7 @@ impl std::str::FromStr for UnreferencedSnapshots {
     }
 }
 
-/// Memoizes a snapshot file in the reference file.
+/// Memoizes a snapshot file in the reference file, as part of removing unreferenced snapshots.
 pub fn memoize_snapshot_file(snapshot_file: &Path) {
     if let Ok(path) = env::var("INSTA_SNAPSHOT_REFERENCES_FILE") {
         let mut f = fs::OpenOptions::new()

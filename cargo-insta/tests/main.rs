@@ -1,6 +1,18 @@
 /// Integration tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
 ///
+/// Often we want to see output from the test commands we run here; for example
+/// a `dbg!` statement we add while debugging. Cargo by default hides the output
+/// of passing tests.
+/// - Like any test, to forward the output of an outer test (i.e. one of the
+///   `#[test]`s in this file) to the terminal, pass `--nocapture` to the test
+///   runner, like `cargo insta test -- --nocapture`.
+/// - To forward the output of an inner test (i.e. the test commands we create
+///   and run within an outer test) to the output of an outer test, pass
+///   `--nocapture` in the command we create; for example `.args(["test",
+///   "--accept", "--", "--nocapture"])`. We then also need to pass
+///   `--nocapture` to the outer test to forward that to the terminal.
+///
 /// We can write more docs if that would be helpful. For the moment one thing to
 /// be aware of: it seems the packages must have different names, or we'll see
 /// interference between the tests.
@@ -15,11 +27,12 @@
 /// the same...). This also causes issues when running the same tests
 /// concurrently.
 use std::collections::HashMap;
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::{env, fs::remove_dir_all};
 
+use console::style;
 use ignore::WalkBuilder;
 use insta::assert_snapshot;
 use itertools::Itertools;
@@ -67,20 +80,38 @@ fn target_dir() -> PathBuf {
 }
 
 fn assert_success(output: &std::process::Output) {
-    // Print stderr. Cargo test hides this when tests are successful, but if a
-    // test successfully exectues a command but then fails (e.g. on a snapshot),
-    // we would otherwise lose any output from the command such as `dbg!`
-    // statements.
-    eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    eprint!("{}", String::from_utf8_lossy(&output.stdout));
+    // Color the inner output so we can tell what's coming from there vs our own
+    // output
+
+    // Should we also do something like indent them? Or add a prefix?
+    let stdout = format!("{}", style(String::from_utf8_lossy(&output.stdout)).green());
+    let stderr = format!("{}", style(String::from_utf8_lossy(&output.stderr)).red());
+
     assert!(
         output.status.success(),
         "Tests failed: {}\n{}",
+        stdout,
+        stderr
+    );
+
+    // Print stdout & stderr. Cargo test hides this when tests are successful, but if an
+    // test function in this file successfully executes an inner test command
+    // but then fails (e.g. on a snapshot), we would otherwise lose any output
+    // from that inner command, such as `dbg!` statements.
+    eprint!("{}", stdout);
+    eprint!("{}", stderr);
+}
+
+fn assert_failure(output: &std::process::Output) {
+    eprint!("{}", String::from_utf8_lossy(&output.stderr));
+    eprint!("{}", String::from_utf8_lossy(&output.stdout));
+    assert!(
+        !output.status.success(),
+        "Tests unexpectedly succeeded: {}\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
 }
-
 struct TestProject {
     /// Temporary directory where the project is created
     workspace_dir: PathBuf,
@@ -110,23 +141,26 @@ impl TestProject {
             workspace_dir,
         }
     }
-    fn cmd(&self) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
+    fn clean_env(cmd: &mut Command) {
         // Remove environment variables so we don't inherit anything (such as
         // `INSTA_FORCE_PASS` or `CARGO_INSTA_*`) from a cargo-insta process
         // which runs this integration test.
         for (key, _) in env::vars() {
             if key.starts_with("CARGO_INSTA") || key.starts_with("INSTA") {
-                command.env_remove(&key);
+                cmd.env_remove(&key);
             }
         }
         // Turn off CI flag so that cargo insta test behaves as we expect
         // under normal operation
-        command.env("CI", "0");
+        cmd.env("CI", "0");
         // And any others that can affect the output
-        command.env_remove("CARGO_TERM_COLOR");
-        command.env_remove("CLICOLOR_FORCE");
-        command.env_remove("RUSTDOCFLAGS");
+        cmd.env_remove("CARGO_TERM_COLOR");
+        cmd.env_remove("CLICOLOR_FORCE");
+        cmd.env_remove("RUSTDOCFLAGS");
+    }
+    fn cmd(&self) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
+        Self::clean_env(&mut command);
 
         command.current_dir(self.workspace_dir.as_path());
         // Use the same target directory as other tests, consistent across test
@@ -230,7 +264,7 @@ fn test_json_snapshot() {
 
     let output = test_project
         .cmd()
-        .args(["test", "--accept"])
+        .args(["test", "--accept", "--", "--nocapture"])
         .output()
         .unwrap();
 
@@ -1197,4 +1231,128 @@ mod tests {
 
     // Check for the name clash error message
     assert!(error_output.contains("Insta snapshot name clash detected between 'foo_always_missing' and 'test_foo_always_missing' in 'snapshot_name_clash_test::tests'. Rename one function."));
+}
+
+// Can't get the test binary discovery to work, don't have a windows machine to
+// hand, others are welcome to fix it. (No specific reason to think that insta
+// doesn't work on windows, just that the test doesn't work.)
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn test_insta_workspace_root() {
+    // This function locates the compiled test binary in the target directory.
+    // It's necessary because the exact filename of the test binary includes a hash
+    // that we can't predict, so we need to search for it.
+    fn find_test_binary(dir: &Path) -> PathBuf {
+        dir.join("target/debug/deps")
+            .read_dir()
+            .unwrap()
+            .filter_map(Result::ok)
+            .find(|entry| {
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_str().unwrap_or("");
+                // We're looking for a file that:
+                file_name_str.starts_with("insta_workspace_root_test-") // Matches our test name
+                    && !file_name_str.contains('.') // Doesn't have an extension (it's the executable, not a metadata file)
+                    && entry.metadata().map(|m| m.is_file()).unwrap_or(false) // Is a file, not a directory
+            })
+            .map(|entry| entry.path())
+            .expect("Failed to find test binary")
+    }
+
+    fn run_test_binary(
+        binary_path: &Path,
+        current_dir: &Path,
+        env: Option<(&str, &str)>,
+    ) -> std::process::Output {
+        let mut cmd = Command::new(binary_path);
+        TestProject::clean_env(&mut cmd);
+        cmd.current_dir(current_dir);
+        if let Some((key, value)) = env {
+            cmd.env(key, value);
+        }
+        cmd.output().unwrap()
+    }
+
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+    [package]
+    name = "insta_workspace_root_test"
+    version = "0.1.0"
+    edition = "2021"
+
+    [dependencies]
+    insta = { path = '$PROJECT_PATH' }
+    "#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+    #[cfg(test)]
+    mod tests {
+        use insta::assert_snapshot;
+
+        #[test]
+        fn test_snapshot() {
+            assert_snapshot!("Hello, world!");
+        }
+    }
+    "#
+            .to_string(),
+        )
+        .create_project();
+
+    let mut cargo_cmd = Command::new("cargo");
+    TestProject::clean_env(&mut cargo_cmd);
+    let output = cargo_cmd
+        .args(["test", "--no-run"])
+        .current_dir(&test_project.workspace_dir)
+        .output()
+        .unwrap();
+    assert_success(&output);
+
+    let test_binary_path = find_test_binary(&test_project.workspace_dir);
+
+    // Run the test without snapshot (should fail)
+    assert_failure(&run_test_binary(
+        &test_binary_path,
+        &test_project.workspace_dir,
+        None,
+    ));
+
+    // Create the snapshot
+    assert_success(&run_test_binary(
+        &test_binary_path,
+        &test_project.workspace_dir,
+        Some(("INSTA_UPDATE", "always")),
+    ));
+
+    // Verify snapshot creation
+    assert!(test_project.workspace_dir.join("src/snapshots").exists());
+    assert!(test_project
+        .workspace_dir
+        .join("src/snapshots/insta_workspace_root_test__tests__snapshot.snap")
+        .exists());
+
+    // Move the workspace
+    let moved_workspace = {
+        let moved_workspace = PathBuf::from("/tmp/cargo-insta-test-moved");
+        remove_dir_all(&moved_workspace).ok();
+        fs::create_dir(&moved_workspace).unwrap();
+        fs::rename(&test_project.workspace_dir, &moved_workspace).unwrap();
+        moved_workspace
+    };
+    let moved_binary_path = find_test_binary(&moved_workspace);
+
+    // Run test in moved workspace without INSTA_WORKSPACE_ROOT (should fail)
+    assert_failure(&run_test_binary(&moved_binary_path, &moved_workspace, None));
+
+    // Run test in moved workspace with INSTA_WORKSPACE_ROOT (should pass)
+    assert_success(&run_test_binary(
+        &moved_binary_path,
+        &moved_workspace,
+        Some(("INSTA_WORKSPACE_ROOT", moved_workspace.to_str().unwrap())),
+    ));
 }

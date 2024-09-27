@@ -210,7 +210,7 @@ impl Settings {
 
     /// Disables prepending of modules to the snapshot filename.
     ///
-    /// By default the filename of a snapshot is `<module>__<name>.snap`.
+    /// By default, the filename of a snapshot is `<module>__<name>.snap`.
     /// Setting this flag to `false` changes the snapshot filename to just
     /// `<name>.snap`.
     ///
@@ -226,7 +226,7 @@ impl Settings {
 
     /// Allows the [`glob!`] macro to succeed if it matches no files.
     ///
-    /// By default the glob macro will fail the test if it does not find
+    /// By default, the glob macro will fail the test if it does not find
     /// any files to prevent accidental typos.  This can be disabled when
     /// fixtures should be conditional.
     ///
@@ -269,10 +269,10 @@ impl Settings {
 
     /// Sets the input file reference.
     ///
-    /// This value is completely unused by the snapshot testing system but
-    /// it lets you store some meta data with a snapshot that refers you back
-    /// to the input file.  The path stored here is made relative to the
-    /// workspace root before storing with the snapshot.
+    /// This value is completely unused by the snapshot testing system but it
+    /// allows storing some metadata with a snapshot that refers back to the
+    /// input file.  The path stored here is made relative to the workspace root
+    /// before storing with the snapshot.
     pub fn set_input_file<P: AsRef<Path>>(&mut self, p: P) {
         self._private_inner_mut().input_file(p);
     }
