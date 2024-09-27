@@ -61,6 +61,11 @@ fn test_newline() {
     "###);
 }
 
+#[test]
+fn test_inline_debug_expr() {
+    assert_snapshot!("hello", "a debug expr", @"hello");
+}
+
 #[cfg(feature = "csv")]
 #[test]
 fn test_csv_inline() {
