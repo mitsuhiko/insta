@@ -15,6 +15,19 @@ macro_rules! _function_name {
     }};
 }
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _get_workspace_root {
+    () => {{
+        use std::env;
+
+        // Note the `env!("CARGO_MANIFEST_DIR")` needs to be in the macro (in
+        // contrast to a function in insta) because the macro needs to capture
+        // the value in the caller library, an exclusive property of macros.
+        $crate::_macro_support::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"))
+    }};
+}
+
 /// Asserts a `Serialize` snapshot in CSV format.
 ///
 /// **Feature:** `csv` (disabled by default)
@@ -349,7 +362,7 @@ macro_rules! _assert_snapshot_base {
             $name.into(),
             #[allow(clippy::redundant_closure_call)]
             &$transform(&$value),
-            env!("CARGO_MANIFEST_DIR"),
+            $crate::_get_workspace_root!().as_path(),
             $crate::_function_name!(),
             module_path!(),
             file!(),
@@ -485,9 +498,13 @@ macro_rules! with_settings {
 #[cfg_attr(docsrs, doc(cfg(feature = "glob")))]
 #[macro_export]
 macro_rules! glob {
+    // TODO: I think we could remove the three-argument version of this macro
+    // and just support a pattern such as
+    // `glob!("../test_data/inputs/*.txt"...`.
     ($base_path:expr, $glob:expr, $closure:expr) => {{
         use std::path::Path;
-        let base = $crate::_macro_support::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"))
+
+        let base = $crate::_get_workspace_root!()
             .join(Path::new(file!()).parent().unwrap())
             .join($base_path)
             .to_path_buf();
@@ -495,7 +512,12 @@ macro_rules! glob {
         // we try to canonicalize but on some platforms (eg: wasm) that might not work, so
         // we instead silently fall back.
         let base = base.canonicalize().unwrap_or_else(|_| base);
-        $crate::_macro_support::glob_exec(env!("CARGO_MANIFEST_DIR"), &base, $glob, $closure);
+        $crate::_macro_support::glob_exec(
+            $crate::_get_workspace_root!().as_path(),
+            &base,
+            $glob,
+            $closure,
+        );
     }};
 
     ($glob:expr, $closure:expr) => {{
