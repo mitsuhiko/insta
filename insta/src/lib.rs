@@ -177,7 +177,7 @@
 //! * `yaml`: enables YAML support (via [`serde`])
 //! * `redactions`: enables support for redactions
 //! * `filters`: enables support for filters
-//! * `glob`: enables support for globbing ([`crate::glob!`])
+//! * `glob`: enables support for globbing ([`glob!`])
 //! * `colors`: enables color output (enabled by default)
 //!
 //! For legacy reasons the `json` and `yaml` features are enabled by default in
