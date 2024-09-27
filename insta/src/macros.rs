@@ -498,10 +498,10 @@ macro_rules! with_settings {
 #[cfg_attr(docsrs, doc(cfg(feature = "glob")))]
 #[macro_export]
 macro_rules! glob {
+    // TODO: I think we could remove the three-argument version of this macro
+    // and just support a pattern such as
+    // `glob!("../test_data/inputs/*.txt"...`.
     ($base_path:expr, $glob:expr, $closure:expr) => {{
-        // TODO: I think we could remove the three-argument version of this
-        // macro and just support a pattern such as `glob!("../test_data/inputs/*.txt"...`.
-
         use std::path::Path;
 
         let base = $crate::_get_workspace_root!()
