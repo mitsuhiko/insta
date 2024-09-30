@@ -38,7 +38,7 @@ pub struct YamlEmitter<'a> {
 
 pub type EmitResult = Result<(), EmitError>;
 
-// from serialize::json
+/// From [`serialize::json`]
 fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> Result<(), fmt::Error> {
     wr.write_str("\"")?;
 
@@ -248,12 +248,13 @@ impl<'a> YamlEmitter<'a> {
     }
 }
 
+#[allow(clippy::doc_markdown)] // \` is recognised as unbalanced backticks
 /// Check if the string requires quoting.
 ///
 /// Strings starting with any of the following characters must be quoted.
 /// `:`, `&`, `*`, `?`, `|`, `-`, `<`, `>`, `=`, `!`, `%`, `@`
 /// Strings containing any of the following characters must be quoted.
-/// `{`, `}`, `[`, `]`, `,`, `#`, `\``
+/// `{`, `}`, `\[`, `\]`, `,`, `#`, `\``
 ///
 /// If the string contains any of the following control characters, it must be escaped with double quotes:
 /// `\0`, `\x01`, `\x02`, `\x03`, `\x04`, `\x05`, `\x06`, `\a`, `\b`, `\t`, `\n, `\v, `\f`, `\r`, `\x0e`, `\x0f`, `\x10`, `\x11`, `\x12`, `\x13`, `\x14`, `\x15`, `\x16`, `\x17`, `\x18`, `\x19`, `\x1a`, `\e`, `\x1c`, `\x1d`, `\x1e`, `\x1f`, `\N`, `\_`, `\L`, `\P`

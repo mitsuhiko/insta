@@ -321,7 +321,7 @@ impl ToolConfig {
         self.snapshot_update
     }
 
-    /// Returns the value of glob_fail_fast
+    /// Returns whether the glob should fail fast, as snapshot failures within the glob macro will appear only at the end of execution unless `glob_fail_fast` is set.
     #[cfg(feature = "glob")]
     pub fn glob_fail_fast(&self) -> bool {
         self.glob_fail_fast

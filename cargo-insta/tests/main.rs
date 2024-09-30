@@ -60,7 +60,7 @@ impl TestFiles {
     }
 }
 
-/// Path of the insta crate in this repo, which we use as a dependency in the test project
+/// Path of the [`insta`] crate in this repo, which we use as a dependency in the test project
 fn insta_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
