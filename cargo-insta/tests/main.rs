@@ -1208,7 +1208,7 @@ insta = { path = '$PROJECT_PATH' }
             r#"
 #[test]
 fn test_binary_snapshot() {
-    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
 }
 "#
             .to_string(),
@@ -1256,7 +1256,7 @@ insta = { path = '$PROJECT_PATH' }
             r#"
 #[test]
 fn test_binary_snapshot() {
-    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
 }
 "#
             .to_string(),
@@ -1310,7 +1310,7 @@ insta = { path = '$PROJECT_PATH' }
             r#"
 #[test]
 fn test_binary_snapshot() {
-    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
 }
 "#
             .to_string(),
@@ -1330,7 +1330,7 @@ fn test_binary_snapshot() {
         r#"
 #[test]
 fn test_binary_snapshot() {
-    insta::assert_binary_snapshot!("json", b"test".to_vec());
+    insta::assert_binary_snapshot!(".json", b"test".to_vec());
 }
 "#
         .to_string(),
@@ -1402,7 +1402,7 @@ insta = { path = '$PROJECT_PATH' }
             r#"
 #[test]
 fn test_binary_snapshot() {
-    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
 }
 "#
             .to_string(),
@@ -1487,7 +1487,7 @@ fn test() {
         r#"
 #[test]
 fn test() {
-    insta::assert_binary_snapshot!("txt", b"test".to_vec());
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
 }
 "#
         .to_string(),
@@ -1538,7 +1538,7 @@ insta = { path = '$PROJECT_PATH' }
             r#"
 #[test]
 fn test() {
-    insta::assert_binary_snapshot!("json", "some_name", b"{}".to_vec());
+    insta::assert_binary_snapshot!("some_name.json", b"{}".to_vec());
 }
 "#
             .to_string(),

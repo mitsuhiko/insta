@@ -68,6 +68,11 @@ pub struct AutoName;
 /// The name of a snapshot, from which the path is derived.
 pub struct SnapshotName<'a>(pub Option<Cow<'a, str>>);
 
+pub struct BinarySnapshotValue<'a> {
+    pub name_and_extension: &'a str,
+    pub content: Vec<u8>,
+}
+
 pub enum SnapshotValue<'a> {
     /// A text snapshot that gets stored along with the metadata in the same file.
     FileText {
@@ -96,6 +101,31 @@ pub enum SnapshotValue<'a> {
         /// The extension of the separate file.
         extension: &'a str,
     },
+}
+
+impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
+    fn from(
+        BinarySnapshotValue {
+            name_and_extension,
+            content,
+        }: BinarySnapshotValue<'a>,
+    ) -> Self {
+        let (name, extension) = name_and_extension
+            .split_once('.')
+            .expect("the snapshot name and extension should be in the format \"name.extension\"");
+
+        let name = SnapshotName(if name == "" {
+            None
+        } else {
+            Some(Cow::Borrowed(name))
+        });
+
+        SnapshotValue::Binary {
+            name,
+            extension,
+            content,
+        }
+    }
 }
 
 impl From<AutoName> for SnapshotName<'static> {

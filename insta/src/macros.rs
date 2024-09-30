@@ -385,21 +385,17 @@ macro_rules! _assert_snapshot_base {
 
 #[macro_export]
 macro_rules! assert_binary_snapshot {
-    ($extension:expr, $value:expr $(,)?) => {
-        $crate::assert_binary_snapshot!($extension, $crate::_macro_support::AutoName, $value);
+    ($name_and_extension:expr, $value:expr $(,)?) => {
+        $crate::assert_binary_snapshot!($name_and_extension, $value, stringify!($value));
     };
 
-    ($extension:expr, $name:expr, $value:expr $(,)?) => {
-        $crate::assert_binary_snapshot!($extension, $name, $value, stringify!($value));
-    };
-
-    ($extension:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
+    ($name_and_extension:expr, $value:expr, $debug_expr:expr $(,)?) => {
         $crate::_macro_support::assert_snapshot(
-            $crate::_macro_support::SnapshotValue::Binary {
-                name: $name.into(),
+            $crate::_macro_support::BinarySnapshotValue {
+                name_and_extension: $name_and_extension,
                 content: $value,
-                extension: $extension,
-            },
+            }
+            .into(),
             $crate::_get_workspace_root!().as_path(),
             $crate::_function_name!(),
             module_path!(),
