@@ -29,7 +29,7 @@ pub struct Serializer {
 }
 
 impl Serializer {
-    /// Creates a new serializer that writes into the given writer.
+    /// Creates a new [`Serializer`] that writes into the given writer.
     pub fn new() -> Serializer {
         Serializer {
             out: String::new(),
