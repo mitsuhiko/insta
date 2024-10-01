@@ -12,6 +12,9 @@
 ///   `--nocapture` in the command we create; for example `.args(["test",
 ///   "--accept", "--", "--nocapture"])`. We then also need to pass
 ///   `--nocapture` to the outer test to forward that to the terminal.
+/// - If a test fails on `assert_success` or `assert_failure`, we print the
+///   output of the inner test, bypassing the `--nocapture` flag. We color it to
+///   discriminate it from the output of the outer test.
 ///
 /// We can write more docs if that would be helpful. For the moment one thing to
 /// be aware of: it seems the packages must have different names, or we'll see
@@ -80,36 +83,26 @@ fn target_dir() -> PathBuf {
 }
 
 fn assert_success(output: &std::process::Output) {
-    // Color the inner output so we can tell what's coming from there vs our own
-    // output
-
-    // Should we also do something like indent them? Or add a prefix?
-    let stdout = format!("{}", style(String::from_utf8_lossy(&output.stdout)).green());
-    let stderr = format!("{}", style(String::from_utf8_lossy(&output.stderr)).red());
-
     assert!(
         output.status.success(),
         "Tests failed: {}\n{}",
-        stdout,
-        stderr
+        // Color the inner output so we can tell what's coming from there vs our own
+        // output
+        // Should we also do something like indent them? Or add a prefix?
+        format_args!("{}", style(String::from_utf8_lossy(&output.stdout)).green()),
+        format_args!("{}", style(String::from_utf8_lossy(&output.stderr)).red())
     );
-
-    // Print stdout & stderr. Cargo test hides this when tests are successful, but if an
-    // test function in this file successfully executes an inner test command
-    // but then fails (e.g. on a snapshot), we would otherwise lose any output
-    // from that inner command, such as `dbg!` statements.
-    eprint!("{}", stdout);
-    eprint!("{}", stderr);
 }
 
 fn assert_failure(output: &std::process::Output) {
-    eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    eprint!("{}", String::from_utf8_lossy(&output.stdout));
     assert!(
         !output.status.success(),
         "Tests unexpectedly succeeded: {}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        // Color the inner output so we can tell what's coming from there vs our own
+        // output
+        // Should we also do something like indent them? Or add a prefix?
+        format_args!("{}", style(String::from_utf8_lossy(&output.stdout)).green()),
+        format_args!("{}", style(String::from_utf8_lossy(&output.stderr)).red())
     );
 }
 struct TestProject {
