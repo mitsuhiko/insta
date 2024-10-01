@@ -174,11 +174,10 @@ fn get_snapshot_filename(
     assertion_file: &str,
     snapshot_name: &str,
     cargo_workspace: &Path,
-    base: &str,
     is_doctest: bool,
 ) -> PathBuf {
     let root = Path::new(cargo_workspace);
-    let base = Path::new(base);
+    let base = Path::new(assertion_file);
     Settings::with(|settings| {
         root.join(base.parent().unwrap())
             .join(settings.snapshot_path())
@@ -190,8 +189,7 @@ fn get_snapshot_filename(
                         write!(
                             &mut f,
                             "doctest_{}__",
-                            Path::new(assertion_file)
-                                .file_name()
+                            base.file_name()
                                 .unwrap()
                                 .to_string_lossy()
                                 .replace('.', "_")
@@ -268,7 +266,6 @@ impl<'a> SnapshotAssertionContext<'a> {
                     assertion_file,
                     &name,
                     workspace,
-                    assertion_file,
                     is_doctest,
                 );
                 if fs::metadata(&file).is_ok() {
