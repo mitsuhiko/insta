@@ -65,8 +65,10 @@ macro_rules! print_or_panic {
 #[derive(Debug)]
 pub struct AutoName;
 
+pub struct InlineValue<'a>(pub &'a str);
+
 /// The name of a snapshot, from which the path is derived.
-pub struct SnapshotName<'a>(pub Option<Cow<'a, str>>);
+type SnapshotName<'a> = Option<Cow<'a, str>>;
 
 pub struct BinarySnapshotValue<'a> {
     pub name_and_extension: &'a str,
@@ -103,6 +105,60 @@ pub enum SnapshotValue<'a> {
     },
 }
 
+impl<'a> From<(AutoName, &'a str)> for SnapshotValue<'a> {
+    fn from((_, content): (AutoName, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: None,
+            content,
+        }
+    }
+}
+
+impl<'a> From<(Option<String>, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (Option<String>, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: name.map(Cow::Owned),
+            content,
+        }
+    }
+}
+
+impl<'a> From<(String, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (String, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: Some(Cow::Owned(name)),
+            content,
+        }
+    }
+}
+
+impl<'a> From<(Option<&'a str>, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (Option<&'a str>, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: name.map(Cow::Borrowed),
+            content,
+        }
+    }
+}
+
+impl<'a> From<(&'a str, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (&'a str, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: Some(Cow::Borrowed(name)),
+            content,
+        }
+    }
+}
+
+impl<'a> From<(InlineValue<'a>, &'a str)> for SnapshotValue<'a> {
+    fn from((InlineValue(reference_content), content): (InlineValue<'a>, &'a str)) -> Self {
+        SnapshotValue::InlineText {
+            reference_content,
+            content,
+        }
+    }
+}
+
 impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
     fn from(
         BinarySnapshotValue {
@@ -114,47 +170,17 @@ impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
             .split_once('.')
             .expect("the snapshot name and extension should be in the format \"name.extension\"");
 
-        let name = SnapshotName(if name.is_empty() {
+        let name = if name.is_empty() {
             None
         } else {
             Some(Cow::Borrowed(name))
-        });
+        };
 
         SnapshotValue::Binary {
             name,
             extension,
             content,
         }
-    }
-}
-
-impl From<AutoName> for SnapshotName<'static> {
-    fn from(_value: AutoName) -> SnapshotName<'static> {
-        SnapshotName(None)
-    }
-}
-
-impl From<String> for SnapshotName<'static> {
-    fn from(value: String) -> SnapshotName<'static> {
-        SnapshotName(Some(Cow::Owned(value)))
-    }
-}
-
-impl From<Option<String>> for SnapshotName<'static> {
-    fn from(value: Option<String>) -> Self {
-        SnapshotName(value.map(Cow::Owned))
-    }
-}
-
-impl<'a> From<&'a str> for SnapshotName<'a> {
-    fn from(value: &'a str) -> SnapshotName<'a> {
-        SnapshotName(Some(Cow::Borrowed(value)))
-    }
-}
-
-impl<'a> From<Option<&'a str>> for SnapshotName<'a> {
-    fn from(value: Option<&'a str>) -> Self {
-        SnapshotName(value.map(Cow::Borrowed))
     }
 }
 
@@ -305,7 +331,7 @@ impl<'a> SnapshotAssertionContext<'a> {
 
         match new_snapshot_value {
             SnapshotValue::FileText { name, .. } | SnapshotValue::Binary { name, .. } => {
-                let name = match &name.0 {
+                let name = match &name {
                     Some(name) => add_suffix_to_snapshot_name(name.clone()),
                     None => {
                         if is_doctest {
