@@ -1209,7 +1209,7 @@ fn test_binary_snapshot() {
         )
         .create_project();
 
-    let output = test_project.cmd().args(["test"]).output().unwrap();
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
 
     assert_failure(&output);
 
@@ -1258,7 +1258,7 @@ fn test_binary_snapshot() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -1312,7 +1312,7 @@ fn test_binary_snapshot() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -1330,7 +1330,7 @@ fn test_binary_snapshot() {
         .to_string(),
     );
 
-    let output = test_project.cmd().args(["test"]).output().unwrap();
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
 
     assert_failure(&output);
 
@@ -1351,7 +1351,7 @@ fn test_binary_snapshot() {
     ");
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -1403,13 +1403,13 @@ fn test_binary_snapshot() {
         )
         .create_project();
 
-    let output = test_project.cmd().args(["test"]).output().unwrap();
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
 
     assert_failure(&output);
 
     test_project.update_file("src/main.rs", "".to_string());
 
-    let output = test_project.cmd().args(["test"]).output().unwrap();
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
 
     assert_success(&output);
 
@@ -1457,7 +1457,7 @@ fn test() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -1488,7 +1488,7 @@ fn test() {
     );
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -1540,7 +1540,7 @@ fn test() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -1572,7 +1572,7 @@ fn test() {
     );
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
