@@ -24,7 +24,6 @@ pub enum Error {
     UnexpectedDataType,
     #[cfg(feature = "_cargo_insta_internal")]
     MissingField,
-    #[cfg(feature = "_cargo_insta_internal")]
     FileIo(std::io::Error, std::path::PathBuf),
 }
 
@@ -39,7 +38,6 @@ impl fmt::Display for Error {
             }
             #[cfg(feature = "_cargo_insta_internal")]
             Error::MissingField => f.write_str("A required field was missing"),
-            #[cfg(feature = "_cargo_insta_internal")]
             Error::FileIo(e, p) => {
                 f.write_str(format!("File error for {:?}: {}", p.display(), e).as_str())
             }
