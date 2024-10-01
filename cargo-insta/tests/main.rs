@@ -1303,3 +1303,116 @@ fn test_insta_workspace_root() {
         Some(("INSTA_WORKSPACE_ROOT", moved_workspace.to_str().unwrap())),
     ));
 }
+
+#[test]
+fn test_external_test_path() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "proj/Cargo.toml",
+            r#"
+[package]
+name = "external_test_path"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+
+[[test]]
+name = "tlib"
+path = "../tests/lib.rs"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "proj/src/lib.rs",
+            r#"
+pub fn hello() -> String {
+    "Hello, world!".to_string()
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "tests/lib.rs",
+            r#"
+use external_test_path::hello;
+
+#[test]
+fn test_hello() {
+    insta::assert_snapshot!(hello());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Change to the proj directory for running cargo commands
+    let proj_dir = test_project.workspace_dir.join("proj");
+
+    // Initially, the test should fail
+    let output = test_project
+        .cmd()
+        .current_dir(&proj_dir)
+        .args(["test", "--"])
+        .output()
+        .unwrap();
+
+    assert_failure(&output);
+
+    // Verify that the snapshot was created in the correct location
+    assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
+    proj
+      proj/Cargo.lock
+      proj/Cargo.toml
+      proj/src
+        proj/src/lib.rs
+    tests
+      tests/lib.rs
+      tests/snapshots
+        tests/snapshots/tlib__hello.snap.new
+    ");
+
+    // Run cargo insta accept
+    let output = test_project
+        .cmd()
+        .current_dir(&proj_dir)
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    // Verify that the snapshot was created in the correct location
+    assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
+    proj
+      proj/Cargo.lock
+      proj/Cargo.toml
+      proj/src
+        proj/src/lib.rs
+    tests
+      tests/lib.rs
+      tests/snapshots
+        tests/snapshots/tlib__hello.snap
+    ");
+
+    // Run the test again, it should pass now
+    let output = Command::new(env!("CARGO_BIN_EXE_cargo-insta"))
+        .current_dir(&proj_dir)
+        .args(["test"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    let snapshot_path = test_project
+        .workspace_dir
+        .join("tests/snapshots/tlib__hello.snap");
+    assert_snapshot!(fs::read_to_string(snapshot_path).unwrap(), @r#"
+    ---
+    source: "../tests/lib.rs"
+    expression: hello()
+    ---
+    Hello, world!
+    "#);
+}
