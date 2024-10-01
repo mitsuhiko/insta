@@ -114,7 +114,7 @@ impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
             .split_once('.')
             .expect("the snapshot name and extension should be in the format \"name.extension\"");
 
-        let name = SnapshotName(if name == "" {
+        let name = SnapshotName(if name.is_empty() {
             None
         } else {
             Some(Cow::Borrowed(name))
