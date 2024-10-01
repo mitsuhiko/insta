@@ -13,22 +13,22 @@
 ///   "--accept", "--", "--nocapture"])`. We then also need to pass
 ///   `--nocapture` to the outer test to forward that to the terminal.
 /// - If a test fails on `assert_success` or `assert_failure`, we print the
-///   output of the inner test, bypassing the `--nocapture` flag. We color it to
+///   output of the inner test (bypassing the capturing). We color it to
 ///   discriminate it from the output of the outer test.
 ///
 /// We can write more docs if that would be helpful. For the moment one thing to
 /// be aware of: it seems the packages must have different names, or we'll see
 /// interference between the tests.
 ///
-/// (That seems to be because they all share the same `target` directory, which
-/// cargo will confuse for each other if they share the same name. I haven't
-/// worked out why — this is the case even if the files are the same between two
-/// tests but with different commands — and those files exist in different
-/// temporary workspace dirs. (We could try to enforce different names, or give
-/// up using a consistent target directory for a cache, but it would slow down
-/// repeatedly running the tests locally. To demonstrate the effect, name crates
-/// the same...). This also causes issues when running the same tests
-/// concurrently.
+/// > That seems to be because they all share the same `target` directory, which
+/// > cargo will confuse for each other if they share the same name. I haven't
+/// > worked out why — this is the case even if the files are the same between two
+/// > tests but with different commands — and those files exist in different
+/// > temporary workspace dirs. (We could try to enforce different names, or give
+/// > up using a consistent target directory for a cache, but it would slow down
+/// > repeatedly running the tests locally. To demonstrate the effect, name crates
+/// > the same... This also causes issues when running the same tests
+/// > concurrently.
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -151,7 +151,8 @@ impl TestProject {
         cmd.env_remove("CLICOLOR_FORCE");
         cmd.env_remove("RUSTDOCFLAGS");
     }
-    fn cmd(&self) -> Command {
+
+    fn insta_cmd(&self) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
         Self::clean_env(&mut command);
 
@@ -260,7 +261,7 @@ fn test_json_snapshot() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--", "--nocapture"])
         .output()
         .unwrap();
@@ -329,7 +330,7 @@ fn test_yaml_snapshot() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -404,7 +405,7 @@ fn test_trailing_comma_in_inline_snapshot() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -519,7 +520,7 @@ fn test_root() {
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
-/// test --workspace --accept` will update snapsnots in both the root crate and the
+/// test --workspace --accept` will update snapshots in both the root crate and the
 /// member crate.
 #[test]
 fn test_root_crate_workspace_accept() {
@@ -527,7 +528,7 @@ fn test_root_crate_workspace_accept() {
         workspace_with_root_crate("root-crate-workspace-accept".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--workspace"])
         .output()
         .unwrap();
@@ -562,7 +563,7 @@ fn test_root_crate_workspace() {
         workspace_with_root_crate("root-crate-workspace".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         // Need to disable colors to assert the output below
         .args(["test", "--workspace", "--color=never"])
         .output()
@@ -577,13 +578,13 @@ fn test_root_crate_workspace() {
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
-/// test --accept` will only update snapsnots in the root crate
+/// test --accept` will only update snapshots in the root crate
 #[test]
 fn test_root_crate_no_all() {
     let test_project = workspace_with_root_crate("root-crate-no-all".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -685,7 +686,7 @@ fn test_virtual_manifest_all() {
         workspace_with_virtual_manifest("virtual-manifest-all".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--workspace"])
         .output()
         .unwrap();
@@ -722,7 +723,7 @@ fn test_virtual_manifest_default() {
         workspace_with_virtual_manifest("virtual-manifest-default".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -759,7 +760,7 @@ fn test_virtual_manifest_single_crate() {
         workspace_with_virtual_manifest("virtual-manifest-single".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "-p", "virtual-manifest-single-member-1"])
         .output()
         .unwrap();
@@ -822,7 +823,7 @@ fn test_old_yaml_format() {
 
     // Run the test with --force-update-snapshots and --accept
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--", "--nocapture"])
         .output()
         .unwrap();
@@ -887,7 +888,7 @@ Hello, world!
 
     // Test with current insta version
     let output_current = test_current_insta
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--force-update-snapshots"])
         .output()
         .unwrap();
@@ -896,7 +897,7 @@ Hello, world!
 
     // Test with insta 1.40.0
     let output_1_40_0 = test_insta_1_40_0
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--force-update-snapshots"])
         .output()
         .unwrap();
@@ -970,7 +971,7 @@ fn test_linebreaks() {
 
     // Run the test with --force-update-snapshots and --accept
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args([
             "test",
             "--force-update-snapshots",
@@ -1029,7 +1030,7 @@ fn test_excessive_hashes() {
 
     // Run the test with --force-update-snapshots and --accept
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args([
             "test",
             "--force-update-snapshots",
@@ -1084,7 +1085,7 @@ fn test_wrong_indent_force() {
 
     // Confirm the test passes despite the indent
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--check", "--", "--nocapture"])
         .output()
         .unwrap();
@@ -1093,7 +1094,7 @@ fn test_wrong_indent_force() {
     // Then run the test with --force-update-snapshots and --accept to confirm
     // the new snapshot is written
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args([
             "test",
             "--force-update-snapshots",
@@ -1156,7 +1157,7 @@ fn test_hashtag_escape() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -1763,7 +1764,7 @@ fn test_hello() {
 
     // Initially, the test should fail
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .current_dir(&proj_dir)
         .args(["test", "--"])
         .output()
@@ -1786,7 +1787,7 @@ fn test_hello() {
 
     // Run cargo insta accept
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .current_dir(&proj_dir)
         .args(["test", "--accept"])
         .output()
