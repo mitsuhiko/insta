@@ -30,6 +30,7 @@ tempfile = "3.5.0"
 semver = {version = "1.0.7", features = ["serde"]}
 lazy_static = "1.4.0"
 clap = { workspace=true }
+itertools = "0.10.0"
 
 [dev-dependencies]
 walkdir = "2.3.1"

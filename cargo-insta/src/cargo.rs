@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
 pub(crate) use cargo_metadata::Package;
+use itertools::Itertools;
 
 /// Find snapshot roots within a package
-// (I'm not sure how necessary this is; relative to just using all paths?)
+// We need this because paths are not always conventional — for example cargo
+// can reference artifacts that are outside of the package root.
 pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     let mut roots = Vec::new();
 
@@ -38,13 +40,19 @@ pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     // we would encounter paths twice.  If we don't skip them here we run
     // into issues where the existence of a build script causes a snapshot
     // to be picked up twice since the same path is determined.  (GH-15)
-    roots.sort_by_key(|x| x.as_os_str().len());
-    let mut reduced_roots = vec![];
-    for root in roots {
-        if !reduced_roots.iter().any(|x| root.starts_with(x)) {
-            reduced_roots.push(root);
-        }
-    }
+    let canonical_roots: Vec<_> = roots
+        .iter()
+        .filter_map(|x| x.canonicalize().ok())
+        .sorted_by_key(|x| x.as_os_str().len())
+        .collect();
 
-    reduced_roots
+    canonical_roots
+        .clone()
+        .into_iter()
+        .filter(|root| {
+            !canonical_roots
+                .iter()
+                .any(|x| root.starts_with(x) && root != x)
+        })
+        .collect()
 }
