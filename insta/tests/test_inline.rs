@@ -61,6 +61,11 @@ fn test_newline() {
     "###);
 }
 
+#[test]
+fn test_inline_debug_expr() {
+    assert_snapshot!("hello", "a debug expr", @"hello");
+}
+
 #[cfg(feature = "csv")]
 #[test]
 fn test_csv_inline() {
@@ -303,4 +308,15 @@ fn test_inline_snapshot_whitespace() {
         bar
 
     "###);
+}
+
+#[test]
+fn test_indentation() {
+    assert_snapshot!("aaa\nbbb\nccc\nddd", @r"
+    aaa
+    bbb
+    ccc
+    ddd
+    "
+    );
 }

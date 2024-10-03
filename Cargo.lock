@@ -82,6 +82,7 @@ dependencies = [
  "similar",
  "syn",
  "tempfile",
+ "termcolor",
  "uuid",
  "walkdir",
 ]

@@ -1,25 +1,41 @@
 /// Integration tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
 ///
+/// Often we want to see output from the test commands we run here; for example
+/// a `dbg!` statement we add while debugging. Cargo by default hides the output
+/// of passing tests.
+/// - Like any test, to forward the output of an outer test (i.e. one of the
+///   `#[test]`s in this file) to the terminal, pass `--nocapture` to the test
+///   runner, like `cargo insta test -- --nocapture`.
+/// - To forward the output of an inner test (i.e. the test commands we create
+///   and run within an outer test) to the output of an outer test, pass
+///   `--nocapture` in the command we create; for example `.args(["test",
+///   "--accept", "--", "--nocapture"])`. We then also need to pass
+///   `--nocapture` to the outer test to forward that to the terminal.
+/// - If a test fails on `assert_success` or `assert_failure`, we print the
+///   output of the inner test (bypassing the capturing). We color it to
+///   discriminate it from the output of the outer test.
+///
 /// We can write more docs if that would be helpful. For the moment one thing to
 /// be aware of: it seems the packages must have different names, or we'll see
 /// interference between the tests.
 ///
-/// (That seems to be because they all share the same `target` directory, which
-/// cargo will confuse for each other if they share the same name. I haven't
-/// worked out why — this is the case even if the files are the same between two
-/// tests but with different commands — and those files exist in different
-/// temporary workspace dirs. (We could try to enforce different names, or give
-/// up using a consistent target directory for a cache, but it would slow down
-/// repeatedly running the tests locally. To demonstrate the effect, name crates
-/// the same...). This also causes issues when running the same tests
-/// concurrently.
+/// > That seems to be because they all share the same `target` directory, which
+/// > cargo will confuse for each other if they share the same name. I haven't
+/// > worked out why — this is the case even if the files are the same between two
+/// > tests but with different commands — and those files exist in different
+/// > temporary workspace dirs. (We could try to enforce different names, or give
+/// > up using a consistent target directory for a cache, but it would slow down
+/// > repeatedly running the tests locally. To demonstrate the effect, name crates
+/// > the same... This also causes issues when running the same tests
+/// > concurrently.
 use std::collections::HashMap;
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::{env, fs::remove_dir_all};
 
+use console::style;
 use ignore::WalkBuilder;
 use insta::assert_snapshot;
 use itertools::Itertools;
@@ -47,7 +63,7 @@ impl TestFiles {
     }
 }
 
-/// Path of the insta crate in this repo, which we use as a dependency in the test project
+/// Path of the [`insta`] crate in this repo, which we use as a dependency in the test project
 fn insta_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -67,20 +83,28 @@ fn target_dir() -> PathBuf {
 }
 
 fn assert_success(output: &std::process::Output) {
-    // Print stderr. Cargo test hides this when tests are successful, but if a
-    // test successfully exectues a command but then fails (e.g. on a snapshot),
-    // we would otherwise lose any output from the command such as `dbg!`
-    // statements.
-    eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    eprint!("{}", String::from_utf8_lossy(&output.stdout));
     assert!(
         output.status.success(),
         "Tests failed: {}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        // Color the inner output so we can tell what's coming from there vs our own
+        // output
+        // Should we also do something like indent them? Or add a prefix?
+        format_args!("{}", style(String::from_utf8_lossy(&output.stdout)).green()),
+        format_args!("{}", style(String::from_utf8_lossy(&output.stderr)).red())
     );
 }
 
+fn assert_failure(output: &std::process::Output) {
+    assert!(
+        !output.status.success(),
+        "Tests unexpectedly succeeded: {}\n{}",
+        // Color the inner output so we can tell what's coming from there vs our own
+        // output
+        // Should we also do something like indent them? Or add a prefix?
+        format_args!("{}", style(String::from_utf8_lossy(&output.stdout)).green()),
+        format_args!("{}", style(String::from_utf8_lossy(&output.stderr)).red())
+    );
+}
 struct TestProject {
     /// Temporary directory where the project is created
     workspace_dir: PathBuf,
@@ -110,23 +134,27 @@ impl TestProject {
             workspace_dir,
         }
     }
-    fn cmd(&self) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
+    fn clean_env(cmd: &mut Command) {
         // Remove environment variables so we don't inherit anything (such as
         // `INSTA_FORCE_PASS` or `CARGO_INSTA_*`) from a cargo-insta process
         // which runs this integration test.
         for (key, _) in env::vars() {
             if key.starts_with("CARGO_INSTA") || key.starts_with("INSTA") {
-                command.env_remove(&key);
+                cmd.env_remove(&key);
             }
         }
         // Turn off CI flag so that cargo insta test behaves as we expect
         // under normal operation
-        command.env("CI", "0");
+        cmd.env("CI", "0");
         // And any others that can affect the output
-        command.env_remove("CARGO_TERM_COLOR");
-        command.env_remove("CLICOLOR_FORCE");
-        command.env_remove("RUSTDOCFLAGS");
+        cmd.env_remove("CARGO_TERM_COLOR");
+        cmd.env_remove("CLICOLOR_FORCE");
+        cmd.env_remove("RUSTDOCFLAGS");
+    }
+
+    fn insta_cmd(&self) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
+        Self::clean_env(&mut command);
 
         command.current_dir(self.workspace_dir.as_path());
         // Use the same target directory as other tests, consistent across test
@@ -229,8 +257,8 @@ fn test_json_snapshot() {
         .create_project();
 
     let output = test_project
-        .cmd()
-        .args(["test", "--accept"])
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
         .output()
         .unwrap();
 
@@ -298,7 +326,7 @@ fn test_yaml_snapshot() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -373,7 +401,7 @@ fn test_trailing_comma_in_inline_snapshot() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -488,7 +516,7 @@ fn test_root() {
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
-/// test --workspace --accept` will update snapsnots in both the root crate and the
+/// test --workspace --accept` will update snapshots in both the root crate and the
 /// member crate.
 #[test]
 fn test_root_crate_workspace_accept() {
@@ -496,7 +524,7 @@ fn test_root_crate_workspace_accept() {
         workspace_with_root_crate("root-crate-workspace-accept".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--workspace"])
         .output()
         .unwrap();
@@ -531,7 +559,7 @@ fn test_root_crate_workspace() {
         workspace_with_root_crate("root-crate-workspace".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         // Need to disable colors to assert the output below
         .args(["test", "--workspace", "--color=never"])
         .output()
@@ -546,13 +574,13 @@ fn test_root_crate_workspace() {
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
-/// test --accept` will only update snapsnots in the root crate
+/// test --accept` will only update snapshots in the root crate
 #[test]
 fn test_root_crate_no_all() {
     let test_project = workspace_with_root_crate("root-crate-no-all".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -654,7 +682,7 @@ fn test_virtual_manifest_all() {
         workspace_with_virtual_manifest("virtual-manifest-all".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--workspace"])
         .output()
         .unwrap();
@@ -691,7 +719,7 @@ fn test_virtual_manifest_default() {
         workspace_with_virtual_manifest("virtual-manifest-default".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -728,7 +756,7 @@ fn test_virtual_manifest_single_crate() {
         workspace_with_virtual_manifest("virtual-manifest-single".to_string()).create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "-p", "virtual-manifest-single-member-1"])
         .output()
         .unwrap();
@@ -791,7 +819,7 @@ fn test_old_yaml_format() {
 
     // Run the test with --force-update-snapshots and --accept
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--", "--nocapture"])
         .output()
         .unwrap();
@@ -856,7 +884,7 @@ Hello, world!
 
     // Test with current insta version
     let output_current = test_current_insta
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--force-update-snapshots"])
         .output()
         .unwrap();
@@ -865,7 +893,7 @@ Hello, world!
 
     // Test with insta 1.40.0
     let output_1_40_0 = test_insta_1_40_0
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--force-update-snapshots"])
         .output()
         .unwrap();
@@ -937,7 +965,7 @@ fn test_linebreaks() {
 
     // Run the test with --force-update-snapshots and --accept
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args([
             "test",
             "--force-update-snapshots",
@@ -1005,7 +1033,7 @@ fn test_excessive_hashes() {
 
     // Run the test with --force-update-snapshots and --accept
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args([
             "test",
             "--force-update-snapshots",
@@ -1059,7 +1087,7 @@ fn test_wrong_indent_force() {
 
     // Confirm the test passes despite the indent
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--check", "--", "--nocapture"])
         .output()
         .unwrap();
@@ -1068,7 +1096,7 @@ fn test_wrong_indent_force() {
     // Then run the test with --force-update-snapshots and --accept to confirm
     // the new snapshot is written
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args([
             "test",
             "--force-update-snapshots",
@@ -1130,7 +1158,7 @@ fn test_hashtag_escape() {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept"])
         .output()
         .unwrap();
@@ -1151,4 +1179,241 @@ fn test_hashtag_escape() {
     +    "###);
      }
     "####);
+}
+
+// Can't get the test binary discovery to work, don't have a windows machine to
+// hand, others are welcome to fix it. (No specific reason to think that insta
+// doesn't work on windows, just that the test doesn't work.)
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn test_insta_workspace_root() {
+    // This function locates the compiled test binary in the target directory.
+    // It's necessary because the exact filename of the test binary includes a hash
+    // that we can't predict, so we need to search for it.
+    fn find_test_binary(dir: &Path) -> PathBuf {
+        dir.join("target/debug/deps")
+            .read_dir()
+            .unwrap()
+            .filter_map(Result::ok)
+            .find(|entry| {
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_str().unwrap_or("");
+                // We're looking for a file that:
+                file_name_str.starts_with("insta_workspace_root_test-") // Matches our test name
+                    && !file_name_str.contains('.') // Doesn't have an extension (it's the executable, not a metadata file)
+                    && entry.metadata().map(|m| m.is_file()).unwrap_or(false) // Is a file, not a directory
+            })
+            .map(|entry| entry.path())
+            .expect("Failed to find test binary")
+    }
+
+    fn run_test_binary(
+        binary_path: &Path,
+        current_dir: &Path,
+        env: Option<(&str, &str)>,
+    ) -> std::process::Output {
+        let mut cmd = Command::new(binary_path);
+        TestProject::clean_env(&mut cmd);
+        cmd.current_dir(current_dir);
+        if let Some((key, value)) = env {
+            cmd.env(key, value);
+        }
+        cmd.output().unwrap()
+    }
+
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+    [package]
+    name = "insta_workspace_root_test"
+    version = "0.1.0"
+    edition = "2021"
+
+    [dependencies]
+    insta = { path = '$PROJECT_PATH' }
+    "#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+    #[cfg(test)]
+    mod tests {
+        use insta::assert_snapshot;
+
+        #[test]
+        fn test_snapshot() {
+            assert_snapshot!("Hello, world!");
+        }
+    }
+    "#
+            .to_string(),
+        )
+        .create_project();
+
+    let mut cargo_cmd = Command::new("cargo");
+    TestProject::clean_env(&mut cargo_cmd);
+    let output = cargo_cmd
+        .args(["test", "--no-run"])
+        .current_dir(&test_project.workspace_dir)
+        .output()
+        .unwrap();
+    assert_success(&output);
+
+    let test_binary_path = find_test_binary(&test_project.workspace_dir);
+
+    // Run the test without snapshot (should fail)
+    assert_failure(&run_test_binary(
+        &test_binary_path,
+        &test_project.workspace_dir,
+        None,
+    ));
+
+    // Create the snapshot
+    assert_success(&run_test_binary(
+        &test_binary_path,
+        &test_project.workspace_dir,
+        Some(("INSTA_UPDATE", "always")),
+    ));
+
+    // Verify snapshot creation
+    assert!(test_project.workspace_dir.join("src/snapshots").exists());
+    assert!(test_project
+        .workspace_dir
+        .join("src/snapshots/insta_workspace_root_test__tests__snapshot.snap")
+        .exists());
+
+    // Move the workspace
+    let moved_workspace = {
+        let moved_workspace = PathBuf::from("/tmp/cargo-insta-test-moved");
+        remove_dir_all(&moved_workspace).ok();
+        fs::create_dir(&moved_workspace).unwrap();
+        fs::rename(&test_project.workspace_dir, &moved_workspace).unwrap();
+        moved_workspace
+    };
+    let moved_binary_path = find_test_binary(&moved_workspace);
+
+    // Run test in moved workspace without INSTA_WORKSPACE_ROOT (should fail)
+    assert_failure(&run_test_binary(&moved_binary_path, &moved_workspace, None));
+
+    // Run test in moved workspace with INSTA_WORKSPACE_ROOT (should pass)
+    assert_success(&run_test_binary(
+        &moved_binary_path,
+        &moved_workspace,
+        Some(("INSTA_WORKSPACE_ROOT", moved_workspace.to_str().unwrap())),
+    ));
+}
+
+#[test]
+fn test_external_test_path() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "proj/Cargo.toml",
+            r#"
+[package]
+name = "external_test_path"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+
+[[test]]
+name = "tlib"
+path = "../tests/lib.rs"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "proj/src/lib.rs",
+            r#"
+pub fn hello() -> String {
+    "Hello, world!".to_string()
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "tests/lib.rs",
+            r#"
+use external_test_path::hello;
+
+#[test]
+fn test_hello() {
+    insta::assert_snapshot!(hello());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Change to the proj directory for running cargo commands
+    let proj_dir = test_project.workspace_dir.join("proj");
+
+    // Initially, the test should fail
+    let output = test_project
+        .insta_cmd()
+        .current_dir(&proj_dir)
+        .args(["test", "--"])
+        .output()
+        .unwrap();
+
+    assert_failure(&output);
+
+    // Verify that the snapshot was created in the correct location
+    assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
+    proj
+      proj/Cargo.lock
+      proj/Cargo.toml
+      proj/src
+        proj/src/lib.rs
+    tests
+      tests/lib.rs
+      tests/snapshots
+        tests/snapshots/tlib__hello.snap.new
+    ");
+
+    // Run cargo insta accept
+    let output = test_project
+        .insta_cmd()
+        .current_dir(&proj_dir)
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    // Verify that the snapshot was created in the correct location
+    assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
+    proj
+      proj/Cargo.lock
+      proj/Cargo.toml
+      proj/src
+        proj/src/lib.rs
+    tests
+      tests/lib.rs
+      tests/snapshots
+        tests/snapshots/tlib__hello.snap
+    ");
+
+    // Run the test again, it should pass now
+    let output = Command::new(env!("CARGO_BIN_EXE_cargo-insta"))
+        .current_dir(&proj_dir)
+        .args(["test"])
+        .output()
+        .unwrap();
+
+    assert_success(&output);
+
+    let snapshot_path = test_project
+        .workspace_dir
+        .join("tests/snapshots/tlib__hello.snap");
+    assert_snapshot!(fs::read_to_string(snapshot_path).unwrap(), @r#"
+    ---
+    source: "../tests/lib.rs"
+    expression: hello()
+    ---
+    Hello, world!
+    "#);
 }

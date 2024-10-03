@@ -176,7 +176,7 @@ impl Default for Settings {
 impl Settings {
     /// Returns the default settings.
     ///
-    /// It's recommended to use `clone_current` instead so that
+    /// It's recommended to use [`Self::clone_current`] instead so that
     /// already applied modifications are not discarded.
     pub fn new() -> Settings {
         Settings::default()
@@ -196,7 +196,7 @@ impl Settings {
     /// Enables forceful sorting of maps before serialization.
     ///
     /// Note that this only applies to snapshots that undergo serialization
-    /// (eg: does not work for `assert_debug_snapshot!`.)
+    /// (eg: does not work for [`assert_debug_snapshot!`](crate::assert_debug_snapshot!).)
     ///
     /// The default value is `false`.
     pub fn set_sort_maps(&mut self, value: bool) {
@@ -210,7 +210,7 @@ impl Settings {
 
     /// Disables prepending of modules to the snapshot filename.
     ///
-    /// By default the filename of a snapshot is `<module>__<name>.snap`.
+    /// By default, the filename of a snapshot is `<module>__<name>.snap`.
     /// Setting this flag to `false` changes the snapshot filename to just
     /// `<name>.snap`.
     ///
@@ -226,7 +226,7 @@ impl Settings {
 
     /// Allows the [`glob!`] macro to succeed if it matches no files.
     ///
-    /// By default the glob macro will fail the test if it does not find
+    /// By default, the glob macro will fail the test if it does not find
     /// any files to prevent accidental typos.  This can be disabled when
     /// fixtures should be conditional.
     ///
@@ -269,10 +269,10 @@ impl Settings {
 
     /// Sets the input file reference.
     ///
-    /// This value is completely unused by the snapshot testing system but
-    /// it lets you store some meta data with a snapshot that refers you back
-    /// to the input file.  The path stored here is made relative to the
-    /// workspace root before storing with the snapshot.
+    /// This value is completely unused by the snapshot testing system but it
+    /// allows storing some metadata with a snapshot that refers back to the
+    /// input file.  The path stored here is made relative to the workspace root
+    /// before storing with the snapshot.
     pub fn set_input_file<P: AsRef<Path>>(&mut self, p: P) {
         self._private_inner_mut().input_file(p);
     }
@@ -295,7 +295,7 @@ impl Settings {
     /// super useful by itself, particularly when working with loops and generated
     /// tests.  In that case the `description` can be set as extra information.
     ///
-    /// See also [`set_info`](Self::set_info).
+    /// See also [`Self::set_info`].
     pub fn set_description<S: Into<String>>(&mut self, value: S) {
         self._private_inner_mut().description(value);
     }
@@ -320,7 +320,7 @@ impl Settings {
     /// As an example the input parameters to the function that creates the snapshot
     /// can be persisted here.
     ///
-    /// Alternatively you can use [`set_raw_info`](Self::set_raw_info) instead.
+    /// Alternatively you can use [`Self::set_raw_info`] instead.
     #[cfg(feature = "serde")]
     #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
     pub fn set_info<S: Serialize>(&mut self, s: &S) {
@@ -329,7 +329,7 @@ impl Settings {
 
     /// Sets the info from a content object.
     ///
-    /// This works like [`set_info`](Self::set_info) but does not require `serde`.
+    /// This works like [`Self::set_info`] but does not require [`serde`].
     pub fn set_raw_info(&mut self, content: &Content) {
         self._private_inner_mut().raw_info(content);
     }
@@ -365,7 +365,7 @@ impl Settings {
     /// snapshots.
     ///
     /// Note that this only applies to snapshots that undergo serialization
-    /// (eg: does not work for `assert_debug_snapshot!`.)
+    /// (eg: does not work for [`assert_debug_snapshot!`](crate::assert_debug_snapshot!).)
     #[cfg(feature = "redactions")]
     #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
     pub fn add_redaction<R: Into<Redaction>>(&mut self, selector: &str, replacement: R) {
@@ -384,7 +384,7 @@ impl Settings {
     ///
     /// This works similar to a redaction but instead of changing the value it
     /// asserts the value at a certain place.  This function is internally
-    /// supposed to call things like `assert_eq!`.
+    /// supposed to call things like [`assert_eq!`].
     ///
     /// This is a shortcut to `add_redaction(selector, dynamic_redaction(...))`;
     #[cfg(feature = "redactions")]
@@ -437,7 +437,7 @@ impl Settings {
     ///
     /// The first argument is the [`regex`] pattern to apply, the second is a replacement
     /// string.  The replacement string has the same functionality as the second argument
-    /// to [`Regex::replace`](regex::Regex::replace).
+    /// to [`regex::Regex::replace`].
     ///
     /// This is useful to perform some cleanup procedures on the snapshot for unstable values.
     ///
@@ -493,7 +493,7 @@ impl Settings {
 
     /// Runs a function with the current settings bound to the thread.
     ///
-    /// This is an alternative to [`bind_to_scope`](Settings::bind_to_scope)
+    /// This is an alternative to [`Self::bind_to_scope`]()
     /// which does not require holding on to a drop guard.  The return value
     /// of the closure is passed through.
     ///
@@ -510,7 +510,7 @@ impl Settings {
         f()
     }
 
-    /// Like `bind` but for futures.
+    /// Like [`Self::bind`] but for futures.
     ///
     /// This lets you bind settings for the duration of a future like this:
     ///
@@ -579,7 +579,7 @@ impl Settings {
     }
 }
 
-/// Returned from [`bind_to_scope`](Settings::bind_to_scope)
+/// Returned from [`Settings::bind_to_scope`]
 #[must_use = "The guard is immediately dropped so binding has no effect. Use `let _guard = ...` to bind it."]
 pub struct SettingsBindDropGuard(Option<Arc<ActualSettings>>);
 

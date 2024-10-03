@@ -418,6 +418,8 @@ impl Snapshot {
 
     fn as_content(&self) -> Content {
         let mut fields = vec![("module_name", Content::from(self.module_name.as_str()))];
+        // Note this is currently never used, since this method is only used for
+        // inline snapshots
         if let Some(name) = self.snapshot_name.as_deref() {
             fields.push(("snapshot_name", Content::from(name)));
         }
@@ -489,7 +491,8 @@ impl Snapshot {
         }
 
         let serialized_snapshot = self.serialize_snapshot(md);
-        fs::write(path, serialized_snapshot)?;
+        fs::write(path, serialized_snapshot)
+            .map_err(|e| content::Error::FileIo(e, path.to_path_buf()))?;
         Ok(())
     }
 
@@ -502,7 +505,7 @@ impl Snapshot {
         self.save_with_metadata(path, &self.metadata.trim_for_persistence())
     }
 
-    /// Same as `save` but instead of writing a normal snapshot file this will write
+    /// Same as [`Self::save`] but instead of writing a normal snapshot file this will write
     /// a `.snap.new` file with additional information.
     ///
     /// The name of the new snapshot file is returned.
@@ -1154,4 +1157,32 @@ fn test_ownership() {
     let r = Range { start: 0, end: 10 };
     assert_debug_snapshot!(r, @"0..10");
     assert_debug_snapshot!(r, @"0..10");
+}
+
+#[test]
+fn test_empty_lines() {
+    assert_snapshot!(r#"single line should fit on a single line"#, @"single line should fit on a single line");
+    assert_snapshot!(r#"single line should fit on a single line, even if it's really really really really really really really really really long"#, @"single line should fit on a single line, even if it's really really really really really really really really really long");
+
+    assert_snapshot!(r#"multiline content starting on first line
+
+    final line
+    "#, @r###"
+    multiline content starting on first line
+
+        final line
+
+    "###);
+
+    assert_snapshot!(r#"
+    multiline content starting on second line
+
+    final line
+    "#, @r###"
+
+        multiline content starting on second line
+
+        final line
+
+    "###);
 }
