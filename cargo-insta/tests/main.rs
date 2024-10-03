@@ -1,38 +1,51 @@
 /// Integration tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
 ///
+/// By default, the output of the inner test is forwarded to the outer test with
+/// a colored prefix. If we want to assert the inner test contains some output,
+/// we need to disable that forwarding with:
+///
+/// ```rust
+/// let output = test_project
+///     .insta_cmd()
+///     .args(["test"])
+///     .stderr(Stdio::piped())
+///
+/// assert!(String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review")
+/// ```
+///
 /// Often we want to see output from the test commands we run here; for example
 /// a `dbg!` statement we add while debugging. Cargo by default hides the output
 /// of passing tests.
-/// - Like any test, to forward the output of an outer test (i.e. one of the
-///   `#[test]`s in this file) to the terminal, pass `--nocapture` to the test
-///   runner, like `cargo insta test -- --nocapture`.
-/// - To forward the output of an inner test (i.e. the test commands we create
-///   and run within an outer test) to the output of an outer test, pass
+/// - Like any test, to forward the output of a passing outer test (i.e. one of
+///   the `#[test]`s in this file) to the terminal, pass `--nocapture` to the
+///   test runner, like `cargo insta test -- --nocapture`.
+/// - To forward the output of a passing inner test (i.e. the test commands we
+///   create and run within an outer test) to the output of an outer test, pass
 ///   `--nocapture` in the command we create; for example `.args(["test",
-///   "--accept", "--", "--nocapture"])`. We then also need to pass
-///   `--nocapture` to the outer test to forward that to the terminal.
-/// - If a test fails on `assert_success` or `assert_failure`, we print the
-///   output of the inner test (bypassing the capturing). We color it to
-///   discriminate it from the output of the outer test.
+///   "--accept", "--", "--nocapture"])`.
+///   - We also need to pass `--nocapture` to the outer test to forward that to
+///     the terminal, per the previous bullet.
 ///
-/// We can write more docs if that would be helpful. For the moment one thing to
-/// be aware of: it seems the packages must have different names, or we'll see
-/// interference between the tests.
+/// Note that the packages must have different names, or we'll see interference
+/// between the tests.
 ///
 /// > That seems to be because they all share the same `target` directory, which
 /// > cargo will confuse for each other if they share the same name. I haven't
-/// > worked out why — this is the case even if the files are the same between two
-/// > tests but with different commands — and those files exist in different
-/// > temporary workspace dirs. (We could try to enforce different names, or give
-/// > up using a consistent target directory for a cache, but it would slow down
-/// > repeatedly running the tests locally. To demonstrate the effect, name crates
-/// > the same... This also causes issues when running the same tests
+/// > worked out why — this is the case even if the files are the same between
+/// > two tests but with different commands — and those files exist in different
+/// > temporary workspace dirs. (We could try to enforce different names, or
+/// > give up using a consistent target directory for a cache, but it would slow
+/// > down repeatedly running the tests locally. To demonstrate the effect, name
+/// > crates the same... This also causes issues when running the same tests
 /// > concurrently.
 use std::collections::HashMap;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::process::Stdio;
+use std::thread;
 use std::{env, fs::remove_dir_all};
 
 use console::style;
@@ -41,6 +54,33 @@ use insta::assert_snapshot;
 use itertools::Itertools;
 use similar::udiff::unified_diff;
 use tempfile::TempDir;
+
+/// Wraps a formatting function to be used as a `Stdio`
+struct OutputFormatter<F>(F)
+where
+    F: Fn(&str) -> String + Send + 'static;
+
+impl<F> From<OutputFormatter<F>> for Stdio
+where
+    F: Fn(&str) -> String + Send + 'static,
+{
+    // Creates a pipe, spawns a thread to read from the pipe, applies the
+    // formatting function to each line, and prints the result.
+    fn from(output: OutputFormatter<F>) -> Stdio {
+        let (read_end, write_end) = os_pipe::pipe().unwrap();
+
+        thread::spawn(move || {
+            let mut reader = BufReader::new(read_end);
+            let mut line = String::new();
+            while reader.read_line(&mut line).unwrap() > 0 {
+                print!("{}", (output.0)(&line));
+                line.clear();
+            }
+        });
+
+        Stdio::from(write_end)
+    }
+}
 
 struct TestFiles {
     files: HashMap<PathBuf, String>,
@@ -82,29 +122,6 @@ fn target_dir() -> PathBuf {
     target_dir
 }
 
-fn assert_success(output: &std::process::Output) {
-    assert!(
-        output.status.success(),
-        "Tests failed: {}\n{}",
-        // Color the inner output so we can tell what's coming from there vs our own
-        // output
-        // Should we also do something like indent them? Or add a prefix?
-        format_args!("{}", style(String::from_utf8_lossy(&output.stdout)).green()),
-        format_args!("{}", style(String::from_utf8_lossy(&output.stderr)).red())
-    );
-}
-
-fn assert_failure(output: &std::process::Output) {
-    assert!(
-        !output.status.success(),
-        "Tests unexpectedly succeeded: {}\n{}",
-        // Color the inner output so we can tell what's coming from there vs our own
-        // output
-        // Should we also do something like indent them? Or add a prefix?
-        format_args!("{}", style(String::from_utf8_lossy(&output.stdout)).green()),
-        format_args!("{}", style(String::from_utf8_lossy(&output.stderr)).red())
-    );
-}
 struct TestProject {
     /// Temporary directory where the project is created
     workspace_dir: PathBuf,
@@ -158,10 +175,28 @@ impl TestProject {
 
         command.current_dir(self.workspace_dir.as_path());
         // Use the same target directory as other tests, consistent across test
-        // run. This makes the compilation much faster (though do some tests
+        // runs. This makes the compilation much faster (though do some tests
         // tread on the toes of others? We could have a different cache for each
         // project if so...)
         command.env("CARGO_TARGET_DIR", target_dir());
+
+        let workspace_name = self
+            .workspace_dir
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+
+        let stdout_name = workspace_name.clone();
+        let stderr_name = workspace_name;
+
+        command
+            .stdout(OutputFormatter(move |line| {
+                format!("{} {}", style(&stdout_name).green(), line)
+            }))
+            .stderr(OutputFormatter(move |line| {
+                format!("{} {}", style(&stderr_name).red(), line)
+            }));
 
         command
     }
@@ -262,7 +297,7 @@ fn test_json_snapshot() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r##"
     --- Original: src/main.rs
@@ -331,7 +366,7 @@ fn test_yaml_snapshot() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r###"
     --- Original: src/main.rs
@@ -406,7 +441,7 @@ fn test_trailing_comma_in_inline_snapshot() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r##"
     --- Original: src/main.rs
@@ -529,7 +564,7 @@ fn test_root_crate_workspace_accept() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -562,6 +597,7 @@ fn test_root_crate_workspace() {
         .insta_cmd()
         // Need to disable colors to assert the output below
         .args(["test", "--workspace", "--color=never"])
+        .stderr(Stdio::piped())
         .output()
         .unwrap();
 
@@ -585,7 +621,7 @@ fn test_root_crate_no_all() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -687,7 +723,7 @@ fn test_virtual_manifest_all() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -724,7 +760,7 @@ fn test_virtual_manifest_default() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -761,7 +797,7 @@ fn test_virtual_manifest_single_crate() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -824,7 +860,7 @@ fn test_old_yaml_format() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
 }
@@ -889,7 +925,7 @@ Hello, world!
         .output()
         .unwrap();
 
-    assert_success(&output_current);
+    assert!(&output_current.status.success());
 
     // Test with insta 1.40.0
     let output_1_40_0 = test_insta_1_40_0
@@ -898,7 +934,7 @@ Hello, world!
         .output()
         .unwrap();
 
-    assert_success(&output_1_40_0);
+    assert!(&output_1_40_0.status.success());
 
     // Check that both versions updated the snapshot correctly
     assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
@@ -976,7 +1012,7 @@ fn test_linebreaks() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
     --- Original: src/lib.rs
@@ -1035,7 +1071,7 @@ fn test_excessive_hashes() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     // TODO: we would like to update the number of hashes, but that's not easy
     // given the reasons at https://github.com/mitsuhiko/insta/pull/573. So this
@@ -1083,7 +1119,7 @@ fn test_wrong_indent_force() {
         .args(["test", "--check", "--", "--nocapture"])
         .output()
         .unwrap();
-    assert_success(&output);
+    assert!(&output.status.success());
 
     // Then run the test with --force-update-snapshots and --accept to confirm
     // the new snapshot is written
@@ -1098,7 +1134,7 @@ fn test_wrong_indent_force() {
         ])
         .output()
         .unwrap();
-    assert_success(&output);
+    assert!(&output.status.success());
 
     // https://github.com/mitsuhiko/insta/pull/563 will fix the starting &
     // ending newlines
@@ -1156,7 +1192,7 @@ fn test_hashtag_escape() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r####"
     --- Original: src/main.rs
@@ -1252,23 +1288,25 @@ fn test_insta_workspace_root() {
         .current_dir(&test_project.workspace_dir)
         .output()
         .unwrap();
-    assert_success(&output);
+    assert!(&output.status.success());
 
     let test_binary_path = find_test_binary(&test_project.workspace_dir);
 
     // Run the test without snapshot (should fail)
-    assert_failure(&run_test_binary(
-        &test_binary_path,
-        &test_project.workspace_dir,
-        None,
-    ));
+    assert!(
+        !&run_test_binary(&test_binary_path, &test_project.workspace_dir, None,)
+            .status
+            .success()
+    );
 
     // Create the snapshot
-    assert_success(&run_test_binary(
+    assert!(&run_test_binary(
         &test_binary_path,
         &test_project.workspace_dir,
         Some(("INSTA_UPDATE", "always")),
-    ));
+    )
+    .status
+    .success());
 
     // Verify snapshot creation
     assert!(test_project.workspace_dir.join("src/snapshots").exists());
@@ -1288,14 +1326,20 @@ fn test_insta_workspace_root() {
     let moved_binary_path = find_test_binary(&moved_workspace);
 
     // Run test in moved workspace without INSTA_WORKSPACE_ROOT (should fail)
-    assert_failure(&run_test_binary(&moved_binary_path, &moved_workspace, None));
+    assert!(
+        !&run_test_binary(&moved_binary_path, &moved_workspace, None)
+            .status
+            .success()
+    );
 
     // Run test in moved workspace with INSTA_WORKSPACE_ROOT (should pass)
-    assert_success(&run_test_binary(
+    assert!(&run_test_binary(
         &moved_binary_path,
         &moved_workspace,
         Some(("INSTA_WORKSPACE_ROOT", moved_workspace.to_str().unwrap())),
-    ));
+    )
+    .status
+    .success());
 }
 
 #[test]
@@ -1352,7 +1396,7 @@ fn test_hello() {
         .output()
         .unwrap();
 
-    assert_failure(&output);
+    assert!(!&output.status.success());
 
     // Verify that the snapshot was created in the correct location
     assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
@@ -1375,7 +1419,7 @@ fn test_hello() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     // Verify that the snapshot was created in the correct location
     assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
@@ -1397,7 +1441,7 @@ fn test_hello() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     let snapshot_path = test_project
         .workspace_dir
