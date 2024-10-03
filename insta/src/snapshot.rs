@@ -140,14 +140,14 @@ impl PendingInlineSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum SnapshotType {
+pub enum SnapshotKind {
     Text,
     Binary { extension: String },
 }
 
-impl Default for SnapshotType {
+impl Default for SnapshotKind {
     fn default() -> Self {
-        SnapshotType::Text
+        SnapshotKind::Text
     }
 }
 
@@ -168,7 +168,7 @@ pub struct MetaData {
     /// Reference to the input file.
     pub(crate) input_file: Option<String>,
     /// The type of the snapshot (string or binary).
-    pub(crate) snapshot_type: SnapshotType,
+    pub(crate) snapshot_kind: SnapshotKind,
 }
 
 impl MetaData {
@@ -222,10 +222,10 @@ impl MetaData {
             let mut expression = None;
             let mut info = None;
             let mut input_file = None;
-            let mut snapshot_type = TmpSnapshotType::Text;
+            let mut snapshot_type = TmpSnapshotKind::Text;
             let mut extension = None;
 
-            enum TmpSnapshotType {
+            enum TmpSnapshotKind {
                 Text,
                 Binary,
             }
@@ -238,10 +238,10 @@ impl MetaData {
                     Some("expression") => expression = value.as_str().map(Into::into),
                     Some("info") if !value.is_nil() => info = Some(value),
                     Some("input_file") => input_file = value.as_str().map(Into::into),
-                    Some("snapshot_type") => {
+                    Some("snapshot_kind") => {
                         snapshot_type = match value.as_str() {
-                            Some("binary") => TmpSnapshotType::Binary,
-                            _ => TmpSnapshotType::Text,
+                            Some("binary") => TmpSnapshotKind::Binary,
+                            _ => TmpSnapshotKind::Text,
                         }
                     }
                     Some("extension") => {
@@ -258,9 +258,9 @@ impl MetaData {
                 expression,
                 info,
                 input_file,
-                snapshot_type: match snapshot_type {
-                    TmpSnapshotType::Text => SnapshotType::Text,
-                    TmpSnapshotType::Binary => SnapshotType::Binary {
+                snapshot_kind: match snapshot_type {
+                    TmpSnapshotKind::Text => SnapshotKind::Text,
+                    TmpSnapshotKind::Binary => SnapshotKind::Binary {
                         extension: extension.ok_or(content::Error::MissingField)?,
                     },
                 },
@@ -291,15 +291,15 @@ impl MetaData {
             fields.push(("input_file", Content::from(input_file)));
         }
 
-        let snapshot_type = Content::from(match self.snapshot_type {
-            SnapshotType::Text => "text",
-            SnapshotType::Binary { ref extension } => {
+        let snapshot_type = Content::from(match self.snapshot_kind {
+            SnapshotKind::Text => "text",
+            SnapshotKind::Binary { ref extension } => {
                 fields.push(("extension", Content::from(extension.clone())));
                 "binary"
             }
         });
 
-        fields.push(("snapshot_type", snapshot_type));
+        fields.push(("snapshot_kind", snapshot_type));
 
         Content::Struct("MetaData", fields)
     }
@@ -389,8 +389,8 @@ impl Snapshot {
             rv
         };
 
-        let contents = match metadata.snapshot_type {
-            SnapshotType::Text => {
+        let contents = match metadata.snapshot_kind {
+            SnapshotKind::Text => {
                 buf.clear();
                 for (idx, line) in f.lines().enumerate() {
                     let line = line?;
@@ -406,7 +406,7 @@ impl Snapshot {
                 }
                 .into()
             }
-            SnapshotType::Binary { ref extension } => {
+            SnapshotKind::Binary { ref extension } => {
                 let path = build_binary_path(extension, p);
                 let contents = fs::read(path)?;
 
@@ -519,7 +519,7 @@ impl Snapshot {
     pub fn matches(&self, other: &Self) -> bool {
         self.contents() == other.contents()
             // For binary snapshots the extension also need to be the same:
-            && self.metadata.snapshot_type == other.metadata.snapshot_type
+            && self.metadata.snapshot_kind == other.metadata.snapshot_kind
     }
 
     /// Both the exact snapshot contents and the persisted metadata match another snapshot's.
@@ -540,7 +540,7 @@ impl Snapshot {
             }
             (SnapshotContents::Binary(a), SnapshotContents::Binary(b)) => {
                 // For binary snapshots the extension also need to be the same:
-                a == b && self.metadata.snapshot_type == other.metadata.snapshot_type
+                a == b && self.metadata.snapshot_kind == other.metadata.snapshot_kind
             }
             _ => false,
         }
@@ -584,7 +584,7 @@ impl Snapshot {
     }
 
     pub fn build_binary_path(&self, path: impl Into<PathBuf>) -> Option<PathBuf> {
-        if let SnapshotType::Binary { ref extension } = self.metadata.snapshot_type {
+        if let SnapshotKind::Binary { ref extension } = self.metadata.snapshot_kind {
             Some(build_binary_path(extension, path))
         } else {
             None

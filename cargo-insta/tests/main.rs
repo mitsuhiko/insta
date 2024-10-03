@@ -914,7 +914,7 @@ Hello, world!
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
-    +snapshot_type: text
+    +snapshot_kind: text
      ---
      Hello, world!
     -
@@ -930,7 +930,7 @@ Hello, world!
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
-    +snapshot_type: text
+    +snapshot_kind: text
      ---
      Hello, world!
     -
@@ -1824,7 +1824,7 @@ fn test_hello() {
     ---
     source: "../tests/lib.rs"
     expression: hello()
-    snapshot_type: text
+    snapshot_kind: text
     ---
     Hello, world!
     "#);

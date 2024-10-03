@@ -11,7 +11,7 @@ use std::{borrow::Cow, env};
 
 use crate::settings::Settings;
 use crate::snapshot::{
-    MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents, SnapshotType, TextSnapshotContents,
+    MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents, SnapshotKind, TextSnapshotContents,
 };
 use crate::utils::{path_to_storage, style};
 use crate::{env::get_tool_config, output::SnapshotPrinter};
@@ -309,7 +309,7 @@ struct SnapshotAssertionContext<'a> {
     assertion_file: &'a str,
     assertion_line: u32,
     is_doctest: bool,
-    snapshot_type: SnapshotType,
+    snapshot_kind: SnapshotKind,
 }
 
 impl<'a> SnapshotAssertionContext<'a> {
@@ -394,8 +394,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         };
 
         let snapshot_type = match new_snapshot_value {
-            SnapshotValue::FileText { .. } | SnapshotValue::InlineText { .. } => SnapshotType::Text,
-            &SnapshotValue::Binary { extension, .. } => SnapshotType::Binary {
+            SnapshotValue::FileText { .. } | SnapshotValue::InlineText { .. } => SnapshotKind::Text,
+            &SnapshotValue::Binary { extension, .. } => SnapshotKind::Binary {
                 extension: extension.to_string(),
             },
         };
@@ -412,7 +412,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             assertion_line,
             duplication_key,
             is_doctest,
-            snapshot_type,
+            snapshot_kind: snapshot_type,
         })
     }
 
@@ -427,7 +427,7 @@ impl<'a> SnapshotAssertionContext<'a> {
     pub fn new_snapshot(&self, contents: SnapshotContents, expr: &str) -> Snapshot {
         assert_eq!(
             contents.is_binary(),
-            matches!(self.snapshot_type, SnapshotType::Binary { .. })
+            matches!(self.snapshot_kind, SnapshotKind::Binary { .. })
         );
 
         Snapshot::from_components(
@@ -447,7 +447,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .input_file()
                     .and_then(|x| self.localize_path(x))
                     .map(|x| path_to_storage(&x)),
-                snapshot_type: self.snapshot_type.clone(),
+                snapshot_kind: self.snapshot_kind.clone(),
             }),
             contents,
         )
