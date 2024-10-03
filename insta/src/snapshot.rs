@@ -572,10 +572,12 @@ impl Snapshot {
         }
 
         let serialized_snapshot = self.serialize_snapshot(md);
-        fs::write(path, serialized_snapshot)?;
+        fs::write(path, serialized_snapshot)
+            .map_err(|e| content::Error::FileIo(e, path.to_path_buf()))?;
 
         if let SnapshotContents::Binary(ref contents) = self.snapshot {
-            fs::write(self.build_binary_path(path).unwrap(), &**contents)?;
+            fs::write(self.build_binary_path(path).unwrap(), &**contents)
+                .map_err(|e| content::Error::FileIo(e, path.to_path_buf()))?;
         }
 
         Ok(())

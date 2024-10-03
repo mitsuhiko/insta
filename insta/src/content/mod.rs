@@ -23,7 +23,6 @@ pub enum Error {
     FailedParsingYaml(std::path::PathBuf),
     UnexpectedDataType,
     MissingField,
-    #[cfg(feature = "_cargo_insta_internal")]
     FileIo(std::io::Error, std::path::PathBuf),
 }
 
@@ -37,7 +36,6 @@ impl fmt::Display for Error {
                 f.write_str("The present data type wasn't what was expected")
             }
             Error::MissingField => f.write_str("A required field was missing"),
-            #[cfg(feature = "_cargo_insta_internal")]
             Error::FileIo(e, p) => {
                 f.write_str(format!("File error for {:?}: {}", p.display(), e).as_str())
             }
