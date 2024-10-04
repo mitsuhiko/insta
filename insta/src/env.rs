@@ -20,7 +20,11 @@ pub fn get_tool_config(workspace_dir: &Path) -> Arc<ToolConfig> {
         .lock()
         .unwrap()
         .entry(workspace_dir.to_path_buf())
-        .or_insert_with(|| ToolConfig::from_workspace(workspace_dir).unwrap().into())
+        .or_insert_with(|| {
+            ToolConfig::from_workspace(workspace_dir)
+                .unwrap_or_else(|e| panic!("Error building config from {:?}: {}", workspace_dir, e))
+                .into()
+        })
         .clone()
 }
 
@@ -96,7 +100,7 @@ impl std::error::Error for Error {
 }
 
 /// Represents a tool configuration.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ToolConfig {
     force_pass: bool,
     require_full_match: bool,
