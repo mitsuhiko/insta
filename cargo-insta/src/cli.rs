@@ -215,7 +215,7 @@ struct TestCommand {
     test_runner: TestRunner,
     #[arg(long)]
     test_runner_fallback: Option<bool>,
-    /// Delete unreferenced snapshots after a successful test run.
+    /// Delete unreferenced snapshots after a successful test run (deprecated)
     #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
     /// Disable force-passing of snapshot tests (deprecated)
@@ -769,7 +769,7 @@ fn handle_unreferenced_snapshots(
     for package in loc.packages.clone() {
         let unreferenced_snapshots = make_snapshot_walker(
             package.manifest_path.parent().unwrap().as_std_path(),
-            &[".snap"],
+            &["snap"],
             FindFlags {
                 include_ignored: true,
                 include_hidden: true,
@@ -780,7 +780,11 @@ fn handle_unreferenced_snapshots(
         .filter(|e| {
             e.file_name()
                 .to_str()
-                .map(|name| name.ends_with(".snap"))
+                .map(|name| {
+                    loc.exts
+                        .iter()
+                        .any(|ext| name.ends_with(&format!(".{}", ext)))
+                })
                 .unwrap_or(false)
         })
         .filter_map(|e| e.path().canonicalize().ok())
@@ -1131,6 +1135,7 @@ fn show_undiscovered_hint(
         .filter_map(|e| e.ok())
         .filter(|x| {
             let fname = x.file_name().to_string_lossy();
+            // TODO: use `extensions` here
             fname.ends_with(".snap.new") || fname.ends_with(".pending-snap")
         }) {
             if !found_snapshots.contains(snapshot.path()) {

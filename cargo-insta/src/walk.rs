@@ -55,7 +55,9 @@ pub(crate) fn find_pending_snapshots<'a>(
         })
 }
 
-/// Creates a walker for snapshots & pending snapshots within a package.
+/// Creates a walker for snapshots & pending snapshots within a package. The
+/// walker returns snapshots ending in any of the supplied extensions, any of
+/// the supplied extensions with a `.new` suffix, and `.pending-snap` files.
 pub(crate) fn make_snapshot_walker(
     package_root: &Path,
     extensions: &[&str],
@@ -71,30 +73,26 @@ pub(crate) fn make_snapshot_walker(
     }
 
     let mut override_builder = OverrideBuilder::new(package_root);
+
     extensions
         .iter()
-        .map(|ext| format!("*.{}.new", ext))
-        .chain(
-            ["*.pending-snap", "*.snap.new"]
-                .iter()
-                .map(ToString::to_string),
-        )
+        .flat_map(|ext| [format!("*.{}", ext), format!("*.{}.new", ext)])
+        .chain(std::iter::once("*.pending-snap".to_string()))
         .for_each(|pattern| {
             override_builder.add(&pattern).unwrap();
         });
-
     builder.overrides(override_builder.build().unwrap());
-    let root_path = package_root.to_path_buf();
 
+    let root_path = package_root.to_path_buf();
     // Add a custom filter to skip interior crates; otherwise we get duplicate
     // snapshots (https://github.com/mitsuhiko/insta/issues/396)
     builder.filter_entry(move |entry| {
-        if entry.file_type().map_or(false, |ft| ft.is_dir()) {
-            let cargo_toml_path = entry.path().join("Cargo.toml");
-            if cargo_toml_path.exists() && entry.path() != root_path {
-                // Skip this directory if it contains a Cargo.toml and is not the root
-                return false;
-            }
+        if entry.file_type().map_or(false, |ft| ft.is_dir())
+            && entry.path().join("Cargo.toml").exists()
+            && entry.path() != root_path
+        {
+            // Skip this directory if it contains a Cargo.toml and is not the root
+            return false;
         }
         // We always want to skip `target` even if it was not excluded by
         // ignore files.
