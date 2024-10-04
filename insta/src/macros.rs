@@ -375,6 +375,15 @@ macro_rules! _assert_snapshot_base {
     };
 }
 
+/// (Experimental)
+/// Asserts a binary snapshot in the form of a [`Vec<u8>`].
+///
+/// The contents get stored in a separate file next to the metadata file. The extension for this
+/// file must be passed as part of the name. For an implicit snapshot name just an extension can be
+/// passed starting with a `.`.
+///
+/// This feature is considered experimental: we may make incompatible changes for the next couple
+/// of versions after 1.41.
 #[macro_export]
 macro_rules! assert_binary_snapshot {
     ($name_and_extension:expr, $value:expr $(,)?) => {
