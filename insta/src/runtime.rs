@@ -168,7 +168,7 @@ impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
     ) -> Self {
         let (name, extension) = name_and_extension.split_once('.').unwrap_or_else(|| {
             panic!(
-                "{} does not match the format \"name.extension\"",
+                "\"{}\" does not match the format \"name.extension\"",
                 name_and_extension,
             )
         });

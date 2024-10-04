@@ -10,9 +10,7 @@ fn test_new_extension() {
 }
 
 #[test]
-#[should_panic(
-    expected = "the snapshot name and extension should be in the format \"name.extension\""
-)]
+#[should_panic(expected = "\"test\" does not match the format \"name.extension\"")]
 fn test_malformed_name_and_extension() {
     insta::assert_binary_snapshot!("test", b"test".to_vec());
 }
