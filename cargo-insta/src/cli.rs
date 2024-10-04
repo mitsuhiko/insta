@@ -373,12 +373,12 @@ fn handle_target_args<'a>(
     // Empty if none are selected, implying cargo default
     packages: &'a [String],
 ) -> Result<LocationInfo<'a>, Box<dyn Error>> {
-    let exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
+    let mut cmd = cargo_metadata::MetadataCommand::new();
 
-    // if a workspace root is provided we first check if it points to a `Cargo.toml`.  If it
-    // does we instead treat it as manifest path.  If both are provided we fail with an error
-    // as this would indicate an error.
-    let (workspace_root, manifest_path) = match (
+    // if a workspace root is provided we first check if it points to a
+    // `Cargo.toml`.  If it does we instead treat it as manifest path.  If both
+    // are provided we fail with an error.
+    match (
         target_args.workspace_root.as_deref(),
         target_args.manifest_path.as_deref(),
     ) {
@@ -387,32 +387,27 @@ fn handle_target_args<'a>(
                 "both manifest-path and workspace-root provided.".to_string(),
             ))
         }
-        (None, Some(manifest)) => (None, Some(Cow::Borrowed(manifest))),
+        (None, Some(manifest)) => {
+            cmd.manifest_path(manifest);
+        }
         (Some(root), None) => {
+            // TODO: should we do this ourselves? Probably fine, but are we
+            // adding anything by not just deferring to cargo?
             let assumed_manifest = root.join("Cargo.toml");
             if assumed_manifest.is_file() {
-                (None, Some(Cow::Owned(assumed_manifest)))
+                cmd.manifest_path(assumed_manifest);
             } else {
-                (Some(root), None)
+                cmd.current_dir(root);
             }
         }
-        (None, None) => (None, None),
+        (None, None) => {}
     };
 
-    let mut cmd = cargo_metadata::MetadataCommand::new();
-
-    // If a manifest path is provided, set it in the command
-    if let Some(manifest_path) = manifest_path {
-        cmd.manifest_path(manifest_path);
-    }
-    if let Some(workspace_root) = workspace_root {
-        cmd.current_dir(workspace_root);
-    }
     let metadata = cmd.no_deps().exec()?;
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
 
-    // If `--all` is passed, or there's no root package, we include all
+    // If `--workspace` is passed, or there's no root package, we include all
     // packages. If packages are specified, we filter from all packages.
     // Otherwise we use just the root package.
     //
@@ -435,7 +430,16 @@ fn handle_target_args<'a>(
     Ok(LocationInfo {
         workspace_root,
         packages,
-        exts,
+        exts: target_args
+        .extensions
+        .iter()
+        .map(|x| {
+            if let Some(no_period) = x.strip_prefix(".") {
+                eprintln!("`{}` supplied as an extenstion. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
+            };
+            x.as_str()
+        })
+        .collect(),
         find_flags: get_find_flags(&tool_config, target_args),
         tool_config,
     })
