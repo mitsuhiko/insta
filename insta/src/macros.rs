@@ -384,6 +384,16 @@ macro_rules! _assert_snapshot_base {
 ///
 /// This feature is considered experimental: we may make incompatible changes for the next couple
 /// of versions after 1.41.
+///
+/// Examples:
+///
+/// ```no_run
+/// // implicit name:
+/// insta::assert_binary_snapshot!(".txt", b"abcd".to_vec());
+///
+/// // named:
+/// insta::assert_binary_snapshot!("my_snapshot.bin", [0, 1, 2, 3].to_vec());
+/// ```
 #[macro_export]
 macro_rules! assert_binary_snapshot {
     ($name_and_extension:expr, $value:expr $(,)?) => {
