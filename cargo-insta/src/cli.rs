@@ -844,7 +844,13 @@ fn handle_unreferenced_snapshots(
             }
             eprintln!("  {}", path.display());
             if matches!(action, Action::Delete) {
-                let snapshot = Snapshot::from_file(&path)?;
+                let snapshot = match Snapshot::from_file(&path) {
+                    Ok(snapshot) => snapshot,
+                    Err(e) => {
+                        eprintln!("Error loading snapshot at {:?}: {}", &path, e);
+                        continue;
+                    }
+                };
 
                 if let Some(binary_path) = snapshot.build_binary_path(&path) {
                     fs::remove_file(&binary_path).ok();
