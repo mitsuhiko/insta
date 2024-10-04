@@ -1976,3 +1976,91 @@ Unused snapshot
     +      src/snapshots/test_unreferenced_delete__tests__snapshot.snap
     ");
 }
+
+#[test]
+fn test_binary_unreferenced_delete() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_unreferenced_delete"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_snapshot() {
+        insta::assert_binary_snapshot!(".txt", b"abcd".to_vec());
+    }
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run tests to create snapshots
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    test_project.update_file("src/lib.rs", "".to_string());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_unreferenced_delete__tests__snapshot.snap
+    +      src/snapshots/test_binary_unreferenced_delete__tests__snapshot.snap.txt
+    ");
+
+    // Run cargo insta test with --unreferenced=delete
+    let output = test_project
+        .insta_cmd()
+        .args([
+            "test",
+            "--unreferenced=delete",
+            "--accept",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // We should now see the unreferenced snapshot deleted
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,6 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    ");
+}
