@@ -3,7 +3,7 @@
 ///
 /// By default, the output of the inner test is forwarded to the outer test with
 /// a colored prefix. If we want to assert the inner test contains some output,
-/// we need to disable that forwarding with:
+/// we need to disable that forwarding with `Stdio::piped()` like:
 ///
 /// ```rust
 /// let output = test_project
