@@ -1,3 +1,6 @@
+#![warn(clippy::doc_markdown)]
+#![warn(rustdoc::all)]
+
 //! <div align="center">
 //!  <img src="https://github.com/mitsuhiko/insta/blob/master/assets/logo.png?raw=true" width="250" height="250">
 //!  <p><strong>cargo-insta: review tool for insta, a snapshot testing library for Rust</strong></p>

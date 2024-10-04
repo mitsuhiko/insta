@@ -217,7 +217,7 @@ struct TestCommand {
     test_runner: TestRunner,
     #[arg(long)]
     test_runner_fallback: Option<bool>,
-    /// Delete unreferenced snapshots after a successful test run.
+    /// Delete unreferenced snapshots after a successful test run (deprecated)
     #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
     /// Disable force-passing of snapshot tests (deprecated)
@@ -323,6 +323,24 @@ fn query_snapshot(
             style("toggle snapshot diff").dim()
         );
 
+        let new_is_binary = new.contents().is_binary();
+        let old_is_binary = old.map(|o| o.contents().is_binary()).unwrap_or(false);
+
+        if new_is_binary || old_is_binary {
+            println!(
+                "  {} open       {}",
+                style("o").cyan().bold(),
+                style(if new_is_binary && old_is_binary {
+                    "open snapshot files in external tool"
+                } else if new_is_binary {
+                    "open new snapshot file in external tool"
+                } else {
+                    "open old snapshot file in external tool"
+                })
+                .dim()
+            );
+        }
+
         loop {
             match term.read_key()? {
                 Key::Char('a') | Key::Enter => return Ok(Operation::Accept),
@@ -335,6 +353,21 @@ fn query_snapshot(
                 Key::Char('d') => {
                     *show_diff = !*show_diff;
                     break;
+                }
+                Key::Char('o') => {
+                    if let Some(old) = old {
+                        if let Some(path) = old.build_binary_path(snapshot_file.unwrap()) {
+                            open::that_detached(path)?;
+                        }
+                    }
+
+                    if let Some(path) =
+                        new.build_binary_path(snapshot_file.unwrap().with_extension("snap.new"))
+                    {
+                        open::that_detached(path)?;
+                    }
+
+                    // there's no break here because there's no need to re-output anything
                 }
                 _ => {}
             }
@@ -375,12 +408,12 @@ fn handle_target_args<'a>(
     // Empty if none are selected, implying cargo default
     packages: &'a [String],
 ) -> Result<LocationInfo<'a>, Box<dyn Error>> {
-    let exts: Vec<&str> = target_args.extensions.iter().map(|x| x.as_str()).collect();
+    let mut cmd = cargo_metadata::MetadataCommand::new();
 
-    // if a workspace root is provided we first check if it points to a `Cargo.toml`.  If it
-    // does we instead treat it as manifest path.  If both are provided we fail with an error
-    // as this would indicate an error.
-    let (workspace_root, manifest_path) = match (
+    // if a workspace root is provided we first check if it points to a
+    // `Cargo.toml`.  If it does we instead treat it as manifest path.  If both
+    // are provided we fail with an error.
+    match (
         target_args.workspace_root.as_deref(),
         target_args.manifest_path.as_deref(),
     ) {
@@ -389,32 +422,27 @@ fn handle_target_args<'a>(
                 "both manifest-path and workspace-root provided.".to_string(),
             ))
         }
-        (None, Some(manifest)) => (None, Some(Cow::Borrowed(manifest))),
+        (None, Some(manifest)) => {
+            cmd.manifest_path(manifest);
+        }
         (Some(root), None) => {
+            // TODO: should we do this ourselves? Probably fine, but are we
+            // adding anything by not just deferring to cargo?
             let assumed_manifest = root.join("Cargo.toml");
             if assumed_manifest.is_file() {
-                (None, Some(Cow::Owned(assumed_manifest)))
+                cmd.manifest_path(assumed_manifest);
             } else {
-                (Some(root), None)
+                cmd.current_dir(root);
             }
         }
-        (None, None) => (None, None),
+        (None, None) => {}
     };
 
-    let mut cmd = cargo_metadata::MetadataCommand::new();
-
-    // If a manifest path is provided, set it in the command
-    if let Some(manifest_path) = manifest_path {
-        cmd.manifest_path(manifest_path);
-    }
-    if let Some(workspace_root) = workspace_root {
-        cmd.current_dir(workspace_root);
-    }
     let metadata = cmd.no_deps().exec()?;
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
 
-    // If `--all` is passed, or there's no root package, we include all
+    // If `--workspace` is passed, or there's no root package, we include all
     // packages. If packages are specified, we filter from all packages.
     // Otherwise we use just the root package.
     //
@@ -437,7 +465,16 @@ fn handle_target_args<'a>(
     Ok(LocationInfo {
         workspace_root,
         packages,
-        exts,
+        exts: target_args
+        .extensions
+        .iter()
+        .map(|x| {
+            if let Some(no_period) = x.strip_prefix(".") {
+                eprintln!("`{}` supplied as an extenstion. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
+            };
+            x.as_str()
+        })
+        .collect(),
         find_flags: get_find_flags(&tool_config, target_args),
         tool_config,
     })
@@ -771,7 +808,7 @@ fn handle_unreferenced_snapshots(
     for package in loc.packages.clone() {
         let unreferenced_snapshots = make_snapshot_walker(
             package.manifest_path.parent().unwrap().as_std_path(),
-            &[".snap"],
+            &["snap"],
             FindFlags {
                 include_ignored: true,
                 include_hidden: true,
@@ -782,7 +819,11 @@ fn handle_unreferenced_snapshots(
         .filter(|e| {
             e.file_name()
                 .to_str()
-                .map(|name| name.ends_with(".snap"))
+                .map(|name| {
+                    loc.exts
+                        .iter()
+                        .any(|ext| name.ends_with(&format!(".{}", ext)))
+                })
                 .unwrap_or(false)
         })
         .filter_map(|e| e.path().canonicalize().ok())
@@ -805,6 +846,18 @@ fn handle_unreferenced_snapshots(
             }
             eprintln!("  {}", path.display());
             if matches!(action, Action::Delete) {
+                let snapshot = match Snapshot::from_file(&path) {
+                    Ok(snapshot) => snapshot,
+                    Err(e) => {
+                        eprintln!("Error loading snapshot at {:?}: {}", &path, e);
+                        continue;
+                    }
+                };
+
+                if let Some(binary_path) = snapshot.build_binary_path(&path) {
+                    fs::remove_file(&binary_path).ok();
+                }
+
                 fs::remove_file(&path).ok();
             }
         }
@@ -1079,8 +1132,11 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         let is_inline = snapshot_container.snapshot_file().is_none();
         for snapshot_ref in snapshot_container.iter_snapshots() {
             if cmd.as_json {
-                let old_snapshot = snapshot_ref.old.as_ref().map(|x| x.contents_string());
-                let new_snapshot = snapshot_ref.new.contents_string();
+                let old_snapshot = snapshot_ref
+                    .old
+                    .as_ref()
+                    .map(|x| x.contents_string().unwrap());
+                let new_snapshot = snapshot_ref.new.contents_string().unwrap();
                 let info = if is_inline {
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,
@@ -1133,6 +1189,7 @@ fn show_undiscovered_hint(
         .filter_map(|e| e.ok())
         .filter(|x| {
             let fname = x.file_name().to_string_lossy();
+            // TODO: use `extensions` here
             fname.ends_with(".snap.new") || fname.ends_with(".pending-snap")
         }) {
             if !found_snapshots.contains(snapshot.path()) {

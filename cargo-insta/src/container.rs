@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use insta::Snapshot;
-pub(crate) use insta::SnapshotKind;
+pub(crate) use insta::TextSnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
 
 use crate::inline::FilePatcher;
@@ -51,7 +51,7 @@ pub(crate) struct SnapshotContainer {
     pending_path: PathBuf,
     // Path of the target snapshot file (generally a `.snap` file)
     target_path: PathBuf,
-    kind: SnapshotKind,
+    kind: TextSnapshotKind,
     snapshots: Vec<PendingSnapshot>,
     patcher: Option<FilePatcher>,
 }
@@ -60,11 +60,11 @@ impl SnapshotContainer {
     pub(crate) fn load(
         pending_path: PathBuf,
         target_path: PathBuf,
-        kind: SnapshotKind,
+        kind: TextSnapshotKind,
     ) -> Result<SnapshotContainer, Box<dyn Error>> {
         let mut snapshots = Vec::new();
         let patcher = match kind {
-            SnapshotKind::File => {
+            TextSnapshotKind::File => {
                 let old = if fs::metadata(&target_path).is_err() {
                     None
                 } else {
@@ -80,7 +80,7 @@ impl SnapshotContainer {
                 });
                 None
             }
-            SnapshotKind::Inline => {
+            TextSnapshotKind::Inline => {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&pending_path)?;
                 let mut have_new = false;
 
@@ -136,8 +136,8 @@ impl SnapshotContainer {
 
     pub(crate) fn snapshot_file(&self) -> Option<&Path> {
         match self.kind {
-            SnapshotKind::File => Some(&self.target_path),
-            SnapshotKind::Inline => None,
+            TextSnapshotKind::File => Some(&self.target_path),
+            TextSnapshotKind::Inline => None,
         }
     }
 
@@ -167,7 +167,7 @@ impl SnapshotContainer {
         // Try removing the snapshot file. If it fails, it's
         // likely because it another process removed it; which
         // is fine — print a message and continue.
-        let try_removing_snapshot = |p| {
+        let try_removing_snapshot = |p: &Path| {
             fs::remove_file(p).unwrap_or_else(|_| {
                     eprintln!(
                         "Pending snapshot file at {:?} couldn't be removed. It was likely removed by another process.",
@@ -184,7 +184,10 @@ impl SnapshotContainer {
             for (idx, snapshot) in self.snapshots.iter().enumerate() {
                 match snapshot.op {
                     Operation::Accept => {
-                        patcher.set_new_content(idx, snapshot.new.contents());
+                        patcher.set_new_content(
+                            idx,
+                            snapshot.new.contents().as_string_contents().unwrap(),
+                        );
                         did_accept = true;
                     }
                     Operation::Reject => {}
@@ -213,22 +216,28 @@ impl SnapshotContainer {
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
                     Operation::Accept => {
-                        let snapshot = Snapshot::from_file(&self.pending_path).map_err(|e| {
-                            // If it's an IO error, pass a ContentError back so
-                            // we get a slightly clearer error message
-                            match e.downcast::<std::io::Error>() {
-                                Ok(io_error) => Box::new(ContentError::FileIo(
-                                    *io_error,
-                                    self.pending_path.to_path_buf(),
-                                )),
-                                Err(other_error) => other_error,
-                            }
-                        })?;
-                        snapshot.save(&self.target_path)?;
                         try_removing_snapshot(&self.pending_path);
+
+                        if let Some(ref old) = snapshot.old {
+                            if let Some(path) = old.build_binary_path(&self.target_path) {
+                                try_removing_snapshot(&path);
+                            }
+                        }
+
+                        if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
+                            try_removing_snapshot(&path);
+                        }
+
+                        // We save at the end because we might write a binary file into the same
+                        // path again.
+                        snapshot.new.save(&self.target_path)?;
                     }
                     Operation::Reject => {
                         try_removing_snapshot(&self.pending_path);
+
+                        if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
+                            try_removing_snapshot(&path);
+                        }
                     }
                     Operation::Skip => {}
                 }
