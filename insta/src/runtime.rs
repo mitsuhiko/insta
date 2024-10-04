@@ -755,7 +755,7 @@ where
 /// assertion with a panic if needed.
 #[allow(clippy::too_many_arguments)]
 pub fn assert_snapshot(
-    new_snapshot_value: SnapshotValue<'_>,
+    snapshot_value: SnapshotValue<'_>,
     workspace: &Path,
     function_name: &str,
     module_path: &str,
@@ -764,7 +764,7 @@ pub fn assert_snapshot(
     expr: &str,
 ) -> Result<(), Box<dyn Error>> {
     let ctx = SnapshotAssertionContext::prepare(
-        &new_snapshot_value,
+        &snapshot_value,
         workspace,
         function_name,
         module_path,
@@ -774,7 +774,7 @@ pub fn assert_snapshot(
 
     ctx.cleanup_previous_pending_binary_snapshots()?;
 
-    let content = match new_snapshot_value {
+    let content = match snapshot_value {
         SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
             // apply filters if they are available
             #[cfg(feature = "filters")]
