@@ -219,7 +219,11 @@ impl<'a> SnapshotPrinter<'a> {
             }
 
             println!("────────────┬{:─^1$}", "", width.saturating_sub(13));
-            let mut has_changes = false;
+
+            // This is to make sure that binary and text snapshots are never reported as being
+            // equal (that would otherwise happen if the text snapshot is an empty string).
+            let mut has_changes = old.is_none() || new.is_none();
+
             for (idx, group) in diff.grouped_ops(4).iter().enumerate() {
                 if idx > 0 {
                     println!("┈┈┈┈┈┈┈┈┈┈┈┈┼{:┈^1$}", "", width.saturating_sub(13));
