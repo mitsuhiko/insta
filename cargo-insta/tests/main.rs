@@ -1514,6 +1514,20 @@ Unused snapshot
     )
     .unwrap();
 
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/test_unreferenced_delete__tests__snapshot.snap
+    +      src/snapshots/test_unreferenced_delete__tests__unused_snapshot.snap
+    ");
+
     // Run cargo insta test with --unreferenced=delete
     let output = test_project
         .insta_cmd()
@@ -1529,7 +1543,7 @@ Unused snapshot
 
     assert!(&output.status.success());
 
-    // Use the file_tree_diff method to check the changes
+    // We should now see the unreferenced snapshot deleted
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
