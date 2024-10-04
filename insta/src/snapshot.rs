@@ -538,11 +538,7 @@ impl Snapshot {
                     TextSnapshotKind::Inline => contents_match_exact,
                 }
             }
-            (SnapshotContents::Binary(a), SnapshotContents::Binary(b)) => {
-                // For binary snapshots the extension also need to be the same:
-                a == b && self.metadata.snapshot_kind == other.metadata.snapshot_kind
-            }
-            _ => false,
+            _ => self.matches(other),
         }
     }
 
