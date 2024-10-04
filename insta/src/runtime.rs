@@ -166,9 +166,12 @@ impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
             content,
         }: BinarySnapshotValue<'a>,
     ) -> Self {
-        let (name, extension) = name_and_extension
-            .split_once('.')
-            .expect("the snapshot name and extension should be in the format \"name.extension\"");
+        let (name, extension) = name_and_extension.split_once('.').unwrap_or_else(|| {
+            panic!(
+                "{} does not match the format \"name.extension\"",
+                name_and_extension,
+            )
+        });
 
         let name = if name.is_empty() {
             None
