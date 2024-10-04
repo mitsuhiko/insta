@@ -40,7 +40,7 @@ cargo run -p cargo-insta -- test # (or `review` or whatever command you want to 
 ## Writing tests
 
 If making non-trivial changes to `cargo-insta`, please add an integration test to
-`cargo-insta/tests/main.rs`. Feel free an issue if anything is unclear.
+`cargo-insta/tests/main.rs`. Feel free to add an issue if anything is unclear.
 
 ## Website / Documentation
 
