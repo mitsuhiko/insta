@@ -1454,3 +1454,92 @@ fn test_hello() {
     Hello, world!
     "#);
 }
+
+#[test]
+fn test_unreferenced_delete() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_unreferenced_delete"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_snapshot() {
+        insta::assert_snapshot!("Hello, world!");
+    }
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run tests to create snapshots
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // Manually add an unreferenced snapshot
+    let unreferenced_snapshot_path = test_project
+        .workspace_dir
+        .join("src/snapshots/test_unreferenced_delete__tests__unused_snapshot.snap");
+    std::fs::create_dir_all(unreferenced_snapshot_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &unreferenced_snapshot_path,
+        r#"---
+source: src/lib.rs
+expression: "Unused snapshot"
+---
+Unused snapshot
+"#,
+    )
+    .unwrap();
+
+    // Run cargo insta test with --unreferenced=delete
+    let output = test_project
+        .insta_cmd()
+        .args([
+            "test",
+            "--unreferenced=delete",
+            "--accept",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // Use the file_tree_diff method to check the changes
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/test_unreferenced_delete__tests__snapshot.snap
+    ");
+}
