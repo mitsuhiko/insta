@@ -4,7 +4,7 @@ use std::{path::Path, time::Duration};
 use similar::{Algorithm, ChangeTag, TextDiff};
 
 use crate::content::yaml;
-use crate::snapshot::{MetaData, Snapshot};
+use crate::snapshot::{MetaData, Snapshot, SnapshotContents};
 use crate::utils::{format_rust_expression, style, term_width};
 
 /// Snapshot printer utility.
@@ -103,121 +103,198 @@ impl<'a> SnapshotPrinter<'a> {
     fn print_snapshot(&self) {
         print_line(term_width());
 
-        let new_contents = self.new_snapshot.contents_string();
-
         let width = term_width();
         if self.show_info {
             self.print_info();
         }
         println!("Snapshot Contents:");
-        println!("──────┬{:─^1$}", "", width.saturating_sub(7));
-        for (idx, line) in new_contents.lines().enumerate() {
-            println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
+
+        match self.new_snapshot.contents() {
+            SnapshotContents::Text(new_contents) => {
+                let new_contents = new_contents.to_string();
+
+                println!("──────┬{:─^1$}", "", width.saturating_sub(7));
+                for (idx, line) in new_contents.lines().enumerate() {
+                    println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
+                }
+                println!("──────┴{:─^1$}", "", width.saturating_sub(7));
+            }
+            SnapshotContents::Binary(_) => {
+                println!(
+                    "{}",
+                    encode_file_link_escape(
+                        &self
+                            .new_snapshot
+                            .build_binary_path(
+                                self.snapshot_file.unwrap().with_extension("snap.new")
+                            )
+                            .unwrap()
+                    )
+                );
+            }
         }
-        println!("──────┴{:─^1$}", "", width.saturating_sub(7));
     }
 
     fn print_changeset(&self) {
-        let old: String = self
-            .old_snapshot
-            .map_or("".to_string(), |x| x.contents_string());
-        let new = self.new_snapshot.contents_string();
-        let newlines_matter = newlines_matter(old.as_str(), new.as_str());
-
         let width = term_width();
-        let diff = TextDiff::configure()
-            .algorithm(Algorithm::Patience)
-            .timeout(Duration::from_millis(500))
-            .diff_lines(old.as_str(), new.as_str());
         print_line(width);
 
         if self.show_info {
             self.print_info();
         }
 
-        if !old.is_empty() {
+        if let Some(old_snapshot) = self.old_snapshot {
+            if old_snapshot.contents().is_binary() {
+                println!(
+                    "{}",
+                    style(format_args!(
+                        "-{}: {}",
+                        self.old_snapshot_hint,
+                        encode_file_link_escape(
+                            &old_snapshot
+                                .build_binary_path(self.snapshot_file.unwrap())
+                                .unwrap()
+                        ),
+                    ))
+                    .red()
+                );
+            }
+        }
+
+        if self.new_snapshot.contents().is_binary() {
             println!(
                 "{}",
-                style(format_args!("-{}", self.old_snapshot_hint)).red()
+                style(format_args!(
+                    "+{}: {}",
+                    self.new_snapshot_hint,
+                    encode_file_link_escape(
+                        &self
+                            .new_snapshot
+                            .build_binary_path(
+                                self.snapshot_file.unwrap().with_extension("snap.new")
+                            )
+                            .unwrap()
+                    ),
+                ))
+                .green()
             );
         }
-        println!(
-            "{}",
-            style(format_args!("+{}", self.new_snapshot_hint)).green()
-        );
 
-        println!("────────────┬{:─^1$}", "", width.saturating_sub(13));
-        let mut has_changes = false;
-        for (idx, group) in diff.grouped_ops(4).iter().enumerate() {
-            if idx > 0 {
-                println!("┈┈┈┈┈┈┈┈┈┈┈┈┼{:┈^1$}", "", width.saturating_sub(13));
+        if let Some((old, new)) = match (
+            self.old_snapshot.as_ref().map(|o| o.contents()),
+            self.new_snapshot.contents(),
+        ) {
+            (Some(SnapshotContents::Binary(_)) | None, SnapshotContents::Text(new)) => {
+                Some((None, Some(new.to_string())))
             }
-            for op in group {
-                for change in diff.iter_inline_changes(op) {
-                    match change.tag() {
-                        ChangeTag::Insert => {
-                            has_changes = true;
-                            print!(
-                                "{:>5} {:>5} │{}",
-                                "",
-                                style(change.new_index().unwrap()).cyan().dim().bold(),
-                                style("+").green(),
-                            );
-                            for &(emphasized, change) in change.values() {
-                                let change = render_invisible(change, newlines_matter);
-                                if emphasized {
-                                    print!("{}", style(change).green().underlined());
-                                } else {
-                                    print!("{}", style(change).green());
+            (Some(SnapshotContents::Text(old)), SnapshotContents::Binary { .. }) => {
+                Some((Some(old.to_string()), None))
+            }
+            (Some(SnapshotContents::Text(old)), SnapshotContents::Text(new)) => {
+                Some((Some(old.to_string()), Some(new.to_string())))
+            }
+            _ => None,
+        } {
+            let old_text = old.as_deref().unwrap_or("");
+            let new_text = new.as_deref().unwrap_or("");
+
+            let newlines_matter = newlines_matter(old_text, new_text);
+            let diff = TextDiff::configure()
+                .algorithm(Algorithm::Patience)
+                .timeout(Duration::from_millis(500))
+                .diff_lines(old_text, new_text);
+
+            if old.is_some() {
+                println!(
+                    "{}",
+                    style(format_args!("-{}", self.old_snapshot_hint)).red()
+                );
+            }
+
+            if new.is_some() {
+                println!(
+                    "{}",
+                    style(format_args!("+{}", self.new_snapshot_hint)).green()
+                );
+            }
+
+            println!("────────────┬{:─^1$}", "", width.saturating_sub(13));
+
+            // This is to make sure that binary and text snapshots are never reported as being
+            // equal (that would otherwise happen if the text snapshot is an empty string).
+            let mut has_changes = old.is_none() || new.is_none();
+
+            for (idx, group) in diff.grouped_ops(4).iter().enumerate() {
+                if idx > 0 {
+                    println!("┈┈┈┈┈┈┈┈┈┈┈┈┼{:┈^1$}", "", width.saturating_sub(13));
+                }
+                for op in group {
+                    for change in diff.iter_inline_changes(op) {
+                        match change.tag() {
+                            ChangeTag::Insert => {
+                                has_changes = true;
+                                print!(
+                                    "{:>5} {:>5} │{}",
+                                    "",
+                                    style(change.new_index().unwrap()).cyan().dim().bold(),
+                                    style("+").green(),
+                                );
+                                for &(emphasized, change) in change.values() {
+                                    let change = render_invisible(change, newlines_matter);
+                                    if emphasized {
+                                        print!("{}", style(change).green().underlined());
+                                    } else {
+                                        print!("{}", style(change).green());
+                                    }
+                                }
+                            }
+                            ChangeTag::Delete => {
+                                has_changes = true;
+                                print!(
+                                    "{:>5} {:>5} │{}",
+                                    style(change.old_index().unwrap()).cyan().dim(),
+                                    "",
+                                    style("-").red(),
+                                );
+                                for &(emphasized, change) in change.values() {
+                                    let change = render_invisible(change, newlines_matter);
+                                    if emphasized {
+                                        print!("{}", style(change).red().underlined());
+                                    } else {
+                                        print!("{}", style(change).red());
+                                    }
+                                }
+                            }
+                            ChangeTag::Equal => {
+                                print!(
+                                    "{:>5} {:>5} │ ",
+                                    style(change.old_index().unwrap()).cyan().dim(),
+                                    style(change.new_index().unwrap()).cyan().dim().bold(),
+                                );
+                                for &(_, change) in change.values() {
+                                    let change = render_invisible(change, newlines_matter);
+                                    print!("{}", style(change).dim());
                                 }
                             }
                         }
-                        ChangeTag::Delete => {
-                            has_changes = true;
-                            print!(
-                                "{:>5} {:>5} │{}",
-                                style(change.old_index().unwrap()).cyan().dim(),
-                                "",
-                                style("-").red(),
-                            );
-                            for &(emphasized, change) in change.values() {
-                                let change = render_invisible(change, newlines_matter);
-                                if emphasized {
-                                    print!("{}", style(change).red().underlined());
-                                } else {
-                                    print!("{}", style(change).red());
-                                }
-                            }
+                        if change.missing_newline() {
+                            println!();
                         }
-                        ChangeTag::Equal => {
-                            print!(
-                                "{:>5} {:>5} │ ",
-                                style(change.old_index().unwrap()).cyan().dim(),
-                                style(change.new_index().unwrap()).cyan().dim().bold(),
-                            );
-                            for &(_, change) in change.values() {
-                                let change = render_invisible(change, newlines_matter);
-                                print!("{}", style(change).dim());
-                            }
-                        }
-                    }
-                    if change.missing_newline() {
-                        println!();
                     }
                 }
             }
-        }
 
-        if !has_changes {
-            println!(
-                "{:>5} {:>5} │{}",
-                "",
-                style("-").dim(),
-                style(" snapshots are matching").cyan(),
-            );
-        }
+            if !has_changes {
+                println!(
+                    "{:>5} {:>5} │{}",
+                    "",
+                    style("-").dim(),
+                    style(" snapshots are matching").cyan(),
+                );
+            }
 
-        println!("────────────┴{:─^1$}", "", width.saturating_sub(13));
+            println!("────────────┴{:─^1$}", "", width.saturating_sub(13));
+        }
     }
 }
 
@@ -352,6 +429,17 @@ fn print_info(metadata: &MetaData) {
         println!("{}", out.trim().strip_prefix("---").unwrap().trim_start());
         print_line(width);
     }
+}
+
+/// Encodes a path as an OSC-8 escape sequence. This makes it a clickable link in supported
+/// terminal emulators.
+fn encode_file_link_escape(path: &Path) -> String {
+    assert!(path.is_absolute());
+    format!(
+        "\x1b]8;;file://{}\x1b\\{}\x1b]8;;\x1b\\",
+        path.display(),
+        path.display()
+    )
 }
 
 #[test]

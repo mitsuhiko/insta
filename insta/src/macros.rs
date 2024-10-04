@@ -339,7 +339,7 @@ macro_rules! _assert_snapshot_base {
         $crate::_assert_snapshot_base!(
             transform = $transform,
             #[allow(clippy::needless_raw_string_hashes)]
-            $crate::_macro_support::ReferenceValue::Inline($snapshot),
+            $crate::_macro_support::InlineValue($snapshot),
             $($arg),*
         )
     };
@@ -359,9 +359,54 @@ macro_rules! _assert_snapshot_base {
     // The main macro body — every call to this macro should end up here.
     (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
         $crate::_macro_support::assert_snapshot(
-            $name.into(),
-            #[allow(clippy::redundant_closure_call)]
-            &$transform(&$value),
+            (
+                $name,
+                #[allow(clippy::redundant_closure_call)]
+                $transform(&$value).as_str(),
+            ).into(),
+            $crate::_get_workspace_root!().as_path(),
+            $crate::_function_name!(),
+            module_path!(),
+            file!(),
+            line!(),
+            $debug_expr,
+        )
+        .unwrap()
+    };
+}
+
+/// (Experimental)
+/// Asserts a binary snapshot in the form of a [`Vec<u8>`].
+///
+/// The contents get stored in a separate file next to the metadata file. The extension for this
+/// file must be passed as part of the name. For an implicit snapshot name just an extension can be
+/// passed starting with a `.`.
+///
+/// This feature is considered experimental: we may make incompatible changes for the next couple
+/// of versions after 1.41.
+///
+/// Examples:
+///
+/// ```no_run
+/// // implicit name:
+/// insta::assert_binary_snapshot!(".txt", b"abcd".to_vec());
+///
+/// // named:
+/// insta::assert_binary_snapshot!("my_snapshot.bin", [0, 1, 2, 3].to_vec());
+/// ```
+#[macro_export]
+macro_rules! assert_binary_snapshot {
+    ($name_and_extension:expr, $value:expr $(,)?) => {
+        $crate::assert_binary_snapshot!($name_and_extension, $value, stringify!($value));
+    };
+
+    ($name_and_extension:expr, $value:expr, $debug_expr:expr $(,)?) => {
+        $crate::_macro_support::assert_snapshot(
+            $crate::_macro_support::BinarySnapshotValue {
+                name_and_extension: $name_and_extension,
+                content: $value,
+            }
+            .into(),
             $crate::_get_workspace_root!().as_path(),
             $crate::_function_name!(),
             module_path!(),
