@@ -11,7 +11,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Inline snapshots only use `#` characters as delimiters when required.  #603
 
-- Experimental support for binary snapshots
+- Experimental support for binary snapshots.  #610 (Florian Plattner)
 
 ## 1.40.0
 
