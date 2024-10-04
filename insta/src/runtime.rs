@@ -792,7 +792,7 @@ pub fn assert_snapshot(
         } => {
             assert!(
                 extension != "new",
-                "'.new' is not allowed as a file extension"
+                "'new' is not allowed as a file extension"
             );
             assert!(
                 !extension.starts_with("new."),
