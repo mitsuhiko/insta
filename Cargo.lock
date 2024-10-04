@@ -76,6 +76,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "open",
+ "os_pipe",
  "proc-macro2",
  "semver",
  "serde",
@@ -498,6 +499,16 @@ dependencies = [
  "is-wsl",
  "libc",
  "pathdiff",
+]
+
+[[package]]
+name = "os_pipe"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb233f06c2307e1f5ce2ecad9f8121cffbbee2c95428f44ea85222e460d0d213"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]
