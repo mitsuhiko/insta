@@ -5,7 +5,7 @@ use std::path::Path;
 use ignore::overrides::OverrideBuilder;
 use ignore::{DirEntry, Walk, WalkBuilder};
 
-use crate::container::{SnapshotContainer, SnapshotKind};
+use crate::container::{SnapshotContainer, TextSnapshotKind};
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct FindFlags {
@@ -38,7 +38,7 @@ pub(crate) fn find_pending_snapshots<'a>(
                 Some(SnapshotContainer::load(
                     path.clone(),
                     path.with_file_name(new_fname),
-                    SnapshotKind::File,
+                    TextSnapshotKind::File,
                 ))
             } else if let Some(new_fname) = fname
                 .strip_prefix('.')
@@ -47,7 +47,7 @@ pub(crate) fn find_pending_snapshots<'a>(
                 Some(SnapshotContainer::load(
                     path.clone(),
                     path.with_file_name(new_fname),
-                    SnapshotKind::Inline,
+                    TextSnapshotKind::Inline,
                 ))
             } else {
                 None

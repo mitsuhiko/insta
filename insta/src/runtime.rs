@@ -2,14 +2,17 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::str;
 use std::sync::{Arc, Mutex};
 use std::{borrow::Cow, env};
 
 use crate::settings::Settings;
-use crate::snapshot::{MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents};
+use crate::snapshot::{
+    MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents, SnapshotKind, TextSnapshotContents,
+};
 use crate::utils::{path_to_storage, style};
 use crate::{env::get_tool_config, output::SnapshotPrinter};
 use crate::{
@@ -17,7 +20,7 @@ use crate::{
         memoize_snapshot_file, snapshot_update_behavior, OutputBehavior, SnapshotUpdateBehavior,
         ToolConfig,
     },
-    snapshot::SnapshotKind,
+    snapshot::TextSnapshotKind,
 };
 
 lazy_static::lazy_static! {
@@ -62,43 +65,126 @@ macro_rules! print_or_panic {
 #[derive(Debug)]
 pub struct AutoName;
 
-impl From<AutoName> for ReferenceValue<'static> {
-    fn from(_value: AutoName) -> ReferenceValue<'static> {
-        ReferenceValue::File(None)
+pub struct InlineValue<'a>(pub &'a str);
+
+/// The name of a snapshot, from which the path is derived.
+type SnapshotName<'a> = Option<Cow<'a, str>>;
+
+pub struct BinarySnapshotValue<'a> {
+    pub name_and_extension: &'a str,
+    pub content: Vec<u8>,
+}
+
+pub enum SnapshotValue<'a> {
+    /// A text snapshot that gets stored along with the metadata in the same file.
+    FileText {
+        name: SnapshotName<'a>,
+
+        /// The new generated value to compare against any previously approved content.
+        content: &'a str,
+    },
+
+    /// An inline snapshot.
+    InlineText {
+        /// The reference content from the macro invocation that will be compared against.
+        reference_content: &'a str,
+
+        /// The new generated value to compare against any previously approved content.
+        content: &'a str,
+    },
+
+    /// A binary snapshot that gets stored as a separate file next to the metadata file.
+    Binary {
+        name: SnapshotName<'a>,
+
+        /// The new generated value to compare against any previously approved content.
+        content: Vec<u8>,
+
+        /// The extension of the separate file.
+        extension: &'a str,
+    },
+}
+
+impl<'a> From<(AutoName, &'a str)> for SnapshotValue<'a> {
+    fn from((_, content): (AutoName, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: None,
+            content,
+        }
     }
 }
 
-impl From<Option<String>> for ReferenceValue<'static> {
-    fn from(value: Option<String>) -> ReferenceValue<'static> {
-        ReferenceValue::File(value.map(Cow::Owned))
+impl<'a> From<(Option<String>, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (Option<String>, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: name.map(Cow::Owned),
+            content,
+        }
     }
 }
 
-impl From<String> for ReferenceValue<'static> {
-    fn from(value: String) -> ReferenceValue<'static> {
-        ReferenceValue::File(Some(Cow::Owned(value)))
+impl<'a> From<(String, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (String, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: Some(Cow::Owned(name)),
+            content,
+        }
     }
 }
 
-impl<'a> From<Option<&'a str>> for ReferenceValue<'a> {
-    fn from(value: Option<&'a str>) -> ReferenceValue<'a> {
-        ReferenceValue::File(value.map(Cow::Borrowed))
+impl<'a> From<(Option<&'a str>, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (Option<&'a str>, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: name.map(Cow::Borrowed),
+            content,
+        }
     }
 }
 
-impl<'a> From<&'a str> for ReferenceValue<'a> {
-    fn from(value: &'a str) -> ReferenceValue<'a> {
-        ReferenceValue::File(Some(Cow::Borrowed(value)))
+impl<'a> From<(&'a str, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (&'a str, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: Some(Cow::Borrowed(name)),
+            content,
+        }
     }
 }
 
-#[derive(Debug)]
-/// A reference to a snapshot
-pub enum ReferenceValue<'a> {
-    /// A file snapshot, where the inner value is the snapshot name.
-    File(Option<Cow<'a, str>>),
-    /// An inline snapshot, where the inner value is the snapshot contents.
-    Inline(&'a str),
+impl<'a> From<(InlineValue<'a>, &'a str)> for SnapshotValue<'a> {
+    fn from((InlineValue(reference_content), content): (InlineValue<'a>, &'a str)) -> Self {
+        SnapshotValue::InlineText {
+            reference_content,
+            content,
+        }
+    }
+}
+
+impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
+    fn from(
+        BinarySnapshotValue {
+            name_and_extension,
+            content,
+        }: BinarySnapshotValue<'a>,
+    ) -> Self {
+        let (name, extension) = name_and_extension.split_once('.').unwrap_or_else(|| {
+            panic!(
+                "\"{}\" does not match the format \"name.extension\"",
+                name_and_extension,
+            )
+        });
+
+        let name = if name.is_empty() {
+            None
+        } else {
+            Some(Cow::Borrowed(name))
+        };
+
+        SnapshotValue::Binary {
+            name,
+            extension,
+            content,
+        }
+    }
 }
 
 fn is_doctest(function_name: &str) -> bool {
@@ -226,11 +312,12 @@ struct SnapshotAssertionContext<'a> {
     assertion_file: &'a str,
     assertion_line: u32,
     is_doctest: bool,
+    snapshot_kind: SnapshotKind,
 }
 
 impl<'a> SnapshotAssertionContext<'a> {
     fn prepare(
-        refval: ReferenceValue<'a>,
+        new_snapshot_value: &SnapshotValue<'a>,
         workspace: &'a Path,
         function_name: &'a str,
         module_path: &'a str,
@@ -245,10 +332,10 @@ impl<'a> SnapshotAssertionContext<'a> {
         let mut pending_snapshots_path = None;
         let is_doctest = is_doctest(function_name);
 
-        match refval {
-            ReferenceValue::File(name) => {
-                let name = match name {
-                    Some(name) => add_suffix_to_snapshot_name(name),
+        match new_snapshot_value {
+            SnapshotValue::FileText { name, .. } | SnapshotValue::Binary { name, .. } => {
+                let name = match &name {
+                    Some(name) => add_suffix_to_snapshot_name(name.clone()),
                     None => {
                         if is_doctest {
                             panic!("Cannot determine reliable names for snapshot in doctests.  Please use explicit names instead.");
@@ -274,7 +361,10 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_name = Some(name);
                 snapshot_file = Some(file);
             }
-            ReferenceValue::Inline(contents) => {
+            SnapshotValue::InlineText {
+                reference_content: contents,
+                ..
+            } => {
                 if allow_duplicates() {
                     duplication_key = Some(format!(
                         "inline:{}|{}|{}",
@@ -300,9 +390,17 @@ impl<'a> SnapshotAssertionContext<'a> {
                     module_path.replace("::", "__"),
                     None,
                     MetaData::default(),
-                    SnapshotContents::new(contents.to_string(), SnapshotKind::Inline),
+                    TextSnapshotContents::new(contents.to_string(), TextSnapshotKind::Inline)
+                        .into(),
                 ));
             }
+        };
+
+        let snapshot_type = match new_snapshot_value {
+            SnapshotValue::FileText { .. } | SnapshotValue::InlineText { .. } => SnapshotKind::Text,
+            &SnapshotValue::Binary { extension, .. } => SnapshotKind::Binary {
+                extension: extension.to_string(),
+            },
         };
 
         Ok(SnapshotAssertionContext {
@@ -317,6 +415,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             assertion_line,
             duplication_key,
             is_doctest,
+            snapshot_kind: snapshot_type,
         })
     }
 
@@ -329,6 +428,11 @@ impl<'a> SnapshotAssertionContext<'a> {
 
     /// Creates the new snapshot from input values.
     pub fn new_snapshot(&self, contents: SnapshotContents, expr: &str) -> Snapshot {
+        assert_eq!(
+            contents.is_binary(),
+            matches!(self.snapshot_kind, SnapshotKind::Binary { .. })
+        );
+
         Snapshot::from_components(
             self.module_path.replace("::", "__"),
             self.snapshot_name.as_ref().map(|x| x.to_string()),
@@ -346,6 +450,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .input_file()
                     .and_then(|x| self.localize_path(x))
                     .map(|x| path_to_storage(&x)),
+                snapshot_kind: self.snapshot_kind.clone(),
             }),
             contents,
         )
@@ -367,6 +472,43 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .save(pending_snapshots)?;
             }
         }
+        Ok(())
+    }
+
+    /// Removes any old .snap.new.* files that belonged to previous pending snapshots. This should
+    /// only ever remove maxium one file because we do this every time before we create a new
+    /// pending snapshot.
+    pub fn cleanup_previous_pending_binary_snapshots(&self) -> Result<(), Box<dyn Error>> {
+        if let Some(ref path) = self.snapshot_file {
+            // The file name to compare against has to be valid utf-8 as it is generated by this crate
+            // out of utf-8 strings.
+            let file_name_prefix = format!("{}.new.", path.file_name().unwrap().to_str().unwrap());
+
+            let read_dir = path.parent().unwrap().read_dir();
+
+            match read_dir {
+                Err(e) if e.kind() == ErrorKind::NotFound => return Ok(()),
+                _ => (),
+            }
+
+            // We have to loop over where whole directory here because there is no filesystem API
+            // for getting files by prefix.
+            for entry in read_dir? {
+                let entry = entry?;
+                let entry_file_name = entry.file_name();
+
+                // We'll just skip over files with non-utf-8 names. The assumption being that those
+                // would not have been generated by this crate.
+                if entry_file_name
+                    .to_str()
+                    .map(|f| f.starts_with(&file_name_prefix))
+                    .unwrap_or(false)
+                {
+                    std::fs::remove_file(entry.path())?;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -613,8 +755,7 @@ where
 /// assertion with a panic if needed.
 #[allow(clippy::too_many_arguments)]
 pub fn assert_snapshot(
-    refval: ReferenceValue,
-    new_snapshot_value: &str,
+    snapshot_value: SnapshotValue<'_>,
     workspace: &Path,
     function_name: &str,
     module_path: &str,
@@ -623,7 +764,7 @@ pub fn assert_snapshot(
     expr: &str,
 ) -> Result<(), Box<dyn Error>> {
     let ctx = SnapshotAssertionContext::prepare(
-        refval,
+        &snapshot_value,
         workspace,
         function_name,
         module_path,
@@ -631,17 +772,38 @@ pub fn assert_snapshot(
         assertion_line,
     )?;
 
-    // apply filters if they are available
-    #[cfg(feature = "filters")]
-    let new_snapshot_value =
-        Settings::with(|settings| settings.filters().apply_to(new_snapshot_value));
+    ctx.cleanup_previous_pending_binary_snapshots()?;
 
-    let kind = match ctx.snapshot_file {
-        Some(_) => SnapshotKind::File,
-        None => SnapshotKind::Inline,
+    let content = match snapshot_value {
+        SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
+            // apply filters if they are available
+            #[cfg(feature = "filters")]
+            let content = Settings::with(|settings| settings.filters().apply_to(content));
+
+            let kind = match ctx.snapshot_file {
+                Some(_) => TextSnapshotKind::File,
+                None => TextSnapshotKind::Inline,
+            };
+
+            TextSnapshotContents::new(content.into(), kind).into()
+        }
+        SnapshotValue::Binary {
+            content, extension, ..
+        } => {
+            assert!(
+                extension != "new",
+                "'.new' is not allowed as a file extension"
+            );
+            assert!(
+                !extension.starts_with("new."),
+                "file extensions starting with 'new.' are not allowed",
+            );
+
+            SnapshotContents::Binary(Rc::new(content))
+        }
     };
-    let new_snapshot =
-        ctx.new_snapshot(SnapshotContents::new(new_snapshot_value.into(), kind), expr);
+
+    let new_snapshot = ctx.new_snapshot(content, expr);
 
     // memoize the snapshot file if requested, as part of potentially removing unreferenced snapshots
     if let Some(ref snapshot_file) = ctx.snapshot_file {
