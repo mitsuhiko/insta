@@ -1255,7 +1255,7 @@ mod tests {
         .create_project();
 
     let output = test_project
-        .cmd()
+        .insta_cmd()
         .args(["test", "--accept", "--", "--nocapture"])
         .output()
         .unwrap();
