@@ -11,7 +11,11 @@
 ///     .args(["test"])
 ///     .stderr(Stdio::piped())
 ///
-/// assert!(String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review")
+/// assert!(
+///     String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review"),
+///    "{}",
+///     String::from_utf8_lossy(&output.stderr)
+/// );
 /// ```
 ///
 /// Often we want to see output from the test commands we run here; for example
