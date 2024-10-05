@@ -1153,16 +1153,16 @@ fn test_wrong_indent_force() {
     assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -4,9 +4,8 @@
+    @@ -4,9 +4,9 @@
          insta::assert_snapshot!(r#"
          foo
          foo
     -    "#, @r#"
-    -
+    +    "#, @r"
+     
     -                foo
     -                foo
     -    "#);
-    +    "#, @r"
     +    foo
     +    foo
     +    ");
