@@ -136,7 +136,7 @@ where
 ///
 /// This is useful to force something like a set or map to be ordered to make
 /// it deterministic.  This is necessary as insta's serialization support is
-/// based on serde which does not have native set support.  As a result vectors
+/// based on [`serde`] which does not have native set support.  As a result vectors
 /// (which need to retain order) and sets (which should be given a stable order)
 /// look the same.
 ///

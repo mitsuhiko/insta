@@ -29,8 +29,8 @@ enum State {
     End,
 }
 
-/// `Event` is used with the low-level event base parsing API,
-/// see `EventReceiver` trait.
+/// [`Event`] is used with the low-level event base parsing API,
+/// see [`EventReceiver`] trait.
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub enum Event {
     /// Reserved for internal use
@@ -40,7 +40,7 @@ pub enum Event {
     DocumentEnd,
     /// Refer to an anchor ID
     Alias(usize),
-    /// Value, style, anchor_id, tag
+    /// Value, style, anchor ID, tag
     Scalar(String, TScalarStyle, usize, Option<TokenType>),
     /// Anchor ID
     SequenceStart(usize),
