@@ -528,7 +528,7 @@ impl Snapshot {
     pub fn matches_fully(&self, other: &Self) -> bool {
         match (self.contents(), other.contents()) {
             (SnapshotContents::Text(self_contents), SnapshotContents::Text(other_contents)) => {
-                let contents_match_exact = self_contents == other_contents;
+                let contents_match_exact = self_contents.matches_fully(other_contents);
                 match self_contents.kind {
                     TextSnapshotKind::File => {
                         self.metadata.trim_for_persistence()
@@ -652,6 +652,11 @@ impl TextSnapshotContents {
         // versions, which we may do a few times. (We want to store the
         // unnormalized version because it allows us to use `matches_fully`.)
         TextSnapshotContents { contents, kind }
+    }
+
+    /// Matches another snapshot without any normalization
+    pub fn matches_fully(&self, other: &TextSnapshotContents) -> bool {
+        self.contents == other.contents
     }
 
     /// Snapshot matches based on the latest format.
