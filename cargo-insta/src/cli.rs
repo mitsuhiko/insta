@@ -6,10 +6,10 @@ use std::{env, fs};
 use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
-use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
+use insta::{internals::SnapshotContents, Snapshot};
 use itertools::Itertools;
 use semver::Version;
 use serde::Serialize;
@@ -1140,11 +1140,15 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         let is_inline = snapshot_container.snapshot_file().is_none();
         for snapshot_ref in snapshot_container.iter_snapshots() {
             if cmd.as_json {
-                let old_snapshot = snapshot_ref
-                    .old
-                    .as_ref()
-                    .map(|x| x.contents_string().unwrap());
-                let new_snapshot = snapshot_ref.new.contents_string().unwrap();
+                let old_snapshot = snapshot_ref.old.as_ref().map(|x| match x.contents() {
+                    SnapshotContents::Text(x) => x.to_string(),
+                    _ => unreachable!(),
+                });
+                let new_snapshot = match snapshot_ref.new.contents() {
+                    SnapshotContents::Text(x) => x.to_string(),
+                    _ => unreachable!(),
+                };
+
                 let info = if is_inline {
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,

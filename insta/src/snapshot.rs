@@ -542,20 +542,12 @@ impl Snapshot {
         }
     }
 
-    /// The normalized snapshot contents as a String
-    pub fn contents_string(&self) -> Option<String> {
-        match self.contents() {
-            SnapshotContents::Text(contents) => Some(contents.normalize()),
-            SnapshotContents::Binary(_) => None,
-        }
-    }
-
     fn serialize_snapshot(&self, md: &MetaData) -> String {
         let mut buf = yaml::to_string(&md.as_content());
         buf.push_str("---\n");
 
-        if let Some(ref contents_str) = self.contents_string() {
-            buf.push_str(contents_str);
+        if let SnapshotContents::Text(ref contents) = self.snapshot {
+            buf.push_str(&contents.to_string());
             buf.push('\n');
         }
 
@@ -635,13 +627,6 @@ impl From<TextSnapshotContents> for SnapshotContents {
 impl SnapshotContents {
     pub fn is_binary(&self) -> bool {
         matches!(self, SnapshotContents::Binary(_))
-    }
-
-    pub fn as_string_contents(&self) -> Option<&TextSnapshotContents> {
-        match self {
-            SnapshotContents::Text(contents) => Some(contents),
-            SnapshotContents::Binary(_) => None,
-        }
     }
 }
 
