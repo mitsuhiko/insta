@@ -294,7 +294,7 @@ mod glob;
 mod test;
 
 pub use crate::settings::Settings;
-pub use crate::snapshot::{MetaData, Snapshot, SnapshotKind};
+pub use crate::snapshot::{MetaData, Snapshot, TextSnapshotKind};
 
 /// Exposes some library internals.
 ///
@@ -327,6 +327,7 @@ pub mod _cargo_insta_support {
         output::SnapshotPrinter,
         snapshot::PendingInlineSnapshot,
         snapshot::SnapshotContents,
+        snapshot::TextSnapshotContents,
         utils::is_ci,
     };
 }
@@ -340,7 +341,10 @@ pub use crate::redaction::{dynamic_redaction, rounded_redaction, sorted_redactio
 pub mod _macro_support {
     pub use crate::content::Content;
     pub use crate::env::get_cargo_workspace;
-    pub use crate::runtime::{assert_snapshot, with_allow_duplicates, AutoName, ReferenceValue};
+    pub use crate::runtime::{
+        assert_snapshot, with_allow_duplicates, AutoName, BinarySnapshotValue, InlineValue,
+        SnapshotValue,
+    };
 
     #[cfg(feature = "serde")]
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};

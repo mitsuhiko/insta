@@ -1,38 +1,51 @@
 /// Integration tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
 ///
+/// By default, the output of the inner test is forwarded to the outer test with
+/// a colored prefix. If we want to assert the inner test contains some output,
+/// we need to disable that forwarding with `Stdio::piped()` like:
+///
+/// ```rust
+/// let output = test_project
+///     .insta_cmd()
+///     .args(["test"])
+///     .stderr(Stdio::piped())
+///
+/// assert!(String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review")
+/// ```
+///
 /// Often we want to see output from the test commands we run here; for example
 /// a `dbg!` statement we add while debugging. Cargo by default hides the output
 /// of passing tests.
-/// - Like any test, to forward the output of an outer test (i.e. one of the
-///   `#[test]`s in this file) to the terminal, pass `--nocapture` to the test
-///   runner, like `cargo insta test -- --nocapture`.
-/// - To forward the output of an inner test (i.e. the test commands we create
-///   and run within an outer test) to the output of an outer test, pass
+/// - Like any test, to forward the output of a passing outer test (i.e. one of
+///   the `#[test]`s in this file) to the terminal, pass `--nocapture` to the
+///   test runner, like `cargo insta test -- --nocapture`.
+/// - To forward the output of a passing inner test (i.e. the test commands we
+///   create and run within an outer test) to the output of an outer test, pass
 ///   `--nocapture` in the command we create; for example `.args(["test",
-///   "--accept", "--", "--nocapture"])`. We then also need to pass
-///   `--nocapture` to the outer test to forward that to the terminal.
-/// - If a test fails on `assert_success` or `assert_failure`, we print the
-///   output of the inner test (bypassing the capturing). We color it to
-///   discriminate it from the output of the outer test.
+///   "--accept", "--", "--nocapture"])`.
+///   - We also need to pass `--nocapture` to the outer test to forward that to
+///     the terminal, per the previous bullet.
 ///
-/// We can write more docs if that would be helpful. For the moment one thing to
-/// be aware of: it seems the packages must have different names, or we'll see
-/// interference between the tests.
+/// Note that the packages must have different names, or we'll see interference
+/// between the tests.
 ///
 /// > That seems to be because they all share the same `target` directory, which
 /// > cargo will confuse for each other if they share the same name. I haven't
-/// > worked out why — this is the case even if the files are the same between two
-/// > tests but with different commands — and those files exist in different
-/// > temporary workspace dirs. (We could try to enforce different names, or give
-/// > up using a consistent target directory for a cache, but it would slow down
-/// > repeatedly running the tests locally. To demonstrate the effect, name crates
-/// > the same... This also causes issues when running the same tests
+/// > worked out why — this is the case even if the files are the same between
+/// > two tests but with different commands — and those files exist in different
+/// > temporary workspace dirs. (We could try to enforce different names, or
+/// > give up using a consistent target directory for a cache, but it would slow
+/// > down repeatedly running the tests locally. To demonstrate the effect, name
+/// > crates the same... This also causes issues when running the same tests
 /// > concurrently.
 use std::collections::HashMap;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::process::Stdio;
+use std::thread;
 use std::{env, fs::remove_dir_all};
 
 use console::style;
@@ -41,6 +54,33 @@ use insta::assert_snapshot;
 use itertools::Itertools;
 use similar::udiff::unified_diff;
 use tempfile::TempDir;
+
+/// Wraps a formatting function to be used as a `Stdio`
+struct OutputFormatter<F>(F)
+where
+    F: Fn(&str) -> String + Send + 'static;
+
+impl<F> From<OutputFormatter<F>> for Stdio
+where
+    F: Fn(&str) -> String + Send + 'static,
+{
+    // Creates a pipe, spawns a thread to read from the pipe, applies the
+    // formatting function to each line, and prints the result.
+    fn from(output: OutputFormatter<F>) -> Stdio {
+        let (read_end, write_end) = os_pipe::pipe().unwrap();
+
+        thread::spawn(move || {
+            let mut reader = BufReader::new(read_end);
+            let mut line = String::new();
+            while reader.read_line(&mut line).unwrap() > 0 {
+                print!("{}", (output.0)(&line));
+                line.clear();
+            }
+        });
+
+        Stdio::from(write_end)
+    }
+}
 
 struct TestFiles {
     files: HashMap<PathBuf, String>,
@@ -82,29 +122,6 @@ fn target_dir() -> PathBuf {
     target_dir
 }
 
-fn assert_success(output: &std::process::Output) {
-    assert!(
-        output.status.success(),
-        "Tests failed: {}\n{}",
-        // Color the inner output so we can tell what's coming from there vs our own
-        // output
-        // Should we also do something like indent them? Or add a prefix?
-        format_args!("{}", style(String::from_utf8_lossy(&output.stdout)).green()),
-        format_args!("{}", style(String::from_utf8_lossy(&output.stderr)).red())
-    );
-}
-
-fn assert_failure(output: &std::process::Output) {
-    assert!(
-        !output.status.success(),
-        "Tests unexpectedly succeeded: {}\n{}",
-        // Color the inner output so we can tell what's coming from there vs our own
-        // output
-        // Should we also do something like indent them? Or add a prefix?
-        format_args!("{}", style(String::from_utf8_lossy(&output.stdout)).green()),
-        format_args!("{}", style(String::from_utf8_lossy(&output.stderr)).red())
-    );
-}
 struct TestProject {
     /// Temporary directory where the project is created
     workspace_dir: PathBuf,
@@ -158,10 +175,28 @@ impl TestProject {
 
         command.current_dir(self.workspace_dir.as_path());
         // Use the same target directory as other tests, consistent across test
-        // run. This makes the compilation much faster (though do some tests
+        // runs. This makes the compilation much faster (though do some tests
         // tread on the toes of others? We could have a different cache for each
         // project if so...)
         command.env("CARGO_TARGET_DIR", target_dir());
+
+        let workspace_name = self
+            .workspace_dir
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+
+        let stdout_name = workspace_name.clone();
+        let stderr_name = workspace_name;
+
+        command
+            .stdout(OutputFormatter(move |line| {
+                format!("{} {}", style(&stdout_name).green(), line)
+            }))
+            .stderr(OutputFormatter(move |line| {
+                format!("{} {}", style(&stderr_name).red(), line)
+            }));
 
         command
     }
@@ -210,6 +245,10 @@ impl TestProject {
             3,
             Some(("Original file tree", "Updated file tree")),
         )
+    }
+
+    fn update_file<P: AsRef<Path>>(&self, path: P, content: String) {
+        fs::write(self.workspace_dir.join(path), content).unwrap();
     }
 }
 
@@ -262,7 +301,7 @@ fn test_json_snapshot() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r##"
     --- Original: src/main.rs
@@ -331,7 +370,7 @@ fn test_yaml_snapshot() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r###"
     --- Original: src/main.rs
@@ -406,7 +445,7 @@ fn test_trailing_comma_in_inline_snapshot() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r##"
     --- Original: src/main.rs
@@ -529,7 +568,7 @@ fn test_root_crate_workspace_accept() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -562,6 +601,7 @@ fn test_root_crate_workspace() {
         .insta_cmd()
         // Need to disable colors to assert the output below
         .args(["test", "--workspace", "--color=never"])
+        .stderr(Stdio::piped())
         .output()
         .unwrap();
 
@@ -585,7 +625,7 @@ fn test_root_crate_no_all() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -687,7 +727,7 @@ fn test_virtual_manifest_all() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -724,7 +764,7 @@ fn test_virtual_manifest_default() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -761,7 +801,7 @@ fn test_virtual_manifest_single_crate() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r###"
     --- Original file tree
@@ -824,7 +864,7 @@ fn test_old_yaml_format() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
 }
@@ -889,7 +929,7 @@ Hello, world!
         .output()
         .unwrap();
 
-    assert_success(&output_current);
+    assert!(&output_current.status.success());
 
     // Test with insta 1.40.0
     let output_1_40_0 = test_insta_1_40_0
@@ -898,18 +938,19 @@ Hello, world!
         .output()
         .unwrap();
 
-    assert_success(&output_1_40_0);
+    assert!(&output_1_40_0.status.success());
 
     // Check that both versions updated the snapshot correctly
     assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
     --- Original: src/snapshots/test_force_update_current__force_update.snap
     +++ Updated: src/snapshots/test_force_update_current__force_update.snap
-    @@ -1,8 +1,5 @@
+    @@ -1,8 +1,6 @@
     -
      ---
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
+    +snapshot_kind: text
      ---
      Hello, world!
     -
@@ -919,12 +960,13 @@ Hello, world!
     assert_snapshot!(test_insta_1_40_0.diff("src/snapshots/test_force_update_1_40_0__force_update.snap"), @r#"
     --- Original: src/snapshots/test_force_update_1_40_0__force_update.snap
     +++ Updated: src/snapshots/test_force_update_1_40_0__force_update.snap
-    @@ -1,8 +1,5 @@
+    @@ -1,8 +1,6 @@
     -
      ---
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
+    +snapshot_kind: text
      ---
      Hello, world!
     -
@@ -976,7 +1018,7 @@ fn test_linebreaks() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
     --- Original: src/lib.rs
@@ -1044,7 +1086,7 @@ fn test_excessive_hashes() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     // this tests the current state rather than the desired state.
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
@@ -1091,7 +1133,7 @@ fn test_wrong_indent_force() {
         .args(["test", "--check", "--", "--nocapture"])
         .output()
         .unwrap();
-    assert_success(&output);
+    assert!(&output.status.success());
 
     // Then run the test with --force-update-snapshots and --accept to confirm
     // the new snapshot is written
@@ -1106,21 +1148,21 @@ fn test_wrong_indent_force() {
         ])
         .output()
         .unwrap();
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -4,9 +4,9 @@
+    @@ -4,9 +4,8 @@
          insta::assert_snapshot!(r#"
          foo
          foo
     -    "#, @r#"
-    +    "#, @r"
-     
+    -
     -                foo
     -                foo
     -    "#);
+    +    "#, @r"
     +    foo
     +    foo
     +    ");
@@ -1163,7 +1205,7 @@ fn test_hashtag_escape() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     assert_snapshot!(test_project.diff("src/main.rs"), @r####"
     --- Original: src/main.rs
@@ -1179,6 +1221,418 @@ fn test_hashtag_escape() {
     +    "###);
      }
     "####);
+}
+
+/// A pending binary snapshot should have a binary file with the passed extension alongside it.
+#[test]
+fn test_binary_pending() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_pending"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
+
+    assert!(!&output.status.success());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_pending__binary_snapshot.snap.new
+    +      src/snapshots/test_binary_pending__binary_snapshot.snap.new.txt
+    ");
+}
+
+/// An accepted binary snapshot should have a binary file with the passed extension alongside it.
+#[test]
+fn test_binary_accept() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_accept"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_accept__binary_snapshot.snap
+    +      src/snapshots/test_binary_accept__binary_snapshot.snap.txt
+    ");
+}
+
+/// Changing the extension passed to the `assert_binary_snapshot` macro should create a new pending
+/// snapshot with a binary file with the new extension alongside it and once approved the old binary
+/// file with the old extension should be deleted.
+#[test]
+fn test_binary_change_extension() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_change_extension"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    test_project.update_file(
+        "src/main.rs",
+        r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!(".json", b"test".to_vec());
+}
+"#
+        .to_string(),
+    );
+
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
+
+    assert!(!&output.status.success());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,10 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.new
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.new.json
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.txt
+    ");
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap
+    +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.json
+    ");
+}
+
+/// An assert with a pending binary snapshot should have both the metadata file and the binary file
+/// deleted when the assert is removed and the tests are re-run.
+#[test]
+fn test_binary_pending_snapshot_removal() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_pending_snapshot_removal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
+
+    assert!(!&output.status.success());
+
+    test_project.update_file("src/main.rs", "".to_string());
+
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
+
+    assert!(&output.status.success());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,6 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    ");
+}
+
+/// Replacing a text snapshot with binary one should work and simply replace the text snapshot file
+/// with the new metadata file and a new binary snapshot file alongside it.
+#[test]
+fn test_change_text_to_binary() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_change_text_to_binary"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test() {
+    insta::assert_snapshot!("test");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_change_text_to_binary__test.snap
+    ");
+
+    test_project.update_file(
+        "src/main.rs",
+        r#"
+#[test]
+fn test() {
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
+}
+"#
+        .to_string(),
+    );
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_change_text_to_binary__test.snap
+    +      src/snapshots/test_change_text_to_binary__test.snap.txt
+    ");
+}
+
+/// When changing a snapshot from a binary to a text snapshot the previous binary file should be
+/// gone after having approved the the binary snapshot.
+#[test]
+fn test_change_binary_to_text() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_change_binary_to_text"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/main.rs",
+            r#"
+#[test]
+fn test() {
+    insta::assert_binary_snapshot!("some_name.json", b"{}".to_vec());
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_change_binary_to_text__some_name.snap
+    +      src/snapshots/test_change_binary_to_text__some_name.snap.json
+    ");
+
+    test_project.update_file(
+        "src/main.rs",
+        r#"
+#[test]
+fn test() {
+    insta::assert_snapshot!("some_name", "test");
+}
+"#
+        .to_string(),
+    );
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/main.rs
+    +    src/snapshots
+    +      src/snapshots/test_change_binary_to_text__some_name.snap
+    ");
 }
 
 // Can't get the test binary discovery to work, don't have a windows machine to
@@ -1259,23 +1713,25 @@ fn test_insta_workspace_root() {
         .current_dir(&test_project.workspace_dir)
         .output()
         .unwrap();
-    assert_success(&output);
+    assert!(&output.status.success());
 
     let test_binary_path = find_test_binary(&test_project.workspace_dir);
 
     // Run the test without snapshot (should fail)
-    assert_failure(&run_test_binary(
-        &test_binary_path,
-        &test_project.workspace_dir,
-        None,
-    ));
+    assert!(
+        !&run_test_binary(&test_binary_path, &test_project.workspace_dir, None,)
+            .status
+            .success()
+    );
 
     // Create the snapshot
-    assert_success(&run_test_binary(
+    assert!(&run_test_binary(
         &test_binary_path,
         &test_project.workspace_dir,
         Some(("INSTA_UPDATE", "always")),
-    ));
+    )
+    .status
+    .success());
 
     // Verify snapshot creation
     assert!(test_project.workspace_dir.join("src/snapshots").exists());
@@ -1295,14 +1751,20 @@ fn test_insta_workspace_root() {
     let moved_binary_path = find_test_binary(&moved_workspace);
 
     // Run test in moved workspace without INSTA_WORKSPACE_ROOT (should fail)
-    assert_failure(&run_test_binary(&moved_binary_path, &moved_workspace, None));
+    assert!(
+        !&run_test_binary(&moved_binary_path, &moved_workspace, None)
+            .status
+            .success()
+    );
 
     // Run test in moved workspace with INSTA_WORKSPACE_ROOT (should pass)
-    assert_success(&run_test_binary(
+    assert!(&run_test_binary(
         &moved_binary_path,
         &moved_workspace,
         Some(("INSTA_WORKSPACE_ROOT", moved_workspace.to_str().unwrap())),
-    ));
+    )
+    .status
+    .success());
 }
 
 #[test]
@@ -1359,7 +1821,7 @@ fn test_hello() {
         .output()
         .unwrap();
 
-    assert_failure(&output);
+    assert!(!&output.status.success());
 
     // Verify that the snapshot was created in the correct location
     assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
@@ -1382,7 +1844,7 @@ fn test_hello() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     // Verify that the snapshot was created in the correct location
     assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
@@ -1404,7 +1866,7 @@ fn test_hello() {
         .output()
         .unwrap();
 
-    assert_success(&output);
+    assert!(&output.status.success());
 
     let snapshot_path = test_project
         .workspace_dir
@@ -1413,7 +1875,199 @@ fn test_hello() {
     ---
     source: "../tests/lib.rs"
     expression: hello()
+    snapshot_kind: text
     ---
     Hello, world!
     "#);
+}
+
+#[test]
+fn test_unreferenced_delete() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_unreferenced_delete"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_snapshot() {
+        insta::assert_snapshot!("Hello, world!");
+    }
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run tests to create snapshots
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // Manually add an unreferenced snapshot
+    let unreferenced_snapshot_path = test_project
+        .workspace_dir
+        .join("src/snapshots/test_unreferenced_delete__tests__unused_snapshot.snap");
+    std::fs::create_dir_all(unreferenced_snapshot_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &unreferenced_snapshot_path,
+        r#"---
+source: src/lib.rs
+expression: "Unused snapshot"
+---
+Unused snapshot
+"#,
+    )
+    .unwrap();
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/test_unreferenced_delete__tests__snapshot.snap
+    +      src/snapshots/test_unreferenced_delete__tests__unused_snapshot.snap
+    ");
+
+    // Run cargo insta test with --unreferenced=delete
+    let output = test_project
+        .insta_cmd()
+        .args([
+            "test",
+            "--unreferenced=delete",
+            "--accept",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // We should now see the unreferenced snapshot deleted
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/test_unreferenced_delete__tests__snapshot.snap
+    ");
+}
+
+#[test]
+fn test_binary_unreferenced_delete() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_binary_unreferenced_delete"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_snapshot() {
+        insta::assert_binary_snapshot!(".txt", b"abcd".to_vec());
+    }
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run tests to create snapshots
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    test_project.update_file("src/lib.rs", "".to_string());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/test_binary_unreferenced_delete__tests__snapshot.snap
+    +      src/snapshots/test_binary_unreferenced_delete__tests__snapshot.snap.txt
+    ");
+
+    // Run cargo insta test with --unreferenced=delete
+    let output = test_project
+        .insta_cmd()
+        .args([
+            "test",
+            "--unreferenced=delete",
+            "--accept",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // We should now see the unreferenced snapshot deleted
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,6 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    ");
 }
