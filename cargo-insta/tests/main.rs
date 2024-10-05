@@ -1227,6 +1227,9 @@ name = "snapshot_name_clash_test"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+doctest = false
+
 [dependencies]
 insta = { path = '$PROJECT_PATH' }
 "#
@@ -1257,6 +1260,7 @@ mod tests {
     let output = test_project
         .insta_cmd()
         .args(["test", "--accept", "--", "--nocapture"])
+        .stderr(Stdio::piped())
         .output()
         .unwrap();
 
