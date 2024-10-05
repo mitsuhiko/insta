@@ -469,7 +469,7 @@ fn handle_target_args<'a>(
         .iter()
         .map(|x| {
             if let Some(no_period) = x.strip_prefix(".") {
-                eprintln!("`{}` supplied as an extenstion. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
+                eprintln!("`{}` supplied as an extension. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
             };
             x.as_str()
         })

@@ -11,11 +11,15 @@
 ///     .args(["test"])
 ///     .stderr(Stdio::piped())
 ///
-/// assert!(String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review")
+/// assert!(
+///     String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review"),
+///    "{}",
+///     String::from_utf8_lossy(&output.stderr)
+/// );
 /// ```
 ///
 /// Often we want to see output from the test commands we run here; for example
-/// a `dbg!` statement we add while debugging. Cargo by default hides the output
+/// a `dbg` statement we add while debugging. Cargo by default hides the output
 /// of passing tests.
 /// - Like any test, to forward the output of a passing outer test (i.e. one of
 ///   the `#[test]`s in this file) to the terminal, pass `--nocapture` to the
