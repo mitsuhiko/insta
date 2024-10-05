@@ -476,7 +476,7 @@ impl<'a> SnapshotAssertionContext<'a> {
     }
 
     /// Removes any old .snap.new.* files that belonged to previous pending snapshots. This should
-    /// only ever remove maxium one file because we do this every time before we create a new
+    /// only ever remove maximum one file because we do this every time before we create a new
     /// pending snapshot.
     pub fn cleanup_previous_pending_binary_snapshots(&self) -> Result<(), Box<dyn Error>> {
         if let Some(ref path) = self.snapshot_file {
