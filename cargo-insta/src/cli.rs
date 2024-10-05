@@ -1216,9 +1216,8 @@ fn show_undiscovered_hint(
     }
 
     let (args, paths) = match (find_flags.include_ignored, find_flags.include_hidden) {
-        // TODO: do we need to switch these??
-        (true, false) => ("--include-ignored", "ignored"),
-        (false, true) => ("--include-hidden", "hidden"),
+        (false, true) => ("--include-ignored", "ignored"),
+        (true, false) => ("--include-hidden", "hidden"),
         (false, false) => (
             "--include-ignored and --include-hidden",
             "ignored or hidden",

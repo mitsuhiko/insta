@@ -27,8 +27,6 @@ pub(crate) fn find_pending_snapshots<'a>(
     extensions: &'a [&'a str],
     flags: FindFlags,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-    // NEXT: how does this not find them but the one that feeds into
-    // `all_snapshots` does?
     make_snapshot_walker(package_root, extensions, flags)
         .filter_map(Result::ok)
         .filter_map(|entry| {

@@ -2038,7 +2038,8 @@ Hidden snapshot
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("found undiscovered pending snapshots"),
+        stderr.contains("found undiscovered pending snapshots")
+            && stderr.contains("--include-hidden"),
         "{}",
         stderr
     );
@@ -2103,14 +2104,16 @@ src/
     // Run test without --include-ignored flag
     let output = test_project
         .insta_cmd()
-        .args(["test"])
+        // add the `--hidden` to check it's printing the correct warning
+        .args(["test", "--include-hidden"])
         .stderr(std::process::Stdio::piped())
         .output()
         .unwrap();
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("found undiscovered pending snapshots"),
+        stderr.contains("found undiscovered pending snapshots")
+            && stderr.contains("--include-ignored"),
         "{}",
         stderr
     );
