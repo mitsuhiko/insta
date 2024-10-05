@@ -535,6 +535,12 @@ impl Snapshot {
                 // Generally those should be the same — latest should be doing
                 // the minimum normalization; if they diverge we could update
                 // this to be stricter.
+                //
+                // (I think to do this perfectly, we'd want to match the
+                // _reference_ value unnormalized, but the _generated_ value
+                // normalized. That way, we can get the But at the moment we
+                // don't distinguish between which is which in our data
+                // structures.)
                 let contents_match_exact = self_contents.matches_latest(other_contents);
                 match self_contents.kind {
                     TextSnapshotKind::File => {
