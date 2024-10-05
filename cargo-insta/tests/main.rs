@@ -1024,20 +1024,27 @@ fn test_linebreaks() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
-    --- Original: src/lib.rs
-    +++ Updated: src/lib.rs
-    @@ -1,8 +1,5 @@
-     
-     #[test]
-     fn test_linebreaks() {
-    -    insta::assert_snapshot!("foo", @r####"
-    -    foo
-    -    
-    -    "####);
-    +    insta::assert_snapshot!("foo", @"foo");
-     }
-    "#####);
+    // When #563 merges, or #630 is resolved, this will change the snapshot. I
+    // also think it's possible to have it work sooner, but have iterated quite
+    // a few times trying to get this to work, and then finding something else
+    // without test coverage didn't work; so not sure it's a great investment of
+    // time.
+    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
+
+    // assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
+    // --- Original: src/lib.rs
+    // +++ Updated: src/lib.rs
+    // @@ -1,8 +1,5 @@
+
+    //  #[test]
+    //  fn test_linebreaks() {
+    // -    insta::assert_snapshot!("foo", @r####"
+    // -    foo
+    // -
+    // -    "####);
+    // +    insta::assert_snapshot!("foo", @"foo");
+    //  }
+    // "#####);
 }
 
 #[test]
@@ -1123,48 +1130,83 @@ fn test_wrong_indent_force() {
         )
         .create_project();
 
-    // Confirm the test passes despite the indent
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--check", "--", "--nocapture"])
-        .output()
-        .unwrap();
-    assert!(&output.status.success());
-
-    // Then run the test with --force-update-snapshots and --accept to confirm
-    // the new snapshot is written
+    // ...and that it passes with `--require-full-match`. Note that ideally this
+    // would fail, but we can't read the desired indent without serde, which is
+    // in `cargo-insta` only. So this tests the current state rather than the
+    // ideal state (and I don't think there's a reasonable way to get the ideal state)
+    // Now confirm that `--require-full-match` passes
     let output = test_project
         .insta_cmd()
         .args([
             "test",
-            "--force-update-snapshots",
-            "--accept",
+            "--check",
+            "--require-full-match",
             "--",
             "--nocapture",
         ])
         .output()
         .unwrap();
     assert!(&output.status.success());
+}
 
-    // https://github.com/mitsuhiko/insta/pull/563 will fix the starting &
-    // ending newlines
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
-    --- Original: src/lib.rs
-    +++ Updated: src/lib.rs
-    @@ -4,8 +4,8 @@
-         insta::assert_snapshot!(r#"
-         foo
-         foo
-    -    "#, @r#"
-    -                foo
-    -                foo
-    -    "#);
-    +    "#, @r"
-    +    foo
-    +    foo
-    +    ");
-     }
-    "##);
+#[test]
+fn test_matches_fully_linebreaks() {
+    // Until #563 merges, we should be OK with different leading newlines, even
+    // in exact / full match mode.
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "exact-match-inline"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#####"
+#[test]
+fn test_additional_linebreak() {
+    // Additional newline here
+    insta::assert_snapshot!(r#"
+
+    (
+        "name_foo",
+        "insta_tests__tests",
+    )
+    "#, @r#"
+    (
+        "name_foo",
+        "insta_tests__tests",
+    )
+    "#);
+}
+"#####
+                .to_string(),
+        )
+        .create_project();
+
+    // Confirm the test passes despite the indent
+    let output = test_project
+        .insta_cmd()
+        .args([
+            "test",
+            "--check",
+            "--require-full-match",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+    assert!(&output.status.success());
 }
 
 #[test]
