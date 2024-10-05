@@ -1978,6 +1978,163 @@ Unused snapshot
 }
 
 #[test]
+fn test_hidden_snapshots() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_hidden_snapshots"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_snapshot() {
+        insta::assert_snapshot!("Hello, world!");
+    }
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_hidden_snapshots__tests__snapshot.snap",
+            r#"---
+source: src/lib.rs
+expression: "\"Hello, world!\""
+---
+Hello, world!
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/.hidden/hidden_snapshot.snap.new",
+            r#"---
+source: src/lib.rs
+expression: "Hidden snapshot"
+---
+Hidden snapshot
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run test without --include-hidden flag
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("found undiscovered pending snapshots")
+            && stderr.contains("--include-hidden"),
+        "{}",
+        stderr
+    );
+
+    // Run test with --include-hidden flag
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--include-hidden"])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("found undiscovered pending snapshots"),
+        "{}",
+        stderr
+    );
+}
+
+#[test]
+fn test_ignored_snapshots() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_ignored_snapshots"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!", @"");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            ".gitignore",
+            r#"
+src/
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // We need to init a git repository in the project directory so it will be ignored
+    let mut git_cmd = Command::new("git");
+    git_cmd.current_dir(&test_project.workspace_dir);
+    git_cmd.args(["init"]);
+    git_cmd.output().unwrap();
+
+    // Run test without --include-ignored flag
+    let output = test_project
+        .insta_cmd()
+        // add the `--hidden` to check it's printing the correct warning
+        .args(["test", "--include-hidden"])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("found undiscovered pending snapshots")
+            && stderr.contains("--include-ignored"),
+        "{}",
+        stderr
+    );
+
+    // Run test with --include-ignored flag
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--include-ignored"])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("found undiscovered pending snapshots"),
+        "{}",
+        stderr
+    );
+}
+
+#[test]
 fn test_binary_unreferenced_delete() {
     let test_project = TestFiles::new()
         .add_file(
