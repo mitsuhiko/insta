@@ -10,6 +10,7 @@ use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
+use itertools::Itertools;
 use semver::Version;
 use serde::Serialize;
 use uuid::Uuid;
@@ -516,7 +517,15 @@ fn process_snapshots(
         if !quiet {
             println!("{}: no snapshots to review", style("done").bold());
             if loc.tool_config.review_warn_undiscovered() {
-                show_undiscovered_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
+                show_undiscovered_hint(
+                    loc.find_flags,
+                    &snapshot_containers
+                        .iter()
+                        .map(|x| x.0.clone())
+                        .collect_vec(),
+                    &roots,
+                    &loc.exts,
+                );
             }
         }
         return Ok(());
@@ -732,7 +741,8 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         )?
     } else {
         let (snapshot_containers, roots) = load_snapshot_containers(&loc)?;
-        let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum::<usize>();
+        let snapshot_containers = snapshot_containers.into_iter().map(|x| x.0).collect_vec();
+        let snapshot_count = snapshot_containers.iter().map(|x| x.len()).sum::<usize>();
         if snapshot_count > 0 {
             eprintln!(
                 "{}: {} snapshot{} to review",
@@ -1160,7 +1170,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
 
 fn show_undiscovered_hint(
     find_flags: FindFlags,
-    snapshot_containers: &[(SnapshotContainer, &Package)],
+    snapshot_containers: &[SnapshotContainer],
     roots: &HashSet<PathBuf>,
     extensions: &[&str],
 ) {
@@ -1169,42 +1179,45 @@ fn show_undiscovered_hint(
         return;
     }
 
-    let mut found_extra = false;
     let found_snapshots = snapshot_containers
         .iter()
-        .filter_map(|x| x.0.snapshot_file())
+        .filter_map(|x| x.snapshot_file())
+        .map(|x| x.to_path_buf())
         .collect::<HashSet<_>>();
 
-    for root in roots {
-        for snapshot in make_snapshot_walker(
-            root,
-            extensions,
-            FindFlags {
-                include_ignored: true,
-                include_hidden: true,
-            },
-        )
-        .filter_map(|e| e.ok())
-        .filter(|x| {
-            let fname = x.file_name().to_string_lossy();
-            // TODO: use `extensions` here
-            fname.ends_with(".snap.new") || fname.ends_with(".pending-snap")
-        }) {
-            if !found_snapshots.contains(snapshot.path()) {
-                found_extra = true;
-                break;
-            }
-        }
-    }
+    let all_snapshots: HashSet<_> = roots
+        .iter()
+        .flat_map(|root| {
+            make_snapshot_walker(
+                root,
+                extensions,
+                FindFlags {
+                    include_ignored: true,
+                    include_hidden: true,
+                },
+            )
+            .filter_map(|e| e.ok())
+            .filter(|x| {
+                let fname = x.file_name().to_string_lossy();
+                extensions
+                    .iter()
+                    .any(|ext| fname.ends_with(&format!(".{}.new", ext)))
+                    || fname.ends_with(".pending-snap")
+            })
+            .map(|x| x.path().to_path_buf())
+        })
+        .collect();
+
+    let missed_snapshots = all_snapshots.difference(&found_snapshots).collect_vec();
 
     // we did not find any extra snapshots
-    if !found_extra {
+    if missed_snapshots.is_empty() {
         return;
     }
 
     let (args, paths) = match (find_flags.include_ignored, find_flags.include_hidden) {
-        (true, false) => ("--include-ignored", "ignored"),
-        (false, true) => ("--include-hidden", "hidden"),
+        (false, true) => ("--include-ignored", "ignored"),
+        (true, false) => ("--include-hidden", "hidden"),
         (false, false) => (
             "--include-ignored and --include-hidden",
             "ignored or hidden",
@@ -1212,13 +1225,18 @@ fn show_undiscovered_hint(
         (true, true) => unreachable!(),
     };
 
-    println!(
+    eprintln!(
         "{}: {}",
         style("warning").yellow().bold(),
         format_args!(
-            "found undiscovered snapshots in some paths which are not picked up by cargo \
-            insta. Use {} if you have snapshots in {} paths.",
-            args, paths,
+            "found undiscovered pending snapshots in some paths which are not picked up by cargo \
+            insta. Use {} if you have snapshots in {} paths. Files:\n{}",
+            args,
+            paths,
+            missed_snapshots
+                .iter()
+                .map(|x| x.display().to_string())
+                .join("\n")
         )
     );
 }
