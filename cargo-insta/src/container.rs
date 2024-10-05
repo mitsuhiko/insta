@@ -2,9 +2,9 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use insta::Snapshot;
 pub(crate) use insta::TextSnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
+use insta::{internals::SnapshotContents, Snapshot};
 
 use crate::inline::FilePatcher;
 
@@ -186,7 +186,10 @@ impl SnapshotContainer {
                     Operation::Accept => {
                         patcher.set_new_content(
                             idx,
-                            snapshot.new.contents().as_string_contents().unwrap(),
+                            match snapshot.new.contents() {
+                                SnapshotContents::Text(c) => c,
+                                _ => unreachable!(),
+                            },
                         );
                         did_accept = true;
                     }
