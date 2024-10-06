@@ -8,14 +8,14 @@ All notable changes to insta and cargo-insta are documented here.
 
 - `--force-update-snapshots` now writes every snapshot, regardless of whether
   `insta` evaluates a write is required, and now implies `--accept`.  This
-  allows for `--force-update-snapshots` to work consistently with inline
-  snapshots.
+  allows for `--force-update-snapshots` to update inline snapshots when
+  delimiters or indents require updating.
 
   For the existing behavior of limiting writes which `insta` can evaluate are
   required, use `--require-full-match`.  The main difference between
   `--require-full-match` and the existing behavior of `--force-update-snapshots`
-  is that the test run will return a non-zero exit code if any snapshots are
-  updated.  #644
+  is that the test run will return a non-zero exit code if any snapshots don't
+  match fully.  #644
 
 - Inline snapshots only use `#` characters as delimiters when required.  #603
 
