@@ -1012,39 +1012,27 @@ fn test_linebreaks() {
     // Run the test with --force-update-snapshots and --accept
     let output = test_project
         .insta_cmd()
-        .args([
-            "test",
-            "--force-update-snapshots",
-            "--accept",
-            "--",
-            "--nocapture",
-        ])
+        .args(["test", "--force-update-snapshots", "--", "--nocapture"])
         .output()
         .unwrap();
 
     assert!(&output.status.success());
 
-    // When #563 merges, or #630 is resolved, this will change the snapshot. I
-    // also think it's possible to have it work sooner, but have iterated quite
-    // a few times trying to get this to work, and then finding something else
-    // without test coverage didn't work; so not sure it's a great investment of
-    // time.
-    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
-
-    // assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
-    // --- Original: src/lib.rs
-    // +++ Updated: src/lib.rs
-    // @@ -1,8 +1,5 @@
-
-    //  #[test]
-    //  fn test_linebreaks() {
-    // -    insta::assert_snapshot!("foo", @r####"
-    // -    foo
-    // -
-    // -    "####);
-    // +    insta::assert_snapshot!("foo", @"foo");
-    //  }
-    // "#####);
+    // Linebreaks should be reset
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,8 +1,5 @@
+     
+     #[test]
+     fn test_linebreaks() {
+    -    insta::assert_snapshot!("foo", @r####"
+    -    foo
+    -    
+    -    "####);
+    +    insta::assert_snapshot!("foo", @"foo");
+     }
+    "#####);
 }
 
 #[test]
@@ -1078,22 +1066,24 @@ fn test_excessive_hashes() {
     // Run the test with --force-update-snapshots and --accept
     let output = test_project
         .insta_cmd()
-        .args([
-            "test",
-            "--force-update-snapshots",
-            "--accept",
-            "--",
-            "--nocapture",
-        ])
+        .args(["test", "--force-update-snapshots", "--", "--nocapture"])
         .output()
         .unwrap();
 
     assert!(&output.status.success());
 
-    // TODO: we would like to update the number of hashes, but that's not easy
-    // given the reasons at https://github.com/mitsuhiko/insta/pull/573. So this
-    // result asserts the current state rather than the desired state.
-    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
+    // `--force-update-snapshots` should remove the hashes
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,5 +1,5 @@
+     
+     #[test]
+     fn test_excessive_hashes() {
+    -    insta::assert_snapshot!("foo", @r####"foo"####);
+    +    insta::assert_snapshot!("foo", @"foo");
+     }
+    "#####);
 }
 
 #[test]

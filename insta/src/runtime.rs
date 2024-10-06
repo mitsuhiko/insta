@@ -838,17 +838,7 @@ pub fn assert_snapshot(
             ctx.tool_config.snapshot_update(),
             crate::env::SnapshotUpdate::Force
         ) {
-            // Avoid creating new files if contents match exactly. In
-            // particular, this would otherwise create lots of unneeded files
-            // for inline snapshots
-            let matches_fully = &ctx
-                .old_snapshot
-                .as_ref()
-                .map(|x| x.matches_fully(&new_snapshot))
-                .unwrap_or(false);
-            if !matches_fully {
-                ctx.update_snapshot(new_snapshot)?;
-            }
+            ctx.update_snapshot(new_snapshot)?;
         }
     // otherwise print information and update snapshots.
     } else {
