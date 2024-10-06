@@ -385,7 +385,7 @@ impl Snapshot {
                     }
                 }
             }
-            elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
+            elog!("A snapshot uses a legacy snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
@@ -752,7 +752,7 @@ impl PartialEq for SnapshotContents {
                 if this.matches_latest(other) {
                     true
                 } else if this.matches_legacy(other) {
-                    elog!("{} {}\n{}",style("Snapshot passes but is a legacy format. Please run `cargo insta test --force-update-snapshots --accept` to update to a newer format.").yellow().bold(),"Snapshot contents:", this.to_string());
+                    elog!("{} {}\n{}",style("Snapshot test passes but the existing value is in a legacy format. Please run `cargo insta test --force-update-snapshots` to update to a newer format.").yellow().bold(),"Snapshot contents:", this.to_string());
                     true
                 } else {
                     false
