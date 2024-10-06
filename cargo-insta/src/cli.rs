@@ -254,8 +254,8 @@ struct ShowCommand {
 fn query_snapshot(
     workspace_root: &Path,
     term: &Term,
-    new: &Snapshot,
-    old: Option<&Snapshot>,
+    proposed: &Snapshot,
+    existing: Option<&Snapshot>,
     pkg: &Package,
     line: Option<u32>,
     i: usize,
@@ -276,7 +276,7 @@ fn query_snapshot(
             &pkg.version,
         );
 
-        let mut printer = SnapshotPrinter::new(workspace_root, old, new);
+        let mut printer = SnapshotPrinter::new(workspace_root, existing, proposed);
         printer.set_snapshot_file(snapshot_file);
         printer.set_line(line);
         printer.set_show_info(*show_info);
@@ -287,20 +287,20 @@ fn query_snapshot(
         println!(
             "  {} accept     {}",
             style("a").green().bold(),
-            style("keep the new snapshot").dim()
+            style("accept the proposed snapshot").dim()
         );
 
-        if old.is_some() {
+        if existing.is_some() {
             println!(
                 "  {} reject     {}",
                 style("r").red().bold(),
-                style("retain the old snapshot").dim()
+                style("retain the existing snapshot").dim()
             );
         } else {
             println!(
                 "  {} reject     {}",
                 style("r").red().bold(),
-                style("reject the new snapshot").dim()
+                style("reject the proposed snapshot").dim()
             );
         }
 
@@ -322,19 +322,19 @@ fn query_snapshot(
             style("toggle snapshot diff").dim()
         );
 
-        let new_is_binary = new.contents().is_binary();
-        let old_is_binary = old.map(|o| o.contents().is_binary()).unwrap_or(false);
+        let proposed_is_binary = proposed.contents().is_binary();
+        let existing_is_binary = existing.map(|o| o.contents().is_binary()).unwrap_or(false);
 
-        if new_is_binary || old_is_binary {
+        if proposed_is_binary || existing_is_binary {
             println!(
                 "  {} open       {}",
                 style("o").cyan().bold(),
-                style(if new_is_binary && old_is_binary {
+                style(if proposed_is_binary && existing_is_binary {
                     "open snapshot files in external tool"
-                } else if new_is_binary {
-                    "open new snapshot file in external tool"
+                } else if proposed_is_binary {
+                    "open proposed snapshot file in external tool"
                 } else {
-                    "open old snapshot file in external tool"
+                    "open existing snapshot file in external tool"
                 })
                 .dim()
             );
@@ -354,14 +354,14 @@ fn query_snapshot(
                     break;
                 }
                 Key::Char('o') => {
-                    if let Some(old) = old {
+                    if let Some(old) = existing {
                         if let Some(path) = old.build_binary_path(snapshot_file.unwrap()) {
                             open::that_detached(path)?;
                         }
                     }
 
-                    if let Some(path) =
-                        new.build_binary_path(snapshot_file.unwrap().with_extension("snap.new"))
+                    if let Some(path) = proposed
+                        .build_binary_path(snapshot_file.unwrap().with_extension("snap.new"))
                     {
                         open::that_detached(path)?;
                     }
@@ -561,8 +561,8 @@ fn process_snapshots(
                 None => query_snapshot(
                     &loc.workspace_root,
                     &term,
-                    &snapshot_ref.new,
-                    snapshot_ref.old.as_ref(),
+                    &snapshot_ref.generated,
+                    snapshot_ref.existing.as_ref(),
                     package,
                     snapshot_ref.line,
                     num,
@@ -1126,8 +1126,8 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         InlineSnapshot {
             path: &'a Path,
             line: u32,
-            old_snapshot: Option<&'a str>,
-            new_snapshot: &'a str,
+            existing_snapshot: Option<&'a str>,
+            generated_snapshot: &'a str,
             expression: Option<&'a str>,
         },
     }
@@ -1140,11 +1140,12 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         let is_inline = snapshot_container.snapshot_file().is_none();
         for snapshot_ref in snapshot_container.iter_snapshots() {
             if cmd.as_json {
-                let old_snapshot = snapshot_ref.old.as_ref().map(|x| match x.contents() {
-                    SnapshotContents::Text(x) => x.to_string(),
-                    _ => unreachable!(),
-                });
-                let new_snapshot = match snapshot_ref.new.contents() {
+                let existing_snapshot =
+                    snapshot_ref.existing.as_ref().map(|x| match x.contents() {
+                        SnapshotContents::Text(x) => x.to_string(),
+                        _ => unreachable!(),
+                    });
+                let proposed_snapshot = match snapshot_ref.generated.contents() {
                     SnapshotContents::Text(x) => x.to_string(),
                     _ => unreachable!(),
                 };
@@ -1153,9 +1154,9 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,
                         line: snapshot_ref.line.unwrap(),
-                        old_snapshot: old_snapshot.as_deref(),
-                        new_snapshot: &new_snapshot,
-                        expression: snapshot_ref.new.metadata().expression(),
+                        existing_snapshot: existing_snapshot.as_deref(),
+                        generated_snapshot: &proposed_snapshot,
+                        expression: snapshot_ref.generated.metadata().expression(),
                     }
                 } else {
                     SnapshotKey::FileSnapshot { path: &target_file }

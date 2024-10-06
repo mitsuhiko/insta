@@ -30,15 +30,19 @@ lazy_static::lazy_static! {
 pub struct PendingInlineSnapshot {
     pub run_id: String,
     pub line: u32,
-    pub new: Option<Snapshot>,
-    pub old: Option<Snapshot>,
+    pub generated: Option<Snapshot>,
+    pub existing: Option<Snapshot>,
 }
 
 impl PendingInlineSnapshot {
-    pub fn new(new: Option<Snapshot>, old: Option<Snapshot>, line: u32) -> PendingInlineSnapshot {
+    pub fn new(
+        generated: Option<Snapshot>,
+        existing: Option<Snapshot>,
+        line: u32,
+    ) -> PendingInlineSnapshot {
         PendingInlineSnapshot {
-            new,
-            old,
+            generated,
+            existing,
             line,
             run_id: RUN_ID.clone(),
         }
@@ -87,18 +91,22 @@ impl PendingInlineSnapshot {
         if let Content::Map(map) = content {
             let mut run_id = None;
             let mut line = None;
-            let mut old = None;
-            let mut new = None;
+            let mut existing = None;
+            let mut generated = None;
 
             for (key, value) in map.into_iter() {
                 match key.as_str() {
                     Some("run_id") => run_id = value.as_str().map(|x| x.to_string()),
                     Some("line") => line = value.as_u64().map(|x| x as u32),
+                    // We still use the legacy terms "old" and "new" for the
+                    // snapshots; change to "existing" and "generated" when
+                    // possible (will require a breaking change or a migration
+                    // where both work).
                     Some("old") if !value.is_nil() => {
-                        old = Some(Snapshot::from_content(value, TextSnapshotKind::Inline)?)
+                        existing = Some(Snapshot::from_content(value, TextSnapshotKind::Inline)?)
                     }
                     Some("new") if !value.is_nil() => {
-                        new = Some(Snapshot::from_content(value, TextSnapshotKind::Inline)?)
+                        generated = Some(Snapshot::from_content(value, TextSnapshotKind::Inline)?)
                     }
                     _ => {}
                 }
@@ -107,8 +115,8 @@ impl PendingInlineSnapshot {
             Ok(PendingInlineSnapshot {
                 run_id: run_id.ok_or(content::Error::MissingField)?,
                 line: line.ok_or(content::Error::MissingField)?,
-                new,
-                old,
+                generated,
+                existing,
             })
         } else {
             Err(content::Error::UnexpectedDataType.into())
@@ -121,14 +129,14 @@ impl PendingInlineSnapshot {
             ("line", Content::from(self.line)),
             (
                 "new",
-                match &self.new {
+                match &self.generated {
                     Some(snap) => snap.as_content(),
                     None => Content::None,
                 },
             ),
             (
                 "old",
-                match &self.old {
+                match &self.existing {
                     Some(snap) => snap.as_content(),
                     None => Content::None,
                 },
@@ -663,7 +671,7 @@ impl TextSnapshotContents {
             // Legacy inline snapshots have `---` at the start, so this strips that if
             // it exists.
             let out = match out.strip_prefix("---\n") {
-                Some(old_snapshot) => old_snapshot.to_string(),
+                Some(existing_snapshot) => existing_snapshot.to_string(),
                 None => out,
             };
             match sc.kind {
@@ -878,12 +886,12 @@ fn test_names_of_path() {
 }
 
 /// legacy format - retain so old snapshots still work
-fn legacy_inline_normalize(frozen_value: &str) -> String {
-    if !frozen_value.trim_start().starts_with('⋮') {
-        return frozen_value.to_string();
+fn legacy_inline_normalize(existing_value: &str) -> String {
+    if !existing_value.trim_start().starts_with('⋮') {
+        return existing_value.to_string();
     }
     let mut buf = String::new();
-    let mut line_iter = frozen_value.lines();
+    let mut line_iter = existing_value.lines();
     let mut indentation = 0;
 
     for line in &mut line_iter {

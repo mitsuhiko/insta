@@ -19,8 +19,8 @@ pub(crate) enum Operation {
 pub(crate) struct PendingSnapshot {
     #[allow(dead_code)]
     id: usize,
-    pub(crate) old: Option<Snapshot>,
-    pub(crate) new: Snapshot,
+    pub(crate) existing: Option<Snapshot>,
+    pub(crate) generated: Snapshot,
     pub(crate) op: Operation,
     pub(crate) line: Option<u32>,
 }
@@ -29,13 +29,13 @@ impl PendingSnapshot {
     pub(crate) fn summary(&self) -> String {
         use std::fmt::Write;
         let mut rv = String::new();
-        if let Some(source) = self.new.metadata().source() {
+        if let Some(source) = self.generated.metadata().source() {
             write!(&mut rv, "{}", source).unwrap();
         }
         if let Some(line) = self.line {
             write!(&mut rv, ":{}", line).unwrap();
         }
-        if let Some(name) = self.new.snapshot_name() {
+        if let Some(name) = self.generated.snapshot_name() {
             write!(&mut rv, " ({})", name).unwrap();
         }
         rv
@@ -65,16 +65,14 @@ impl SnapshotContainer {
         let mut snapshots = Vec::new();
         let patcher = match kind {
             TextSnapshotKind::File => {
-                let old = if fs::metadata(&target_path).is_err() {
-                    None
-                } else {
-                    Some(Snapshot::from_file(&target_path)?)
-                };
-                let new = Snapshot::from_file(&pending_path)?;
                 snapshots.push(PendingSnapshot {
                     id: 0,
-                    old,
-                    new,
+                    existing: if fs::metadata(&target_path).is_err() {
+                        None
+                    } else {
+                        Some(Snapshot::from_file(&target_path)?)
+                    },
+                    generated: Snapshot::from_file(&pending_path)?,
                     op: Operation::Skip,
                     line: None,
                 });
@@ -82,22 +80,22 @@ impl SnapshotContainer {
             }
             TextSnapshotKind::Inline => {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&pending_path)?;
-                let mut have_new = false;
+                let mut have_proposed = false;
 
                 let rv = if fs::metadata(&target_path).is_ok() {
                     let mut patcher = FilePatcher::open(&target_path)?;
                     pending_vec.sort_by_key(|pending| pending.line);
                     for (id, pending) in pending_vec.into_iter().enumerate() {
-                        if let Some(new) = pending.new {
+                        if let Some(generated) = pending.generated {
                             if patcher.add_snapshot_macro(pending.line as usize) {
                                 snapshots.push(PendingSnapshot {
                                     id,
-                                    old: pending.old,
-                                    new,
+                                    existing: pending.existing,
+                                    generated,
                                     op: Operation::Skip,
                                     line: Some(pending.line),
                                 });
-                                have_new = true;
+                                have_proposed = true;
                             } else {
                                 // this is an outdated snapshot and the file changed.
                             }
@@ -108,11 +106,11 @@ impl SnapshotContainer {
                     None
                 };
 
-                // if we don't actually have any new pending we better delete the file.
+                // if we don't actually have any proposed pending we better delete the file.
                 // this can happen if the test code left a stale snapshot behind.
                 // The runtime code will issue something like this:
                 //   PendingInlineSnapshot::new(None, None, line).save(pending_snapshots)?;
-                if !have_new {
+                if !have_proposed {
                     fs::remove_file(&pending_path)
                         .map_err(|e| ContentError::FileIo(e, pending_path.to_path_buf()))?;
                 }
@@ -186,7 +184,7 @@ impl SnapshotContainer {
                     Operation::Accept => {
                         patcher.set_new_content(
                             idx,
-                            match snapshot.new.contents() {
+                            match snapshot.generated.contents() {
                                 SnapshotContents::Text(c) => c,
                                 _ => unreachable!(),
                             },
@@ -196,8 +194,8 @@ impl SnapshotContainer {
                     Operation::Reject => {}
                     Operation::Skip => {
                         new_pending.push(PendingInlineSnapshot::new(
-                            Some(snapshot.new.clone()),
-                            snapshot.old.clone(),
+                            Some(snapshot.generated.clone()),
+                            snapshot.existing.clone(),
                             patcher.get_new_line(idx) as u32,
                         ));
                         did_skip = true;
@@ -221,24 +219,26 @@ impl SnapshotContainer {
                     Operation::Accept => {
                         try_removing_snapshot(&self.pending_path);
 
-                        if let Some(ref old) = snapshot.old {
+                        if let Some(ref old) = snapshot.existing {
                             if let Some(path) = old.build_binary_path(&self.target_path) {
                                 try_removing_snapshot(&path);
                             }
                         }
 
-                        if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
+                        if let Some(path) = snapshot.generated.build_binary_path(&self.pending_path)
+                        {
                             try_removing_snapshot(&path);
                         }
 
                         // We save at the end because we might write a binary file into the same
                         // path again.
-                        snapshot.new.save(&self.target_path)?;
+                        snapshot.generated.save(&self.target_path)?;
                     }
                     Operation::Reject => {
                         try_removing_snapshot(&self.pending_path);
 
-                        if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
+                        if let Some(path) = snapshot.generated.build_binary_path(&self.pending_path)
+                        {
                             try_removing_snapshot(&path);
                         }
                     }

@@ -80,16 +80,16 @@ pub enum SnapshotValue<'a> {
     FileText {
         name: SnapshotName<'a>,
 
-        /// The new generated value to compare against any previously approved content.
+        /// The generated value to compare against the existing value.
         content: &'a str,
     },
 
     /// An inline snapshot.
     InlineText {
         /// The reference content from the macro invocation that will be compared against.
-        reference_content: &'a str,
+        existing_content: &'a str,
 
-        /// The new generated value to compare against any previously approved content.
+        /// The generated value to compare against the existing value.
         content: &'a str,
     },
 
@@ -97,7 +97,7 @@ pub enum SnapshotValue<'a> {
     Binary {
         name: SnapshotName<'a>,
 
-        /// The new generated value to compare against any previously approved content.
+        /// The generated value to compare against the existing value.
         content: Vec<u8>,
 
         /// The extension of the separate file.
@@ -151,9 +151,9 @@ impl<'a> From<(&'a str, &'a str)> for SnapshotValue<'a> {
 }
 
 impl<'a> From<(InlineValue<'a>, &'a str)> for SnapshotValue<'a> {
-    fn from((InlineValue(reference_content), content): (InlineValue<'a>, &'a str)) -> Self {
+    fn from((InlineValue(existing_content), content): (InlineValue<'a>, &'a str)) -> Self {
         SnapshotValue::InlineText {
-            reference_content,
+            existing_content,
             content,
         }
     }
@@ -296,7 +296,7 @@ fn get_snapshot_filename(
     })
 }
 
-/// The context around a snapshot, such as the reference value, location, etc.
+/// The context around a snapshot, such as the existing value, location, etc.
 /// (but not including the generated value). Responsible for saving the
 /// snapshot.
 #[derive(Debug)]
@@ -307,7 +307,7 @@ struct SnapshotAssertionContext<'a> {
     snapshot_name: Option<Cow<'a, str>>,
     snapshot_file: Option<PathBuf>,
     duplication_key: Option<String>,
-    old_snapshot: Option<Snapshot>,
+    existing_snapshot: Option<Snapshot>,
     pending_snapshots_path: Option<PathBuf>,
     assertion_file: &'a str,
     assertion_line: u32,
@@ -328,7 +328,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         let snapshot_name;
         let mut duplication_key = None;
         let mut snapshot_file = None;
-        let mut old_snapshot = None;
+        let mut existing_snapshot = None;
         let mut pending_snapshots_path = None;
         let is_doctest = is_doctest(function_name);
 
@@ -356,13 +356,13 @@ impl<'a> SnapshotAssertionContext<'a> {
                     is_doctest,
                 );
                 if fs::metadata(&file).is_ok() {
-                    old_snapshot = Some(Snapshot::from_file(&file)?);
+                    existing_snapshot = Some(Snapshot::from_file(&file)?);
                 }
                 snapshot_name = Some(name);
                 snapshot_file = Some(file);
             }
             SnapshotValue::InlineText {
-                reference_content: contents,
+                existing_content: contents,
                 ..
             } => {
                 if allow_duplicates() {
@@ -386,7 +386,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                         .expect("non unicode filename")
                 ));
                 pending_snapshots_path = Some(pending_file);
-                old_snapshot = Some(Snapshot::from_components(
+                existing_snapshot = Some(Snapshot::from_components(
                     module_path.replace("::", "__"),
                     None,
                     MetaData::default(),
@@ -409,7 +409,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             module_path,
             snapshot_name,
             snapshot_file,
-            old_snapshot,
+            existing_snapshot,
             pending_snapshots_path,
             assertion_file,
             assertion_line,
@@ -578,7 +578,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                 } else {
                     PendingInlineSnapshot::new(
                         Some(new_snapshot),
-                        self.old_snapshot.clone(),
+                        self.existing_snapshot.clone(),
                         self.assertion_line,
                     )
                     .save(self.pending_snapshots_path.as_ref().unwrap())?;
@@ -592,8 +592,11 @@ impl<'a> SnapshotAssertionContext<'a> {
 
     /// This prints the information about the snapshot
     fn print_snapshot_info(&self, new_snapshot: &Snapshot) {
-        let mut printer =
-            SnapshotPrinter::new(self.workspace, self.old_snapshot.as_ref(), new_snapshot);
+        let mut printer = SnapshotPrinter::new(
+            self.workspace,
+            self.existing_snapshot.as_ref(),
+            new_snapshot,
+        );
         printer.set_line(Some(self.assertion_line));
         printer.set_snapshot_file(self.snapshot_file.as_deref());
         printer.set_title(Some("Snapshot Summary"));
@@ -820,7 +823,7 @@ pub fn assert_snapshot(
     });
 
     let pass = ctx
-        .old_snapshot
+        .existing_snapshot
         .as_ref()
         .map(|x| {
             if ctx.tool_config.require_full_match() {
@@ -842,7 +845,7 @@ pub fn assert_snapshot(
             // particular, this would otherwise create lots of unneeded files
             // for inline snapshots
             let matches_fully = &ctx
-                .old_snapshot
+                .existing_snapshot
                 .as_ref()
                 .map(|x| x.matches_fully(&new_snapshot))
                 .unwrap_or(false);
