@@ -4,6 +4,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## 1.41.0
 
+- Experimental support for binary snapshots.  #610 (Florian Plattner)
+
 - `--force-update-snapshots` has more conservative and consistent behavior for
   inline snapshots. As a side-effect of this, only the content within the inline
   snapshot delimiters are assessed for changes, not the delimiters (e.g. `###`).
@@ -11,7 +13,16 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Inline snapshots only use `#` characters as delimiters when required.  #603
 
-- Experimental support for binary snapshots.  #610 (Florian Plattner)
+- Warnings for undiscovered snapshots are more robust, and include files with
+  custom snapshot extensions.  #637
+
+- Insta runs correctly on packages which reference rust files in a parent path.  #626
+
+- Warnings are printed when any snapshot uses a legacy format.  #599
+
+- `insta` now internally uses `INSTA_UPDATE=force` rather than
+  `INSTA_FORCE_UPDATE`.  (This doesn't affect users of `cargo-insta`, which
+  handles this internally.)  #482
 
 ## 1.40.0
 
