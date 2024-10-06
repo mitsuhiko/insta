@@ -644,11 +644,12 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
             cmd.force_update_snapshots = true;
         }
     }
-
-    // --check always implies --no-force-pass as otherwise this command does not
-    // make a lot of sense.
-    if cmd.check {
-        cmd.no_force_pass = true
+    if cmd.no_force_pass {
+        cmd.check = true;
+        eprintln!(
+            "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
+            style("warning").bold().yellow()
+        )
     }
 
     // the tool config can also indicate that --accept-unseen should be picked
@@ -998,15 +999,6 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if !cmd.check {
         proc.env("INSTA_FORCE_PASS", "1");
-    } else if !cmd.no_force_pass {
-        proc.env("INSTA_FORCE_PASS", "1");
-        // If we're not running under cargo insta, raise a warning that this option
-        // is deprecated. (cargo insta still uses it when running under `--check`,
-        // but this will stop soon too)
-        eprintln!(
-            "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
-            style("warning").bold().yellow()
-    );
     }
 
     proc.env(
