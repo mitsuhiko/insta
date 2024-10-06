@@ -2,9 +2,9 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use insta::Snapshot;
 pub(crate) use insta::TextSnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
+use insta::{internals::SnapshotContents, Snapshot};
 
 use crate::inline::FilePatcher;
 
@@ -15,7 +15,7 @@ pub(crate) enum Operation {
     Skip,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct PendingSnapshot {
     #[allow(dead_code)]
     id: usize,
@@ -45,9 +45,9 @@ impl PendingSnapshot {
 /// A snapshot and its immediate context, which loads & saves the snapshot. It
 /// holds either a single file snapshot, or all the inline snapshots from a
 /// single rust file.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct SnapshotContainer {
-    // Path of the pending snapshot file (generally a `.new` or `.pending-snap` file)
+    // Path of the pending snapshot file (generally a `.snap.new` or `.pending-snap` file)
     pending_path: PathBuf,
     // Path of the target snapshot file (generally a `.snap` file)
     target_path: PathBuf,
@@ -186,7 +186,10 @@ impl SnapshotContainer {
                     Operation::Accept => {
                         patcher.set_new_content(
                             idx,
-                            snapshot.new.contents().as_string_contents().unwrap(),
+                            match snapshot.new.contents() {
+                                SnapshotContents::Text(c) => c,
+                                _ => unreachable!(),
+                            },
                         );
                         did_accept = true;
                     }

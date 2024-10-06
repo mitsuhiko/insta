@@ -385,7 +385,7 @@ impl Snapshot {
                     }
                 }
             }
-            elog!("A snapshot uses an old snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
+            elog!("A snapshot uses a legacy snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
@@ -528,7 +528,20 @@ impl Snapshot {
     pub fn matches_fully(&self, other: &Self) -> bool {
         match (self.contents(), other.contents()) {
             (SnapshotContents::Text(self_contents), SnapshotContents::Text(other_contents)) => {
-                let contents_match_exact = self_contents.matches_fully(other_contents);
+                // Note that we previously would match the exact values of the
+                // unnormalized text. But that's too strict — it means we can
+                // never match a snapshot that has leading/trailing whitespace.
+                // So instead we check it matches on the latest format.
+                // Generally those should be the same — latest should be doing
+                // the minimum normalization; if they diverge we could update
+                // this to be stricter.
+                //
+                // (I think to do this perfectly, we'd want to match the
+                // _reference_ value unnormalized, but the _generated_ value
+                // normalized. That way, we can get the But at the moment we
+                // don't distinguish between which is which in our data
+                // structures.)
+                let contents_match_exact = self_contents.matches_latest(other_contents);
                 match self_contents.kind {
                     TextSnapshotKind::File => {
                         self.metadata.trim_for_persistence()
@@ -542,20 +555,12 @@ impl Snapshot {
         }
     }
 
-    /// The normalized snapshot contents as a String
-    pub fn contents_string(&self) -> Option<String> {
-        match self.contents() {
-            SnapshotContents::Text(contents) => Some(contents.normalize()),
-            SnapshotContents::Binary(_) => None,
-        }
-    }
-
     fn serialize_snapshot(&self, md: &MetaData) -> String {
         let mut buf = yaml::to_string(&md.as_content());
         buf.push_str("---\n");
 
-        if let Some(ref contents_str) = self.contents_string() {
-            buf.push_str(contents_str);
+        if let SnapshotContents::Text(ref contents) = self.snapshot {
+            buf.push_str(&contents.to_string());
             buf.push('\n');
         }
 
@@ -635,13 +640,6 @@ impl From<TextSnapshotContents> for SnapshotContents {
 impl SnapshotContents {
     pub fn is_binary(&self) -> bool {
         matches!(self, SnapshotContents::Binary(_))
-    }
-
-    pub fn as_string_contents(&self) -> Option<&TextSnapshotContents> {
-        match self {
-            SnapshotContents::Text(contents) => Some(contents),
-            SnapshotContents::Binary(_) => None,
-        }
     }
 }
 
@@ -793,7 +791,7 @@ impl PartialEq for SnapshotContents {
                 if this.matches_latest(other) {
                     true
                 } else if this.matches_legacy(other) {
-                    elog!("{} {}\n{}",style("Snapshot passes but is a legacy format. Please run `cargo insta test --force-update-snapshots --accept` to update to a newer format.").yellow().bold(),"Snapshot contents:", this.to_string());
+                    elog!("{} {}\n{}",style("Snapshot test passes but the existing value is in a legacy format. Please run `cargo insta test --force-update-snapshots` to update to a newer format.").yellow().bold(),"Snapshot contents:", this.to_string());
                     true
                 } else {
                     false

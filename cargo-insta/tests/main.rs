@@ -11,11 +11,15 @@
 ///     .args(["test"])
 ///     .stderr(Stdio::piped())
 ///
-/// assert!(String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review")
+/// assert!(
+///     String::from_utf8_lossy(&output.stderr).contains("info: 2 snapshots to review"),
+///    "{}",
+///     String::from_utf8_lossy(&output.stderr)
+/// );
 /// ```
 ///
 /// Often we want to see output from the test commands we run here; for example
-/// a `dbg!` statement we add while debugging. Cargo by default hides the output
+/// a `dbg` statement we add while debugging. Cargo by default hides the output
 /// of passing tests.
 /// - Like any test, to forward the output of a passing outer test (i.e. one of
 ///   the `#[test]`s in this file) to the terminal, pass `--nocapture` to the
@@ -1123,22 +1127,17 @@ fn test_wrong_indent_force() {
         )
         .create_project();
 
-    // Confirm the test passes despite the indent
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--check", "--", "--nocapture"])
-        .output()
-        .unwrap();
-    assert!(&output.status.success());
-
-    // Then run the test with --force-update-snapshots and --accept to confirm
-    // the new snapshot is written
+    // ...and that it passes with `--require-full-match`. Note that ideally this
+    // would fail, but we can't read the desired indent without serde, which is
+    // in `cargo-insta` only. So this tests the current state rather than the
+    // ideal state (and I don't think there's a reasonable way to get the ideal state)
+    // Now confirm that `--require-full-match` passes
     let output = test_project
         .insta_cmd()
         .args([
             "test",
-            "--force-update-snapshots",
-            "--accept",
+            "--check",
+            "--require-full-match",
             "--",
             "--nocapture",
         ])
@@ -1146,24 +1145,9 @@ fn test_wrong_indent_force() {
         .unwrap();
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
-    --- Original: src/lib.rs
-    +++ Updated: src/lib.rs
-    @@ -4,9 +4,9 @@
-         insta::assert_snapshot!(r#"
-         foo
-         foo
-    -    "#, @r#"
-    +    "#, @r"
-     
-    -                foo
-    -                foo
-    -    "#);
-    +    foo
-    +    foo
-    +    ");
-     }
-    "##);
+    // https://github.com/mitsuhiko/insta/pull/563 will fix the starting &
+    // ending newlines
+    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
 }
 
 #[test]
@@ -1217,6 +1201,63 @@ fn test_hashtag_escape() {
     +    "###);
      }
     "####);
+}
+
+#[test]
+fn test_snapshot_name_clash() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "snapshot_name_clash_test"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    use insta::assert_debug_snapshot;
+
+    #[test]
+    fn test_foo_always_missing() {
+        assert_debug_snapshot!(42);
+    }
+
+    #[test]
+    fn foo_always_missing() {
+        assert_debug_snapshot!(42);
+    }
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    // The test should fail due to the name clash
+    assert!(!output.status.success());
+
+    let error_output = String::from_utf8_lossy(&output.stderr);
+
+    // Check for the name clash error message
+    assert!(error_output.contains("Insta snapshot name clash detected between 'foo_always_missing' and 'test_foo_always_missing' in 'snapshot_name_clash_test::tests'. Rename one function."));
 }
 
 /// A pending binary snapshot should have a binary file with the passed extension alongside it.
@@ -1967,6 +2008,163 @@ Unused snapshot
     +    src/snapshots
     +      src/snapshots/test_unreferenced_delete__tests__snapshot.snap
     ");
+}
+
+#[test]
+fn test_hidden_snapshots() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_hidden_snapshots"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_snapshot() {
+        insta::assert_snapshot!("Hello, world!");
+    }
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_hidden_snapshots__tests__snapshot.snap",
+            r#"---
+source: src/lib.rs
+expression: "\"Hello, world!\""
+---
+Hello, world!
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/.hidden/hidden_snapshot.snap.new",
+            r#"---
+source: src/lib.rs
+expression: "Hidden snapshot"
+---
+Hidden snapshot
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run test without --include-hidden flag
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("found undiscovered pending snapshots")
+            && stderr.contains("--include-hidden"),
+        "{}",
+        stderr
+    );
+
+    // Run test with --include-hidden flag
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--include-hidden"])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("found undiscovered pending snapshots"),
+        "{}",
+        stderr
+    );
+}
+
+#[test]
+fn test_ignored_snapshots() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_ignored_snapshots"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!", @"");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            ".gitignore",
+            r#"
+src/
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // We need to init a git repository in the project directory so it will be ignored
+    let mut git_cmd = Command::new("git");
+    git_cmd.current_dir(&test_project.workspace_dir);
+    git_cmd.args(["init"]);
+    git_cmd.output().unwrap();
+
+    // Run test without --include-ignored flag
+    let output = test_project
+        .insta_cmd()
+        // add the `--hidden` to check it's printing the correct warning
+        .args(["test", "--include-hidden"])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("found undiscovered pending snapshots")
+            && stderr.contains("--include-ignored"),
+        "{}",
+        stderr
+    );
+
+    // Run test with --include-ignored flag
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--include-ignored"])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("found undiscovered pending snapshots"),
+        "{}",
+        stderr
+    );
 }
 
 #[test]

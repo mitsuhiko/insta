@@ -10,13 +10,14 @@ use proc_macro2::TokenTree;
 use syn::__private::ToTokens;
 use syn::spanned::Spanned;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct InlineSnapshot {
     start: (usize, usize),
     end: (usize, usize),
     indentation: usize,
 }
 
+#[derive(Clone)]
 pub(crate) struct FilePatcher {
     filename: PathBuf,
     lines: Vec<String>,
