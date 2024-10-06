@@ -376,7 +376,7 @@ impl ToolConfig {
 pub enum SnapshotUpdateBehavior {
     /// Snapshots are updated in-place
     InPlace,
-    /// Snapshots are placed in a new file with a .new suffix
+    /// Snapshots are placed in a new file with a `.new` suffix
     NewFile,
     /// Snapshots are not updated at all.
     NoUpdate,
@@ -495,7 +495,7 @@ impl std::str::FromStr for UnreferencedSnapshots {
     }
 }
 
-/// Memoizes a snapshot file in the reference file, as part of removing unreferenced snapshots.
+/// Memoizes a snapshot file in a reference file, as part of removing unreferenced snapshots.
 pub fn memoize_snapshot_file(snapshot_file: &Path) {
     if let Ok(path) = env::var("INSTA_SNAPSHOT_REFERENCES_FILE") {
         let mut f = fs::OpenOptions::new()

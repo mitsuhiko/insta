@@ -10,10 +10,10 @@ use crate::utils::{format_rust_expression, style, term_width};
 /// Snapshot printer utility.
 pub struct SnapshotPrinter<'a> {
     workspace_root: &'a Path,
-    old_snapshot: Option<&'a Snapshot>,
-    new_snapshot: &'a Snapshot,
-    old_snapshot_hint: &'a str,
-    new_snapshot_hint: &'a str,
+    existing_snapshot: Option<&'a Snapshot>,
+    generated_snapshot: &'a Snapshot,
+    existing_snapshot_hint: &'a str,
+    proposed_snapshot_hint: &'a str,
     show_info: bool,
     show_diff: bool,
     title: Option<&'a str>,
@@ -24,15 +24,15 @@ pub struct SnapshotPrinter<'a> {
 impl<'a> SnapshotPrinter<'a> {
     pub fn new(
         workspace_root: &'a Path,
-        old_snapshot: Option<&'a Snapshot>,
+        existing_snapshot: Option<&'a Snapshot>,
         new_snapshot: &'a Snapshot,
     ) -> SnapshotPrinter<'a> {
         SnapshotPrinter {
             workspace_root,
-            old_snapshot,
-            new_snapshot,
-            old_snapshot_hint: "old snapshot",
-            new_snapshot_hint: "new results",
+            existing_snapshot,
+            generated_snapshot: new_snapshot,
+            existing_snapshot_hint: "existing snapshot",
+            proposed_snapshot_hint: "generated snapshot",
             show_info: false,
             show_diff: false,
             title: None,
@@ -42,8 +42,8 @@ impl<'a> SnapshotPrinter<'a> {
     }
 
     pub fn set_snapshot_hints(&mut self, old: &'a str, new: &'a str) {
-        self.old_snapshot_hint = old;
-        self.new_snapshot_hint = new;
+        self.existing_snapshot_hint = old;
+        self.proposed_snapshot_hint = new;
     }
 
     pub fn set_show_info(&mut self, yes: bool) {
@@ -90,14 +90,14 @@ impl<'a> SnapshotPrinter<'a> {
     fn print_snapshot_summary(&self) {
         print_snapshot_summary(
             self.workspace_root,
-            self.new_snapshot,
+            self.generated_snapshot,
             self.snapshot_file,
             self.line,
         );
     }
 
     fn print_info(&self) {
-        print_info(self.new_snapshot.metadata());
+        print_info(self.generated_snapshot.metadata());
     }
 
     fn print_snapshot(&self) {
@@ -109,7 +109,7 @@ impl<'a> SnapshotPrinter<'a> {
         }
         println!("Snapshot Contents:");
 
-        match self.new_snapshot.contents() {
+        match self.generated_snapshot.contents() {
             SnapshotContents::Text(new_contents) => {
                 let new_contents = new_contents.to_string();
 
@@ -124,7 +124,7 @@ impl<'a> SnapshotPrinter<'a> {
                     "{}",
                     encode_file_link_escape(
                         &self
-                            .new_snapshot
+                            .generated_snapshot
                             .build_binary_path(
                                 self.snapshot_file.unwrap().with_extension("snap.new")
                             )
@@ -143,15 +143,15 @@ impl<'a> SnapshotPrinter<'a> {
             self.print_info();
         }
 
-        if let Some(old_snapshot) = self.old_snapshot {
-            if old_snapshot.contents().is_binary() {
+        if let Some(existing_snapshot) = self.existing_snapshot {
+            if existing_snapshot.contents().is_binary() {
                 println!(
                     "{}",
                     style(format_args!(
                         "-{}: {}",
-                        self.old_snapshot_hint,
+                        self.existing_snapshot_hint,
                         encode_file_link_escape(
-                            &old_snapshot
+                            &existing_snapshot
                                 .build_binary_path(self.snapshot_file.unwrap())
                                 .unwrap()
                         ),
@@ -161,15 +161,15 @@ impl<'a> SnapshotPrinter<'a> {
             }
         }
 
-        if self.new_snapshot.contents().is_binary() {
+        if self.generated_snapshot.contents().is_binary() {
             println!(
                 "{}",
                 style(format_args!(
                     "+{}: {}",
-                    self.new_snapshot_hint,
+                    self.proposed_snapshot_hint,
                     encode_file_link_escape(
                         &self
-                            .new_snapshot
+                            .generated_snapshot
                             .build_binary_path(
                                 self.snapshot_file.unwrap().with_extension("snap.new")
                             )
@@ -180,9 +180,9 @@ impl<'a> SnapshotPrinter<'a> {
             );
         }
 
-        if let Some((old, new)) = match (
-            self.old_snapshot.as_ref().map(|o| o.contents()),
-            self.new_snapshot.contents(),
+        if let Some((existing, generated)) = match (
+            self.existing_snapshot.as_ref().map(|o| o.contents()),
+            self.generated_snapshot.contents(),
         ) {
             (Some(SnapshotContents::Binary(_)) | None, SnapshotContents::Text(new)) => {
                 Some((None, Some(new.to_string())))
@@ -195,26 +195,26 @@ impl<'a> SnapshotPrinter<'a> {
             }
             _ => None,
         } {
-            let old_text = old.as_deref().unwrap_or("");
-            let new_text = new.as_deref().unwrap_or("");
+            let existing_text = existing.as_deref().unwrap_or("");
+            let proposed_text = generated.as_deref().unwrap_or("");
 
-            let newlines_matter = newlines_matter(old_text, new_text);
+            let newlines_matter = newlines_matter(existing_text, proposed_text);
             let diff = TextDiff::configure()
                 .algorithm(Algorithm::Patience)
                 .timeout(Duration::from_millis(500))
-                .diff_lines(old_text, new_text);
+                .diff_lines(existing_text, proposed_text);
 
-            if old.is_some() {
+            if existing.is_some() {
                 println!(
                     "{}",
-                    style(format_args!("-{}", self.old_snapshot_hint)).red()
+                    style(format_args!("-{}", self.existing_snapshot_hint)).red()
                 );
             }
 
-            if new.is_some() {
+            if generated.is_some() {
                 println!(
                     "{}",
-                    style(format_args!("+{}", self.new_snapshot_hint)).green()
+                    style(format_args!("+{}", self.proposed_snapshot_hint)).green()
                 );
             }
 
@@ -222,7 +222,7 @@ impl<'a> SnapshotPrinter<'a> {
 
             // This is to make sure that binary and text snapshots are never reported as being
             // equal (that would otherwise happen if the text snapshot is an empty string).
-            let mut has_changes = old.is_none() || new.is_none();
+            let mut has_changes = existing.is_none() || generated.is_none();
 
             for (idx, group) in diff.grouped_ops(4).iter().enumerate() {
                 if idx > 0 {

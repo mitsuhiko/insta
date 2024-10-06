@@ -9,13 +9,13 @@
 //! # What are snapshot tests
 //!
 //! Snapshots tests (also sometimes called approval tests) are tests that
-//! assert values against a reference value (the snapshot).  This is similar
+//! assert values against an existing value (the snapshot).  This is similar
 //! to how [`assert_eq!`] lets you compare a value against a reference value but
 //! unlike simple string assertions, snapshot tests let you test against complex
 //! values and come with comprehensive tools to review changes.
 //!
-//! Snapshot tests are particularly useful if your reference values are very
-//! large or change often.
+//! Snapshot tests are particularly useful for values which are large or change
+//! often.
 //!
 //! # What it looks like:
 //!

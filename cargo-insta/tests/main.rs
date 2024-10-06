@@ -1133,8 +1133,8 @@ fn test_wrong_indent_force() {
     // ...and that it passes with `--require-full-match`. Note that ideally this
     // would fail, but we can't read the desired indent without serde, which is
     // in `cargo-insta` only. So this tests the current state rather than the
-    // ideal state (and I don't think there's a reasonable way to get the ideal state)
-    // Now confirm that `--require-full-match` passes
+    // ideal state (and I don't think there's a reasonable way to get the ideal
+    // state).
     let output = test_project
         .insta_cmd()
         .args([

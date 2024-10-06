@@ -127,8 +127,8 @@ macro_rules! assert_toml_snapshot {
 ///
 /// The replacement value can be a string, integer or any other primitive value.
 ///
-/// For inline usage the format is `(expression, @reference_value)` where the
-/// reference value must be a string literal.  If you make the initial snapshot
+/// For inline usage the format is `(expression, @value)` where the
+/// value must be a string literal.  If you make the initial snapshot
 /// just use an empty string (`@""`).
 ///
 /// The snapshot name is optional but can be provided as first argument.
@@ -437,11 +437,11 @@ macro_rules! assert_display_snapshot {
 /// ```no_run
 /// # use insta::*;
 /// // implicitly named
-/// assert_snapshot!("reference value to snapshot");
+/// assert_snapshot!("value to snapshot");
 /// // named
-/// assert_snapshot!("snapshot_name", "reference value to snapshot");
+/// assert_snapshot!("snapshot_name", "value to snapshot");
 /// // inline
-/// assert_snapshot!("reference value", @"reference value");
+/// assert_snapshot!("value", @"value");
 /// ```
 ///
 /// Optionally a third argument can be given as an expression to be stringified
