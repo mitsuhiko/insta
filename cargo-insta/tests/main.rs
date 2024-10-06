@@ -237,6 +237,7 @@ impl TestProject {
                 let path_str = path.to_str().map(|s| s.replace('\\', "/")).unwrap();
                 format!("{}{}", "  ".repeat(entry.depth()), path_str)
             })
+            .filter(|line| !line.is_empty())
             .chain(std::iter::once(String::new()))
             .collect::<Vec<_>>()
             .join("\n")
@@ -574,11 +575,10 @@ fn test_root_crate_workspace_accept() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,8 +1,13 @@
-     
+    @@ -1,7 +1,12 @@
     +  Cargo.lock
        Cargo.toml
        member
@@ -591,7 +591,7 @@ fn test_root_crate_workspace_accept() {
          src/main.rs
     +    src/snapshots
     +      src/snapshots/root_crate_workspace_accept__root.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
@@ -631,22 +631,21 @@ fn test_root_crate_no_all() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,5 @@
-     
+    @@ -1,3 +1,4 @@
     +  Cargo.lock
        Cargo.toml
        member
          member/Cargo.toml
-    @@ -6,3 +7,5 @@
+    @@ -5,3 +6,5 @@
            member/src/lib.rs
        src
          src/main.rs
     +    src/snapshots
     +      src/snapshots/root_crate_no_all__root.snap
-    "###     );
+    "     );
 }
 
 fn workspace_with_virtual_manifest(name: String) -> TestFiles {
@@ -733,11 +732,10 @@ fn test_virtual_manifest_all() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,10 +1,15 @@
-     
+    @@ -1,9 +1,14 @@
     +  Cargo.lock
        Cargo.toml
        member-1
@@ -752,7 +750,7 @@ fn test_virtual_manifest_all() {
            member-2/src/lib.rs
     +      member-2/src/snapshots
     +        member-2/src/snapshots/virtual_manifest_all_member_2__member_2.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a virtual manifest, running `cargo insta test
@@ -770,11 +768,10 @@ fn test_virtual_manifest_default() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,10 +1,15 @@
-     
+    @@ -1,9 +1,14 @@
     +  Cargo.lock
        Cargo.toml
        member-1
@@ -789,7 +786,7 @@ fn test_virtual_manifest_default() {
            member-2/src/lib.rs
     +      member-2/src/snapshots
     +        member-2/src/snapshots/virtual_manifest_default_member_2__member_2.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a virtual manifest, running `cargo insta test
@@ -807,11 +804,10 @@ fn test_virtual_manifest_single_crate() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,9 +1,12 @@
-     
+    @@ -1,8 +1,11 @@
     +  Cargo.lock
        Cargo.toml
        member-1
@@ -823,7 +819,7 @@ fn test_virtual_manifest_single_crate() {
        member-2
          member-2/Cargo.toml
          member-2/src
-    "###     );
+    "     );
 }
 
 /// Test the old format of inline YAML snapshots with a leading `---` still passes
@@ -1024,29 +1020,31 @@ fn test_linebreaks() {
 
     assert!(&output.status.success());
 
-    // When #563 merges, or #630 is resolved, this will change the snapshot. I
-    // also think it's possible to have it work sooner, but have iterated quite
-    // a few times trying to get this to work, and then finding something else
-    // without test coverage didn't work; so not sure it's a great investment of
-    // time.
-    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
-
-    // assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
-    // --- Original: src/lib.rs
-    // +++ Updated: src/lib.rs
-    // @@ -1,8 +1,5 @@
-
-    //  #[test]
-    //  fn test_linebreaks() {
-    // -    insta::assert_snapshot!("foo", @r####"
-    // -    foo
-    // -
-    // -    "####);
-    // +    insta::assert_snapshot!("foo", @"foo");
-    //  }
-    // "#####);
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,8 +1,5 @@
+     
+     #[test]
+     fn test_linebreaks() {
+    -    insta::assert_snapshot!("foo", @r####"
+    -    foo
+    -    
+    -    "####);
+    +    insta::assert_snapshot!("foo", @"foo");
+     }
+    "#####);
 }
 
+/// Given the reasons at https://github.com/mitsuhiko/insta/pull/573, we can't
+/// assess whether the hashes are correct without `cargo-insta`, and we
+/// don't want to update all snapshots without confirming that there is some
+/// difference, even when `--force-update-snapshots` is passed, which we can't
+/// do from the insta test runner. So this tests the current state rather than
+/// the desired state.
+///
+/// We could change the behavior of `--force-update-snapshots`, but may want to
+/// reduce the amount of noise it would generate.
 #[test]
 fn test_force_update_inline_snapshot_hashes() {
     let test_project = TestFiles::new()
@@ -1090,9 +1088,7 @@ fn test_excessive_hashes() {
 
     assert!(&output.status.success());
 
-    // TODO: we would like to update the number of hashes, but that's not easy
-    // given the reasons at https://github.com/mitsuhiko/insta/pull/573. So this
-    // result asserts the current state rather than the desired state.
+    // this tests the current state rather than the desired state.
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
 }
 
@@ -1121,6 +1117,7 @@ fn test_wrong_indent_force() {
     foo
     foo
     "#, @r#"
+
                 foo
                 foo
     "#);
@@ -1147,66 +1144,10 @@ fn test_wrong_indent_force() {
         .output()
         .unwrap();
     assert!(&output.status.success());
-}
 
-#[test]
-fn test_matches_fully_linebreaks() {
-    // Until #563 merges, we should be OK with different leading newlines, even
-    // in exact / full match mode.
-    let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "exact-match-inline"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-doctest = false
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/lib.rs",
-            r#####"
-#[test]
-fn test_additional_linebreak() {
-    // Additional newline here
-    insta::assert_snapshot!(r#"
-
-    (
-        "name_foo",
-        "insta_tests__tests",
-    )
-    "#, @r#"
-    (
-        "name_foo",
-        "insta_tests__tests",
-    )
-    "#);
-}
-"#####
-                .to_string(),
-        )
-        .create_project();
-
-    // Confirm the test passes despite the indent
-    let output = test_project
-        .insta_cmd()
-        .args([
-            "test",
-            "--check",
-            "--require-full-match",
-            "--",
-            "--nocapture",
-        ])
-        .output()
-        .unwrap();
-    assert!(&output.status.success());
+    // https://github.com/mitsuhiko/insta/pull/563 will fix the starting &
+    // ending newlines
+    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
 }
 
 #[test]
@@ -1355,8 +1296,7 @@ fn test_binary_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
-     
+    @@ -1,3 +1,7 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -1407,8 +1347,7 @@ fn test_binary_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
-     
+    @@ -1,3 +1,7 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -1476,8 +1415,7 @@ fn test_binary_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,10 @@
-     
+    @@ -1,3 +1,9 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -1500,8 +1438,7 @@ fn test_binary_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
-     
+    @@ -1,3 +1,7 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -1555,8 +1492,7 @@ fn test_binary_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,6 @@
-     
+    @@ -1,3 +1,5 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -1605,8 +1541,7 @@ fn test() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,7 @@
-     
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -1636,8 +1571,7 @@ fn test() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
-     
+    @@ -1,3 +1,7 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -1688,8 +1622,7 @@ fn test() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
-     
+    @@ -1,3 +1,7 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -1720,8 +1653,7 @@ fn test() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,7 @@
-     
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -2039,8 +1971,7 @@ Unused snapshot
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
-     
+    @@ -1,3 +1,7 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -2069,8 +2000,7 @@ Unused snapshot
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,7 @@
-     
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -2285,8 +2215,7 @@ mod tests {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
-     
+    @@ -1,3 +1,7 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -2315,8 +2244,7 @@ mod tests {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,6 @@
-     
+    @@ -1,3 +1,5 @@
     +  Cargo.lock
        Cargo.toml
        src

@@ -6,6 +6,13 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Experimental support for binary snapshots.  #610 (Florian Plattner)
 
+- We no longer trim starting newlines during assertions, which allows asserting
+  the number of leading newlines match those in a snapshot value. Existing
+  assertions with different leading newlines will pass with a warning suggesting
+  using `--force-update-snapshots` to update snapshots, and will fail in the
+  future. (Note that we currently allowing differing trailing newlines but may
+  adjust this in the future).  #563
+
 - `--force-update-snapshots` has more conservative and consistent behavior for
   inline snapshots. As a side-effect of this, only the content within the inline
   snapshot delimiters are assessed for changes, not the delimiters (e.g. `###`).
