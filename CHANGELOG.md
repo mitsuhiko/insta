@@ -6,10 +6,16 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Experimental support for binary snapshots.  #610 (Florian Plattner)
 
-- `--force-update-snapshots` has more conservative and consistent behavior for
-  inline snapshots. As a side-effect of this, only the content within the inline
-  snapshot delimiters are assessed for changes, not the delimiters (e.g. `###`).
-  #581
+- `--force-update-snapshots` now writes every snapshot, regardless of whether
+  `insta` evaluates a write is required, and now implies `--accept`.  This
+  allows for `--force-update-snapshots` to update inline snapshots when
+  delimiters or indents require updating.
+
+  For the existing behavior of limiting writes which `insta` can evaluate are
+  required, use `--require-full-match`.  The main difference between
+  `--require-full-match` and the existing behavior of `--force-update-snapshots`
+  is that the test run will return a non-zero exit code if any snapshots don't
+  match fully.  #644
 
 - Inline snapshots only use `#` characters as delimiters when required.  #603
 

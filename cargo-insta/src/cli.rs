@@ -193,7 +193,7 @@ struct TestCommand {
     /// Do not reject pending snapshots before run.
     #[arg(long)]
     keep_pending: bool,
-    /// Update all snapshots even if they are still matching.
+    /// Update all snapshots even if they are still matching; implies `--accept`.
     #[arg(long)]
     force_update_snapshots: bool,
     /// Handle unreferenced snapshots after a successful test run.
@@ -618,6 +618,7 @@ fn process_snapshots(
     Ok(())
 }
 
+/// Run the tests
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
     match loc.tool_config.snapshot_update() {
@@ -643,6 +644,10 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         SnapshotUpdate::Force => {
             cmd.force_update_snapshots = true;
         }
+    }
+    // `--force-update-snapshots` implies `--accept`
+    if cmd.force_update_snapshots {
+        cmd.accept = true;
     }
     if cmd.no_force_pass {
         cmd.check = true;
