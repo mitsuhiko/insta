@@ -1274,19 +1274,16 @@ insta = { path = '$PROJECT_PATH' }
         .add_file(
             "src/lib.rs",
             r#"
-#[cfg(test)]
-mod tests {
-    use insta::assert_debug_snapshot;
+use insta::assert_debug_snapshot;
 
-    #[test]
-    fn test_foo_always_missing() {
-        assert_debug_snapshot!(42);
-    }
+#[test]
+fn test_foo_always_missing() {
+    assert_debug_snapshot!(42);
+}
 
-    #[test]
-    fn foo_always_missing() {
-        assert_debug_snapshot!(42);
-    }
+#[test]
+fn foo_always_missing() {
+    assert_debug_snapshot!(42);
 }
 "#
             .to_string(),
@@ -1778,15 +1775,12 @@ fn test_insta_workspace_root() {
         .add_file(
             "src/lib.rs",
             r#"
-    #[cfg(test)]
-    mod tests {
-        use insta::assert_snapshot;
+use insta::assert_snapshot;
 
-        #[test]
-        fn test_snapshot() {
-            assert_snapshot!("Hello, world!");
-        }
-    }
+#[test]
+fn test_snapshot() {
+    assert_snapshot!("Hello, world!");
+}
     "#
             .to_string(),
         )
@@ -1989,12 +1983,9 @@ insta = { path = '$PROJECT_PATH' }
         .add_file(
             "src/lib.rs",
             r#"
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_snapshot() {
-        insta::assert_snapshot!("Hello, world!");
-    }
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!");
 }
 "#
             .to_string(),
@@ -2036,7 +2027,7 @@ Unused snapshot
        src
          src/lib.rs
     +    src/snapshots
-    +      src/snapshots/test_unreferenced_delete__tests__snapshot.snap
+    +      src/snapshots/test_unreferenced_delete__snapshot.snap
     +      src/snapshots/test_unreferenced_delete__tests__unused_snapshot.snap
     ");
 
@@ -2066,7 +2057,7 @@ Unused snapshot
        src
          src/lib.rs
     +    src/snapshots
-    +      src/snapshots/test_unreferenced_delete__tests__snapshot.snap
+    +      src/snapshots/test_unreferenced_delete__snapshot.snap
     ");
 }
 
@@ -2089,12 +2080,9 @@ insta = { path = '$PROJECT_PATH' }
         .add_file(
             "src/lib.rs",
             r#"
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_snapshot() {
-        insta::assert_snapshot!("Hello, world!");
-    }
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!");
 }
 "#
             .to_string(),
@@ -2249,12 +2237,9 @@ insta = { path = '$PROJECT_PATH' }
         .add_file(
             "src/lib.rs",
             r#"
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_snapshot() {
-        insta::assert_binary_snapshot!(".txt", b"abcd".to_vec());
-    }
+#[test]
+fn test_snapshot() {
+    insta::assert_binary_snapshot!(".txt", b"abcd".to_vec());
 }
 "#
             .to_string(),
@@ -2282,8 +2267,8 @@ mod tests {
        src
          src/lib.rs
     +    src/snapshots
-    +      src/snapshots/test_binary_unreferenced_delete__tests__snapshot.snap
-    +      src/snapshots/test_binary_unreferenced_delete__tests__snapshot.snap.txt
+    +      src/snapshots/test_binary_unreferenced_delete__snapshot.snap
+    +      src/snapshots/test_binary_unreferenced_delete__snapshot.snap.txt
     ");
 
     // Run cargo insta test with --unreferenced=delete
