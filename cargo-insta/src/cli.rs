@@ -693,10 +693,6 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         None,
     )?;
 
-    if !cmd.keep_pending {
-        process_snapshots(true, None, &loc, Some(Operation::Reject))?;
-    }
-
     let status = proc.status()?;
     let mut success = status.success();
 
