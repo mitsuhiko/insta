@@ -517,6 +517,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         &self,
         new_snapshot: Snapshot,
     ) -> Result<SnapshotUpdateBehavior, Box<dyn Error>> {
+        // TODO: this seems to be making `unseen` be true when there is an
+        // existing snapshot file; which seems wrong??
         let unseen = self
             .snapshot_file
             .as_ref()
@@ -527,8 +529,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         // If snapshot_update is `InPlace` and we have an inline snapshot, then
         // use `NewFile`, since we can't use `InPlace` for inline. `cargo-insta`
         // then accepts all snapshots at the end of the test.
-
         let snapshot_update =
+            // TOOD: could match on the snapshot kind instead of whether snapshot_file is None
             if snapshot_update == SnapshotUpdateBehavior::InPlace && self.snapshot_file.is_none() {
                 SnapshotUpdateBehavior::NewFile
             } else {
