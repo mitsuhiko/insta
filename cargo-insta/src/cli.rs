@@ -100,6 +100,8 @@ struct TargetArgs {
     #[arg(long)]
     all: bool,
     /// Also walk into ignored paths.
+    // TODO: this alias is confusing, I think we should remove — does "no" mean
+    // "don't ignore files" or "not ignored files"?
     #[arg(long, alias = "no-ignore")]
     include_ignored: bool,
     /// Also include hidden paths.
@@ -668,7 +670,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
 
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
-        println!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
+        eprintln!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
         cmd.unreferenced = UnreferencedSnapshots::Delete;
     }
 
@@ -697,6 +699,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
     }
 
+    // Run the tests
     let status = proc.status()?;
     let mut success = status.success();
 
@@ -888,6 +891,7 @@ fn handle_unreferenced_snapshots(
     Ok(())
 }
 
+/// Create and setup a `Command`, translating our configs into env vars & cli options
 #[allow(clippy::type_complexity)]
 fn prepare_test_runner<'snapshot_ref>(
     test_runner: TestRunner,
@@ -902,37 +906,29 @@ fn prepare_test_runner<'snapshot_ref>(
     let cargo = cargo
         .as_deref()
         .unwrap_or_else(|| std::ffi::OsStr::new("cargo"));
-    let test_runner = match test_runner {
-        TestRunner::CargoTest | TestRunner::Auto => test_runner,
-        TestRunner::Nextest => {
-            // Fall back to `cargo test` if `cargo nextest` isn't installed and
-            // `test_runner_fallback` is true (but don't run the cargo command
-            // unless that's an option)
-            if !test_runner_fallback
-                || std::process::Command::new("cargo")
-                    .arg("nextest")
-                    .arg("--version")
-                    .output()
-                    .map(|output| output.status.success())
-                    .unwrap_or(false)
-            {
-                TestRunner::Nextest
-            } else {
-                TestRunner::Auto
-            }
-        }
+    // Fall back to `cargo test` if `cargo nextest` isn't installed and
+    // `test_runner_fallback` is true
+    let test_runner = if test_runner == TestRunner::Nextest
+        && test_runner_fallback
+        && std::process::Command::new("cargo")
+            .arg("nextest")
+            .arg("--version")
+            .output()
+            .map(|output| !output.status.success())
+            .unwrap_or(true)
+    {
+        TestRunner::Auto
+    } else {
+        test_runner
     };
-    let mut proc = match test_runner {
+    let mut proc = process::Command::new(cargo);
+    match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
-            let mut proc = process::Command::new(cargo);
             proc.arg("test");
-            proc
         }
         TestRunner::Nextest => {
-            let mut proc = process::Command::new(cargo);
             proc.arg("nextest");
             proc.arg("run");
-            proc
         }
     };
 
@@ -1077,17 +1073,14 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--target");
         proc.arg(target);
     }
-    proc.arg("--color");
-    proc.arg(color.to_string());
+    proc.args(["--color", color.to_string().as_str()]);
     proc.args(extra_args);
     // Items after this are passed to the test runner
     proc.arg("--");
     if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
         proc.arg("-q");
     }
-    if !cmd.cargo_options.is_empty() {
-        proc.args(&cmd.cargo_options);
-    }
+    proc.args(&cmd.cargo_options);
     // Currently libtest uses a different approach to color, so we need to pass
     // it again to get output from the test runner as well as cargo. See
     // https://github.com/rust-lang/cargo/issues/1983 for more
