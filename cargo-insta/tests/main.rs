@@ -861,16 +861,40 @@ fn test_old_yaml_format() {
         )
         .create_project();
 
-    // Run the test with --force-update-snapshots and --accept
-    let output = test_project
+    // Check it passes
+    assert!(test_project
         .insta_cmd()
-        .args(["test", "--accept", "--", "--nocapture"])
+        .args(["test", "--", "--nocapture"])
         .output()
-        .unwrap();
-
-    assert!(&output.status.success());
-
+        .unwrap()
+        .status
+        .success());
+    // shouldn't be any changes
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
+
+    // Also check that running with `--force-update-snapshots` updates the snapshot
+    assert!(test_project
+        .insta_cmd()
+        .args(["test", "--force-update-snapshots", "--", "--nocapture"])
+        .output()
+        .unwrap()
+        .status
+        .success());
+
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,8 +1,5 @@
+     
+     #[test]
+     fn test_old_yaml_format() {
+    -    insta::assert_yaml_snapshot!("foo", @r####"
+    -    ---
+    -    foo
+    -"####);
+    +    insta::assert_yaml_snapshot!("foo", @"foo");
+     }
+    "#####);
 }
 
 #[test]
