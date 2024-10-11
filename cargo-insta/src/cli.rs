@@ -387,6 +387,7 @@ fn handle_color(color: Option<ColorWhen>) {
     }
 }
 
+#[derive(Debug)]
 struct LocationInfo<'a> {
     tool_config: ToolConfig,
     workspace_root: PathBuf,
@@ -445,6 +446,14 @@ fn handle_target_args<'a>(
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
 
+    let insta_version = metadata
+        .packages
+        .iter()
+        .find(|package| package.name == "insta")
+        .map(|package| package.version.clone())
+        .ok_or_else(|| eprintln!("insta not found in cargo metadata; defaulting to 1.0.0"))
+        .unwrap_or(Version::new(1, 0, 0));
+
     // If `--workspace` is passed, or there's no root package, we include all
     // packages. If packages are specified, we filter from all packages.
     // Otherwise we use just the root package.
@@ -460,17 +469,17 @@ fn handle_target_args<'a>(
             .into_iter()
             .filter(|p| packages.is_empty() || packages.contains(&p.name))
             .cloned()
+            .map(|mut p| {
+                // Dependencies aren't needed and bloat the object (but we can't pass
+                // `--no-deps` to the original command as we collect the insta
+                // version above...)
+                p.dependencies = vec![];
+                p
+            })
             .collect()
     } else {
         vec![metadata.root_package().unwrap().clone()]
     };
-    let insta_version = metadata
-        .packages
-        .iter()
-        .find(|package| package.name == "insta")
-        .map(|package| package.version.clone())
-        .ok_or_else(|| eprintln!("insta not found in cargo metadata; defaulting to 1.0.0"))
-        .unwrap_or(Version::new(1, 0, 0));
 
     Ok(LocationInfo {
         workspace_root,
@@ -708,6 +717,10 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
+    }
+
+    if let Some(workspace_root) = &cmd.target_args.workspace_root {
+        proc.current_dir(workspace_root);
     }
 
     // Run the tests
@@ -1006,7 +1019,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--exclude");
         proc.arg(spec);
     }
-    if let Some(ref manifest_path) = cmd.target_args.manifest_path {
+    if let Some(ref manifest_path) = &cmd.target_args.manifest_path {
         proc.arg("--manifest-path");
         proc.arg(manifest_path);
     }

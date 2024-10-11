@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    process::{Command, Stdio},
-};
+use std::{fs, process::Stdio};
 
 use insta::assert_snapshot;
 
@@ -480,6 +477,8 @@ fn test_snapshot() {
     .success());
 }
 
+/// A cargo target that references a file outside of the project's directory
+/// should still work
 #[test]
 fn test_external_test_path() {
     let test_project = TestFiles::new()
@@ -573,7 +572,8 @@ fn test_hello() {
     ");
 
     // Run the test again, it should pass now
-    let output = Command::new(env!("CARGO_BIN_EXE_cargo-insta"))
+    let output = test_project
+        .insta_cmd()
         .current_dir(&proj_dir)
         .args(["test"])
         .output()
@@ -592,4 +592,173 @@ fn test_hello() {
     ---
     Hello, world!
     "#);
+}
+
+/// Check that `--workspace-root` points `cargo-insta` at another path
+#[test]
+fn test_workspace_root_option() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "workspace_root_test"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+pub fn hello() -> String {
+    "Hello from workspace root!".to_string()
+}
+
+#[test]
+fn test_hello() {
+    insta::assert_snapshot!(hello());
+}
+
+#[test]
+fn test_inline() {
+    insta::assert_snapshot!("This is an inline snapshot", @"");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run the test with --workspace-root option
+    let output = test_project
+        .insta_cmd()
+        .current_dir(std::env::current_dir().unwrap()) // Run from the current directory
+        .args([
+            "test",
+            "--accept",
+            "--workspace-root",
+            test_project.workspace_dir.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // Verify inline snapshot
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -10,5 +10,5 @@
+     
+     #[test]
+     fn test_inline() {
+    -    insta::assert_snapshot!("This is an inline snapshot", @"");
+    +    insta::assert_snapshot!("This is an inline snapshot", @"This is an inline snapshot");
+     }
+    "#);
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/workspace_root_test__hello.snap
+    ");
+}
+
+/// Check that `--manifest` points `cargo-insta` at another path
+#[test]
+fn test_manifest_option() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "manifest_path_test"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+pub fn greeting() -> String {
+    "Greetings from manifest path!".to_string()
+}
+
+#[test]
+fn test_greeting() {
+    insta::assert_snapshot!(greeting());
+}
+
+#[test]
+fn test_inline() {
+    insta::assert_snapshot!("This is an inline snapshot for manifest path test", @"");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run the test with --manifest-path option
+    let output = test_project
+        .insta_cmd()
+        .current_dir(std::env::current_dir().unwrap()) // Run from the current directory
+        .args([
+            "test",
+            "--accept",
+            "--manifest-path",
+            test_project
+                .workspace_dir
+                .join("Cargo.toml")
+                .to_str()
+                .unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // Verify inline snapshot
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -10,5 +10,5 @@
+     
+     #[test]
+     fn test_inline() {
+    -    insta::assert_snapshot!("This is an inline snapshot for manifest path test", @"");
+    +    insta::assert_snapshot!("This is an inline snapshot for manifest path test", @"This is an inline snapshot for manifest path test");
+     }
+    "##);
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/manifest_path_test__greeting.snap
+    ");
 }
