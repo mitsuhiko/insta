@@ -406,7 +406,9 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
     }
 }
 
-/// Returns the cargo workspace for a manifest
+/// Returns the cargo workspace path for a crate manifest, like
+/// `/Users/janedoe/projects/insta` when passed
+/// `/Users/janedoe/projects/insta/insta/Cargo.toml`.
 pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
     // If INSTA_WORKSPACE_ROOT environment variable is set, use the value as-is.
     // This is useful where CARGO_MANIFEST_DIR at compilation points to some
@@ -463,6 +465,13 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
             })
         })
         .clone()
+}
+
+#[test]
+fn test_get_cargo_workspace() {
+    let workspace = get_cargo_workspace(env!("CARGO_MANIFEST_DIR"));
+    // The absolute path of the workspace, like `/Users/janedoe/projects/insta`
+    assert!(workspace.ends_with("insta"));
 }
 
 #[cfg(feature = "_cargo_insta_internal")]

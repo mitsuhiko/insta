@@ -18,7 +18,6 @@ use uuid::Uuid;
 use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::cargo_insta_version;
-use crate::utils::INSTA_VERSION;
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_pending_snapshots, make_snapshot_walker, FindFlags};
 
@@ -100,6 +99,8 @@ struct TargetArgs {
     #[arg(long)]
     all: bool,
     /// Also walk into ignored paths.
+    // TODO: this alias is confusing, I think we should remove — does "no" mean
+    // "don't ignore files" or "not ignored files"?
     #[arg(long, alias = "no-ignore")]
     include_ignored: bool,
     /// Also include hidden paths.
@@ -386,6 +387,7 @@ fn handle_color(color: Option<ColorWhen>) {
     }
 }
 
+#[derive(Debug)]
 struct LocationInfo<'a> {
     tool_config: ToolConfig,
     workspace_root: PathBuf,
@@ -393,6 +395,9 @@ struct LocationInfo<'a> {
     packages: Vec<Package>,
     exts: Vec<&'a str>,
     find_flags: FindFlags,
+    /// The insta version in the current workspace (i.e. not the `cargo-insta`
+    /// binary that's running).
+    insta_version: Version,
 }
 
 fn get_find_flags(tool_config: &ToolConfig, target_args: &TargetArgs) -> FindFlags {
@@ -437,9 +442,22 @@ fn handle_target_args<'a>(
         (None, None) => {}
     };
 
-    let metadata = cmd.no_deps().exec()?;
+    let metadata = cmd.exec().map_err(|e| {
+        format!(
+            "failed to load cargo metadata: {}. Command details: {:?}",
+            e, cmd
+        )
+    })?;
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
+
+    let insta_version = metadata
+        .packages
+        .iter()
+        .find(|package| package.name == "insta")
+        .map(|package| package.version.clone())
+        .ok_or_else(|| eprintln!("insta not found in cargo metadata; defaulting to 1.0.0"))
+        .unwrap_or(Version::new(1, 0, 0));
 
     // If `--workspace` is passed, or there's no root package, we include all
     // packages. If packages are specified, we filter from all packages.
@@ -456,6 +474,13 @@ fn handle_target_args<'a>(
             .into_iter()
             .filter(|p| packages.is_empty() || packages.contains(&p.name))
             .cloned()
+            .map(|mut p| {
+                // Dependencies aren't needed and bloat the object (but we can't pass
+                // `--no-deps` to the original command as we collect the insta
+                // version above...)
+                p.dependencies = vec![];
+                p
+            })
             .collect()
     } else {
         vec![metadata.root_package().unwrap().clone()]
@@ -476,6 +501,7 @@ fn handle_target_args<'a>(
         .collect(),
         find_flags: get_find_flags(&tool_config, target_args),
         tool_config,
+        insta_version
     })
 }
 
@@ -668,7 +694,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
 
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
-        println!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
+        eprintln!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
         cmd.unreferenced = UnreferencedSnapshots::Delete;
     }
 
@@ -691,8 +717,14 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         color,
         &[],
         None,
+        &loc,
     )?;
 
+    if let Some(workspace_root) = &cmd.target_args.workspace_root {
+        proc.current_dir(workspace_root);
+    }
+
+    // Run the tests
     let status = proc.status()?;
     let mut success = status.success();
 
@@ -710,6 +742,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
             color,
             &["--doc"],
             snapshot_ref_file.as_deref(),
+            &loc,
         )?;
         success = success && proc.status()?.success();
     }
@@ -884,7 +917,10 @@ fn handle_unreferenced_snapshots(
     Ok(())
 }
 
+/// Create and setup a `Command`, translating our configs into env vars & cli options
+// TODO: possibly we can clean this function up a bit, reduce the number of args
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 fn prepare_test_runner<'snapshot_ref>(
     test_runner: TestRunner,
     test_runner_fallback: bool,
@@ -893,42 +929,35 @@ fn prepare_test_runner<'snapshot_ref>(
     color: ColorWhen,
     extra_args: &[&str],
     snapshot_ref_file: Option<&'snapshot_ref Path>,
+    loc: &LocationInfo,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
     let cargo = env::var_os("CARGO");
     let cargo = cargo
         .as_deref()
         .unwrap_or_else(|| std::ffi::OsStr::new("cargo"));
-    let test_runner = match test_runner {
-        TestRunner::CargoTest | TestRunner::Auto => test_runner,
-        TestRunner::Nextest => {
-            // Fall back to `cargo test` if `cargo nextest` isn't installed and
-            // `test_runner_fallback` is true (but don't run the cargo command
-            // unless that's an option)
-            if !test_runner_fallback
-                || std::process::Command::new("cargo")
-                    .arg("nextest")
-                    .arg("--version")
-                    .output()
-                    .map(|output| output.status.success())
-                    .unwrap_or(false)
-            {
-                TestRunner::Nextest
-            } else {
-                TestRunner::Auto
-            }
-        }
+    // Fall back to `cargo test` if `cargo nextest` isn't installed and
+    // `test_runner_fallback` is true
+    let test_runner = if test_runner == TestRunner::Nextest
+        && test_runner_fallback
+        && std::process::Command::new(cargo)
+            .arg("nextest")
+            .arg("--version")
+            .output()
+            .map(|output| !output.status.success())
+            .unwrap_or(true)
+    {
+        TestRunner::Auto
+    } else {
+        test_runner
     };
-    let mut proc = match test_runner {
+    let mut proc = process::Command::new(cargo);
+    match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
-            let mut proc = process::Command::new(cargo);
             proc.arg("test");
-            proc
         }
         TestRunner::Nextest => {
-            let mut proc = process::Command::new(cargo);
             proc.arg("nextest");
             proc.arg("run");
-            proc
         }
     };
 
@@ -991,7 +1020,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--exclude");
         proc.arg(spec);
     }
-    if let Some(ref manifest_path) = cmd.target_args.manifest_path {
+    if let Some(ref manifest_path) = &cmd.target_args.manifest_path {
         proc.arg("--manifest-path");
         proc.arg(manifest_path);
     }
@@ -1006,7 +1035,7 @@ fn prepare_test_runner<'snapshot_ref>(
         "INSTA_UPDATE",
         // Don't set `INSTA_UPDATE=force` for `--force-update-snapshots` on
         // older versions
-        if *INSTA_VERSION >= Version::new(1,41,0) {
+        if loc.insta_version >= Version::new(1,41,0) {
             match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
                 (true, false, false) => "no",
                 (false, true, false) => "unseen",
@@ -1022,7 +1051,7 @@ fn prepare_test_runner<'snapshot_ref>(
             }
         }
     );
-    if cmd.force_update_snapshots && *INSTA_VERSION < Version::new(1, 40, 0) {
+    if cmd.force_update_snapshots && loc.insta_version < Version::new(1, 40, 0) {
         // Currently compatible with older versions of insta.
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
         proc.env("INSTA_FORCE_UPDATE", "1");
@@ -1073,17 +1102,14 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--target");
         proc.arg(target);
     }
-    proc.arg("--color");
-    proc.arg(color.to_string());
+    proc.args(["--color", color.to_string().as_str()]);
     proc.args(extra_args);
     // Items after this are passed to the test runner
     proc.arg("--");
     if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
         proc.arg("-q");
     }
-    if !cmd.cargo_options.is_empty() {
-        proc.args(&cmd.cargo_options);
-    }
+    proc.args(&cmd.cargo_options);
     // Currently libtest uses a different approach to color, so we need to pass
     // it again to get output from the test runner as well as cargo. See
     // https://github.com/rust-lang/cargo/issues/1983 for more
