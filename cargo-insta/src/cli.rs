@@ -442,7 +442,12 @@ fn handle_target_args<'a>(
         (None, None) => {}
     };
 
-    let metadata = cmd.exec()?;
+    let metadata = cmd.exec().map_err(|e| {
+        format!(
+            "failed to load cargo metadata: {}. Command details: {:?}",
+            e, cmd
+        )
+    })?;
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
 
