@@ -7,16 +7,23 @@ All notable changes to insta and cargo-insta are documented here.
 - Experimental support for binary snapshots.  #610 (Florian Plattner)
 
 - We no longer trim starting newlines during assertions, which allows asserting
-  the number of leading newlines match those in a snapshot value. Existing
-  assertions with different leading newlines will pass with a warning suggesting
-  using `--force-update-snapshots` to update snapshots, and will fail in the
-  future. (Note that we currently allowing differing trailing newlines but may
-  adjust this in the future).  #563
+  the number of leading newlines match. Existing assertions with different
+  leading newlines will pass and print a warning suggesting running with
+  `--force-update-snapshots`.  They may fail in the future.  (Note that we still
+  currently allow differing _trailing_ newlines, though may adjust this in the
+  future).  #563
 
-- `--force-update-snapshots` has more conservative and consistent behavior for
-  inline snapshots. As a side-effect of this, only the content within the inline
-  snapshot delimiters are assessed for changes, not the delimiters (e.g. `###`).
-  #581
+- `--force-update-snapshots` now causes `cargo-insta` to write every snapshot, regardless of whether
+  it evaluates snapshots fully match, and now implies `--accept`.  This
+  allows for `--force-update-snapshots` to update inline snapshots when
+  delimiters or indentation can be updated.
+
+  For the existing behavior of limiting writes to when `insta` evaluates writes
+  are required, use `--require-full-match`.  The main difference between
+  `--require-full-match` and the existing behavior of `--force-update-snapshots`
+  is that `cargo-insta` will return a non-zero exit code if any snapshots don't
+  match fully. `--require-full-match` doesn't track inline snapshots' delimiters or
+  indentation.  #644
 
 - Inline snapshots only use `#` characters as delimiters when required.  #603
 
@@ -28,8 +35,11 @@ All notable changes to insta and cargo-insta are documented here.
 - Warnings are printed when any snapshot uses a legacy format.  #599
 
 - `insta` now internally uses `INSTA_UPDATE=force` rather than
-  `INSTA_FORCE_UPDATE`.  (This doesn't affect users of `cargo-insta`, which
+  `INSTA_FORCE_UPDATE=1`.  (This doesn't affect users of `cargo-insta`, which
   handles this internally.)  #482
+
+- `cargo-insta`'s integration tests continue to grow over the past couple of versions,
+  and now offer coverage of most of `cargo-insta`'s interface.
 
 ## 1.40.0
 

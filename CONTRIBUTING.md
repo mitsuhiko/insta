@@ -37,6 +37,12 @@ cargo run -p cargo-insta -- test # (or `review` or whatever command you want to 
 ...in contrast to running `cargo insta`, which invokes the installed version of
 `cargo-insta`, and so make iterating more difficult.
 
+To run the version of `cargo-insta` in the working directory on another crate, run:
+
+```sh
+cargo run -p cargo-insta -- test --manifest-path=../insta-bug-repro/Cargo.toml
+```
+
 ## Writing tests
 
 If making non-trivial changes to `cargo-insta`, please add an integration test to

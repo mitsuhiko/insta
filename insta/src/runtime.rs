@@ -516,6 +516,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         &self,
         new_snapshot: Snapshot,
     ) -> Result<SnapshotUpdateBehavior, Box<dyn Error>> {
+        // TODO: this seems to be making `unseen` be true when there is an
+        // existing snapshot file; which seems wrong??
         let unseen = self
             .snapshot_file
             .as_ref()
@@ -526,8 +528,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         // If snapshot_update is `InPlace` and we have an inline snapshot, then
         // use `NewFile`, since we can't use `InPlace` for inline. `cargo-insta`
         // then accepts all snapshots at the end of the test.
-
         let snapshot_update =
+            // TOOD: could match on the snapshot kind instead of whether snapshot_file is None
             if snapshot_update == SnapshotUpdateBehavior::InPlace && self.snapshot_file.is_none() {
                 SnapshotUpdateBehavior::NewFile
             } else {
@@ -837,17 +839,7 @@ pub fn assert_snapshot(
             ctx.tool_config.snapshot_update(),
             crate::env::SnapshotUpdate::Force
         ) {
-            // Avoid creating new files if contents match exactly. In
-            // particular, this would otherwise create lots of unneeded files
-            // for inline snapshots
-            let matches_fully = &ctx
-                .old_snapshot
-                .as_ref()
-                .map(|x| x.matches_fully(&new_snapshot))
-                .unwrap_or(false);
-            if !matches_fully {
-                ctx.update_snapshot(new_snapshot)?;
-            }
+            ctx.update_snapshot(new_snapshot)?;
         }
     // otherwise print information and update snapshots.
     } else {
