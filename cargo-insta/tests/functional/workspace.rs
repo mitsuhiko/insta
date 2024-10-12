@@ -389,19 +389,7 @@ fn test_insta_workspace_root() {
     }
 
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-    [package]
-    name = "insta_workspace_root_test"
-    version = "0.1.0"
-    edition = "2021"
-
-    [dependencies]
-    insta = { path = '$PROJECT_PATH' }
-    "#
-            .to_string(),
-        )
+        .add_cargo_toml("insta_workspace_root_test")
         .add_file(
             "src/lib.rs",
             r#"
