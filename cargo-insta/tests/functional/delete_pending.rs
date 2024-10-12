@@ -161,6 +161,54 @@ fn test_file_snapshot() {
     +      src/snapshots/test_combined_snapshot_deletion__file_snapshot.snap.new
     ");
 
+    // Run `cargo insta reject` to delete pending snapshots
+    assert!(test_project
+        .insta_cmd()
+        .args(["reject"])
+        .output()
+        .unwrap()
+        .status
+        .success());
+
+    // Pending snapshots should be deleted
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,7 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/test_combined_snapshot_deletion__file_snapshot.snap
+    ");
+
+    // Run the tests again to create pending snapshots
+    assert!(!test_project
+        .insta_cmd()
+        .args(["test"])
+        .output()
+        .unwrap()
+        .status
+        .success());
+
+    // They should be back...
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,9 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+    +    src/.lib.rs.pending-snap
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/test_combined_snapshot_deletion__file_snapshot.snap
+    +      src/snapshots/test_combined_snapshot_deletion__file_snapshot.snap.new
+    ");
+
     // Modify the test back so they pass
     test_project.update_file(
         "src/lib.rs",
