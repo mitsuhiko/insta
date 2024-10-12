@@ -385,7 +385,7 @@ impl Snapshot {
                     }
                 }
             }
-            elog!("A snapshot uses a legacy snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\n\nSnapshot is at: {}", p.to_string_lossy());
+            elog!("A snapshot uses a legacy snapshot format; please update it to the new format with `cargo insta test --force-update-snapshots --accept`.\nSnapshot is at: {}", p.to_string_lossy());
             rv
         };
 
