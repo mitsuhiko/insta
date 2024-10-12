@@ -106,6 +106,29 @@ impl TestFiles {
         self
     }
 
+    /// Adds a standard `Cargo.toml` (some tests may need to add_file themselves
+    /// with a different format)
+    fn add_cargo_toml(self, name: &str) -> Self {
+        self.add_file(
+            "Cargo.toml",
+            format!(
+                r#"
+[package]
+name = "{}"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = {{ path = '$PROJECT_PATH' }}
+"#,
+                name
+            ),
+        )
+    }
+
     fn create_project(self) -> TestProject {
         TestProject::new(self.files)
     }
@@ -314,22 +337,22 @@ Hello, world!
     let test_insta_1_40_0 = create_test_force_update_project("1_40_0", "\"1.40.0\"");
 
     // Test with current insta version
-    let output_current = test_current_insta
+    assert!(&test_current_insta
         .insta_cmd()
         .args(["test", "--accept", "--force-update-snapshots"])
         .output()
-        .unwrap();
-
-    assert!(&output_current.status.success());
+        .unwrap()
+        .status
+        .success());
 
     // Test with insta 1.40.0
-    let output_1_40_0 = test_insta_1_40_0
+    assert!(&test_insta_1_40_0
         .insta_cmd()
         .args(["test", "--accept", "--force-update-snapshots"])
         .output()
-        .unwrap();
-
-    assert!(&output_1_40_0.status.success());
+        .unwrap()
+        .status
+        .success());
 
     // Check that both versions updated the snapshot correctly
     assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
@@ -368,19 +391,7 @@ Hello, world!
 #[test]
 fn test_force_update_inline_snapshot_linebreaks() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "force-update-inline-linebreaks"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("force-update-inline-linebreaks")
         .add_file(
             "src/lib.rs",
             r#####"
@@ -425,19 +436,7 @@ fn test_linebreaks() {
 #[test]
 fn test_force_update_inline_snapshot_hashes() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "force-update-inline-hashes"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("force-update-inline-hashes")
         .add_file(
             "src/lib.rs",
             r#####"
@@ -531,22 +530,7 @@ fn test_matches_fully_linebreaks() {
     // Until #563 merges, we should be OK with different leading newlines, even
     // in exact / full match mode.
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "exact-match-inline"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-doctest = false
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("exact-match-inline")
         .add_file(
             "src/lib.rs",
             r#####"
@@ -589,22 +573,7 @@ fn test_additional_linebreak() {
 #[test]
 fn test_snapshot_name_clash() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "snapshot_name_clash_test"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-doctest = false
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("snapshot_name_clash_test")
         .add_file(
             "src/lib.rs",
             r#"
@@ -643,22 +612,7 @@ fn foo_always_missing() {
 #[test]
 fn test_unreferenced_delete() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_unreferenced_delete"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-doctest = false
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("test_unreferenced_delete")
         .add_file(
             "src/lib.rs",
             r#"
@@ -743,19 +697,7 @@ Unused snapshot
 #[test]
 fn test_hidden_snapshots() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_hidden_snapshots"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("test_hidden_snapshots")
         .add_file(
             "src/lib.rs",
             r#"
@@ -823,19 +765,7 @@ Hidden snapshot
 #[test]
 fn test_ignored_snapshots() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_ignored_snapshots"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("test_ignored_snapshots")
         .add_file(
             "src/lib.rs",
             r#"
