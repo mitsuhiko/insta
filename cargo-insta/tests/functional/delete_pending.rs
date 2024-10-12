@@ -45,6 +45,30 @@ fn test_snapshot_file() {
     +    src/snapshots
     +      src/snapshots/delete_unreferenced__snapshot_file.snap.new
     ");
+
+    // Now remove the tests; the pending snapshots should be deleted when
+    // passing `--unreferenced=delete`
+    test_project.update_file("src/lib.rs", "".to_string());
+
+    assert!(&test_project
+        .insta_cmd()
+        .args(["test", "--unreferenced=delete", "--", "--nocapture"])
+        .output()
+        .unwrap()
+        .status
+        .success());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,6 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+         src/lib.rs
+    +    src/snapshots
+    ");
 }
 
 #[test]

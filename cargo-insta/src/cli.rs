@@ -851,7 +851,7 @@ fn handle_unreferenced_snapshots(
     for package in loc.packages.clone() {
         let unreferenced_snapshots = make_snapshot_walker(
             package.manifest_path.parent().unwrap().as_std_path(),
-            &["snap"],
+            &loc.exts,
             FindFlags {
                 include_ignored: true,
                 include_hidden: true,
@@ -859,18 +859,23 @@ fn handle_unreferenced_snapshots(
         )
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().map(|ft| ft.is_file()).unwrap_or(false))
-        .filter(|e| {
-            e.file_name()
-                .to_str()
-                .map(|name| {
-                    loc.exts
-                        .iter()
-                        .any(|ext| name.ends_with(&format!(".{}", ext)))
-                })
-                .unwrap_or(false)
-        })
         .filter_map(|e| e.path().canonicalize().ok())
-        .filter(|path| !files.contains(path));
+        // The path isn't in the list which the tests wrote to, so it's
+        // unreferenced.
+        //
+        // TODO: note that this will include _all_ `.pending-snap` files,
+        // regardless of whether or not a test was run, since we don't record
+        // those in the snapshot references file. We can make that change, but
+        // also we'd like to unify file & inline snapshot handling; if we do
+        // that it'll fix this smaller issue too.
+        .filter(|path| {
+            // We also check for the pending path
+            let pending_path = path.with_file_name(format!(
+                "{}.new",
+                path.file_name().unwrap().to_string_lossy()
+            ));
+            !files.contains(path) && !files.contains(&pending_path)
+        });
 
         for path in unreferenced_snapshots {
             if !encountered_any {
@@ -889,19 +894,27 @@ fn handle_unreferenced_snapshots(
             }
             eprintln!("  {}", path.display());
             if matches!(action, Action::Delete) {
-                let snapshot = match Snapshot::from_file(&path) {
-                    Ok(snapshot) => snapshot,
-                    Err(e) => {
-                        eprintln!("Error loading snapshot at {:?}: {}", &path, e);
-                        continue;
+                // If it's an inline pending snapshot, then don't attempt to
+                // load it, since these are in a different format; just delete
+                if path.extension() == Some(std::ffi::OsStr::new("pending-snap")) {
+                    if let Err(e) = fs::remove_file(path) {
+                        eprintln!("Failed to remove file: {}", e);
                     }
-                };
+                } else {
+                    let snapshot = match Snapshot::from_file(&path) {
+                        Ok(snapshot) => snapshot,
+                        Err(e) => {
+                            eprintln!("Error loading snapshot at {:?}: {}", &path, e);
+                            continue;
+                        }
+                    };
 
-                if let Some(binary_path) = snapshot.build_binary_path(&path) {
-                    fs::remove_file(&binary_path).ok();
+                    if let Some(binary_path) = snapshot.build_binary_path(&path) {
+                        fs::remove_file(&binary_path).ok();
+                    }
+
+                    fs::remove_file(&path).ok();
                 }
-
-                fs::remove_file(&path).ok();
             }
         }
     }
