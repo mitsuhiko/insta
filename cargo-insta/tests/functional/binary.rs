@@ -6,21 +6,9 @@ use crate::TestFiles;
 #[test]
 fn test_binary_pending() {
     let test_project = TestFiles::new()
+        .add_cargo_toml("test_binary_pending")
         .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_binary_pending"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 #[test]
 fn test_binary_snapshot() {
@@ -42,7 +30,7 @@ fn test_binary_snapshot() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     +      src/snapshots/test_binary_pending__binary_snapshot.snap.new
     +      src/snapshots/test_binary_pending__binary_snapshot.snap.new.txt
@@ -53,21 +41,9 @@ fn test_binary_snapshot() {
 #[test]
 fn test_binary_accept() {
     let test_project = TestFiles::new()
+        .add_cargo_toml("test_binary_accept")
         .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_binary_accept"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 #[test]
 fn test_binary_snapshot() {
@@ -93,7 +69,7 @@ fn test_binary_snapshot() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     +      src/snapshots/test_binary_accept__binary_snapshot.snap
     +      src/snapshots/test_binary_accept__binary_snapshot.snap.txt
@@ -106,21 +82,9 @@ fn test_binary_snapshot() {
 #[test]
 fn test_binary_change_extension() {
     let test_project = TestFiles::new()
+        .add_cargo_toml("test_binary_change_extension")
         .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_binary_change_extension"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 #[test]
 fn test_binary_snapshot() {
@@ -140,7 +104,7 @@ fn test_binary_snapshot() {
     assert!(&output.status.success());
 
     test_project.update_file(
-        "src/main.rs",
+        "src/lib.rs",
         r#"
 #[test]
 fn test_binary_snapshot() {
@@ -161,7 +125,7 @@ fn test_binary_snapshot() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     +      src/snapshots/test_binary_change_extension__binary_snapshot.snap
     +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.new
@@ -184,7 +148,7 @@ fn test_binary_snapshot() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     +      src/snapshots/test_binary_change_extension__binary_snapshot.snap
     +      src/snapshots/test_binary_change_extension__binary_snapshot.snap.json
@@ -196,21 +160,9 @@ fn test_binary_snapshot() {
 #[test]
 fn test_binary_pending_snapshot_removal() {
     let test_project = TestFiles::new()
+        .add_cargo_toml("test_binary_pending_snapshot_removal")
         .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_binary_pending_snapshot_removal"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 #[test]
 fn test_binary_snapshot() {
@@ -225,7 +177,7 @@ fn test_binary_snapshot() {
 
     assert!(!&output.status.success());
 
-    test_project.update_file("src/main.rs", "".to_string());
+    test_project.update_file("src/lib.rs", "".to_string());
 
     let output = test_project.insta_cmd().args(["test"]).output().unwrap();
 
@@ -238,7 +190,7 @@ fn test_binary_snapshot() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     ");
 }
@@ -248,21 +200,9 @@ fn test_binary_snapshot() {
 #[test]
 fn test_change_text_to_binary() {
     let test_project = TestFiles::new()
+        .add_cargo_toml("test_change_text_to_binary")
         .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_change_text_to_binary"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 #[test]
 fn test() {
@@ -287,13 +227,13 @@ fn test() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     +      src/snapshots/test_change_text_to_binary__test.snap
     ");
 
     test_project.update_file(
-        "src/main.rs",
+        "src/lib.rs",
         r#"
 #[test]
 fn test() {
@@ -317,7 +257,7 @@ fn test() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     +      src/snapshots/test_change_text_to_binary__test.snap
     +      src/snapshots/test_change_text_to_binary__test.snap.txt
@@ -329,21 +269,9 @@ fn test() {
 #[test]
 fn test_change_binary_to_text() {
     let test_project = TestFiles::new()
+        .add_cargo_toml("test_change_binary_to_text")
         .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_change_binary_to_text"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 #[test]
 fn test() {
@@ -368,14 +296,14 @@ fn test() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     +      src/snapshots/test_change_binary_to_text__some_name.snap
     +      src/snapshots/test_change_binary_to_text__some_name.snap.json
     ");
 
     test_project.update_file(
-        "src/main.rs",
+        "src/lib.rs",
         r#"
 #[test]
 fn test() {
@@ -399,7 +327,7 @@ fn test() {
     +  Cargo.lock
        Cargo.toml
        src
-         src/main.rs
+         src/lib.rs
     +    src/snapshots
     +      src/snapshots/test_change_binary_to_text__some_name.snap
     ");
@@ -408,22 +336,7 @@ fn test() {
 #[test]
 fn test_binary_unreferenced_delete() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_binary_unreferenced_delete"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-doctest = false
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("test_binary_unreferenced_delete")
         .add_file(
             "src/lib.rs",
             r#"

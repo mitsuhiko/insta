@@ -20,7 +20,7 @@ serde = { version = "1.0", features = ["derive"] }
             .to_string(),
         )
         .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 use serde::Serialize;
 
@@ -53,9 +53,9 @@ fn test_json_snapshot() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.diff("src/main.rs"), @r##"
-    --- Original: src/main.rs
-    +++ Updated: src/main.rs
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
     @@ -15,5 +15,10 @@
          };
          insta::assert_json_snapshot!(&user, {
@@ -89,7 +89,7 @@ serde = { version = "1.0", features = ["derive"] }
             .to_string(),
         )
         .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 use serde::Serialize;
 
@@ -122,9 +122,9 @@ fn test_yaml_snapshot() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.diff("src/main.rs"), @r###"
-    --- Original: src/main.rs
-    +++ Updated: src/main.rs
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r###"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
     @@ -15,5 +15,8 @@
          };
          insta::assert_yaml_snapshot!(&user, {
@@ -141,21 +141,9 @@ fn test_yaml_snapshot() {
 #[test]
 fn test_utf8_inline() {
     let test_project = TestFiles::new()
+        .add_cargo_toml("test_utf8_inline")
         .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_utf8_inline"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#"
 #[test]
 fn test_non_basic_plane() {
@@ -197,9 +185,9 @@ fn test_trailing_comma_in_inline_snapshot() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.diff("src/main.rs"), @r##"
-    --- Original: src/main.rs
-    +++ Updated: src/main.rs
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
     @@ -1,21 +1,19 @@
      
      #[test]
@@ -310,21 +298,9 @@ fn test_old_yaml_format() {
 #[test]
 fn test_hashtag_escape_in_inline_snapshot() {
     let test_project = TestFiles::new()
+        .add_cargo_toml("test_hashtag_escape")
         .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_hashtag_escape"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/main.rs",
+            "src/lib.rs",
             r#####"
 #[test]
 fn test_hashtag_escape() {
@@ -344,9 +320,9 @@ fn test_hashtag_escape() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.diff("src/main.rs"), @r####"
-    --- Original: src/main.rs
-    +++ Updated: src/main.rs
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r####"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
     @@ -2,5 +2,8 @@
      #[test]
      fn test_hashtag_escape() {
