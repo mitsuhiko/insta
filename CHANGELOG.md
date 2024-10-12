@@ -27,6 +27,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Warnings are printed when any snapshot uses a legacy format.  #599
 
+- `cargo insta --version` now prints a version.  #665
+
 - `insta` now internally uses `INSTA_UPDATE=force` rather than
   `INSTA_FORCE_UPDATE=1`.  (This doesn't affect users of `cargo-insta`, which
   handles this internally.)  #482

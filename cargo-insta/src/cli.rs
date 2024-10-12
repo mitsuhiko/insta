@@ -28,9 +28,6 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 #[command(
     bin_name = "cargo insta",
     arg_required_else_help = true,
-    // TODO: do we want these?
-    disable_colored_help = true,
-    disable_version_flag = true,
     next_line_help = true
 )]
 struct Opts {
@@ -61,6 +58,7 @@ impl fmt::Display for ColorWhen {
 
 #[derive(Subcommand, Debug)]
 #[command(
+    version,
     after_help = "For the online documentation of the latest version, see https://insta.rs/docs/cli/."
 )]
 #[allow(clippy::large_enum_variant)]
