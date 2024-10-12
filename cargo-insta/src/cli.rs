@@ -414,9 +414,6 @@ fn handle_target_args<'a>(
 ) -> Result<LocationInfo<'a>, Box<dyn Error>> {
     let mut cmd = cargo_metadata::MetadataCommand::new();
 
-    // if a workspace root is provided we first check if it points to a
-    // `Cargo.toml`.  If it does we instead treat it as manifest path.  If both
-    // are provided we fail with an error.
     match (
         target_args.workspace_root.as_deref(),
         target_args.manifest_path.as_deref(),
@@ -430,14 +427,7 @@ fn handle_target_args<'a>(
             cmd.manifest_path(manifest);
         }
         (Some(root), None) => {
-            // TODO: should we do this ourselves? Probably fine, but are we
-            // adding anything by not just deferring to cargo?
-            let assumed_manifest = root.join("Cargo.toml");
-            if assumed_manifest.is_file() {
-                cmd.manifest_path(assumed_manifest);
-            } else {
-                cmd.current_dir(root);
-            }
+            cmd.current_dir(root);
         }
         (None, None) => {}
     };
