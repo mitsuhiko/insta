@@ -9,7 +9,13 @@ install-updater = false
 installers = ["shell", "powershell"]
 pr-run-mode = "plan"
 precise-builds = true
-targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "x86_64-pc-windows-msvc"]
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "x86_64-pc-windows-msvc",
+]
 
 [profile.dist]
 inherits = "release"
@@ -17,4 +23,4 @@ lto = "thin"
 
 [workspace.dependencies]
 # Needs pinning in Cargo.lock because of MSRV
-clap = {version = "4.1", features = ["derive", "env"]}
+clap = { version = "4.1", features = ["derive", "env"] }
