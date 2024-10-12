@@ -191,8 +191,8 @@ struct TestCommand {
     /// Accept all new (previously unseen).
     #[arg(long)]
     accept_unseen: bool,
-    /// Do not reject pending snapshots before run.
-    #[arg(long)]
+    /// Do not reject pending snapshots before run (deprecated).
+    #[arg(long, hide = true)]
     keep_pending: bool,
     /// Update all snapshots even if they are still matching; implies `--accept`.
     #[arg(long)]
@@ -679,6 +679,12 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         cmd.check = true;
         eprintln!(
             "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
+            style("warning").bold().yellow()
+        )
+    }
+    if cmd.keep_pending {
+        eprintln!(
+            "{}: `--keep-pending` is deprecated; its behavior is implied: pending snapshots are never removed before a test run.",
             style("warning").bold().yellow()
         )
     }

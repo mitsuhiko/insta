@@ -72,115 +72,18 @@ fn test_snapshot_file() {
 }
 
 #[test]
-fn test_inline_pending_snapshot_deletion() {
+fn test_pending_snapshot_deletion() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_pending_snapshot_deletion"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-doctest = false
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
-        .add_file(
-            "src/lib.rs",
-            r#"
-#[test]
-fn test_snapshot() {
-    insta::assert_snapshot!("Hello, world!", @"Hello!");
-}
-"#
-            .to_string(),
-        )
-        .create_project();
-
-    // Run the test to create a pending snapshot
-    assert!(!test_project
-        .insta_cmd()
-        .args(["test", "--", "--nocapture"])
-        .output()
-        .unwrap()
-        .status
-        .success());
-
-    // Verify the file tree after creating the pending snapshot
-    assert_snapshot!(test_project.file_tree_diff(), @r"
-    --- Original file tree
-    +++ Updated file tree
-    @@ -1,4 +1,6 @@
-     
-    +  Cargo.lock
-       Cargo.toml
-       src
-    +    src/.lib.rs.pending-snap
-         src/lib.rs
-    ");
-
-    // Modify the test to make it pass
-    test_project.update_file(
-        "src/lib.rs",
-        r#"
-#[test]
-fn test_snapshot() {
-    insta::assert_snapshot!("Hello, world!", @"Hello, world!");
-}
-"#
-        .to_string(),
-    );
-
-    // Run the test again
-    assert!(test_project
-        .insta_cmd()
-        .args(["test"])
-        .output()
-        .unwrap()
-        .status
-        .success());
-
-    // Verify the file tree after running the passing test
-    assert_snapshot!(test_project.file_tree_diff(), @r"
-    --- Original file tree
-    +++ Updated file tree
-    @@ -1,4 +1,5 @@
-     
-    +  Cargo.lock
-       Cargo.toml
-       src
-         src/lib.rs
-    ");
-}
-
-#[test]
-fn test_file_snapshot_pending_deletion() {
-    let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_file_snapshot_pending_deletion"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-doctest = false
-
-[dependencies]
-insta = { path = '$PROJECT_PATH' }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("test_combined_snapshot_deletion")
         .add_file(
             "src/lib.rs",
             r#"
 use insta::assert_snapshot;
+
+#[test]
+fn test_inline_snapshot() {
+    insta::assert_snapshot!("Hello, world!", @"Hello!");
+}
 
 #[test]
 fn test_file_snapshot() {
@@ -191,7 +94,7 @@ fn test_file_snapshot() {
         )
         .create_project();
 
-    // Run the test to create a snapshot
+    // Run the test with `--accept` to create correct snapshots
     assert!(test_project
         .insta_cmd()
         .args(["test", "--accept", "--", "--nocapture"])
@@ -200,7 +103,7 @@ fn test_file_snapshot() {
         .status
         .success());
 
-    // Verify the file tree
+    // Verify the file tree has a `.snap` file
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
@@ -211,22 +114,29 @@ fn test_file_snapshot() {
        src
          src/lib.rs
     +    src/snapshots
-    +      src/snapshots/test_file_snapshot_pending_deletion__file_snapshot.snap
+    +      src/snapshots/test_combined_snapshot_deletion__file_snapshot.snap
     ");
 
-    // Modify the value & run the test to make it create a pending snapshot
+    // Modify the tests to make them fail
     test_project.update_file(
         "src/lib.rs",
         r#"
 use insta::assert_snapshot;
 
 #[test]
+fn test_inline_snapshot() {
+    insta::assert_snapshot!("Hello WORLD!", @"Hello, world!");
+}
+
+#[test]
 fn test_file_snapshot() {
-    assert_snapshot!("hello");
+    assert_snapshot!("hello WORLD");
 }
 "#
         .to_string(),
     );
+
+    // Run the tests to create pending snapshots
     assert!(!test_project
         .insta_cmd()
         .args(["test"])
@@ -235,26 +145,32 @@ fn test_file_snapshot() {
         .status
         .success());
 
-    // We should have a pending snapshot
+    // Verify pending snapshots exist
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
+    @@ -1,4 +1,9 @@
      
     +  Cargo.lock
        Cargo.toml
        src
+    +    src/.lib.rs.pending-snap
          src/lib.rs
     +    src/snapshots
-    +      src/snapshots/test_file_snapshot_pending_deletion__file_snapshot.snap
-    +      src/snapshots/test_file_snapshot_pending_deletion__file_snapshot.snap.new
+    +      src/snapshots/test_combined_snapshot_deletion__file_snapshot.snap
+    +      src/snapshots/test_combined_snapshot_deletion__file_snapshot.snap.new
     ");
 
-    // Modify the value back, run the test, which should remove the pending snapshot
+    // Modify the test back so they pass
     test_project.update_file(
         "src/lib.rs",
         r#"
 use insta::assert_snapshot;
+
+#[test]
+fn test_inline_snapshot() {
+    insta::assert_snapshot!("Hello, world!", @"Hello, world!");
+}
 
 #[test]
 fn test_file_snapshot() {
@@ -263,15 +179,17 @@ fn test_file_snapshot() {
 "#
         .to_string(),
     );
+
+    // Run the tests with `--unreferenced=delete` to delete pending snapshots
     assert!(test_project
         .insta_cmd()
-        .args(["test"])
+        .args(["test", "--unreferenced=delete"])
         .output()
         .unwrap()
         .status
         .success());
 
-    // Now there should be no pending snapshot
+    // Verify the pending snapshots are deleted
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
@@ -282,6 +200,6 @@ fn test_file_snapshot() {
        src
          src/lib.rs
     +    src/snapshots
-    +      src/snapshots/test_file_snapshot_pending_deletion__file_snapshot.snap
+    +      src/snapshots/test_combined_snapshot_deletion__file_snapshot.snap
     ");
 }
