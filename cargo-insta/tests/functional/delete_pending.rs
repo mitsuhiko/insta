@@ -2,6 +2,51 @@ use insta::assert_snapshot;
 
 use crate::TestFiles;
 
+/// `--unreferenced=delete` should delete pending snapshots
+#[test]
+fn delete_unreferenced() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("delete_unreferenced")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, inline!", @"Hello!");
+}
+
+#[test]
+fn test_snapshot_file() {
+    insta::assert_snapshot!("Hello, world!");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    assert!(!&test_project
+        .insta_cmd()
+        .args(["test", "--", "--nocapture"])
+        .output()
+        .unwrap()
+        .status
+        .success());
+
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,4 +1,8 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       src
+    +    src/.lib.rs.pending-snap
+         src/lib.rs
+    +    src/snapshots
+    +      src/snapshots/delete_unreferenced__snapshot_file.snap.new
+    ");
+}
+
 #[test]
 fn test_inline_pending_snapshot_deletion() {
     let test_project = TestFiles::new()
@@ -46,11 +91,12 @@ fn test_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,5 @@
+    @@ -1,4 +1,6 @@
      
     +  Cargo.lock
        Cargo.toml
        src
+    +    src/.lib.rs.pending-snap
          src/lib.rs
     ");
 
