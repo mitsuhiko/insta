@@ -226,7 +226,7 @@ impl TestProject {
                 format!("{} {}", style(&stdout_name).green(), line)
             }))
             .stderr(OutputFormatter(move |line| {
-                format!("{} {}", style(&stderr_name).red(), line)
+                format!("{} {}", style(&stderr_name).yellow(), line)
             }));
 
         command
