@@ -300,6 +300,9 @@ pub use crate::snapshot::{MetaData, Snapshot, TextSnapshotKind};
 ///
 /// You're unlikely to want to work with these objects but they
 /// are exposed for documentation primarily.
+///
+/// This module does not follow the same stability guarantees as the rest of the crate and is not
+/// guaranteed to be compatible between minor versions.
 pub mod internals {
     pub use crate::content::Content;
     #[cfg(feature = "filters")]

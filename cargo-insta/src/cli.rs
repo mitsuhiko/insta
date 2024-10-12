@@ -6,10 +6,11 @@ use std::{env, fs};
 use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
-use insta::Snapshot;
 use insta::_cargo_insta_support::{
     is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
 };
+use insta::{internals::SnapshotContents, Snapshot};
+use itertools::Itertools;
 use semver::Version;
 use serde::Serialize;
 use uuid::Uuid;
@@ -17,7 +18,6 @@ use uuid::Uuid;
 use crate::cargo::{find_snapshot_roots, Package};
 use crate::container::{Operation, SnapshotContainer};
 use crate::utils::cargo_insta_version;
-use crate::utils::INSTA_VERSION;
 use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_pending_snapshots, make_snapshot_walker, FindFlags};
 
@@ -99,6 +99,8 @@ struct TargetArgs {
     #[arg(long)]
     all: bool,
     /// Also walk into ignored paths.
+    // TODO: this alias is confusing, I think we should remove — does "no" mean
+    // "don't ignore files" or "not ignored files"?
     #[arg(long, alias = "no-ignore")]
     include_ignored: bool,
     /// Also include hidden paths.
@@ -192,7 +194,7 @@ struct TestCommand {
     /// Do not reject pending snapshots before run.
     #[arg(long)]
     keep_pending: bool,
-    /// Update all snapshots even if they are still matching.
+    /// Update all snapshots even if they are still matching; implies `--accept`.
     #[arg(long)]
     force_update_snapshots: bool,
     /// Handle unreferenced snapshots after a successful test run.
@@ -385,6 +387,7 @@ fn handle_color(color: Option<ColorWhen>) {
     }
 }
 
+#[derive(Debug)]
 struct LocationInfo<'a> {
     tool_config: ToolConfig,
     workspace_root: PathBuf,
@@ -392,6 +395,9 @@ struct LocationInfo<'a> {
     packages: Vec<Package>,
     exts: Vec<&'a str>,
     find_flags: FindFlags,
+    /// The insta version in the current workspace (i.e. not the `cargo-insta`
+    /// binary that's running).
+    insta_version: Version,
 }
 
 fn get_find_flags(tool_config: &ToolConfig, target_args: &TargetArgs) -> FindFlags {
@@ -436,9 +442,22 @@ fn handle_target_args<'a>(
         (None, None) => {}
     };
 
-    let metadata = cmd.no_deps().exec()?;
+    let metadata = cmd.exec().map_err(|e| {
+        format!(
+            "failed to load cargo metadata: {}. Command details: {:?}",
+            e, cmd
+        )
+    })?;
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
+
+    let insta_version = metadata
+        .packages
+        .iter()
+        .find(|package| package.name == "insta")
+        .map(|package| package.version.clone())
+        .ok_or_else(|| eprintln!("insta not found in cargo metadata; defaulting to 1.0.0"))
+        .unwrap_or(Version::new(1, 0, 0));
 
     // If `--workspace` is passed, or there's no root package, we include all
     // packages. If packages are specified, we filter from all packages.
@@ -455,6 +474,13 @@ fn handle_target_args<'a>(
             .into_iter()
             .filter(|p| packages.is_empty() || packages.contains(&p.name))
             .cloned()
+            .map(|mut p| {
+                // Dependencies aren't needed and bloat the object (but we can't pass
+                // `--no-deps` to the original command as we collect the insta
+                // version above...)
+                p.dependencies = vec![];
+                p
+            })
             .collect()
     } else {
         vec![metadata.root_package().unwrap().clone()]
@@ -468,13 +494,14 @@ fn handle_target_args<'a>(
         .iter()
         .map(|x| {
             if let Some(no_period) = x.strip_prefix(".") {
-                eprintln!("`{}` supplied as an extenstion. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
+                eprintln!("`{}` supplied as an extension. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
             };
             x.as_str()
         })
         .collect(),
         find_flags: get_find_flags(&tool_config, target_args),
         tool_config,
+        insta_version
     })
 }
 
@@ -516,7 +543,15 @@ fn process_snapshots(
         if !quiet {
             println!("{}: no snapshots to review", style("done").bold());
             if loc.tool_config.review_warn_undiscovered() {
-                show_undiscovered_hint(loc.find_flags, &snapshot_containers, &roots, &loc.exts);
+                show_undiscovered_hint(
+                    loc.find_flags,
+                    &snapshot_containers
+                        .iter()
+                        .map(|x| x.0.clone())
+                        .collect_vec(),
+                    &roots,
+                    &loc.exts,
+                );
             }
         }
         return Ok(());
@@ -609,6 +644,7 @@ fn process_snapshots(
     Ok(())
 }
 
+/// Run the tests
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
     match loc.tool_config.snapshot_update() {
@@ -635,11 +671,16 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
             cmd.force_update_snapshots = true;
         }
     }
-
-    // --check always implies --no-force-pass as otherwise this command does not
-    // make a lot of sense.
-    if cmd.check {
-        cmd.no_force_pass = true
+    // `--force-update-snapshots` implies `--accept`
+    if cmd.force_update_snapshots {
+        cmd.accept = true;
+    }
+    if cmd.no_force_pass {
+        cmd.check = true;
+        eprintln!(
+            "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
+            style("warning").bold().yellow()
+        )
     }
 
     // the tool config can also indicate that --accept-unseen should be picked
@@ -653,7 +694,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
 
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
-        println!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
+        eprintln!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
         cmd.unreferenced = UnreferencedSnapshots::Delete;
     }
 
@@ -676,12 +717,18 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         color,
         &[],
         None,
+        &loc,
     )?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
     }
 
+    if let Some(workspace_root) = &cmd.target_args.workspace_root {
+        proc.current_dir(workspace_root);
+    }
+
+    // Run the tests
     let status = proc.status()?;
     let mut success = status.success();
 
@@ -699,6 +746,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
             color,
             &["--doc"],
             snapshot_ref_file.as_deref(),
+            &loc,
         )?;
         success = success && proc.status()?.success();
     }
@@ -732,7 +780,8 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         )?
     } else {
         let (snapshot_containers, roots) = load_snapshot_containers(&loc)?;
-        let snapshot_count = snapshot_containers.iter().map(|x| x.0.len()).sum::<usize>();
+        let snapshot_containers = snapshot_containers.into_iter().map(|x| x.0).collect_vec();
+        let snapshot_count = snapshot_containers.iter().map(|x| x.len()).sum::<usize>();
         if snapshot_count > 0 {
             eprintln!(
                 "{}: {} snapshot{} to review",
@@ -783,23 +832,22 @@ fn handle_unreferenced_snapshots(
         UnreferencedSnapshots::Ignore => return Ok(()),
     };
 
-    let mut files = HashSet::new();
-    match fs::read_to_string(snapshot_ref_path) {
-        Ok(s) => {
-            for line in s.lines() {
-                if let Ok(path) = fs::canonicalize(line) {
-                    files.insert(path);
-                }
+    let files = fs::read_to_string(snapshot_ref_path)
+        .map(|s| {
+            s.lines()
+                .filter_map(|line| fs::canonicalize(line).ok())
+                .collect()
+        })
+        .or_else(|err| {
+            if err.kind() == io::ErrorKind::NotFound {
+                // if the file was not created, no test referenced
+                // snapshots (though we also check for this in the calling
+                // function, so maybe duplicative...)
+                Ok(HashSet::new())
+            } else {
+                Err(err)
             }
-        }
-        Err(err) => {
-            // if the file was not created, no test referenced
-            // snapshots.
-            if err.kind() != io::ErrorKind::NotFound {
-                return Err(err.into());
-            }
-        }
-    }
+        })?;
 
     let mut encountered_any = false;
 
@@ -872,7 +920,10 @@ fn handle_unreferenced_snapshots(
     Ok(())
 }
 
+/// Create and setup a `Command`, translating our configs into env vars & cli options
+// TODO: possibly we can clean this function up a bit, reduce the number of args
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 fn prepare_test_runner<'snapshot_ref>(
     test_runner: TestRunner,
     test_runner_fallback: bool,
@@ -881,42 +932,35 @@ fn prepare_test_runner<'snapshot_ref>(
     color: ColorWhen,
     extra_args: &[&str],
     snapshot_ref_file: Option<&'snapshot_ref Path>,
+    loc: &LocationInfo,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
     let cargo = env::var_os("CARGO");
     let cargo = cargo
         .as_deref()
         .unwrap_or_else(|| std::ffi::OsStr::new("cargo"));
-    let test_runner = match test_runner {
-        TestRunner::CargoTest | TestRunner::Auto => test_runner,
-        TestRunner::Nextest => {
-            // Fall back to `cargo test` if `cargo nextest` isn't installed and
-            // `test_runner_fallback` is true (but don't run the cargo command
-            // unless that's an option)
-            if !test_runner_fallback
-                || std::process::Command::new("cargo")
-                    .arg("nextest")
-                    .arg("--version")
-                    .output()
-                    .map(|output| output.status.success())
-                    .unwrap_or(false)
-            {
-                TestRunner::Nextest
-            } else {
-                TestRunner::Auto
-            }
-        }
+    // Fall back to `cargo test` if `cargo nextest` isn't installed and
+    // `test_runner_fallback` is true
+    let test_runner = if test_runner == TestRunner::Nextest
+        && test_runner_fallback
+        && std::process::Command::new(cargo)
+            .arg("nextest")
+            .arg("--version")
+            .output()
+            .map(|output| !output.status.success())
+            .unwrap_or(true)
+    {
+        TestRunner::Auto
+    } else {
+        test_runner
     };
-    let mut proc = match test_runner {
+    let mut proc = process::Command::new(cargo);
+    match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
-            let mut proc = process::Command::new(cargo);
             proc.arg("test");
-            proc
         }
         TestRunner::Nextest => {
-            let mut proc = process::Command::new(cargo);
             proc.arg("nextest");
             proc.arg("run");
-            proc
         }
     };
 
@@ -979,7 +1023,7 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--exclude");
         proc.arg(spec);
     }
-    if let Some(ref manifest_path) = cmd.target_args.manifest_path {
+    if let Some(ref manifest_path) = &cmd.target_args.manifest_path {
         proc.arg("--manifest-path");
         proc.arg(manifest_path);
     }
@@ -988,22 +1032,13 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if !cmd.check {
         proc.env("INSTA_FORCE_PASS", "1");
-    } else if !cmd.no_force_pass {
-        proc.env("INSTA_FORCE_PASS", "1");
-        // If we're not running under cargo insta, raise a warning that this option
-        // is deprecated. (cargo insta still uses it when running under `--check`,
-        // but this will stop soon too)
-        eprintln!(
-            "{}: `--no-force-pass` is deprecated. Please use --check to immediately raise an error on any non-matching snapshots.",
-            style("warning").bold().yellow()
-    );
     }
 
     proc.env(
         "INSTA_UPDATE",
         // Don't set `INSTA_UPDATE=force` for `--force-update-snapshots` on
         // older versions
-        if *INSTA_VERSION >= Version::new(1,41,0) {
+        if loc.insta_version >= Version::new(1,41,0) {
             match (cmd.check, cmd.accept_unseen, cmd.force_update_snapshots) {
                 (true, false, false) => "no",
                 (false, true, false) => "unseen",
@@ -1019,7 +1054,7 @@ fn prepare_test_runner<'snapshot_ref>(
             }
         }
     );
-    if cmd.force_update_snapshots && *INSTA_VERSION < Version::new(1, 40, 0) {
+    if cmd.force_update_snapshots && loc.insta_version < Version::new(1, 40, 0) {
         // Currently compatible with older versions of insta.
         proc.env("INSTA_FORCE_UPDATE_SNAPSHOTS", "1");
         proc.env("INSTA_FORCE_UPDATE", "1");
@@ -1070,17 +1105,14 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--target");
         proc.arg(target);
     }
-    proc.arg("--color");
-    proc.arg(color.to_string());
+    proc.args(["--color", color.to_string().as_str()]);
     proc.args(extra_args);
     // Items after this are passed to the test runner
     proc.arg("--");
     if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
         proc.arg("-q");
     }
-    if !cmd.cargo_options.is_empty() {
-        proc.args(&cmd.cargo_options);
-    }
+    proc.args(&cmd.cargo_options);
     // Currently libtest uses a different approach to color, so we need to pass
     // it again to get output from the test runner as well as cargo. See
     // https://github.com/rust-lang/cargo/issues/1983 for more
@@ -1130,11 +1162,15 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
         let is_inline = snapshot_container.snapshot_file().is_none();
         for snapshot_ref in snapshot_container.iter_snapshots() {
             if cmd.as_json {
-                let old_snapshot = snapshot_ref
-                    .old
-                    .as_ref()
-                    .map(|x| x.contents_string().unwrap());
-                let new_snapshot = snapshot_ref.new.contents_string().unwrap();
+                let old_snapshot = snapshot_ref.old.as_ref().map(|x| match x.contents() {
+                    SnapshotContents::Text(x) => x.to_string(),
+                    _ => unreachable!(),
+                });
+                let new_snapshot = match snapshot_ref.new.contents() {
+                    SnapshotContents::Text(x) => x.to_string(),
+                    _ => unreachable!(),
+                };
+
                 let info = if is_inline {
                     SnapshotKey::InlineSnapshot {
                         path: &target_file,
@@ -1160,7 +1196,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
 
 fn show_undiscovered_hint(
     find_flags: FindFlags,
-    snapshot_containers: &[(SnapshotContainer, &Package)],
+    snapshot_containers: &[SnapshotContainer],
     roots: &HashSet<PathBuf>,
     extensions: &[&str],
 ) {
@@ -1169,42 +1205,45 @@ fn show_undiscovered_hint(
         return;
     }
 
-    let mut found_extra = false;
     let found_snapshots = snapshot_containers
         .iter()
-        .filter_map(|x| x.0.snapshot_file())
+        .filter_map(|x| x.snapshot_file())
+        .map(|x| x.to_path_buf())
         .collect::<HashSet<_>>();
 
-    for root in roots {
-        for snapshot in make_snapshot_walker(
-            root,
-            extensions,
-            FindFlags {
-                include_ignored: true,
-                include_hidden: true,
-            },
-        )
-        .filter_map(|e| e.ok())
-        .filter(|x| {
-            let fname = x.file_name().to_string_lossy();
-            // TODO: use `extensions` here
-            fname.ends_with(".snap.new") || fname.ends_with(".pending-snap")
-        }) {
-            if !found_snapshots.contains(snapshot.path()) {
-                found_extra = true;
-                break;
-            }
-        }
-    }
+    let all_snapshots: HashSet<_> = roots
+        .iter()
+        .flat_map(|root| {
+            make_snapshot_walker(
+                root,
+                extensions,
+                FindFlags {
+                    include_ignored: true,
+                    include_hidden: true,
+                },
+            )
+            .filter_map(|e| e.ok())
+            .filter(|x| {
+                let fname = x.file_name().to_string_lossy();
+                extensions
+                    .iter()
+                    .any(|ext| fname.ends_with(&format!(".{}.new", ext)))
+                    || fname.ends_with(".pending-snap")
+            })
+            .map(|x| x.path().to_path_buf())
+        })
+        .collect();
+
+    let missed_snapshots = all_snapshots.difference(&found_snapshots).collect_vec();
 
     // we did not find any extra snapshots
-    if !found_extra {
+    if missed_snapshots.is_empty() {
         return;
     }
 
     let (args, paths) = match (find_flags.include_ignored, find_flags.include_hidden) {
-        (true, false) => ("--include-ignored", "ignored"),
-        (false, true) => ("--include-hidden", "hidden"),
+        (false, true) => ("--include-ignored", "ignored"),
+        (true, false) => ("--include-hidden", "hidden"),
         (false, false) => (
             "--include-ignored and --include-hidden",
             "ignored or hidden",
@@ -1212,13 +1251,18 @@ fn show_undiscovered_hint(
         (true, true) => unreachable!(),
     };
 
-    println!(
+    eprintln!(
         "{}: {}",
         style("warning").yellow().bold(),
         format_args!(
-            "found undiscovered snapshots in some paths which are not picked up by cargo \
-            insta. Use {} if you have snapshots in {} paths.",
-            args, paths,
+            "found undiscovered pending snapshots in some paths which are not picked up by cargo \
+            insta. Use {} if you have snapshots in {} paths. Files:\n{}",
+            args,
+            paths,
+            missed_snapshots
+                .iter()
+                .map(|x| x.display().to_string())
+                .join("\n")
         )
     );
 }
