@@ -252,6 +252,7 @@ impl TestProject {
 
     fn current_file_tree(workspace_dir: &Path) -> String {
         WalkBuilder::new(workspace_dir)
+            .hidden(false)
             .filter_entry(|e| e.path().file_name() != Some(std::ffi::OsStr::new("target")))
             .build()
             .filter_map(|e| e.ok())
