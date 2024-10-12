@@ -832,23 +832,22 @@ fn handle_unreferenced_snapshots(
         UnreferencedSnapshots::Ignore => return Ok(()),
     };
 
-    let mut files = HashSet::new();
-    match fs::read_to_string(snapshot_ref_path) {
-        Ok(s) => {
-            for line in s.lines() {
-                if let Ok(path) = fs::canonicalize(line) {
-                    files.insert(path);
-                }
+    let files = fs::read_to_string(snapshot_ref_path)
+        .map(|s| {
+            s.lines()
+                .filter_map(|line| fs::canonicalize(line).ok())
+                .collect()
+        })
+        .or_else(|err| {
+            if err.kind() == io::ErrorKind::NotFound {
+                // if the file was not created, no test referenced
+                // snapshots (though we also check for this in the calling
+                // function, so maybe duplicative...)
+                Ok(HashSet::new())
+            } else {
+                Err(err)
             }
-        }
-        Err(err) => {
-            // if the file was not created, no test referenced
-            // snapshots.
-            if err.kind() != io::ErrorKind::NotFound {
-                return Err(err.into());
-            }
-        }
-    }
+        })?;
 
     let mut encountered_any = false;
 
