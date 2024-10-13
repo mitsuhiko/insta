@@ -566,6 +566,9 @@ impl Snapshot {
         buf
     }
 
+    // We take `md` as an argument here because the calling methods want to
+    // adjust it; e.g. removing volatile fields when writing to the final
+    // `.snap` file.
     fn save_with_metadata(&self, path: &Path, md: &MetaData) -> Result<(), Box<dyn Error>> {
         if let Some(folder) = path.parent() {
             fs::create_dir_all(folder)?;
@@ -592,9 +595,6 @@ impl Snapshot {
     }
 
     /// Saves the snapshot.
-    ///
-    /// Returns `true` if the snapshot was saved.  This will return `false` if there
-    /// was already a snapshot with matching contents.
     #[doc(hidden)]
     pub fn save(&self, path: &Path) -> Result<(), Box<dyn Error>> {
         self.save_with_metadata(path, &self.metadata.trim_for_persistence())
