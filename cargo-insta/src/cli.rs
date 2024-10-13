@@ -647,10 +647,8 @@ fn process_snapshots(
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
 
-    // Based on any configs in the config file, update the test command.
-    // (Arguably slightly delicate code to ensure we're giving the correct
-    // relative prioritization to CLI vs. config file. We could do this in a
-    // single location to make it clearer...)
+    // Based on any configs in the config file, update the test command. Default
+    // is `SnapshotUpdate::Auto`.
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
             if is_ci() {
