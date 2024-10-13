@@ -108,6 +108,14 @@ pub fn format_rust_expression(value: &str) -> Cow<'_, str> {
     Cow::Borrowed(value)
 }
 
+pub fn get_cargo() -> std::ffi::OsString {
+    let cargo = env::var_os("CARGO");
+    let cargo = cargo
+        .as_deref()
+        .unwrap_or_else(|| std::ffi::OsStr::new("cargo"));
+    cargo.to_os_string()
+}
+
 #[test]
 fn test_format_rust_expression() {
     use crate::assert_snapshot;

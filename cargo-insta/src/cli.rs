@@ -7,7 +7,8 @@ use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
 use insta::_cargo_insta_support::{
-    is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
+    get_cargo, is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
+    UnreferencedSnapshots,
 };
 use insta::{internals::SnapshotContents, Snapshot};
 use itertools::Itertools;
@@ -393,8 +394,8 @@ struct LocationInfo<'a> {
     packages: Vec<Package>,
     exts: Vec<&'a str>,
     find_flags: FindFlags,
-    /// The insta version in the current workspace (i.e. not the `cargo-insta`
-    /// binary that's running).
+    /// The tested crate's insta version (i.e. not the `cargo-insta` binary
+    /// that's running this code).
     insta_version: Version,
 }
 
@@ -702,21 +703,13 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         TestRunner::CargoTest => TestRunner::CargoTest,
         TestRunner::Nextest => TestRunner::Nextest,
     };
-    // Prioritize the command line over the tool config
-    let test_runner_fallback = cmd
-        .test_runner_fallback
-        .unwrap_or(loc.tool_config.test_runner_fallback());
+    let test_runner = test_runner.resolve_fallback(
+        cmd.test_runner_fallback
+            .unwrap_or(loc.tool_config.test_runner_fallback()),
+    );
 
-    let (mut proc, snapshot_ref_file, prevents_doc_run) = prepare_test_runner(
-        test_runner,
-        test_runner_fallback,
-        cmd.unreferenced,
-        &cmd,
-        color,
-        &[],
-        None,
-        &loc,
-    )?;
+    let (mut proc, snapshot_ref_file, prevents_doc_run) =
+        prepare_test_runner(test_runner, cmd.unreferenced, &cmd, color, &[], None, &loc)?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
@@ -737,8 +730,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // a way to replicate the `cargo test` behavior.
     if matches!(cmd.test_runner, TestRunner::Nextest) && !prevents_doc_run {
         let (mut proc, _, _) = prepare_test_runner(
-            TestRunner::CargoTest,
-            false,
+            &TestRunner::CargoTest,
             cmd.unreferenced,
             &cmd,
             color,
@@ -923,8 +915,7 @@ fn handle_unreferenced_snapshots(
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 fn prepare_test_runner<'snapshot_ref>(
-    test_runner: TestRunner,
-    test_runner_fallback: bool,
+    test_runner: &TestRunner,
     unreferenced: UnreferencedSnapshots,
     cmd: &TestCommand,
     color: ColorWhen,
@@ -932,26 +923,7 @@ fn prepare_test_runner<'snapshot_ref>(
     snapshot_ref_file: Option<&'snapshot_ref Path>,
     loc: &LocationInfo,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
-    let cargo = env::var_os("CARGO");
-    let cargo = cargo
-        .as_deref()
-        .unwrap_or_else(|| std::ffi::OsStr::new("cargo"));
-    // Fall back to `cargo test` if `cargo nextest` isn't installed and
-    // `test_runner_fallback` is true
-    let test_runner = if test_runner == TestRunner::Nextest
-        && test_runner_fallback
-        && std::process::Command::new(cargo)
-            .arg("nextest")
-            .arg("--version")
-            .output()
-            .map(|output| !output.status.success())
-            .unwrap_or(true)
-    {
-        TestRunner::Auto
-    } else {
-        test_runner
-    };
-    let mut proc = process::Command::new(cargo);
+    let mut proc = process::Command::new(get_cargo());
     match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
             proc.arg("test");

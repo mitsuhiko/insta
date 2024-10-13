@@ -331,6 +331,7 @@ pub mod _cargo_insta_support {
         snapshot::PendingInlineSnapshot,
         snapshot::SnapshotContents,
         snapshot::TextSnapshotContents,
+        utils::get_cargo,
         utils::is_ci,
     };
 }
