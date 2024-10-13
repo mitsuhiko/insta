@@ -646,6 +646,9 @@ fn process_snapshots(
 /// Run the tests
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
+
+    // Based on any configs in the config file, update the test command. Default
+    // is `SnapshotUpdate::Auto`.
     match loc.tool_config.snapshot_update() {
         SnapshotUpdate::Auto => {
             if is_ci() {
@@ -709,7 +712,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     );
 
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
-        prepare_test_runner(test_runner, cmd.unreferenced, &cmd, color, &[], None, &loc)?;
+        prepare_test_runner(&cmd, test_runner, color, &[], None, &loc)?;
 
     if !cmd.keep_pending {
         process_snapshots(true, None, &loc, Some(Operation::Reject))?;
@@ -723,16 +726,16 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     let status = proc.status()?;
     let mut success = status.success();
 
-    // nextest currently cannot run doctests, run them with regular tests.
+    // nextest currently cannot run doctests, run them with regular tests. We'd
+    // like to deprecate this; see discussion at https://github.com/mitsuhiko/insta/pull/438
     //
     // Note that unlike `cargo test`, `cargo test --doctest` will run doctests
     // even on crates that specify `doctests = false`. But I don't think there's
     // a way to replicate the `cargo test` behavior.
     if matches!(cmd.test_runner, TestRunner::Nextest) && !prevents_doc_run {
         let (mut proc, _, _) = prepare_test_runner(
-            &TestRunner::CargoTest,
-            cmd.unreferenced,
             &cmd,
+            &TestRunner::CargoTest,
             color,
             &["--doc"],
             snapshot_ref_file.as_deref(),
@@ -915,9 +918,8 @@ fn handle_unreferenced_snapshots(
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 fn prepare_test_runner<'snapshot_ref>(
-    test_runner: &TestRunner,
-    unreferenced: UnreferencedSnapshots,
     cmd: &TestCommand,
+    test_runner: &TestRunner,
     color: ColorWhen,
     extra_args: &[&str],
     snapshot_ref_file: Option<&'snapshot_ref Path>,
@@ -938,7 +940,7 @@ fn prepare_test_runner<'snapshot_ref>(
     proc.env("INSTA_CARGO_INSTA", "1");
     proc.env("INSTA_CARGO_INSTA_VERSION", cargo_insta_version());
 
-    let snapshot_ref_file = if unreferenced != UnreferencedSnapshots::Ignore {
+    let snapshot_ref_file = if cmd.unreferenced != UnreferencedSnapshots::Ignore {
         match snapshot_ref_file {
             Some(path) => Some(Cow::Borrowed(path)),
             None => {
