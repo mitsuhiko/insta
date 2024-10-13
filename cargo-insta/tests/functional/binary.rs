@@ -177,15 +177,23 @@ fn test_binary_snapshot() {
         )
         .create_project();
 
-    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
-
-    assert!(!&output.status.success());
+    assert!(!&test_project
+        .insta_cmd()
+        .args(["test"])
+        .output()
+        .unwrap()
+        .status
+        .success());
 
     test_project.update_file("src/lib.rs", "".to_string());
 
-    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
-
-    assert!(&output.status.success());
+    assert!(&test_project
+        .insta_cmd()
+        .args(["test", "--unreferenced=delete"])
+        .output()
+        .unwrap()
+        .status
+        .success());
 
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree

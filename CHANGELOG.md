@@ -2,6 +2,13 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## [Unreleased]
+
+- Pending snapshots are no longer removed throughout the workspace by
+  `cargo-insta` before running tests.  Instead, running a test will overwrite or
+  remove its own pending snapshot.  To remove all pending snapshots, use `cargo
+  insta reject` or run tests with `--unreferenced=delete`.  #651
+
 ## 1.41.0
 
 - Experimental support for binary snapshots.  #610 (Florian Plattner)

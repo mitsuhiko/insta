@@ -60,6 +60,7 @@ use similar::udiff::unified_diff;
 use tempfile::TempDir;
 
 mod binary;
+mod delete_pending;
 mod inline;
 mod workspace;
 
