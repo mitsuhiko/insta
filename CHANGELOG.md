@@ -2,12 +2,16 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.41.1
+
+- Re-release of 1.41.1 to generate release artifacts correctly.
+
 ## 1.41.0
 
-- Experimental support for binary snapshots.  #610 (Florian Plattner)
+- Experimental support for binary snapshots. #610 (Florian Plattner)
 
 - `--force-update-snapshots` now causes `cargo-insta` to write every snapshot, regardless of whether
-  snapshots fully match, and now implies `--accept`.  This
+  snapshots fully match, and now implies `--accept`. This
   allows for `--force-update-snapshots` to update inline snapshots'
   delimiters and indentation.
 
@@ -16,24 +20,24 @@ All notable changes to insta and cargo-insta are documented here.
   The main difference between `--require-full-match` and the existing behavior of `--force-update-snapshots`
   is a non-zero exit code on any snapshots which don't fully match.
 
-  Like the previous behavior or `--force-update-snapshots`, `--require-full-match`
+  Like the previous behavior of `--force-update-snapshots`, `--require-full-match`
   doesn't track inline snapshots' delimiters or
-  indentation, so can't update if those don't match.  #644
+  indentation, so can't update if those don't match. #644
 
-- Inline snapshots only use `#` characters as delimiters when required.  #603
+- Inline snapshots only use `#` characters as delimiters when required. #603
 
 - Warnings for undiscovered snapshots are more robust, and include files with
-  custom snapshot extensions.  #637
+  custom snapshot extensions. #637
 
-- Insta runs correctly on packages which reference rust files in a parent path.  #626
+- Insta runs correctly on packages which reference rust files in a parent path. #626
 
-- Warnings are printed when any snapshot uses a legacy format.  #599
+- Warnings are printed when any snapshot uses a legacy format. #599
 
-- `cargo insta --version` now prints a version.  #665
+- `cargo insta --version` now prints a version. #665
 
 - `insta` now internally uses `INSTA_UPDATE=force` rather than
-  `INSTA_FORCE_UPDATE=1`.  (This doesn't affect users of `cargo-insta`, which
-  handles this internally.)  #482
+  `INSTA_FORCE_UPDATE=1`. (This doesn't affect users of `cargo-insta`, which
+  handles this internally.) #482
 
 - `cargo-insta`'s integration tests continue to grow over the past couple of versions,
   and now offer coverage of most of `cargo-insta`'s interface.
@@ -41,81 +45,81 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.40.0
 
 - `cargo-insta` no longer panics when running `cargo insta test --accept --workspace`
-  on a workspace with a default crate.  #532
+  on a workspace with a default crate. #532
 
 - MSRV for `insta` has been raised to 1.60, and for `cargo-insta` to 1.64.
 
-- Added support for compact debug snapshots (`assert_compact_debug_snapshot`).  #514
+- Added support for compact debug snapshots (`assert_compact_debug_snapshot`). #514
 
-- Deprecate `--no-force-pass` in `cargo-insta`.  The `--check` option covers the
-  same functionality and has a clearer name.  #513
+- Deprecate `--no-force-pass` in `cargo-insta`. The `--check` option covers the
+  same functionality and has a clearer name. #513
 
 - Inline snapshots now use the required number of `#`s to escape the snapshot
   value, rather than always using `###`. This allows snapshotting values which
   themselves contain `###`. If there are no existing `#` characters in the
-  snapshot value, a single `#` will be used.  #540
+  snapshot value, a single `#` will be used. #540
 
-- Inline snapshots can now be updated with `--force-update-snapshots`.  #569
+- Inline snapshots can now be updated with `--force-update-snapshots`. #569
 
-- `cargo insta test` accepts multiple `--exclude` flags.  #520
+- `cargo insta test` accepts multiple `--exclude` flags. #520
 
-- `test` `runner` in insta's yaml config works.  #544
+- `test` `runner` in insta's yaml config works. #544
 
-- Print a warning when encountering old snapshot formats.  #503
+- Print a warning when encountering old snapshot formats. #503
 
-- Group the options in `cargo insta --help`, upgrade to `clap` from `structopt`.  #518
+- Group the options in `cargo insta --help`, upgrade to `clap` from `structopt`. #518
 
-- No longer suggest running `cargo insta` message when running `cargo insta test --check`.  #515
+- No longer suggest running `cargo insta` message when running `cargo insta test --check`. #515
 
-- Print a clearer error message when accepting a snapshot that was removed.  #516
+- Print a clearer error message when accepting a snapshot that was removed. #516
 
-- Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage.  #497
+- Mark `require-full-match` as experimental, given some corner-cases are currently difficult to manage. #497
 
-- Add a new integration test approach for `cargo-insta` and a set of integration tests.  #537
+- Add a new integration test approach for `cargo-insta` and a set of integration tests. #537
 
-- Enable Filters to be created from `IntoIterator` types, rather than just `Vec`s.  #570
+- Enable Filters to be created from `IntoIterator` types, rather than just `Vec`s. #570
 
-- Implemented total sort order for an internal `Key` type correctly.  This prevents potential
-  crashes introduced by the new sort algorithm in Rust 1.81.  #586
+- Implemented total sort order for an internal `Key` type correctly. This prevents potential
+  crashes introduced by the new sort algorithm in Rust 1.81. #586
 
 ## 1.39.0
 
-- Fixed a bug in `require_full_match`.  #485
+- Fixed a bug in `require_full_match`. #485
 
-- Fixed a bug that caused snapshot and module names to sometimes be inaccurate.  #483
+- Fixed a bug that caused snapshot and module names to sometimes be inaccurate. #483
 
-- Insta will no longer error when attempting to remove snapshots that were already removed.  #484
+- Insta will no longer error when attempting to remove snapshots that were already removed. #484
 
-- Added support for trailing commas in inline snapshots.  #472
+- Added support for trailing commas in inline snapshots. #472
 
 - Don't pass `--color` in all cases to `libtest` any more to work around limitations
-  with custom test harnesses.  #491
+  with custom test harnesses. #491
 
 ## 1.38.0
 
-- `Filters` is now constructible from `IntoIterator`.  #400
+- `Filters` is now constructible from `IntoIterator`. #400
 
-- Change `std` macro calls to be fully qualified.  This fixes issues where
-  the prelude was not used or the macros were overridden.  #469
+- Change `std` macro calls to be fully qualified. This fixes issues where
+  the prelude was not used or the macros were overridden. #469
 
 ## 1.37.0
 
 - All macros for file snapshots should now handle trailing commas (but not yet inline snapshots)
 
-- Vendored old `yaml-rust` dependency to avoid rustsec warnings.  #465
+- Vendored old `yaml-rust` dependency to avoid rustsec warnings. #465
 
 ## 1.36.1
 
-- Fix an ownership issue introduced in 1.36 with snapshot assertions.  #453
+- Fix an ownership issue introduced in 1.36 with snapshot assertions. #453
 
 ## 1.36.0
 
 - Deprecate `INSTA_FORCE_UPDATE_SNAPSHOTS` env-var for `INSTA_FORCE_UPDATE`.
-  The latter was documented, the former was implemented.  #449
+  The latter was documented, the former was implemented. #449
 
-- Add `require_full_match` option.  #448
+- Add `require_full_match` option. #448
 
-- Deprecate `assert_display_snapshot!`.  #385
+- Deprecate `assert_display_snapshot!`. #385
 
 ## 1.35.1
 
@@ -125,21 +129,21 @@ All notable changes to insta and cargo-insta are documented here.
 
 - Fixed a crash when a file named `.config` was in the root.
 - Added new alternative `match .. { ... }` syntax to redactions for better
-  `rustfmt` support.  (#428)
-- The `--package` parameter can be supplied multiple times now.  (#427)
+  `rustfmt` support. (#428)
+- The `--package` parameter can be supplied multiple times now. (#427)
 - Leading newlines in snapshots are now ignored to resolve issues with
-  inline snapshots that were never able to match.  (#444)
-- `cargo insta test` now accepts the `--test` parameter multiple times.  (#437)
+  inline snapshots that were never able to match. (#444)
+- `cargo insta test` now accepts the `--test` parameter multiple times. (#437)
 
 ## 1.34.0
 
-- Snapshots are now sorted in the UI on review.  (#413)
-- Re-organized repository to move `cargo-insta` into a workspace.  (#410)
-- Fixed handling of `--manifest-path` with regards to virtual workspaces.  (#409)
+- Snapshots are now sorted in the UI on review. (#413)
+- Re-organized repository to move `cargo-insta` into a workspace. (#410)
+- Fixed handling of `--manifest-path` with regards to virtual workspaces. (#409)
 
 ## 1.33.0
 
-- Added `--all-targets` parameter support to `cargo insta test`.  (#408)
+- Added `--all-targets` parameter support to `cargo insta test`. (#408)
 
 ## 1.32.0
 
@@ -148,17 +152,17 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.31.0
 
 - Fixed a bug that caused `cargo insta test` not to report test failures.
-- Suppress `needless_raw_string_hashes` clippy lint on inline snapshots.  (#390)
+- Suppress `needless_raw_string_hashes` clippy lint on inline snapshots. (#390)
 
 ## 1.30.0
 
 - Resolved a bug on Windows that caused `input_file` not to be written into the
-  snapshots.  (#386)
+  snapshots. (#386)
 - Snapshots are accepted when running with `--accept` even if a test outside
-  insta fails.  (#358)
+  insta fails. (#358)
 - Mark settings drop guard as `#[must_use]`.
-- Write inline snapshots with atomic rename to avoid some rare races.  (#373)
-- Pass `--color=...` to libtest to propagate color choices in more situations.  (#375)
+- Write inline snapshots with atomic rename to avoid some rare races. (#373)
+- Pass `--color=...` to libtest to propagate color choices in more situations. (#375)
 
 ## 1.29.0
 
