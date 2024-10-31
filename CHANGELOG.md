@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.41.1
+
+- Re-release of 1.41.1 to generate release artifacts correctly.
+
 ## 1.41.0
 
 - Experimental support for binary snapshots.  #610 (Florian Plattner)
@@ -16,7 +20,7 @@ All notable changes to insta and cargo-insta are documented here.
   The main difference between `--require-full-match` and the existing behavior of `--force-update-snapshots`
   is a non-zero exit code on any snapshots which don't fully match.
 
-  Like the previous behavior or `--force-update-snapshots`, `--require-full-match`
+  Like the previous behavior of `--force-update-snapshots`, `--require-full-match`
   doesn't track inline snapshots' delimiters or
   indentation, so can't update if those don't match.  #644
 
