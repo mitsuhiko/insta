@@ -1,6 +1,6 @@
 [package]
 name = "cargo-insta"
-version = "1.41.0"
+version = "1.41.1"
 license = "Apache-2.0"
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
 description = "A review tool for the insta snapshot testing library for Rust"
@@ -14,7 +14,12 @@ readme = "README.md"
 rust-version = "1.65.0"
 
 [dependencies]
-insta = { version = "=1.41.0", path = "../insta", features = ["json", "yaml", "redactions", "_cargo_insta_internal"] }
+insta = { version = "=1.41.1", path = "../insta", features = [
+    "json",
+    "yaml",
+    "redactions",
+    "_cargo_insta_internal",
+] }
 cargo_metadata = { version = "0.18.0", default-features = false }
 console = "0.15.4"
 serde = { version = "1.0.117", features = ["derive"] }
@@ -27,15 +32,15 @@ ignore = "0.4.17"
 uuid = { version = "1.0.0", features = ["v4"] }
 tempfile = "3.5.0"
 # Needs pinning in Cargo.lock because of MSRV
-semver = {version = "1.0.7", features = ["serde"]}
+semver = { version = "1.0.7", features = ["serde"] }
 lazy_static = "1.4.0"
-clap = { workspace=true }
+clap = { workspace = true }
 open = "5.3.0"
 itertools = "0.10.0"
 
 [dev-dependencies]
 walkdir = "2.3.1"
-similar= "2.2.1"
+similar = "2.2.1"
 itertools = "0.10.0"
 termcolor = "1.1.2"
 os_pipe = "0.9.0"
