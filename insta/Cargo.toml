@@ -1,6 +1,6 @@
 [package]
 name = "insta"
-version = "1.41.0"
+version = "1.41.1"
 license = "Apache-2.0"
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
 description = "A snapshot testing library for Rust"
@@ -11,9 +11,7 @@ repository = "https://github.com/mitsuhiko/insta"
 keywords = ["snapshot", "testing", "jest", "approval"]
 categories = ["development-tools::testing"]
 readme = "README.md"
-exclude = [
-    "assets/*"
-]
+exclude = ["assets/*"]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -55,13 +53,16 @@ toml = { version = "0.5.7", optional = true }
 globset = { version = "0.4.6", optional = true }
 walkdir = { version = "2.3.1", optional = true }
 similar = { version = "2.1.0", features = ["inline"] }
-regex = { version = "1.6.0", default-features = false, optional = true, features = ["std", "unicode"] }
+regex = { version = "1.6.0", default-features = false, optional = true, features = [
+    "std",
+    "unicode",
+] }
 serde = { version = "1.0.117", optional = true }
 linked-hash-map = "0.5.6"
 lazy_static = "1.4.0"
 # Not yet supported in our MSRV of 1.60.0
 # clap = { workspace=true, optional = true }
-clap = {version = "4.1", features = ["derive", "env"], optional = true}
+clap = { version = "4.1", features = ["derive", "env"], optional = true }
 
 [dev-dependencies]
 rustc_version = "0.4.0"
