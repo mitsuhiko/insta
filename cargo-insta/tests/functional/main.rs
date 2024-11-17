@@ -265,6 +265,7 @@ impl TestProject {
                 let path_str = path.to_str().map(|s| s.replace('\\', "/")).unwrap();
                 format!("{}{}", "  ".repeat(entry.depth()), path_str)
             })
+            .filter(|line| !line.is_empty())
             .chain(std::iter::once(String::new()))
             .collect::<Vec<_>>()
             .join("\n")
@@ -498,6 +499,7 @@ fn test_wrong_indent_force() {
     foo
     foo
     "#, @r#"
+
                 foo
                 foo
     "#);
@@ -528,8 +530,6 @@ fn test_wrong_indent_force() {
 
 #[test]
 fn test_matches_fully_linebreaks() {
-    // Until #563 merges, we should be OK with different leading newlines, even
-    // in exact / full match mode.
     let test_project = TestFiles::new()
         .add_cargo_toml("exact-match-inline")
         .add_file(
@@ -545,6 +545,8 @@ fn test_additional_linebreak() {
         "insta_tests__tests",
     )
     "#, @r#"
+
+
     (
         "name_foo",
         "insta_tests__tests",
@@ -556,8 +558,7 @@ fn test_additional_linebreak() {
         )
         .create_project();
 
-    // Confirm the test passes despite the indent
-    let output = test_project
+    assert!(&test_project
         .insta_cmd()
         .args([
             "test",
@@ -567,8 +568,9 @@ fn test_additional_linebreak() {
             "--nocapture",
         ])
         .output()
-        .unwrap();
-    assert!(&output.status.success());
+        .unwrap()
+        .status
+        .success());
 }
 
 #[test]
@@ -654,8 +656,7 @@ Unused snapshot
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
-     
+    @@ -1,3 +1,7 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -684,8 +685,7 @@ Unused snapshot
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,7 @@
-     
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src
