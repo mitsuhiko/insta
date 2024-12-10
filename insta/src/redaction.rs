@@ -26,7 +26,7 @@ impl SelectorParseError {
 #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 pub struct ContentPath<'a>(&'a [PathItem]);
 
-impl<'a> fmt::Display for ContentPath<'a> {
+impl fmt::Display for ContentPath<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for item in self.0.iter() {
             write!(f, ".")?;
@@ -47,7 +47,7 @@ impl<'a> fmt::Display for ContentPath<'a> {
 }
 
 /// Replaces a value with another one.
-
+///
 /// Represents a redaction.
 #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 pub enum Redaction {
