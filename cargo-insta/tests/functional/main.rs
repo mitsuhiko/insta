@@ -359,13 +359,12 @@ Hello, world!
     assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
     --- Original: src/snapshots/test_force_update_current__force_update.snap
     +++ Updated: src/snapshots/test_force_update_current__force_update.snap
-    @@ -1,8 +1,6 @@
+    @@ -1,8 +1,5 @@
     -
      ---
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
-    +snapshot_kind: text
      ---
      Hello, world!
     -
@@ -761,6 +760,63 @@ Hidden snapshot
         "{}",
         stderr
     );
+}
+
+#[test]
+fn test_snapshot_kind_behavior() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_snapshot_kind")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshots() {
+    insta::assert_snapshot!("new snapshot");
+    insta::assert_snapshot!("existing snapshot");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_snapshot_kind__existing.snap",
+            r#"---
+source: src/lib.rs
+expression: "\"existing snapshot\""
+snapshot_kind: text
+---
+existing snapshot
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run the test with --accept to create the new snapshot
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // Verify the new snapshot was created without snapshot_kind
+    let new_snapshot = std::fs::read_to_string(
+        test_project
+            .workspace_dir
+            .join("src/snapshots/test_snapshot_kind__snapshots.snap"),
+    )
+    .unwrap();
+
+    assert!(!new_snapshot.contains("snapshot_kind:"));
+
+    // Verify both snapshots work with --require-full-match
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--require-full-match"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
 }
 
 #[test]

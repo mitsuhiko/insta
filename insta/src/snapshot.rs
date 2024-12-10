@@ -291,15 +291,13 @@ impl MetaData {
             fields.push(("input_file", Content::from(input_file)));
         }
 
-        let snapshot_type = Content::from(match self.snapshot_kind {
-            SnapshotKind::Text => "text",
+        match self.snapshot_kind {
+            SnapshotKind::Text => {}
             SnapshotKind::Binary { ref extension } => {
                 fields.push(("extension", Content::from(extension.clone())));
-                "binary"
+                fields.push(("snapshot_kind", Content::from("binary")));
             }
-        });
-
-        fields.push(("snapshot_kind", snapshot_type));
+        }
 
         Content::Struct("MetaData", fields)
     }
