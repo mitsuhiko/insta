@@ -576,7 +576,6 @@ fn test_hello() {
     ---
     source: "../tests/lib.rs"
     expression: hello()
-    snapshot_kind: text
     ---
     Hello, world!
     "#);
