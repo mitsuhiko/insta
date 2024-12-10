@@ -47,7 +47,7 @@ impl fmt::Display for ContentPath<'_> {
 }
 
 /// Replaces a value with another one.
-/// 
+///
 /// Represents a redaction.
 #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 pub enum Redaction {
