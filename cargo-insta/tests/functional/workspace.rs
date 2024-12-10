@@ -579,6 +579,7 @@ fn test_hello() {
     snapshot_kind: text
     ---
     Hello, world!
+    ---
     "#);
 }
 
