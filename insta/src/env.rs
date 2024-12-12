@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::{env, fmt, fs};
 
-use crate::utils::{get_cargo, is_ci};
+use crate::utils::is_ci;
 use crate::{
     content::{yaml, Content},
     elog,
@@ -42,6 +42,7 @@ impl TestRunner {
     /// Fall back to `cargo test` if `cargo nextest` isn't installed and
     /// `test_runner_fallback` is true
     pub fn resolve_fallback(&self, test_runner_fallback: bool) -> &TestRunner {
+        use crate::utils::get_cargo;
         if self == &TestRunner::Nextest
             && test_runner_fallback
             && std::process::Command::new(get_cargo())
