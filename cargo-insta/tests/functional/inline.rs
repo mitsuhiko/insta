@@ -24,6 +24,7 @@ serde = { version = "1.0", features = ["derive"] }
             r#"
 use serde::Serialize;
 
+#[allow(dead_code)]
 #[derive(Serialize)]
 struct User {
     id: u64,
@@ -56,7 +57,7 @@ fn test_json_snapshot() {
     assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -15,5 +15,10 @@
+    @@ -16,5 +16,10 @@
          };
          insta::assert_json_snapshot!(&user, {
              ".id" => "[user_id]",
@@ -93,6 +94,7 @@ serde = { version = "1.0", features = ["derive"] }
             r#"
 use serde::Serialize;
 
+#[allow(dead_code)]
 #[derive(Serialize)]
 struct User {
     id: u64,
@@ -122,10 +124,10 @@ fn test_yaml_snapshot() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r###"
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -15,5 +15,8 @@
+    @@ -16,5 +16,8 @@
          };
          insta::assert_yaml_snapshot!(&user, {
              ".id" => "[user_id]",
@@ -135,7 +137,7 @@ fn test_yaml_snapshot() {
     +    email: john.doe@example.com
     +    "#);
      }
-    "###);
+    "##);
 }
 
 #[test]
