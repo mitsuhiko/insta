@@ -569,7 +569,7 @@ impl Settings {
         CURRENT_SETTINGS.with(|x| {
             let mut x = x.borrow_mut();
             let old = mem::replace(&mut x.inner, self.inner.clone());
-            SettingsBindDropGuard(Some(old))
+            SettingsBindDropGuard(Some(old), std::marker::PhantomData)
         })
     }
 
@@ -580,8 +580,29 @@ impl Settings {
 }
 
 /// Returned from [`Settings::bind_to_scope`]
+///
+/// This type is not shareable between threads:
+///
+/// ```compile_fail E0277
+/// let mut settings = insta::Settings::clone_current();
+/// settings.set_snapshot_suffix("test drop guard");
+/// let guard = settings.bind_to_scope();
+///
+/// std::thread::spawn(move || { let guard = guard; }); // doesn't compile
+/// ```
+///
+/// This is to ensure tests under async runtimes like `tokio` don't show unexpected results
 #[must_use = "The guard is immediately dropped so binding has no effect. Use `let _guard = ...` to bind it."]
-pub struct SettingsBindDropGuard(Option<Arc<ActualSettings>>);
+pub struct SettingsBindDropGuard(
+    Option<Arc<ActualSettings>>,
+    /// A ZST that is not [`Send`] but is [`Sync`]
+    ///
+    /// This is necessary due to the lack of stable [negative impls](https://github.com/rust-lang/rust/issues/68318).
+    ///
+    /// Required as [`SettingsBindDropGuard`] modifies a thread local variable which would end up
+    /// with unexpected results if sent to a different thread.
+    std::marker::PhantomData<std::sync::MutexGuard<'static, ()>>,
+);
 
 impl Drop for SettingsBindDropGuard {
     fn drop(&mut self) {
