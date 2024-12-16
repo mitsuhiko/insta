@@ -2,6 +2,13 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- `insta::internals::SettingsBindDropGuard` (returned from
+  `Settings::bind_to_scope`) no longer implements `Send`. This was an error and
+  any tests relying on this behavior where not working properly.
+  Fixes #694 in #695 by @jalil-salame
+
 ## 1.41.1
 
 - Re-release of 1.41.1 to generate release artifacts correctly.
