@@ -18,7 +18,7 @@ pub enum Key<'a> {
     Other,
 }
 
-impl<'a> Key<'a> {
+impl Key<'_> {
     /// Needed because [`std::mem::discriminant`] is not [`Ord`]
     fn discriminant(&self) -> usize {
         match self {
@@ -35,9 +35,9 @@ impl<'a> Key<'a> {
     }
 }
 
-impl<'a> Eq for Key<'a> {}
+impl Eq for Key<'_> {}
 
-impl<'a> Ord for Key<'a> {
+impl Ord for Key<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         let self_discriminant = self.discriminant();
         let other_discriminant = other.discriminant();
@@ -58,7 +58,7 @@ impl<'a> Ord for Key<'a> {
     }
 }
 
-impl<'a> PartialOrd for Key<'a> {
+impl PartialOrd for Key<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
