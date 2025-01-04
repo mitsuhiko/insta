@@ -20,18 +20,20 @@ pub(crate) struct GlobCollector {
 /// should be run.
 pub(crate) static GLOB_STACK: Lazy<Mutex<Vec<GlobCollector>>> = Lazy::new(|| Mutex::default());
 
-static GLOB_FILTER: Lazy<Vec<GlobMatcher>> = Lazy::new(|| env::var("INSTA_GLOB_FILTER")
-    .unwrap_or_default()
-    .split(';')
-    .filter(|x| !x.is_empty())
-    .filter_map(|filter| {
-        GlobBuilder::new(filter)
-            .case_insensitive(true)
-            .build()
-            .ok()
-            .map(|x| x.compile_matcher())
-    })
-    .collect());
+static GLOB_FILTER: Lazy<Vec<GlobMatcher>> = Lazy::new(|| {
+    env::var("INSTA_GLOB_FILTER")
+        .unwrap_or_default()
+        .split(';')
+        .filter(|x| !x.is_empty())
+        .filter_map(|filter| {
+            GlobBuilder::new(filter)
+                .case_insensitive(true)
+                .build()
+                .ok()
+                .map(|x| x.compile_matcher())
+        })
+        .collect()
+});
 
 pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &str, mut f: F) {
     // If settings.allow_empty_glob() == true and `base` doesn't exist, skip
