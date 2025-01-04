@@ -3,3 +3,4 @@ target
 .vscode/*.log
 .aider*
 .env
+.idea

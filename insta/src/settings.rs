@@ -1,3 +1,6 @@
+use once_cell::sync::Lazy;
+#[cfg(feature = "serde")]
+use serde::{de::value::Error as ValueError, Serialize};
 use std::cell::RefCell;
 use std::future::Future;
 use std::mem;
@@ -5,9 +8,6 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-
-#[cfg(feature = "serde")]
-use serde::{de::value::Error as ValueError, Serialize};
 
 use crate::content::Content;
 #[cfg(feature = "serde")]
@@ -17,26 +17,25 @@ use crate::filters::Filters;
 #[cfg(feature = "redactions")]
 use crate::redaction::{dynamic_redaction, sorted_redaction, ContentPath, Redaction, Selector};
 
-lazy_static::lazy_static! {
-    static ref DEFAULT_SETTINGS: Arc<ActualSettings> = {
-        Arc::new(ActualSettings {
-            sort_maps: false,
-            snapshot_path: "snapshots".into(),
-            snapshot_suffix: "".into(),
-            input_file: None,
-            description: None,
-            info: None,
-            omit_expression: false,
-            prepend_module_to_snapshot: true,
-            #[cfg(feature = "redactions")]
-            redactions: Redactions::default(),
-            #[cfg(feature = "filters")]
-            filters: Filters::default(),
-            #[cfg(feature = "glob")]
-            allow_empty_glob: false,
-        })
-    };
-}
+static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
+    Arc::new(ActualSettings {
+        sort_maps: false,
+        snapshot_path: "snapshots".into(),
+        snapshot_suffix: "".into(),
+        input_file: None,
+        description: None,
+        info: None,
+        omit_expression: false,
+        prepend_module_to_snapshot: true,
+        #[cfg(feature = "redactions")]
+        redactions: Redactions::default(),
+        #[cfg(feature = "filters")]
+        filters: Filters::default(),
+        #[cfg(feature = "glob")]
+        allow_empty_glob: false,
+    })
+});
+
 thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings::new()));
 
 /// Represents stored redactions.

@@ -33,7 +33,6 @@ uuid = { version = "1.0.0", features = ["v4"] }
 tempfile = "3.5.0"
 # Needs pinning in Cargo.lock because of MSRV
 semver = { version = "1.0.7", features = ["serde"] }
-lazy_static = "1.4.0"
 clap = { workspace = true }
 open = "5.3.0"
 itertools = "0.10.0"
