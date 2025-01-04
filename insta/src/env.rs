@@ -10,10 +10,12 @@ use crate::{
     elog,
 };
 
-lazy_static::lazy_static! {
-    static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
-    static ref TOOL_CONFIGS: Mutex<BTreeMap<PathBuf, Arc<ToolConfig>>> = Mutex::new(BTreeMap::new());
-}
+use once_cell::sync::Lazy;
+
+static WORKSPACES: Lazy<Mutex<BTreeMap<String, Arc<PathBuf>>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
+static TOOL_CONFIGS: Lazy<Mutex<BTreeMap<PathBuf, Arc<ToolConfig>>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
 
 pub fn get_tool_config(workspace_dir: &Path) -> Arc<ToolConfig> {
     TOOL_CONFIGS
