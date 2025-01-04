@@ -18,7 +18,7 @@ pub(crate) struct GlobCollector {
 
 /// the glob stack holds failure count and an indication if `cargo insta review`
 /// should be run.
-pub(crate) static GLOB_STACK: Lazy<Mutex<Vec<GlobCollector>>> = Lazy::new(|| Mutex::default());
+pub(crate) static GLOB_STACK: Lazy<Mutex<Vec<GlobCollector>>> = Lazy::new(Mutex::default);
 
 static GLOB_FILTER: Lazy<Vec<GlobMatcher>> = Lazy::new(|| {
     env::var("INSTA_GLOB_FILTER")
