@@ -6,6 +6,7 @@ env:
   CARGO_TERM_COLOR: always
   CLICOLOR_FORCE: 1
   RUSTDOCFLAGS: "-Dwarnings"
+  RUSTFLAGS: "-D warnings"
 
 jobs:
   test-latest:

@@ -1,5 +1,5 @@
-use std::error::Error;
 use std::fmt;
+use std::{env, error::Error};
 
 /// Close without message but exit code.
 #[derive(Debug)]
