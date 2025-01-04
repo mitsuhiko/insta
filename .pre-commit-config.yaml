@@ -16,6 +16,8 @@ repos:
     rev: v1.6.27
     hooks:
       - id: actionlint
+        # auto-generated with `dist`
+        exclude: .github/workflows/release.yml
   - repo: https://github.com/tcort/markdown-link-check
     rev: v3.12.1
     hooks:
