@@ -2,16 +2,25 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## [Unreleased]
+## 1.42.0
 
+- Text snapshots no longer contain `snapshot_type: text` in their metadata.  For
+  context, we originally added this in the prior release (1.41.0) to support
+  binary snapshots, but some folks disliked the diff noise on any snapshot
+  changes, and the maintainers' weighted votes favored reverting.  I apologize
+  that this will cause some additional churn for those who used `cargo test
+  --force-update-snapshots` to update their snapshots to the 1.41 format;
+  running this again with 1.42 will remove those metadata entries.  To confirm:
+  this doesn't affect whether snapshot tests pass or fail — the worst impact is
+  some additional diffs in metadata.  #690
 - Pending snapshots are no longer removed throughout the workspace by
   `cargo-insta` before running tests.  Instead, running a test will overwrite or
   remove its own pending snapshot.  To remove all pending snapshots, use `cargo
   insta reject` or run tests with `--unreferenced=delete`.  #651
 - `insta::internals::SettingsBindDropGuard` (returned from
-  `Settings::bind_to_scope`) no longer implements `Send`. This was an error and
-  any tests relying on this behavior where not working properly.
-  Fixes #694 in #695 by @jalil-salame
+  `Settings::bind_to_scope`) no longer implements `Send`. This was incorrect and
+  any tests relying on this behavior where not working properly. Fixes #694 in
+  #695 by @jalil-salame
 
 ## 1.41.1
 
