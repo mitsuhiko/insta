@@ -8,7 +8,7 @@ All notable changes to insta and cargo-insta are documented here.
   context, we originally added this in the prior release (1.41.0) to support
   binary snapshots, but some folks disliked the diff noise on any snapshot
   changes, and the maintainers' weighted votes favored reverting.  I apologize
-  that this will cause some additional churn for those who used `cargo test
+  that this will cause some additional churn for those who used `cargo insta test
   --force-update-snapshots` to update their snapshots to the 1.41 format;
   running this again with 1.42 will remove those metadata entries.  To confirm:
   this doesn't affect whether snapshot tests pass or fail — the worst impact is
