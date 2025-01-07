@@ -375,13 +375,12 @@ Hello, world!
     assert_snapshot!(test_insta_1_40_0.diff("src/snapshots/test_force_update_1_40_0__force_update.snap"), @r#"
     --- Original: src/snapshots/test_force_update_1_40_0__force_update.snap
     +++ Updated: src/snapshots/test_force_update_1_40_0__force_update.snap
-    @@ -1,8 +1,6 @@
+    @@ -1,8 +1,5 @@
     -
      ---
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
-    +snapshot_kind: text
      ---
      Hello, world!
     -
