@@ -184,16 +184,30 @@ impl<'a> SnapshotPrinter<'a> {
             self.old_snapshot.as_ref().map(|o| o.contents()),
             self.new_snapshot.contents(),
         ) {
-            (Some(SnapshotContents::Binary(_)) | None, SnapshotContents::Text(new)) => {
-                Some((None, Some(new.to_string())))
+            (None, SnapshotContents::Binary(new)) => String::from_utf8(new.to_vec())
+                .ok()
+                .map(|new_str| (None, Some(new_str))),
+            (None, SnapshotContents::Text(new)) => Some((None, Some(new.to_string()))),
+            (Some(SnapshotContents::Binary(old)), SnapshotContents::Text(new)) => {
+                Some((String::from_utf8(old.to_vec()).ok(), Some(new.to_string())))
             }
-            (Some(SnapshotContents::Text(old)), SnapshotContents::Binary { .. }) => {
-                Some((Some(old.to_string()), None))
+            (Some(SnapshotContents::Text(old)), SnapshotContents::Binary(new)) => {
+                Some((Some(old.to_string()), String::from_utf8(new.to_vec()).ok()))
             }
             (Some(SnapshotContents::Text(old)), SnapshotContents::Text(new)) => {
                 Some((Some(old.to_string()), Some(new.to_string())))
             }
-            _ => None,
+            (Some(SnapshotContents::Binary(old)), SnapshotContents::Binary(new)) => {
+                match (
+                    String::from_utf8(old.to_vec()).ok(),
+                    String::from_utf8(new.to_vec()).ok(),
+                ) {
+                    (None, None) => None,
+                    (Some(old), None) => Some((Some(old), None)),
+                    (None, Some(new)) => Some((None, Some(new))),
+                    (Some(old), Some(new)) => Some((Some(old), Some(new))),
+                }
+            }
         } {
             let old_text = old.as_deref().unwrap_or("");
             let new_text = new.as_deref().unwrap_or("");
@@ -204,14 +218,18 @@ impl<'a> SnapshotPrinter<'a> {
                 .timeout(Duration::from_millis(500))
                 .diff_lines(old_text, new_text);
 
-            if old.is_some() {
+            if old.is_some()
+                && !self
+                    .old_snapshot
+                    .map_or(false, |s| s.contents().is_binary())
+            {
                 println!(
                     "{}",
                     style(format_args!("-{}", self.old_snapshot_hint)).red()
                 );
             }
 
-            if new.is_some() {
+            if new.is_some() && !self.new_snapshot.contents().is_binary() {
                 println!(
                     "{}",
                     style(format_args!("+{}", self.new_snapshot_hint)).green()
