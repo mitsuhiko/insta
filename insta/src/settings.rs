@@ -523,14 +523,15 @@ impl Settings {
     /// # }
     /// ```
     pub fn bind_async<F: Future<Output = T>, T>(&self, future: F) -> impl Future<Output = T> {
-        struct BindingFuture<F>(Arc<ActualSettings>, F);
+        #[pin_project::pin_project]
+        struct BindingFuture<F>(Arc<ActualSettings>, #[pin] F);
 
         impl<F: Future> Future for BindingFuture<F> {
             type Output = F::Output;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
                 let inner = self.0.clone();
-                let future = unsafe { self.map_unchecked_mut(|s| &mut s.1) };
+                let future = self.project().1;
                 CURRENT_SETTINGS.with(|x| {
                     let old = {
                         let mut current = x.borrow_mut();
