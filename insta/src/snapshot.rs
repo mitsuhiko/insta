@@ -689,45 +689,59 @@ impl TextSnapshotContents {
         let contents = self.normalize();
         let mut out = String::new();
 
-        // We don't technically need to escape on newlines, but it reduces diffs
-        let is_escape = contents.contains(['\\', '"', '\n']);
-        // Escape the string if needed, with `r#`, using the required number of `#`s
-        let delimiter = if is_escape {
+        // Some characters can't be escaped in a raw string literal, so we need
+        // to escape the string if it contains them. We prefer escaping control
+        // characters which except for newlines, which we prefer to see as
+        // actual newlines.
+        let has_control_chars = contents
+            .chars()
+            .any(|c| c != '\n' && c.is_control() || c == '\0');
+
+        // We prefer raw strings for strings containing a quote or an escape
+        // character, and for strings containing newlines (which reduces diffs).
+        // We can't use raw strings for some control characters.
+        if !has_control_chars && contents.contains(['\\', '"', '\n']) {
             out.push('r');
-            "#".repeat(required_hashes(&contents))
-        } else {
-            "".to_string()
-        };
-
-        out.push_str(&delimiter);
-        out.push('"');
-
-        // if we have more than one line we want to change into the block
-        // representation mode
-        if contents.contains('\n') {
-            out.extend(
-                contents
-                    .lines()
-                    // Adds an additional newline at the start of multiline
-                    // string (not sure this is the clearest way of representing
-                    // it, but it works...)
-                    .map(|l| {
-                        format!(
-                            "\n{:width$}{l}",
-                            "",
-                            width = if l.is_empty() { 0 } else { indentation },
-                            l = l
-                        )
-                    })
-                    // `lines` removes the final line ending — add back. Include
-                    // indentation so the closing delimited aligns with the full string.
-                    .chain(Some(format!("\n{:width$}", "", width = indentation))),
-            );
-        } else {
-            out.push_str(contents.as_str());
         }
 
-        out.push('"');
+        let delimiter = "#".repeat(required_hashes(&contents));
+
+        out.push_str(&delimiter);
+
+        // If there are control characters, then we have to just use a simple
+        // string with unicode escapes from the debug output. We don't attempt
+        // block mode (though not impossible to do so).
+        if has_control_chars {
+            out.push_str(format!("{:?}", contents).as_str());
+        } else {
+            out.push('"');
+            // if we have more than one line we want to change into the block
+            // representation mode
+            if contents.contains('\n') {
+                out.extend(
+                    contents
+                        .lines()
+                        // Adds an additional newline at the start of multiline
+                        // string (not sure this is the clearest way of representing
+                        // it, but it works...)
+                        .map(|l| {
+                            format!(
+                                "\n{:width$}{l}",
+                                "",
+                                width = if l.is_empty() { 0 } else { indentation },
+                                l = l
+                            )
+                        })
+                        // `lines` removes the final line ending — add back. Include
+                        // indentation so the closing delimited aligns with the full string.
+                        .chain(Some(format!("\n{:width$}", "", width = indentation))),
+                );
+            } else {
+                out.push_str(contents.as_str());
+            }
+            out.push('"');
+        }
+
         out.push_str(&delimiter);
         out
     }
@@ -968,6 +982,35 @@ b
     assert_eq!(
         TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline(0),
         r#""ab""#
+    );
+
+    // Test control and special characters
+    assert_eq!(
+        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        r##""a\tb""##
+    );
+
+    assert_eq!(
+        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        // No block mode for control characters
+        r##""a\t\nb""##
+    );
+
+    assert_eq!(
+        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        r##""a\rb""##
+    );
+
+    assert_eq!(
+        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        // Nul byte is printed as `\0` in Rust string literals
+        r##""a\0b""##
+    );
+
+    assert_eq!(
+        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        // Replacement character is returned as the character in literals
+        r##""a�b""##
     );
 }
 

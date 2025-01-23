@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.42.1
+
+- Improved handling of control characters in inline snapshots.  #713
+
 ## 1.42.0
 
 - Text snapshots no longer contain `snapshot_type: text` in their metadata.  For
