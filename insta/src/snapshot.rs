@@ -693,9 +693,9 @@ impl TextSnapshotContents {
         // to escape the string if it contains them. We prefer escaping control
         // characters which except for newlines, which we prefer to see as
         // actual newlines.
-        let has_control_chars = dbg!(contents
+        let has_control_chars = contents
             .chars()
-            .any(|c| c != '\n' && c.is_control() || c == '\0'));
+            .any(|c| c != '\n' && c.is_control() || c == '\0');
 
         // We prefer raw strings for strings containing a quote or an escape
         // character, and for strings containing newlines (which reduces diffs).
@@ -712,7 +712,7 @@ impl TextSnapshotContents {
         // string with unicode escapes from the debug output. We don't attempt
         // block mode (though not impossible to do so).
         if has_control_chars {
-            out.push_str(dbg!(format!("{:?}", contents).as_str()));
+            out.push_str(format!("{:?}", contents).as_str());
         } else {
             out.push('"');
             // if we have more than one line we want to change into the block
