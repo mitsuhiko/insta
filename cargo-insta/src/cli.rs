@@ -637,6 +637,13 @@ fn process_snapshots(
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
 
+    if cmd.accept_unseen {
+        eprintln!(
+            "{} If this option is materially helpful to you, please add a comment at https://github.com/mitsuhiko/insta/issues/659.", 
+            style("`--accept-unseen` is pending deprecation.").bold().yellow()
+        )
+    }
+
     // Based on any configs in the config file, update the test command. Default
     // is `SnapshotUpdate::Auto`.
     match loc.tool_config.snapshot_update() {
