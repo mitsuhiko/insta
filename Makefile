@@ -39,6 +39,6 @@ format-check:
 
 lint:
 	@rustup component add clippy 2> /dev/null
-	@cargo clippy --all-targets --workspace -- --deny warnings
+	@cargo clippy --all-targets --all-features -- --deny warnings
 
 .PHONY: all doc test cargotest format format-check lint update-readme

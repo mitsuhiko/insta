@@ -190,8 +190,8 @@ struct TestCommand {
     /// Accept all new (previously unseen).
     #[arg(long)]
     accept_unseen: bool,
-    /// Do not reject pending snapshots before run.
-    #[arg(long)]
+    /// Do not reject pending snapshots before run (deprecated).
+    #[arg(long, hide = true)]
     keep_pending: bool,
     /// Update all snapshots even if they are still matching; implies `--accept`.
     #[arg(long)]
@@ -413,9 +413,6 @@ fn handle_target_args<'a>(
 ) -> Result<LocationInfo<'a>, Box<dyn Error>> {
     let mut cmd = cargo_metadata::MetadataCommand::new();
 
-    // if a workspace root is provided we first check if it points to a
-    // `Cargo.toml`.  If it does we instead treat it as manifest path.  If both
-    // are provided we fail with an error.
     match (
         target_args.workspace_root.as_deref(),
         target_args.manifest_path.as_deref(),
@@ -429,14 +426,7 @@ fn handle_target_args<'a>(
             cmd.manifest_path(manifest);
         }
         (Some(root), None) => {
-            // TODO: should we do this ourselves? Probably fine, but are we
-            // adding anything by not just deferring to cargo?
-            let assumed_manifest = root.join("Cargo.toml");
-            if assumed_manifest.is_file() {
-                cmd.manifest_path(assumed_manifest);
-            } else {
-                cmd.current_dir(root);
-            }
+            cmd.current_dir(root);
         }
         (None, None) => {}
     };
@@ -691,6 +681,12 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
             style("warning").bold().yellow()
         )
     }
+    if cmd.keep_pending {
+        eprintln!(
+            "{}: `--keep-pending` is deprecated; its behavior is implied: pending snapshots are never removed before a test run.",
+            style("warning").bold().yellow()
+        )
+    }
 
     // the tool config can also indicate that --accept-unseen should be picked
     // automatically unless instructed otherwise.
@@ -720,10 +716,6 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
 
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
         prepare_test_runner(&cmd, test_runner, color, &[], None, &loc)?;
-
-    if !cmd.keep_pending {
-        process_snapshots(true, None, &loc, Some(Operation::Reject))?;
-    }
 
     if let Some(workspace_root) = &cmd.target_args.workspace_root {
         proc.current_dir(workspace_root);
@@ -854,7 +846,7 @@ fn handle_unreferenced_snapshots(
     for package in loc.packages.clone() {
         let unreferenced_snapshots = make_snapshot_walker(
             package.manifest_path.parent().unwrap().as_std_path(),
-            &["snap"],
+            &loc.exts,
             FindFlags {
                 include_ignored: true,
                 include_hidden: true,
@@ -862,18 +854,23 @@ fn handle_unreferenced_snapshots(
         )
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().map(|ft| ft.is_file()).unwrap_or(false))
-        .filter(|e| {
-            e.file_name()
-                .to_str()
-                .map(|name| {
-                    loc.exts
-                        .iter()
-                        .any(|ext| name.ends_with(&format!(".{}", ext)))
-                })
-                .unwrap_or(false)
-        })
         .filter_map(|e| e.path().canonicalize().ok())
-        .filter(|path| !files.contains(path));
+        // The path isn't in the list which the tests wrote to, so it's
+        // unreferenced.
+        //
+        // TODO: note that this will include _all_ `.pending-snap` files,
+        // regardless of whether or not a test was run, since we don't record
+        // those in the snapshot references file. We can make that change, but
+        // also we'd like to unify file & inline snapshot handling; if we do
+        // that it'll fix this smaller issue too.
+        .filter(|path| {
+            // We also check for the pending path
+            let pending_path = path.with_file_name(format!(
+                "{}.new",
+                path.file_name().unwrap().to_string_lossy()
+            ));
+            !files.contains(path) && !files.contains(&pending_path)
+        });
 
         for path in unreferenced_snapshots {
             if !encountered_any {
@@ -892,19 +889,27 @@ fn handle_unreferenced_snapshots(
             }
             eprintln!("  {}", path.display());
             if matches!(action, Action::Delete) {
-                let snapshot = match Snapshot::from_file(&path) {
-                    Ok(snapshot) => snapshot,
-                    Err(e) => {
-                        eprintln!("Error loading snapshot at {:?}: {}", &path, e);
-                        continue;
+                // If it's an inline pending snapshot, then don't attempt to
+                // load it, since these are in a different format; just delete
+                if path.extension() == Some(std::ffi::OsStr::new("pending-snap")) {
+                    if let Err(e) = fs::remove_file(path) {
+                        eprintln!("Failed to remove file: {}", e);
                     }
-                };
+                } else {
+                    let snapshot = match Snapshot::from_file(&path) {
+                        Ok(snapshot) => snapshot,
+                        Err(e) => {
+                            eprintln!("Error loading snapshot at {:?}: {}", &path, e);
+                            continue;
+                        }
+                    };
 
-                if let Some(binary_path) = snapshot.build_binary_path(&path) {
-                    fs::remove_file(&binary_path).ok();
+                    if let Some(binary_path) = snapshot.build_binary_path(&path) {
+                        fs::remove_file(&binary_path).ok();
+                    }
+
+                    fs::remove_file(&path).ok();
                 }
-
-                fs::remove_file(&path).ok();
             }
         }
     }

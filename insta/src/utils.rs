@@ -108,6 +108,7 @@ pub fn format_rust_expression(value: &str) -> Cow<'_, str> {
     Cow::Borrowed(value)
 }
 
+#[cfg(feature = "_cargo_insta_internal")]
 pub fn get_cargo() -> std::ffi::OsString {
     let cargo = env::var_os("CARGO");
     let cargo = cargo

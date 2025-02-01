@@ -4,16 +4,18 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::{env, fmt, fs};
 
-use crate::utils::{get_cargo, is_ci};
+use crate::utils::is_ci;
 use crate::{
     content::{yaml, Content},
     elog,
 };
 
-lazy_static::lazy_static! {
-    static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
-    static ref TOOL_CONFIGS: Mutex<BTreeMap<PathBuf, Arc<ToolConfig>>> = Mutex::new(BTreeMap::new());
-}
+use once_cell::sync::Lazy;
+
+static WORKSPACES: Lazy<Mutex<BTreeMap<String, Arc<PathBuf>>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
+static TOOL_CONFIGS: Lazy<Mutex<BTreeMap<PathBuf, Arc<ToolConfig>>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
 
 pub fn get_tool_config(workspace_dir: &Path) -> Arc<ToolConfig> {
     TOOL_CONFIGS
@@ -42,6 +44,7 @@ impl TestRunner {
     /// Fall back to `cargo test` if `cargo nextest` isn't installed and
     /// `test_runner_fallback` is true
     pub fn resolve_fallback(&self, test_runner_fallback: bool) -> &TestRunner {
+        use crate::utils::get_cargo;
         if self == &TestRunner::Nextest
             && test_runner_fallback
             && std::process::Command::new(get_cargo())

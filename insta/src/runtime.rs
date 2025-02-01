@@ -23,14 +23,13 @@ use crate::{
     snapshot::TextSnapshotKind,
 };
 
-lazy_static::lazy_static! {
-    static ref TEST_NAME_COUNTERS: Mutex<BTreeMap<String, usize>> =
-        Mutex::new(BTreeMap::new());
-    static ref TEST_NAME_CLASH_DETECTION: Mutex<BTreeMap<String, bool>> =
-        Mutex::new(BTreeMap::new());
-    static ref INLINE_DUPLICATES: Mutex<BTreeSet<String>> =
-        Mutex::new(BTreeSet::new());
-}
+use once_cell::sync::Lazy;
+
+static TEST_NAME_COUNTERS: Lazy<Mutex<BTreeMap<String, usize>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
+static TEST_NAME_CLASH_DETECTION: Lazy<Mutex<BTreeMap<String, bool>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
+static INLINE_DUPLICATES: Lazy<Mutex<BTreeSet<String>>> = Lazy::new(|| Mutex::new(BTreeSet::new()));
 
 thread_local! {
     static RECORDED_DUPLICATES: RefCell<Vec<BTreeMap<String, Snapshot>>> = RefCell::default()
@@ -530,7 +529,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         // use `NewFile`, since we can't use `InPlace` for inline. `cargo-insta`
         // then accepts all snapshots at the end of the test.
         let snapshot_update =
-            // TOOD: could match on the snapshot kind instead of whether snapshot_file is None
+            // TODO: could match on the snapshot kind instead of whether snapshot_file is None
             if snapshot_update == SnapshotUpdateBehavior::InPlace && self.snapshot_file.is_none() {
                 SnapshotUpdateBehavior::NewFile
             } else {
