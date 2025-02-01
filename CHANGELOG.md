@@ -5,6 +5,11 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.42.1
 
 - Improved handling of control characters in inline snapshots.  #713
+- Add pending deprecation warning for `--accept-unseen`. We've left an issue
+  open at <https://github.com/mitsuhiko/insta/issues/659> eliciting feedback on
+  whether anyone uses this for a few months.  A warning will now be printed when
+  `--accept-unseen` is used, and we'll eventually remove the feature unless we
+  get some feedback that it's useful.  #668
 
 ## 1.42.0
 
