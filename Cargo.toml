@@ -2,13 +2,21 @@
 members = ["cargo-insta"]
 resolver = "2"
 
+# Config for 'dist'
 [workspace.metadata.dist]
-cargo-dist-version = "0.12.0"
-ci = ["github"]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.27.0"
+# CI backends to support
+ci = "github"
+# Whether to install an updater program
 install-updater = false
+# The installers to generate for each app
 installers = ["shell", "powershell"]
+# Which actions to run on pull requests
 pr-run-mode = "plan"
+# Build only the required packages, and individually
 precise-builds = true
+# Target platforms to build apps for (Rust target-triple syntax)
 targets = [
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
@@ -16,6 +24,8 @@ targets = [
     "x86_64-unknown-linux-musl",
     "x86_64-pc-windows-msvc",
 ]
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
 
 [profile.dist]
 inherits = "release"

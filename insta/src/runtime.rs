@@ -528,7 +528,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         // use `NewFile`, since we can't use `InPlace` for inline. `cargo-insta`
         // then accepts all snapshots at the end of the test.
         let snapshot_update =
-            // TOOD: could match on the snapshot kind instead of whether snapshot_file is None
+            // TODO: could match on the snapshot kind instead of whether snapshot_file is None
             if snapshot_update == SnapshotUpdateBehavior::InPlace && self.snapshot_file.is_none() {
                 SnapshotUpdateBehavior::NewFile
             } else {
