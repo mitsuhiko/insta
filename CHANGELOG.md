@@ -585,7 +585,9 @@ situations.
 To upgrade to the new insta macros and snapshot formats you can use
 [`fastmod`](https://crates.io/crates/fastmod) and `cargo-insta` together:
 
-    $ cargo install fastmod
-    $ cargo install cargo-insta
-    $ fastmod '\bassert_([a-z]+_snapshot)_matches!' 'assert_${`}!' -e rs --accept-all
-    $ cargo insta test --all --force-update-snapshots --accept
+```sh
+cargo install fastmod
+cargo install cargo-insta
+fastmod '\bassert_([a-z]+_snapshot)_matches!' 'assert_${`}!' -e rs --accept-all
+cargo insta test --all --force-update-snapshots --accept
+```
