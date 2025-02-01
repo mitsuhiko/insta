@@ -691,11 +691,10 @@ impl TextSnapshotContents {
 
         // Some characters can't be escaped in a raw string literal, so we need
         // to escape the string if it contains them. We prefer escaping control
-        // characters which except for newlines, which we prefer to see as
-        // actual newlines.
+        // characters except for newlines, tabs, and ESC.
         let has_control_chars = contents
             .chars()
-            .any(|c| c != '\n' && c.is_control() || c == '\0');
+            .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c));
 
         // We prefer raw strings for strings containing a quote or an escape
         // character, and for strings containing newlines (which reduces diffs).
@@ -987,13 +986,15 @@ b
     // Test control and special characters
     assert_eq!(
         TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline(0),
-        r##""a\tb""##
+        r##""a	b""##
     );
 
     assert_eq!(
         TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(0),
-        // No block mode for control characters
-        r##""a\t\nb""##
+        r##"r"
+a	
+b
+""##
     );
 
     assert_eq!(
