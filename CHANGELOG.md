@@ -2,9 +2,18 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.42.2
+
+- Stop `\t` and `\x1b` (ANSI color escape) from causing snapshots to be escaped.  #715
+
 ## 1.42.1
 
 - Improved handling of control characters in inline snapshots.  #713
+- Add pending deprecation warning for `--accept-unseen`. We've left an issue
+  open at <https://github.com/mitsuhiko/insta/issues/659> eliciting feedback on
+  whether anyone uses this for a few months.  A warning will now be printed when
+  `--accept-unseen` is used, and we'll eventually remove the feature unless we
+  get some feedback that it's useful.  #668
 
 ## 1.42.0
 
@@ -580,7 +589,9 @@ situations.
 To upgrade to the new insta macros and snapshot formats you can use
 [`fastmod`](https://crates.io/crates/fastmod) and `cargo-insta` together:
 
-    $ cargo install fastmod
-    $ cargo install cargo-insta
-    $ fastmod '\bassert_([a-z]+_snapshot)_matches!' 'assert_${`}!' -e rs --accept-all
-    $ cargo insta test --all --force-update-snapshots --accept
+```sh
+cargo install fastmod
+cargo install cargo-insta
+fastmod '\bassert_([a-z]+_snapshot)_matches!' 'assert_${`}!' -e rs --accept-all
+cargo insta test --all --force-update-snapshots --accept
+```
