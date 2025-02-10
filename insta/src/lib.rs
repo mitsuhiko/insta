@@ -227,6 +227,7 @@
 //! # these are used by cargo insta test
 //! test:
 //!   # also set by INSTA_TEST_RUNNER
+//!   # cargo-nextest binary path can be explicitly set by INSTA_CARGO_NEXTEST_BIN
 //!   runner: "auto" | "cargo-test" | "nextest"
 //!   # whether to fallback to `cargo-test` if `nextest` is not available,
 //!   # also set by INSTA_TEST_RUNNER_FALLBACK, default false

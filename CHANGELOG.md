@@ -2,6 +2,8 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+- Support specifying `cargo-nextest` bin with `INSTA_CARGO_NEXTEST_BIN`.  #721
+
 ## 1.42.3
 
 - Support other indention characters than spaces in inline snapshots.  #679
