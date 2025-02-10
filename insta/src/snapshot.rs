@@ -685,7 +685,7 @@ impl TextSnapshotContents {
 
     /// Returns the string literal, including `#` delimiters, to insert into a
     /// Rust source file.
-    pub fn to_inline(&self, indentation: usize) -> String {
+    pub fn to_inline(&self, indentation: &str) -> String {
         let contents = self.normalize();
         let mut out = String::new();
 
@@ -725,15 +725,14 @@ impl TextSnapshotContents {
                         // it, but it works...)
                         .map(|l| {
                             format!(
-                                "\n{:width$}{l}",
-                                "",
-                                width = if l.is_empty() { 0 } else { indentation },
+                                "\n{i}{l}",
+                                i = if l.is_empty() { "" } else { indentation },
                                 l = l
                             )
                         })
                         // `lines` removes the final line ending — add back. Include
                         // indentation so the closing delimited aligns with the full string.
-                        .chain(Some(format!("\n{:width$}", "", width = indentation))),
+                        .chain(Some(format!("\n{}", indentation))),
                 );
             } else {
                 out.push_str(contents.as_str());
@@ -811,23 +810,26 @@ fn test_required_hashes() {
     assert_snapshot!(required_hashes(r###"r"#"Raw string"#""###), @"2");
 }
 
-fn count_leading_spaces(value: &str) -> usize {
-    value.chars().take_while(|x| x.is_whitespace()).count()
+fn leading_space(value: &str) -> String {
+    value
+        .chars()
+        .take_while(|x| x.is_whitespace())
+        .collect::<String>()
 }
 
-fn min_indentation(snapshot: &str) -> usize {
+fn min_indentation(snapshot: &str) -> String {
     let lines = snapshot.trim_end().lines();
 
     if lines.clone().count() <= 1 {
         // not a multi-line string
-        return 0;
+        return "".into();
     }
 
     lines
         .filter(|l| !l.is_empty())
-        .map(count_leading_spaces)
-        .min()
-        .unwrap_or(0)
+        .map(leading_space)
+        .min_by(|a, b| a.len().cmp(&b.len()))
+        .unwrap_or("".into())
 }
 
 /// Removes excess indentation, and changes newlines to \n.
@@ -835,7 +837,7 @@ fn normalize_inline_snapshot(snapshot: &str) -> String {
     let indentation = min_indentation(snapshot);
     snapshot
         .lines()
-        .map(|l| l.get(indentation..).unwrap_or(""))
+        .map(|l| l.get(indentation.len()..).unwrap_or(""))
         .collect::<Vec<&str>>()
         .join("\n")
 }
@@ -934,13 +936,13 @@ fn test_snapshot_contents() {
     use similar_asserts::assert_eq;
     let snapshot_contents =
         TextSnapshotContents::new("testing".to_string(), TextSnapshotKind::Inline);
-    assert_eq!(snapshot_contents.to_inline(0), r#""testing""#);
+    assert_eq!(snapshot_contents.to_inline(""), r#""testing""#);
 
     let t = &"
 a
 b"[1..];
     assert_eq!(
-        TextSnapshotContents::new(t.to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new(t.to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##"r"
 a
 b
@@ -948,7 +950,7 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline(4),
+        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline("    "),
         r##"r"
     a
     b
@@ -957,7 +959,7 @@ b
 
     assert_eq!(
         TextSnapshotContents::new("\n    a\n    b".to_string(), TextSnapshotKind::Inline)
-            .to_inline(0),
+            .to_inline(""),
         r##"r"
 a
 b
@@ -965,7 +967,8 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("\na\n\nb".to_string(), TextSnapshotKind::Inline).to_inline(4),
+        TextSnapshotContents::new("\na\n\nb".to_string(), TextSnapshotKind::Inline)
+            .to_inline("    "),
         r##"r"
     a
 
@@ -974,23 +977,23 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##""ab""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r#""ab""#
     );
 
     // Test control and special characters
     assert_eq!(
-        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##""a	b""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##"r"
 a	
 b
@@ -998,18 +1001,18 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##""a\rb""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         // Nul byte is printed as `\0` in Rust string literals
         r##""a\0b""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         // Replacement character is returned as the character in literals
         r##""a�b""##
     );
@@ -1018,12 +1021,12 @@ b
 #[test]
 fn test_snapshot_contents_hashes() {
     assert_eq!(
-        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r#""a###b""#
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r#####"r"
 a
 \###b
@@ -1141,6 +1144,30 @@ a"
         r###"a
   a"###
     );
+
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
+			1
+	2"#
+        ),
+        r###"
+		1
+2"###
+    );
+
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
+	  	  1
+	  	  2
+    "#
+        ),
+        r###"
+1
+2
+"###
+    );
 }
 
 #[test]
@@ -1150,52 +1177,68 @@ fn test_min_indentation() {
    1
    2
     "#;
-    assert_eq!(min_indentation(t), 3);
+    assert_eq!(min_indentation(t), "   ".to_string());
 
     let t = r#"
             1
     2"#;
-    assert_eq!(min_indentation(t), 4);
+    assert_eq!(min_indentation(t), "    ".to_string());
 
     let t = r#"
             1
             2
     "#;
-    assert_eq!(min_indentation(t), 12);
+    assert_eq!(min_indentation(t), "            ".to_string());
 
     let t = r#"
    1
    2
 "#;
-    assert_eq!(min_indentation(t), 3);
+    assert_eq!(min_indentation(t), "   ".to_string());
 
     let t = r#"
         a
     "#;
-    assert_eq!(min_indentation(t), 8);
+    assert_eq!(min_indentation(t), "        ".to_string());
 
     let t = "";
-    assert_eq!(min_indentation(t), 0);
+    assert_eq!(min_indentation(t), "".to_string());
 
     let t = r#"
     a
     b
 c
     "#;
-    assert_eq!(min_indentation(t), 0);
+    assert_eq!(min_indentation(t), "".to_string());
 
     let t = r#"
 a
     "#;
-    assert_eq!(min_indentation(t), 0);
+    assert_eq!(min_indentation(t), "".to_string());
 
     let t = "
     a";
-    assert_eq!(min_indentation(t), 4);
+    assert_eq!(min_indentation(t), "    ".to_string());
 
     let t = r#"a
   a"#;
-    assert_eq!(min_indentation(t), 0);
+    assert_eq!(min_indentation(t), "".to_string());
+
+    let t = r#"
+ 	1
+ 	2
+    "#;
+    assert_eq!(min_indentation(t), " 	".to_string());
+
+    let t = r#"
+  	  	  	1
+  	2"#;
+    assert_eq!(min_indentation(t), "  	".to_string());
+
+    let t = r#"
+			1
+	2"#;
+    assert_eq!(min_indentation(t), "	".to_string());
 }
 
 #[test]

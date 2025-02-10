@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.42.3
+
+- Support other indention characters than spaces in inline snapshots.  #679
+
 ## 1.42.2
 
 - Stop `\t` and `\x1b` (ANSI color escape) from causing snapshots to be escaped.  #715

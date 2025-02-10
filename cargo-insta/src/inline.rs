@@ -14,7 +14,7 @@ use syn::spanned::Spanned;
 struct InlineSnapshot {
     start: (usize, usize),
     end: (usize, usize),
-    indentation: usize,
+    indentation: String,
 }
 
 #[derive(Clone)]
@@ -106,7 +106,7 @@ impl FilePatcher {
 
         // replace lines
         let snapshot_line_contents =
-            [prefix, snapshot.to_inline(inline.indentation), suffix].join("");
+            [prefix, snapshot.to_inline(&inline.indentation), suffix].join("");
 
         self.lines.splice(
             inline.start.0..=inline.end.0,
@@ -124,9 +124,13 @@ impl FilePatcher {
     }
 
     fn find_snapshot_macro(&self, line: usize) -> Option<InlineSnapshot> {
-        struct Visitor(usize, Option<InlineSnapshot>);
+        struct Visitor(usize, Option<InlineSnapshot>, String);
 
-        fn scan_for_path_start(tokens: &[TokenTree], pos: usize) -> usize {
+        fn indentation(column_of_macro_start: usize, code_line: &str) -> String {
+            code_line[..column_of_macro_start].to_string()
+        }
+
+        fn scan_for_path_start(tokens: &[TokenTree], pos: usize, code_line: &str) -> String {
             let mut rev_tokens = tokens[..=pos].iter().rev();
             let mut start = rev_tokens.next().unwrap();
             loop {
@@ -144,7 +148,7 @@ impl FilePatcher {
                 }
                 break;
             }
-            start.span().start().column
+            indentation(start.span().start().column, code_line)
         }
 
         impl Visitor {
@@ -156,7 +160,7 @@ impl FilePatcher {
                             if punct.as_char() == '!' {
                                 if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
                                     // Found a macro, determine its indentation
-                                    let indentation = scan_for_path_start(tokens, idx);
+                                    let indentation = scan_for_path_start(tokens, idx, &self.2);
                                     // Extract tokens from the macro arguments
                                     let tokens: Vec<_> = group.stream().into_iter().collect();
                                     // Try to extract a snapshot, passing the calculated indentation
@@ -175,7 +179,7 @@ impl FilePatcher {
                 }
             }
 
-            fn try_extract_snapshot(&mut self, tokens: &[TokenTree], indentation: usize) -> bool {
+            fn try_extract_snapshot(&mut self, tokens: &[TokenTree], indentation: String) -> bool {
                 // ignore optional trailing comma
                 let tokens = match tokens.last() {
                     Some(TokenTree::Punct(ref punct)) if punct.as_char() == ',' => {
@@ -230,8 +234,9 @@ impl FilePatcher {
                 }
             }
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
-                let indentation = i.span().start().column;
-                let start = i.span().start().line;
+                let span_start = i.span().start();
+                let indentation = indentation(span_start.column, &self.2);
+                let start = span_start.line;
                 let end = i
                     .tokens
                     .clone()
@@ -258,7 +263,8 @@ impl FilePatcher {
             }
         }
 
-        let mut visitor = Visitor(line, None);
+        let code_line = self.lines[line - 1].clone();
+        let mut visitor = Visitor(line, None, code_line);
         syn::visit::visit_file(&mut visitor, &self.source);
         visitor.1
     }
@@ -308,6 +314,46 @@ fn test_function() {
         "####);
 
         // Assert the indentation
-        assert_debug_snapshot!(snapshot.indentation, @"4");
+        assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_with_tabs() {
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+	assert_snapshot!("test\ntest", @r###"
+	test
+	test
+	"###);
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        // The snapshot macro starts on line 5 (1-based index)
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+
+        // Extract the snapshot content
+        let snapshot_content: Vec<String> =
+            file_patcher.lines[snapshot.start.0..=snapshot.end.0].to_vec();
+
+        assert_debug_snapshot!(snapshot_content, @r####"
+        [
+            "\tassert_snapshot!(\"test\\ntest\", @r###\"",
+            "\ttest",
+            "\ttest",
+            "\t\"###);",
+        ]
+        "####);
+
+        // Assert the indentation
+        assert_debug_snapshot!(snapshot.indentation, @r#""\t""#);
     }
 }
