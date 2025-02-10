@@ -31,6 +31,7 @@ syn = { version = "2.0.8", features = ["full", "visit", "extra-traits"] }
 ignore = "0.4.17"
 uuid = { version = "1.0.0", features = ["v4"] }
 tempfile = "3.5.0"
+
 # Needs pinning in Cargo.lock because of MSRV
 semver = { version = "1.0.7", features = ["serde"] }
 clap = { workspace = true }

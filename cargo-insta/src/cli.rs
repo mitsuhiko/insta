@@ -5,6 +5,7 @@ use std::{collections::HashSet, fmt};
 use std::{env, fs};
 use std::{io, process};
 
+use cargo_metadata::MetadataCommand;
 use console::{set_colors_enabled, style, Key, Term};
 use insta::_cargo_insta_support::{
     get_cargo, is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
@@ -12,6 +13,7 @@ use insta::_cargo_insta_support::{
 };
 use insta::{internals::SnapshotContents, Snapshot};
 use itertools::Itertools;
+use lazy_static::lazy_static;
 use semver::Version;
 use serde::Serialize;
 use uuid::Uuid;
@@ -1258,6 +1260,8 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         args.remove(1);
     }
 
+    check_insta_cargo_insta_compat()?;
+
     let opts = Opts::parse_from(args);
 
     handle_color(opts.color);
@@ -1279,4 +1283,43 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
+}
+
+fn check_insta_cargo_insta_compat() -> Result<(), Box<dyn std::error::Error>> {
+    let insta_version = read_insta_version()?;
+    if insta_version.major != CARGO_INSTA_VERSION.major {
+        eprintln!(
+            "{}: insta version mismatch: cargo-insta is {}, but insta is {}",
+            style("error").bold().red(),
+            *CARGO_INSTA_VERSION,
+            insta_version
+        );
+        return Err(QuietExit(1).into());
+    }
+
+    if (insta_version.minor).abs_diff(CARGO_INSTA_VERSION.minor) > 10 {
+        eprintln!(
+            "{}: insta version {} is very different from cargo-insta version {}. This may raise an error in the future.",
+            style("error").bold().red(),
+            *CARGO_INSTA_VERSION,
+            insta_version
+        );
+    }
+
+    Ok(())
+}
+
+lazy_static! {
+    static ref CARGO_INSTA_VERSION: Version =
+        Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid cargo-insta version number");
+}
+
+fn read_insta_version() -> Result<Version, Box<dyn std::error::Error>> {
+    MetadataCommand::new()
+        .exec()?
+        .packages
+        .iter()
+        .find(|package| package.name == "insta")
+        .map(|package| package.version.clone())
+        .ok_or("insta not found in cargo metadata".into())
 }
