@@ -1300,7 +1300,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn get_cargo_nextest_command_with_env_var_should_rely_on_cargo_nextest_bin() {
+    fn get_cargo_nextest_command_from_env_variables() {
         env::set_var("INSTA_CARGO_NEXTEST_BIN", "/a/custom/path/to/cargo-nextest");
         let command = get_cargo_nextest_command();
         assert_eq!(
@@ -1309,10 +1309,7 @@ mod tests {
         );
         assert_eq!(command.get_args().len(), 0);
         env::remove_var("INSTA_CARGO_NEXTEST_BIN");
-    }
 
-    #[test]
-    fn get_cargo_nextest_command_without_env_var_should_rely_on_regular_cargo() {
         env::set_var("CARGO", "/a/path/to/cargo");
         let command = get_cargo_nextest_command();
         assert_eq!(command.get_program().to_string_lossy(), "/a/path/to/cargo");
