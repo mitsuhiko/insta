@@ -422,3 +422,61 @@ fn test_single_line_assertions() {
      }
     "#);
 }
+
+#[test]
+fn test_multiple_assertions_within_allow_duplicates() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_multiple_assertions_within_allow_duplicates")
+        .add_file(
+            "src/lib.rs",
+            r#####"
+#[test]
+fn test_multiple_assertions_within_allow_duplicates() {
+    for _ in 0..2 {
+        insta::allow_duplicates! {
+            insta::assert_snapshot!("1", @"
+            1a
+            1b
+            ");
+            insta::assert_snapshot!("2", @"
+            2a
+            2b
+            ");
+        }
+    }
+}
+"#####
+                .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -3,14 +3,8 @@
+     fn test_multiple_assertions_within_allow_duplicates() {
+         for _ in 0..2 {
+             insta::allow_duplicates! {
+    -            insta::assert_snapshot!("1", @"
+    -            1a
+    -            1b
+    -            ");
+    -            insta::assert_snapshot!("2", @"
+    -            2a
+    -            2b
+    -            ");
+    +            insta::assert_snapshot!("1", @"1");
+    +            insta::assert_snapshot!("2", @"2");
+             }
+         }
+     }
+    "#);
+}
