@@ -2,7 +2,7 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-- Support specifying `cargo-nextest` bin with `INSTA_CARGO_NEXTEST_BIN`.  #721
+- Support specifying `cargo-nextest` bin with `INSTA_CARGO_NEXTEST_BIN`.  #721 (Louis Fruleux)
 
 ## 1.42.3
 
