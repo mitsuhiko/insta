@@ -337,3 +337,88 @@ fn test_hashtag_escape() {
      }
     "####);
 }
+
+#[test]
+fn test_single_line_duplicates() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_single_line_duplicates")
+        .add_file(
+            "src/lib.rs",
+            r#####"
+#[test]
+fn test_single_line_duplicates() {
+    for _ in 0..2 {
+        insta::allow_duplicates! {
+            insta::assert_snapshot!("foo", @"");
+        }
+    }
+}
+"#####
+                .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // diff shouldn't be applied twice
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -3,7 +3,7 @@
+     fn test_single_line_duplicates() {
+         for _ in 0..2 {
+             insta::allow_duplicates! {
+    -            insta::assert_snapshot!("foo", @"");
+    +            insta::assert_snapshot!("foo", @"foo");
+             }
+         }
+     }
+    "#);
+}
+
+#[test]
+fn test_single_line_assertions() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_single_line_assertions")
+        .add_file(
+            "src/lib.rs",
+            r#####"
+#[test]
+fn test_single_line_assertions() {
+    insta::assert_snapshot!("foo", @"");
+    insta::assert_snapshot!("bar", @"");
+}
+"#####
+                .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // all adjacent lines should be updated
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,6 +1,6 @@
+     
+     #[test]
+     fn test_single_line_assertions() {
+    -    insta::assert_snapshot!("foo", @"");
+    -    insta::assert_snapshot!("bar", @"");
+    +    insta::assert_snapshot!("foo", @"foo");
+    +    insta::assert_snapshot!("bar", @"bar");
+     }
+    "#);
+}

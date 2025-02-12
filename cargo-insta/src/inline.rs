@@ -76,7 +76,8 @@ impl FilePatcher {
                 if self
                     .inline_snapshots
                     .last()
-                    .map_or(false, |x| x.end.0 > line)
+                    // x.end.0 is 0-origin whereas line is 1-origin
+                    .map_or(false, |x| x.end.0 >= line - 1)
                 {
                     return false;
                 }
