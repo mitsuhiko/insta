@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use insta::_cargo_insta_support::TextSnapshotContents;
-use proc_macro2::TokenTree;
+use proc_macro2::{LineColumn, TokenTree};
 
 use syn::__private::ToTokens;
 use syn::spanned::Spanned;
@@ -124,13 +124,13 @@ impl FilePatcher {
     }
 
     fn find_snapshot_macro(&self, line: usize) -> Option<InlineSnapshot> {
-        struct Visitor(usize, Option<InlineSnapshot>, String);
+        struct Visitor<'a>(usize, Option<InlineSnapshot>, &'a [String]);
 
-        fn indentation(column_of_macro_start: usize, code_line: &str) -> String {
-            code_line[..column_of_macro_start].to_string()
+        fn indentation(macro_start: LineColumn, code_lines: &[String]) -> String {
+            code_lines[macro_start.line - 1][..macro_start.column].to_owned()
         }
 
-        fn scan_for_path_start(tokens: &[TokenTree], pos: usize, code_line: &str) -> String {
+        fn scan_for_path_start(tokens: &[TokenTree], pos: usize, code_lines: &[String]) -> String {
             let mut rev_tokens = tokens[..=pos].iter().rev();
             let mut start = rev_tokens.next().unwrap();
             loop {
@@ -148,10 +148,10 @@ impl FilePatcher {
                 }
                 break;
             }
-            indentation(start.span().start().column, code_line)
+            indentation(start.span().start(), code_lines)
         }
 
-        impl Visitor {
+        impl Visitor<'_> {
             fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
                 for idx in 0..tokens.len() {
                     // Look for the start of a macro (potential snapshot location)
@@ -160,7 +160,7 @@ impl FilePatcher {
                             if punct.as_char() == '!' {
                                 if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
                                     // Found a macro, determine its indentation
-                                    let indentation = scan_for_path_start(tokens, idx, &self.2);
+                                    let indentation = scan_for_path_start(tokens, idx, self.2);
                                     // Extract tokens from the macro arguments
                                     let tokens: Vec<_> = group.stream().into_iter().collect();
                                     // Try to extract a snapshot, passing the calculated indentation
@@ -219,7 +219,7 @@ impl FilePatcher {
             }
         }
 
-        impl<'ast> syn::visit::Visit<'ast> for Visitor {
+        impl<'ast> syn::visit::Visit<'ast> for Visitor<'_> {
             fn visit_attribute(&mut self, i: &'ast syn::Attribute) {
                 let start = i.span().start().line;
                 let end = i.span().end().line;
@@ -235,7 +235,6 @@ impl FilePatcher {
             }
             fn visit_macro(&mut self, i: &'ast syn::Macro) {
                 let span_start = i.span().start();
-                let indentation = indentation(span_start.column, &self.2);
                 let start = span_start.line;
                 let end = i
                     .tokens
@@ -254,6 +253,7 @@ impl FilePatcher {
                     return;
                 }
 
+                let indentation = indentation(span_start, self.2);
                 if !self.try_extract_snapshot(&tokens, indentation) {
                     // if we can't extract a snapshot here we want to scan for nested
                     // macros.  These are just represented as unparsed tokens in a
@@ -263,8 +263,7 @@ impl FilePatcher {
             }
         }
 
-        let code_line = self.lines[line - 1].clone();
-        let mut visitor = Visitor(line, None, code_line);
+        let mut visitor = Visitor(line, None, &self.lines);
         syn::visit::visit_file(&mut visitor, &self.source);
         visitor.1
     }
@@ -327,6 +326,8 @@ fn test_function() {
 	test
 	test
 	"###);
+	// visitor shouldn't panic because of macro at column > start_line_len
+	                                       assert_snapshot!("", @"");
 }
 "######;
 
