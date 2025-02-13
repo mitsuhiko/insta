@@ -76,7 +76,8 @@ impl FilePatcher {
                 if self
                     .inline_snapshots
                     .last()
-                    .map_or(false, |x| x.end.0 > line)
+                    // x.end.0 is 0-origin whereas line is 1-origin
+                    .map_or(false, |x| x.end.0 >= line - 1)
                 {
                     return false;
                 }
@@ -253,6 +254,18 @@ impl FilePatcher {
                     return;
                 }
 
+                // recurse into block-like macro such as allow_duplicates! { .. }
+                if matches!(i.delimiter, syn::MacroDelimiter::Brace(_)) {
+                    if let Ok(stmts) = i.parse_body_with(syn::Block::parse_within) {
+                        for stmt in &stmts {
+                            self.visit_stmt(stmt);
+                        }
+                        return;
+                    }
+                    // TODO: perhaps, we can return here and remove fallback to
+                    // self.scan_nested_macros(&tokens)
+                }
+
                 let indentation = indentation(span_start, self.2);
                 if !self.try_extract_snapshot(&tokens, indentation) {
                     // if we can't extract a snapshot here we want to scan for nested
@@ -356,5 +369,48 @@ fn test_function() {
 
         // Assert the indentation
         assert_debug_snapshot!(snapshot.indentation, @r#""\t""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_within_allow_duplicates() {
+        let content = r######"
+fn test_function() {
+    insta::allow_duplicates! {
+        for x in 0..10 {
+            insta::assert_snapshot!("foo", @"foo"); // 5
+            insta::assert_snapshot!("bar", @"bar"); // 6
+        }
+    }
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot5 = file_patcher.find_snapshot_macro(5).unwrap();
+        let snapshot6 = file_patcher.find_snapshot_macro(6).unwrap();
+
+        // Extract the snapshot contents
+        let snapshot_content5 = file_patcher.lines[snapshot5.start.0..=snapshot5.end.0].to_vec();
+        let snapshot_content6 = file_patcher.lines[snapshot6.start.0..=snapshot6.end.0].to_vec();
+
+        assert_debug_snapshot!(snapshot_content5, @r#"
+        [
+            "            insta::assert_snapshot!(\"foo\", @\"foo\"); // 5",
+        ]
+        "#);
+        assert_debug_snapshot!(snapshot_content6, @r#"
+        [
+            "            insta::assert_snapshot!(\"bar\", @\"bar\"); // 6",
+        ]
+        "#);
+
+        // Assert the indentation
+        assert_debug_snapshot!(snapshot5.indentation, @r#""            ""#);
+        assert_debug_snapshot!(snapshot6.indentation, @r#""            ""#);
     }
 }
