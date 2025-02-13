@@ -937,14 +937,16 @@ fn prepare_test_runner<'snapshot_ref>(
     snapshot_ref_file: Option<&'snapshot_ref Path>,
     loc: &LocationInfo,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
-    let mut proc = process::Command::new(get_cargo());
-    match test_runner {
+    let mut proc = match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
+            let mut proc = process::Command::new(get_cargo());
             proc.arg("test");
+            proc
         }
         TestRunner::Nextest => {
-            proc.arg("nextest");
+            let mut proc = get_cargo_nextest_command();
             proc.arg("run");
+            proc
         }
     };
 
@@ -1109,6 +1111,18 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg(format!("--color={}", color));
     };
     Ok((proc, snapshot_ref_file, prevents_doc_run))
+}
+
+fn get_cargo_nextest_command() -> std::process::Command {
+    let cargo_nextest = env::var_os("INSTA_CARGO_NEXTEST_BIN");
+    match cargo_nextest.as_deref() {
+        Some(cargo_nextest_bin_path) => process::Command::new(cargo_nextest_bin_path),
+        None => {
+            let mut proc = process::Command::new(get_cargo());
+            proc.arg("nextest");
+            proc
+        }
+    }
 }
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
@@ -1278,5 +1292,32 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         Command::Test(cmd) => test_run(cmd, opts.color.unwrap_or(ColorWhen::Auto)),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_cargo_nextest_command_from_env_variables() {
+        env::set_var("INSTA_CARGO_NEXTEST_BIN", "/a/custom/path/to/cargo-nextest");
+        let command = get_cargo_nextest_command();
+        assert_eq!(
+            command.get_program().to_string_lossy(),
+            "/a/custom/path/to/cargo-nextest"
+        );
+        assert_eq!(command.get_args().len(), 0);
+        env::remove_var("INSTA_CARGO_NEXTEST_BIN");
+
+        env::set_var("CARGO", "/a/path/to/cargo");
+        let command = get_cargo_nextest_command();
+        assert_eq!(command.get_program().to_string_lossy(), "/a/path/to/cargo");
+        let args: Vec<String> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect();
+        assert_eq!(args, vec!["nextest"]);
+        env::remove_var("CARGO");
     }
 }
