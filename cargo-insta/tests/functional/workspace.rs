@@ -340,6 +340,46 @@ fn test_virtual_manifest_single_crate() {
     "###     );
 }
 
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+// This function locates the compiled test binary in the target directory.
+// It's necessary because the exact filename of the test binary includes a hash
+// that we can't predict, so we need to search for it.
+#[allow(dead_code)]
+fn find_test_binary(dir: &Path) -> PathBuf {
+    dir.join("target/debug/deps")
+        .read_dir()
+        .unwrap()
+        .filter_map(Result::ok)
+        .find(|entry| {
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_str().unwrap_or("");
+            // We're looking for a file that:
+            file_name_str.starts_with("insta_workspace_root_test-") // Matches our test name
+                    && !file_name_str.contains('.') // Doesn't have an extension (it's the executable, not a metadata file)
+                    && entry.metadata().map(|m| m.is_file()).unwrap_or(false) // Is a file, not a directory
+        })
+        .map(|entry| entry.path())
+        .expect("Failed to find test binary")
+}
+
+// This function runs the compiled binary with the given environment and working directory
+#[allow(dead_code)]
+fn run_test_binary(
+    binary_path: &Path,
+    current_dir: &Path,
+    env: Option<(&str, &str)>,
+) -> std::process::Output {
+    let mut cmd = Command::new(binary_path);
+    TestProject::clean_env(&mut cmd);
+    cmd.current_dir(current_dir);
+    if let Some((key, value)) = env {
+        cmd.env(key, value);
+    }
+    cmd.output().unwrap()
+}
+
 // Can't get the test binary discovery to work on Windows, don't have a windows
 // machine to hand, others are welcome to fix it. (No specific reason to think
 // that insta doesn't work on windows, just that the test doesn't work.)
@@ -348,45 +388,11 @@ fn test_virtual_manifest_single_crate() {
 fn test_insta_workspace_root() {
     use std::{
         fs::{self, remove_dir_all},
-        path::{Path, PathBuf},
+        path::PathBuf,
         process::Command,
     };
 
     use crate::TestProject;
-
-    // This function locates the compiled test binary in the target directory.
-    // It's necessary because the exact filename of the test binary includes a hash
-    // that we can't predict, so we need to search for it.
-    fn find_test_binary(dir: &Path) -> PathBuf {
-        dir.join("target/debug/deps")
-            .read_dir()
-            .unwrap()
-            .filter_map(Result::ok)
-            .find(|entry| {
-                let file_name = entry.file_name();
-                let file_name_str = file_name.to_str().unwrap_or("");
-                // We're looking for a file that:
-                file_name_str.starts_with("insta_workspace_root_test-") // Matches our test name
-                    && !file_name_str.contains('.') // Doesn't have an extension (it's the executable, not a metadata file)
-                    && entry.metadata().map(|m| m.is_file()).unwrap_or(false) // Is a file, not a directory
-            })
-            .map(|entry| entry.path())
-            .expect("Failed to find test binary")
-    }
-
-    fn run_test_binary(
-        binary_path: &Path,
-        current_dir: &Path,
-        env: Option<(&str, &str)>,
-    ) -> std::process::Output {
-        let mut cmd = Command::new(binary_path);
-        TestProject::clean_env(&mut cmd);
-        cmd.current_dir(current_dir);
-        if let Some((key, value)) = env {
-            cmd.env(key, value);
-        }
-        cmd.output().unwrap()
-    }
 
     let test_project = TestFiles::new()
         .add_cargo_toml("insta_workspace_root_test")
@@ -460,6 +466,116 @@ fn test_snapshot() {
         &moved_binary_path,
         &moved_workspace,
         Some(("INSTA_WORKSPACE_ROOT", moved_workspace.to_str().unwrap())),
+    )
+    .status
+    .success());
+}
+
+// Can't get the test binary discovery to work on Windows, don't have a windows
+// machine to hand, others are welcome to fix it. (No specific reason to think
+// that insta doesn't work on windows, just that the test doesn't work.)
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn test_insta_workspace_root_compile_time() {
+    use std::process::Command;
+
+    use crate::TestProject;
+
+    let test_project = TestFiles::new()
+        .add_cargo_toml("insta_workspace_root_test")
+        .add_file(
+            "src/lib.rs",
+            r#"
+use insta::assert_snapshot;
+
+#[test]
+fn test_snapshot() {
+    assert_snapshot!("Hello, world!");
+}
+    "#
+            .to_string(),
+        )
+        .create_project();
+
+    let moved_workspace_compile =
+        tempfile::tempdir().expect("Unable to create temporary test directory");
+
+    // Compile test binary with INSTA_WORKSPACE_ROOT set at compile time
+    let mut cargo_cmd = Command::new("cargo");
+    TestProject::clean_env(&mut cargo_cmd);
+    let output = cargo_cmd
+        .args(["test", "--no-run"])
+        .env("INSTA_WORKSPACE_ROOT", moved_workspace_compile.path())
+        .current_dir(&test_project.workspace_dir)
+        .output()
+        .unwrap();
+    assert!(&output.status.success());
+
+    let test_binary_path = find_test_binary(&test_project.workspace_dir);
+
+    // Run the test without snapshot (should fail)
+    assert!(
+        !&run_test_binary(&test_binary_path, &test_project.workspace_dir, None,)
+            .status
+            .success()
+    );
+
+    // Create the snapshot
+    assert!(&run_test_binary(
+        &test_binary_path,
+        &test_project.workspace_dir,
+        Some(("INSTA_UPDATE", "always")),
+    )
+    .status
+    .success());
+
+    // Verify snapshot creation
+    assert!(moved_workspace_compile
+        .path()
+        .join("src/snapshots")
+        .exists());
+    assert!(moved_workspace_compile
+        .path()
+        .join("src/snapshots/insta_workspace_root_test__snapshot.snap")
+        .exists());
+
+    // Run test in compile time moved workspace without INSTA_WORKSPACE_ROOT (should pass)
+    assert!(
+        &run_test_binary(&test_binary_path, moved_workspace_compile.path(), None)
+            .status
+            .success()
+    );
+
+    // Move the workspace
+    let moved_workspace = {
+        let moved_workspace =
+            tempfile::tempdir().expect("Unable to create temporary test directory");
+        fs::rename(&moved_workspace_compile, &moved_workspace).unwrap();
+        moved_workspace
+    };
+
+    // Verify snapshot moved
+    assert!(moved_workspace.path().join("src/snapshots").exists());
+    assert!(moved_workspace
+        .path()
+        .join("src/snapshots/insta_workspace_root_test__snapshot.snap")
+        .exists());
+
+    // Run test in runtime moved workspace without INSTA_WORKSPACE_ROOT (should fail)
+    assert!(
+        !&run_test_binary(&test_binary_path, moved_workspace.path(), None)
+            .status
+            .success()
+    );
+
+    // Run test in moved workspace with INSTA_WORKSPACE_ROOT (should pass)
+    assert!(&run_test_binary(
+        &test_binary_path,
+        moved_workspace.path(),
+        Some((
+            "INSTA_WORKSPACE_ROOT",
+            moved_workspace.path().to_str().unwrap()
+        )),
     )
     .status
     .success());
