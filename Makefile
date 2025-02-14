@@ -10,7 +10,6 @@ test: cargotest
 
 cargotest:
 	@echo "CARGO TESTS"
-	@rustup component add rustfmt 2> /dev/null
 	@cargo test -p insta
 	@cargo test -p insta --all-features
 	@cargo test -p insta --no-default-features

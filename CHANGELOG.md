@@ -2,6 +2,26 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+- Support specifying `cargo-nextest` bin with `INSTA_CARGO_NEXTEST_BIN`.  #721 (Louis Fruleux)
+
+## 1.42.3
+
+- Support other indention characters than spaces in inline snapshots.  #679
+
+## 1.42.2
+
+- Stop `\t` and `\x1b` (ANSI color escape) from causing snapshots to be escaped.  #715
+- Improved handling of inline snapshots within `allow_duplicates! { .. }`.  #712
+
+## 1.42.1
+
+- Improved handling of control characters in inline snapshots.  #713
+- Add pending deprecation warning for `--accept-unseen`. We've left an issue
+  open at <https://github.com/mitsuhiko/insta/issues/659> eliciting feedback on
+  whether anyone uses this for a few months.  A warning will now be printed when
+  `--accept-unseen` is used, and we'll eventually remove the feature unless we
+  get some feedback that it's useful.  #668
+
 ## 1.42.0
 
 - Text snapshots no longer contain `snapshot_type: text` in their metadata.  For
@@ -576,7 +596,9 @@ situations.
 To upgrade to the new insta macros and snapshot formats you can use
 [`fastmod`](https://crates.io/crates/fastmod) and `cargo-insta` together:
 
-    $ cargo install fastmod
-    $ cargo install cargo-insta
-    $ fastmod '\bassert_([a-z]+_snapshot)_matches!' 'assert_${`}!' -e rs --accept-all
-    $ cargo insta test --all --force-update-snapshots --accept
+```sh
+cargo install fastmod
+cargo install cargo-insta
+fastmod '\bassert_([a-z]+_snapshot)_matches!' 'assert_${`}!' -e rs --accept-all
+cargo insta test --all --force-update-snapshots --accept
+```
