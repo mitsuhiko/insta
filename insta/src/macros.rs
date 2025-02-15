@@ -27,10 +27,10 @@ macro_rules! _get_workspace_root {
         // By default the `CARGO_MANIFEST_DIR` environment variable is used as the workspace root.
         // If the `INSTA_WORKSPACE_ROOT` environment variable is set at compile time it will override the default.
         // This can be useful to avoid including local paths in the binary.
-        const WORKSPACE_ROOT: &str = if let Some(root) = option_env!("INSTA_WORKSPACE_ROOT") {
-            root
+        const WORKSPACE_ROOT: $crate::_macro_support::Workspace = if let Some(root) = option_env!("INSTA_WORKSPACE_ROOT") {
+            $crate::_macro_support::Workspace::UseAsIs(root)
         } else {
-            env!("CARGO_MANIFEST_DIR")
+            $crate::_macro_support::Workspace::DetectWithCargo(env!("CARGO_MANIFEST_DIR"))
         };
         $crate::_macro_support::get_cargo_workspace(WORKSPACE_ROOT)
     }};
