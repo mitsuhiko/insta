@@ -77,6 +77,7 @@ dependencies = [
  "open",
  "os_pipe",
  "proc-macro2",
+ "rust-strings",
  "semver",
  "serde",
  "serde_json",
@@ -648,6 +649,12 @@ dependencies = [
  "bitflags",
  "serde",
 ]
+
+[[package]]
+name = "rust-strings"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d17559aaea24b0a7e99482f82273ea3177cea900dcdf78ebef7eef05dfda1476"
 
 [[package]]
 name = "rustc_version"

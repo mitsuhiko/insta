@@ -380,6 +380,14 @@ fn run_test_binary(
     cmd.output().unwrap()
 }
 
+// This function extracts strings from a binary
+// Similar to the `strings` program
+#[allow(dead_code)]
+fn extract_strings(binary_path: &Path) -> Vec<(String, u64)> {
+    let config = rust_strings::FileConfig::new(&binary_path).with_min_length(5);
+    rust_strings::strings(&config).expect("Unable to extract strings from binary")
+}
+
 // Can't get the test binary discovery to work on Windows, don't have a windows
 // machine to hand, others are welcome to fix it. (No specific reason to think
 // that insta doesn't work on windows, just that the test doesn't work.)
@@ -410,16 +418,28 @@ fn test_snapshot() {
         )
         .create_project();
 
+    // Strip the binary to ensure no references to the workspace in the debug symbols
     let mut cargo_cmd = Command::new("cargo");
     TestProject::clean_env(&mut cargo_cmd);
     let output = cargo_cmd
-        .args(["test", "--no-run"])
+        .args(["test", "--no-run", "--config", "profile.test.strip=true"])
         .current_dir(&test_project.workspace_dir)
         .output()
         .unwrap();
     assert!(&output.status.success());
 
     let test_binary_path = find_test_binary(&test_project.workspace_dir);
+
+    let extracted_strings = extract_strings(&test_binary_path);
+
+    assert_eq!(
+        extracted_strings
+            .iter()
+            .filter(|(s, _)| s.contains(test_project.workspace_dir.to_str().unwrap()))
+            .count(),
+        1,
+        "The final doesn't contain only one reference to CARGO_MANIFEST_DIR"
+    );
 
     // Run the test without snapshot (should fail)
     assert!(
@@ -501,10 +521,11 @@ fn test_snapshot() {
         tempfile::tempdir().expect("Unable to create temporary test directory");
 
     // Compile test binary with INSTA_WORKSPACE_ROOT set at compile time
+    // Strip the binary to ensure no references to the workspace in the debug symbols
     let mut cargo_cmd = Command::new("cargo");
     TestProject::clean_env(&mut cargo_cmd);
     let output = cargo_cmd
-        .args(["test", "--no-run"])
+        .args(["test", "--no-run", "--config", "profile.test.strip=true"])
         .env("INSTA_WORKSPACE_ROOT", moved_workspace_compile.path())
         .current_dir(&test_project.workspace_dir)
         .output()
@@ -512,6 +533,26 @@ fn test_snapshot() {
     assert!(&output.status.success());
 
     let test_binary_path = find_test_binary(&test_project.workspace_dir);
+
+    let extracted_strings = extract_strings(&test_binary_path);
+
+    assert_eq!(
+        extracted_strings
+            .iter()
+            .filter(|(s, _)| s.contains(test_project.workspace_dir.to_str().unwrap()))
+            .count(),
+        0,
+        "The final binary contains a references to CARGO_MANIFEST_DIR"
+    );
+
+    assert_eq!(
+        extracted_strings
+            .iter()
+            .filter(|(s, _)| s.contains(moved_workspace_compile.path().to_str().unwrap()))
+            .count(),
+        1,
+        "The final binary contains not exactly one references to moved workspace"
+    );
 
     // Run the test without snapshot (should fail)
     assert!(
