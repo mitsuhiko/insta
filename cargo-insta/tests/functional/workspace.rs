@@ -384,7 +384,7 @@ fn run_test_binary(
 // Similar to the `strings` program
 #[allow(dead_code)]
 fn extract_strings(binary_path: &Path) -> Vec<(String, u64)> {
-    let config = rust_strings::FileConfig::new(&binary_path).with_min_length(5);
+    let config = rust_strings::FileConfig::new(binary_path).with_min_length(5);
     rust_strings::strings(&config).expect("Unable to extract strings from binary")
 }
 
