@@ -430,17 +430,34 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
     }
 }
 
+pub enum Workspace {
+    DetectWithCargo(&'static str),
+    UseAsIs(&'static str),
+}
+
 /// Returns the cargo workspace path for a crate manifest, like
 /// `/Users/janedoe/projects/insta` when passed
 /// `/Users/janedoe/projects/insta/insta/Cargo.toml`.
-pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
-    // If INSTA_WORKSPACE_ROOT environment variable is set, use the value as-is.
+///
+/// If `INSTA_WORKSPACE_ROOT` environment variable is set at runtime, use the value as-is.
+/// If `INSTA_WORKSPACE_ROOT` environment variable is set at compile time, use the value as-is.
+/// If `INSTA_WORKSPACE_ROOT` environment variable is not set, use `cargo metadata` to find the workspace root.
+pub fn get_cargo_workspace(workspace: Workspace) -> Arc<PathBuf> {
     // This is useful where CARGO_MANIFEST_DIR at compilation points to some
     // transient location. This can easily happen when building the test in one
     // directory but running it in another.
     if let Ok(workspace_root) = env::var("INSTA_WORKSPACE_ROOT") {
         return PathBuf::from(workspace_root).into();
     }
+
+    // Distinguish if we need to run `cargo metadata`` or if we can return the workspace
+    // as is.
+    // This is useful if INSTA_WORKSPACE_ROOT was set at compile time, not pointing to
+    // the cargo manifest directory
+    let manifest_dir = match workspace {
+        Workspace::UseAsIs(workspace_root) => return PathBuf::from(workspace_root).into(),
+        Workspace::DetectWithCargo(manifest_dir) => manifest_dir,
+    };
 
     let error_message = || {
         format!(
@@ -492,10 +509,17 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
 }
 
 #[test]
-fn test_get_cargo_workspace() {
-    let workspace = get_cargo_workspace(env!("CARGO_MANIFEST_DIR"));
+fn test_get_cargo_workspace_manifest_dir() {
+    let workspace = get_cargo_workspace(Workspace::DetectWithCargo(env!("CARGO_MANIFEST_DIR")));
     // The absolute path of the workspace, like `/Users/janedoe/projects/insta`
     assert!(workspace.ends_with("insta"));
+}
+
+#[test]
+fn test_get_cargo_workspace_insta_workspace() {
+    let workspace = get_cargo_workspace(Workspace::UseAsIs("/tmp/insta_workspace_root"));
+    // The absolute path of the workspace, like `/tmp/insta_workspace_root`
+    assert!(workspace.ends_with("insta_workspace_root"));
 }
 
 #[cfg(feature = "_cargo_insta_internal")]

@@ -19,12 +19,20 @@ macro_rules! _function_name {
 #[macro_export]
 macro_rules! _get_workspace_root {
     () => {{
-        use std::env;
+        use std::{env, option_env};
 
         // Note the `env!("CARGO_MANIFEST_DIR")` needs to be in the macro (in
         // contrast to a function in insta) because the macro needs to capture
         // the value in the caller library, an exclusive property of macros.
-        $crate::_macro_support::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"))
+        // By default the `CARGO_MANIFEST_DIR` environment variable is used as the workspace root.
+        // If the `INSTA_WORKSPACE_ROOT` environment variable is set at compile time it will override the default.
+        // This can be useful to avoid including local paths in the binary.
+        const WORKSPACE_ROOT: $crate::_macro_support::Workspace = if let Some(root) = option_env!("INSTA_WORKSPACE_ROOT") {
+            $crate::_macro_support::Workspace::UseAsIs(root)
+        } else {
+            $crate::_macro_support::Workspace::DetectWithCargo(env!("CARGO_MANIFEST_DIR"))
+        };
+        $crate::_macro_support::get_cargo_workspace(WORKSPACE_ROOT)
     }};
 }
 

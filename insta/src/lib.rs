@@ -345,7 +345,7 @@ pub use crate::redaction::{dynamic_redaction, rounded_redaction, sorted_redactio
 #[doc(hidden)]
 pub mod _macro_support {
     pub use crate::content::Content;
-    pub use crate::env::get_cargo_workspace;
+    pub use crate::env::{get_cargo_workspace, Workspace};
     pub use crate::runtime::{
         assert_snapshot, with_allow_duplicates, AutoName, BinarySnapshotValue, InlineValue,
         SnapshotValue,
