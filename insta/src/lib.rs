@@ -350,6 +350,8 @@ pub mod _macro_support {
         assert_snapshot, with_allow_duplicates, AutoName, BinarySnapshotValue, InlineValue,
         SnapshotValue,
     };
+    pub use core::{file, line, module_path};
+    pub use std::{any, env, format, option_env, path, vec};
 
     #[cfg(feature = "serde")]
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};

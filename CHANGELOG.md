@@ -5,6 +5,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Support specifying `cargo-nextest` bin with `INSTA_CARGO_NEXTEST_BIN`.  #721 (Louis Fruleux)
 - Allow setting `INSTA_WORKSPACE_ROOT` at compile time. This is useful for reproducible binaries
   so they don't contain references to `CARGO_MANIFEST_DIR`. #726 (Pascal Bach)
+- Qualify all references in macros to avoid name clashes. #729 (Austin Schey)
 
 ## 1.42.3
 

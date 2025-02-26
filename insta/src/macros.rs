@@ -5,7 +5,7 @@ macro_rules! _function_name {
     () => {{
         fn f() {}
         fn type_name_of_val<T>(_: T) -> &'static str {
-            std::any::type_name::<T>()
+            $crate::_macro_support::any::type_name::<T>()
         }
         let mut name = type_name_of_val(f).strip_suffix("::f").unwrap_or("");
         while let Some(rest) = name.strip_suffix("::{{closure}}") {
@@ -19,7 +19,7 @@ macro_rules! _function_name {
 #[macro_export]
 macro_rules! _get_workspace_root {
     () => {{
-        use std::{env, option_env};
+        use $crate::_macro_support::{env, option_env};
 
         // Note the `env!("CARGO_MANIFEST_DIR")` needs to be in the macro (in
         // contrast to a function in insta) because the macro needs to capture
@@ -278,7 +278,7 @@ macro_rules! _assert_serialized_snapshot {
 macro_rules! _prepare_snapshot_for_redaction {
     ($value:expr, {$($k:expr => $v:expr),*}, $format:ident) => {
         {
-            let vec = std::vec![
+            let vec = $crate::_macro_support::vec![
                 $((
                     $crate::_macro_support::Selector::parse($k).unwrap(),
                     $crate::_macro_support::Redaction::from($v)
@@ -315,7 +315,7 @@ macro_rules! _prepare_snapshot_for_redaction {
 #[macro_export]
 macro_rules! assert_debug_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_snapshot_base!(transform=|v| std::format!("{:#?}", v), $($arg)*)
+        $crate::_assert_snapshot_base!(transform=|v| $crate::_macro_support::format!("{:#?}", v), $($arg)*)
     };
 }
 
@@ -329,7 +329,7 @@ macro_rules! assert_debug_snapshot {
 #[macro_export]
 macro_rules! assert_compact_debug_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_snapshot_base!(transform=|v| std::format!("{:?}", v), $($arg)*)
+        $crate::_assert_snapshot_base!(transform=|v| $crate::_macro_support::format!("{:?}", v), $($arg)*)
     };
 }
 
@@ -374,9 +374,9 @@ macro_rules! _assert_snapshot_base {
             ).into(),
             $crate::_get_workspace_root!().as_path(),
             $crate::_function_name!(),
-            module_path!(),
-            file!(),
-            line!(),
+            $crate::_macro_support::module_path!(),
+            $crate::_macro_support::file!(),
+            $crate::_macro_support::line!(),
             $debug_expr,
         )
         .unwrap()
@@ -417,9 +417,9 @@ macro_rules! assert_binary_snapshot {
             .into(),
             $crate::_get_workspace_root!().as_path(),
             $crate::_function_name!(),
-            module_path!(),
-            file!(),
-            line!(),
+            $crate::_macro_support::module_path!(),
+            $crate::_macro_support::file!(),
+            $crate::_macro_support::line!(),
             $debug_expr,
         )
         .unwrap()
@@ -458,7 +458,7 @@ macro_rules! assert_display_snapshot {
 #[macro_export]
 macro_rules! assert_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_snapshot_base!(transform=|v| std::format!("{}", v), $($arg)*)
+        $crate::_assert_snapshot_base!(transform=|v| $crate::_macro_support::format!("{}", v), $($arg)*)
     };
 }
 
@@ -555,7 +555,7 @@ macro_rules! glob {
     // and just support a pattern such as
     // `glob!("../test_data/inputs/*.txt"...`.
     ($base_path:expr, $glob:expr, $closure:expr) => {{
-        use std::path::Path;
+        use $crate::_macro_support::path::Path;
 
         let base = $crate::_get_workspace_root!()
             .join(Path::new(file!()).parent().unwrap())
@@ -574,7 +574,7 @@ macro_rules! glob {
     }};
 
     ($glob:expr, $closure:expr) => {{
-        insta::glob!(".", $glob, $closure)
+        $crate::glob!(".", $glob, $closure)
     }};
 }
 
