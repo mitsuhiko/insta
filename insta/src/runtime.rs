@@ -593,8 +593,12 @@ impl<'a> SnapshotAssertionContext<'a> {
 
     /// This prints the information about the snapshot
     fn print_snapshot_info(&self, new_snapshot: &Snapshot) {
-        let mut printer =
-            SnapshotPrinter::new(self.workspace, self.old_snapshot.as_ref(), new_snapshot);
+        let mut printer = SnapshotPrinter::new(
+            self.workspace,
+            self.old_snapshot.as_ref(),
+            new_snapshot,
+            self.tool_config.force_text(),
+        );
         printer.set_line(Some(self.assertion_line));
         printer.set_snapshot_file(self.snapshot_file.as_deref());
         printer.set_title(Some("Snapshot Summary"));
@@ -708,7 +712,12 @@ fn record_snapshot_duplicate(
     if let Some(prev_snapshot) = results.get(key) {
         if prev_snapshot.contents() != snapshot.contents() {
             println!("Snapshots in allow-duplicates block do not match.");
-            let mut printer = SnapshotPrinter::new(ctx.workspace, Some(prev_snapshot), snapshot);
+            let mut printer = SnapshotPrinter::new(
+                ctx.workspace,
+                Some(prev_snapshot),
+                snapshot,
+                ctx.tool_config.force_text(),
+            );
             printer.set_line(Some(ctx.assertion_line));
             printer.set_snapshot_file(ctx.snapshot_file.as_deref());
             printer.set_title(Some("Differences in Block"));

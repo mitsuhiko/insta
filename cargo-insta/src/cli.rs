@@ -117,6 +117,9 @@ struct ProcessCommand {
     /// Do not print to stdout.
     #[arg(short = 'q', long)]
     quiet: bool,
+    /// Force files to be considered as text files for diff output.
+    #[arg(long)]
+    text: bool,
 }
 
 #[derive(Args, Debug)]
@@ -216,6 +219,9 @@ struct TestCommand {
     test_runner: TestRunner,
     #[arg(long)]
     test_runner_fallback: Option<bool>,
+    /// Force files to be considered as text files for diff output.
+    #[arg(long)]
+    text: bool,
     /// Delete unreferenced snapshots after a successful test run (deprecated)
     #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
@@ -248,6 +254,9 @@ struct ShowCommand {
     target_args: TargetArgs,
     /// The path to the snapshot file.
     path: PathBuf,
+    /// Force files to be considered as text files for diff output.
+    #[arg(long)]
+    text: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -261,6 +270,7 @@ fn query_snapshot(
     i: usize,
     n: usize,
     snapshot_file: Option<&Path>,
+    force_text: bool,
     show_info: &mut bool,
     show_diff: &mut bool,
 ) -> Result<Operation, Box<dyn Error>> {
@@ -276,7 +286,7 @@ fn query_snapshot(
             &pkg.version,
         );
 
-        let mut printer = SnapshotPrinter::new(workspace_root, old, new);
+        let mut printer = SnapshotPrinter::new(workspace_root, old, new, force_text);
         printer.set_snapshot_file(snapshot_file);
         printer.set_line(line);
         printer.set_show_info(*show_info);
@@ -521,6 +531,7 @@ fn process_snapshots(
     snapshot_filter: Option<&[String]>,
     loc: &LocationInfo<'_>,
     op: Option<Operation>,
+    force_text: bool,
 ) -> Result<(), Box<dyn Error>> {
     let term = Term::stdout();
 
@@ -583,6 +594,7 @@ fn process_snapshots(
                     num,
                     snapshot_count,
                     snapshot_file.as_deref(),
+                    force_text,
                     &mut show_info,
                     &mut show_diff,
                 )?,
@@ -769,6 +781,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
             } else {
                 None
             },
+            cmd.text,
         )?
     } else {
         let (snapshot_containers, roots) = load_snapshot_containers(&loc)?;
@@ -1128,7 +1141,7 @@ fn get_cargo_nextest_command() -> std::process::Command {
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &[])?;
     let snapshot = Snapshot::from_file(&cmd.path)?;
-    let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
+    let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot, cmd.text);
     printer.set_snapshot_file(Some(&cmd.path));
     printer.set_show_info(true);
     printer.set_show_diff(false);
@@ -1287,6 +1300,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
                     Command::Reject(_) => Some(Operation::Reject),
                     _ => unreachable!(),
                 },
+                cmd.text,
             )
         }
         Command::Test(cmd) => test_run(cmd, opts.color.unwrap_or(ColorWhen::Auto)),
