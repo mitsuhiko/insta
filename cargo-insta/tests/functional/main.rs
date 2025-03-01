@@ -48,8 +48,7 @@ use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 use std::thread;
 
 use console::style;
