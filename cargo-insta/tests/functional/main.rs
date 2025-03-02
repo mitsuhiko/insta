@@ -1,5 +1,9 @@
-/// Integration tests which allow creating a full repo, running `cargo-insta`
+/// # Functional tests
+///
+/// Functional tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
+///
+/// ## Capturing output
 ///
 /// By default, the output of the inner test is forwarded to the outer test with
 /// a colored prefix. If we want to assert the inner test contains some output,
@@ -18,31 +22,37 @@
 /// );
 /// ```
 ///
-/// Often we want to see output from the test commands we run here; for example
-/// a `dbg` statement we add while debugging. Cargo by default hides the output
-/// of passing tests.
+/// ## Showing output of passing tests
+///
+/// Cargo by default shows the output of failing tests but hides the output of
+/// passing tests. Often we want to see output from the test commands we run
+/// here; for example a `dbg` statement we add while debugging.
 /// - Like any test, to forward the output of a passing outer test (i.e. one of
 ///   the `#[test]`s in this file) to the terminal, pass `--nocapture` to the
 ///   test runner, like `cargo insta test -- --nocapture`.
 /// - To forward the output of a passing inner test (i.e. the test commands we
-///   create and run within an outer test) to the output of an outer test, pass
+///   create and run within the code here) to the output of an outer test, pass
 ///   `--nocapture` in the command we create; for example `.args(["test",
 ///   "--accept", "--", "--nocapture"])`.
-///   - We also need to pass `--nocapture` to the outer test to forward that to
-///     the terminal, per the previous bullet.
+///   - Consistent with the previous bullet, If the outer test is passing we
+///     also need to pass `--nocapture` to the outer test in order to forward
+///     that to the terminal
+///
+/// ## Package names
 ///
 /// Note that the packages must have different names, or we'll see interference
-/// between the tests.
+/// between the tests[^1].
 ///
-/// > That seems to be because they all share the same `target` directory, which
-/// > cargo will confuse for each other if they share the same name. I haven't
-/// > worked out why — this is the case even if the files are the same between
-/// > two tests but with different commands — and those files exist in different
-/// > temporary workspace dirs. (We could try to enforce different names, or
-/// > give up using a consistent target directory for a cache, but it would slow
-/// > down repeatedly running the tests locally. To demonstrate the effect, name
-/// > crates the same... This also causes issues when running the same tests
-/// > concurrently.
+/// [1]: That seems to be because they all share the same `target` directory, which
+///      cargo will confuse for each other if they share the same name. I haven't
+///      worked out why — this is the case even if the files are the same between
+///      two tests but with different commands — and those files exist in different
+///      temporary workspace dirs. (We could try to enforce different names, or
+///      give up using a consistent target directory for a cache, but it would slow
+///      down repeatedly running the tests locally. To demonstrate the effect, name
+///      crates the same... This also causes issues when running the same tests
+///      concurrently.
+///
 use std::collections::HashMap;
 use std::env;
 use std::fs;
