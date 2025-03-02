@@ -7,14 +7,11 @@ All notable changes to insta and cargo-insta are documented here.
   so they don't contain references to `CARGO_MANIFEST_DIR`. #726 (Pascal Bach)
 - Qualify all references in macros to avoid name clashes. #729 (Austin Schey)
 
-## 1.42.3
+## 1.42.2
 
 - Support other indention characters than spaces in inline snapshots.  #679
 - Fix an issue where multiple targets with the same root would cause too many pending snapshots to be reported.  #730
 - Hide `unseen` option in CLI, as it's pending deprecation.  #732
-
-## 1.42.2
-
 - Stop `\t` and `\x1b` (ANSI color escape) from causing snapshots to be escaped.  #715
 - Improved handling of inline snapshots within `allow_duplicates! { .. }`.  #712
 
