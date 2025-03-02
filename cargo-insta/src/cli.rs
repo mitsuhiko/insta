@@ -188,7 +188,7 @@ struct TestCommand {
     #[arg(long)]
     review: bool,
     /// Accept all new (previously unseen).
-    #[arg(long)]
+    #[arg(long, hide = true)]
     accept_unseen: bool,
     /// Do not reject pending snapshots before run (deprecated).
     #[arg(long, hide = true)]
