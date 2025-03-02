@@ -10,6 +10,8 @@ All notable changes to insta and cargo-insta are documented here.
 ## 1.42.3
 
 - Support other indention characters than spaces in inline snapshots.  #679
+- Fix an issue where multiple targets with the same root would cause too many pending snapshots to be reported.  #730
+- Hide `unseen` option in CLI, as it's pending deprecation.  #732
 
 ## 1.42.2
 
