@@ -821,6 +821,67 @@ fn test_inline() {
     ");
 }
 
+/// Test for issue #678: Insta 1.41.0 finds spurious duplicate snapshots from tests in package root
+#[test]
+fn test_root_test_duplicate_snapshots() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "root_test_duplicate_snapshots"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+
+[[test]]
+name = "root_test"
+path = "root_test.rs"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "root_test.rs",
+            r#"
+#[test]
+fn test_in_root() {
+    insta::assert_snapshot!("name", "content");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run the test to create the snapshot
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    // Assert that we only have one snapshot file
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,3 +1,6 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       root_test.rs
+    +  snapshots
+    +    snapshots/root_test__name.snap.new
+    ");
+
+    // Check if the output reports 2 snapshots instead of 1
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // There should only be 1 snapshot
+    assert!(stderr.contains("1 snapshot to review"), "\n\n{}", stderr);
+}
+
 /// Check that `--manifest` points `cargo-insta` at another path
 #[test]
 fn test_manifest_option() {
