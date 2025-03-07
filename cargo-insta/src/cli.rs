@@ -150,7 +150,7 @@ struct TestRunnerOptions {
     #[arg(long, value_name = "SPEC")]
     exclude: Vec<String>,
     /// Space-separated list of features to activate
-    #[arg(long, value_name = "FEATURES")]
+    #[arg(short = 'F', long, value_name = "FEATURES")]
     features: Option<String>,
     /// Number of parallel jobs, defaults to # of CPUs
     #[arg(short = 'j', long)]
