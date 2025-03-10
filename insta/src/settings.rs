@@ -523,15 +523,20 @@ impl Settings {
     /// # }
     /// ```
     pub fn bind_async<F: Future<Output = T>, T>(&self, future: F) -> impl Future<Output = T> {
-        #[pin_project::pin_project]
-        struct BindingFuture<F>(Arc<ActualSettings>, #[pin] F);
+        pin_project_lite::pin_project! {
+            struct BindingFuture<F> {
+                settings: Arc<ActualSettings>,
+                #[pin]
+                future: F,
+            }
+        }
 
         impl<F: Future> Future for BindingFuture<F> {
             type Output = F::Output;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-                let inner = self.0.clone();
-                let future = self.project().1;
+                let inner = self.settings.clone();
+                let future = self.project().future;
                 CURRENT_SETTINGS.with(|x| {
                     let old = {
                         let mut current = x.borrow_mut();
@@ -547,7 +552,10 @@ impl Settings {
             }
         }
 
-        BindingFuture(self.inner.clone(), future)
+        BindingFuture {
+            settings: self.inner.clone(),
+            future,
+        }
     }
 
     /// Binds the settings to the current thread and resets when the drop
