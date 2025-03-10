@@ -364,7 +364,7 @@ dependencies = [
  "once_cell",
  "pest",
  "pest_derive",
- "pin-project",
+ "pin-project-lite",
  "regex",
  "ron",
  "rustc_version",
@@ -564,24 +564,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "pin-project"
-version = "1.1.8"
+name = "pin-project-lite"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e2ec53ad785f4d35dac0adea7f7dc6f1bb277ad84a680c7afefeae05d1f5916"
-dependencies = [
- "pin-project-internal",
-]
-
-[[package]]
-name = "pin-project-internal"
-version = "1.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d56a66c0c55993aa927429d0f8a0abfd74f084e4d9c192cffed01e418d83eefb"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
+checksum = "3b3cff922bd51709b605d9ead9aa71031d81447142d828eb4a6eba76fe619f9b"
 
 [[package]]
 name = "proc-macro2"
