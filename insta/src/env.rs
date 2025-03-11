@@ -130,6 +130,7 @@ pub struct ToolConfig {
     require_full_match: bool,
     output: OutputBehavior,
     snapshot_update: SnapshotUpdate,
+    force_text: bool,
     #[cfg(feature = "glob")]
     glob_fail_fast: bool,
     #[cfg(feature = "_cargo_insta_internal")]
@@ -266,6 +267,16 @@ impl ToolConfig {
                     _ => return Err(Error::Env("INSTA_UPDATE")),
                 }
             },
+            force_text: {
+                match env::var("INSTA_FORCE_TEXT").as_deref() {
+                    Err(_) | Ok("") => resolve(&cfg, &["behavior", "force_text"])
+                        .and_then(|x| x.as_bool())
+                        .unwrap_or(false),
+                    Ok("0") => false,
+                    Ok("1") => true,
+                    _ => return Err(Error::Env("INSTA_FORCE_TEXT")),
+                }
+            },
             #[cfg(feature = "glob")]
             glob_fail_fast: match env::var("INSTA_GLOB_FAIL_FAST").as_deref() {
                 Err(_) | Ok("") => resolve(&cfg, &["behavior", "glob_fail_fast"])
@@ -347,6 +358,11 @@ impl ToolConfig {
     /// Returns the intended snapshot update behavior.
     pub fn snapshot_update(&self) -> SnapshotUpdate {
         self.snapshot_update
+    }
+
+    /// Returns whether snapshots should treat files as text.
+    pub fn force_text(&self) -> bool {
+        self.force_text
     }
 
     /// Returns whether the glob should fail fast, as snapshot failures within the glob macro will appear only at the end of execution unless `glob_fail_fast` is set.
