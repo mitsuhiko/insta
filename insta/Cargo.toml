@@ -63,7 +63,6 @@ once_cell = "1.20.2"
 # Not yet supported in our MSRV of 1.60.0
 # clap = { workspace=true, optional = true }
 clap = { version = "4.1", features = ["derive", "env"], optional = true }
-pin-project-lite = "0.2"
 
 [dev-dependencies]
 rustc_version = "0.4.0"
