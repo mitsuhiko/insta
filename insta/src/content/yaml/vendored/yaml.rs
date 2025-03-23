@@ -1,7 +1,6 @@
+use crate::content::yaml::vendored::hashmap::OrderedHashMap;
 use crate::content::yaml::vendored::parser::*;
 use crate::content::yaml::vendored::scanner::{Marker, ScanError, TScalarStyle, TokenType};
-
-use linked_hash_map::LinkedHashMap;
 
 use std::collections::BTreeMap;
 use std::f64;
@@ -25,7 +24,7 @@ pub enum Yaml {
     Boolean(bool),
     /// YAML array, can be accessed as a `Vec`.
     Array(self::Array),
-    /// YAML hash, can be accessed as a `LinkedHashMap`.
+    /// YAML hash, can be accessed as a `OrderedHashMap`.
     ///
     /// Insertion order will match the order of insertion into the map.
     Hash(self::Hash),
@@ -38,7 +37,7 @@ pub enum Yaml {
 }
 
 pub type Array = Vec<Yaml>;
-pub type Hash = LinkedHashMap<Yaml, Yaml>;
+pub type Hash = OrderedHashMap<Yaml, Yaml>;
 
 // parse f64 as Core schema
 // See: https://github.com/chyh1990/yaml-rust/issues/51
