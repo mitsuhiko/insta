@@ -8,7 +8,6 @@
 #![allow(unused)]
 
 pub mod emitter;
-pub mod hashmap;
 pub mod parser;
 pub mod scanner;
 pub mod yaml;
