@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::content::{Content, Error};
 
-use crate::content::yaml::vendored::{yaml::Hash as YamlObj, Yaml as YamlValue};
+use crate::content::yaml::vendored::Yaml as YamlValue;
 
 pub fn parse_str(s: &str, filename: &Path) -> Result<Content, Error> {
     let mut blobs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(s)
@@ -98,22 +98,17 @@ fn to_yaml_value(content: &Content) -> YamlValue {
         Content::Some(content) => to_yaml_value(content),
         Content::UnitVariant(_, _, variant) => YamlValue::String(variant.to_string()),
         Content::NewtypeStruct(_, content) => to_yaml_value(content),
-        Content::NewtypeVariant(_, _, variant, content) => {
-            let mut obj = YamlObj::new();
-            obj.insert(
-                YamlValue::String(variant.to_string()),
-                to_yaml_value(content),
-            );
-            YamlValue::Hash(obj)
-        }
+        Content::NewtypeVariant(_, _, variant, content) => YamlValue::Hash(vec![(
+            YamlValue::String(variant.to_string()),
+            to_yaml_value(content),
+        )]),
         Content::Seq(seq) => translate_seq(seq),
         Content::Tuple(seq) => translate_seq(seq),
         Content::TupleStruct(_, seq) => translate_seq(seq),
-        Content::TupleVariant(_, _, variant, seq) => {
-            let mut obj = YamlObj::new();
-            obj.insert(YamlValue::String(variant.to_string()), translate_seq(seq));
-            YamlValue::Hash(obj)
-        }
+        Content::TupleVariant(_, _, variant, seq) => YamlValue::Hash(vec![(
+            YamlValue::String(variant.to_string()),
+            translate_seq(seq),
+        )]),
         Content::Map(map) => {
             let map = map
                 .iter()
@@ -123,13 +118,9 @@ fn to_yaml_value(content: &Content) -> YamlValue {
             YamlValue::Hash(map)
         }
         Content::Struct(_name, fields) => translate_fields(fields),
-        Content::StructVariant(_, _, variant, fields) => {
-            let mut obj = YamlObj::new();
-            obj.insert(
-                YamlValue::String(variant.to_string()),
-                translate_fields(fields),
-            );
-            YamlValue::Hash(obj)
-        }
+        Content::StructVariant(_, _, variant, fields) => YamlValue::Hash(vec![(
+            YamlValue::String(variant.to_string()),
+            translate_fields(fields),
+        )]),
     }
 }
