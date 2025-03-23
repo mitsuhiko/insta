@@ -533,6 +533,7 @@ impl Settings {
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
                 let inner = self.settings.clone();
+                // SAFETY: This is okay because `future` is pinned when `self` is.
                 let future = unsafe { self.map_unchecked_mut(|s| &mut s.future) };
                 CURRENT_SETTINGS.with(|x| {
                     let old = {
