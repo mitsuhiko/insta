@@ -36,6 +36,11 @@ static GLOB_FILTER: Lazy<Vec<GlobMatcher>> = Lazy::new(|| {
 });
 
 pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &str, mut f: F) {
+    // Check if the pattern contains parent directory traversal (../)
+    if pattern.contains("../") || pattern.starts_with("..") {
+        panic!("Parent directory traversal is not supported in glob patterns. Use the three-argument form of glob! with an explicit base directory instead.");
+    }
+
     // If settings.allow_empty_glob() == true and `base` doesn't exist, skip
     // everything. This is necessary as `base` is user-controlled via `glob!/3`
     // and may not exist.
