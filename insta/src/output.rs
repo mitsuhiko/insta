@@ -14,6 +14,7 @@ pub struct SnapshotPrinter<'a> {
     new_snapshot: &'a Snapshot,
     old_snapshot_hint: &'a str,
     new_snapshot_hint: &'a str,
+    force_text: bool,
     show_info: bool,
     show_diff: bool,
     title: Option<&'a str>,
@@ -26,6 +27,7 @@ impl<'a> SnapshotPrinter<'a> {
         workspace_root: &'a Path,
         old_snapshot: Option<&'a Snapshot>,
         new_snapshot: &'a Snapshot,
+        force_text: bool,
     ) -> SnapshotPrinter<'a> {
         SnapshotPrinter {
             workspace_root,
@@ -33,6 +35,7 @@ impl<'a> SnapshotPrinter<'a> {
             new_snapshot,
             old_snapshot_hint: "old snapshot",
             new_snapshot_hint: "new results",
+            force_text,
             show_info: false,
             show_diff: false,
             title: None,
@@ -64,6 +67,19 @@ impl<'a> SnapshotPrinter<'a> {
 
     pub fn set_snapshot_file(&mut self, file: Option<&'a Path>) {
         self.snapshot_file = file;
+    }
+
+    fn get_snapshot_contents_text(&self, snapshot_contents: &SnapshotContents) -> Option<String> {
+        match snapshot_contents {
+            SnapshotContents::Text(contents) => Some(contents.to_string()),
+            SnapshotContents::Binary(contents) => {
+                if self.force_text {
+                    Some(String::from_utf8_lossy(contents).to_string())
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     pub fn print(&self) {
@@ -109,29 +125,23 @@ impl<'a> SnapshotPrinter<'a> {
         }
         println!("Snapshot Contents:");
 
-        match self.new_snapshot.contents() {
-            SnapshotContents::Text(new_contents) => {
-                let new_contents = new_contents.to_string();
-
-                println!("──────┬{:─^1$}", "", width.saturating_sub(7));
-                for (idx, line) in new_contents.lines().enumerate() {
-                    println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
-                }
-                println!("──────┴{:─^1$}", "", width.saturating_sub(7));
+        let new_contents = self.get_snapshot_contents_text(self.new_snapshot.contents());
+        if let Some(new_contents) = new_contents {
+            println!("──────┬{:─^1$}", "", width.saturating_sub(7));
+            for (idx, line) in new_contents.lines().enumerate() {
+                println!("{:>5} │ {}", style(idx + 1).cyan().dim().bold(), line);
             }
-            SnapshotContents::Binary(_) => {
-                println!(
-                    "{}",
-                    encode_file_link_escape(
-                        &self
-                            .new_snapshot
-                            .build_binary_path(
-                                self.snapshot_file.unwrap().with_extension("snap.new")
-                            )
-                            .unwrap()
-                    )
-                );
-            }
+            println!("──────┴{:─^1$}", "", width.saturating_sub(7));
+        } else {
+            println!(
+                "{}",
+                encode_file_link_escape(
+                    &self
+                        .new_snapshot
+                        .build_binary_path(self.snapshot_file.unwrap().with_extension("snap.new"))
+                        .unwrap()
+                )
+            );
         }
     }
 
@@ -184,16 +194,23 @@ impl<'a> SnapshotPrinter<'a> {
             self.old_snapshot.as_ref().map(|o| o.contents()),
             self.new_snapshot.contents(),
         ) {
-            (Some(SnapshotContents::Binary(_)) | None, SnapshotContents::Text(new)) => {
-                Some((None, Some(new.to_string())))
+            (None, new) => {
+                let new_text = self.get_snapshot_contents_text(new);
+                if new_text.is_some() {
+                    Some((None, new_text))
+                } else {
+                    None
+                }
             }
-            (Some(SnapshotContents::Text(old)), SnapshotContents::Binary { .. }) => {
-                Some((Some(old.to_string()), None))
+            (Some(old), new) => {
+                let old_text = self.get_snapshot_contents_text(old);
+                let new_text = self.get_snapshot_contents_text(new);
+                if old_text.is_some() || new_text.is_some() {
+                    Some((old_text, new_text))
+                } else {
+                    None
+                }
             }
-            (Some(SnapshotContents::Text(old)), SnapshotContents::Text(new)) => {
-                Some((Some(old.to_string()), Some(new.to_string())))
-            }
-            _ => None,
         } {
             let old_text = old.as_deref().unwrap_or("");
             let new_text = new.as_deref().unwrap_or("");
@@ -204,14 +221,18 @@ impl<'a> SnapshotPrinter<'a> {
                 .timeout(Duration::from_millis(500))
                 .diff_lines(old_text, new_text);
 
-            if old.is_some() {
+            if old.is_some()
+                && !self
+                    .old_snapshot
+                    .map_or(false, |s| s.contents().is_binary())
+            {
                 println!(
                     "{}",
                     style(format_args!("-{}", self.old_snapshot_hint)).red()
                 );
             }
 
-            if new.is_some() {
+            if new.is_some() && !self.new_snapshot.contents().is_binary() {
                 println!(
                     "{}",
                     style(format_args!("+{}", self.new_snapshot_hint)).green()
