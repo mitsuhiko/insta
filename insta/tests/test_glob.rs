@@ -33,3 +33,11 @@ fn test_empty_glob_fails() {
         // nothing
     });
 }
+
+#[test]
+#[should_panic(expected = "Parent directory traversal is not supported in glob patterns")]
+fn test_parent_dir_glob_fails_with_helpful_message() {
+    insta::glob!("../**/*.rs", |_| {
+        // This should fail with a helpful error message about parent directory traversal
+    });
+}

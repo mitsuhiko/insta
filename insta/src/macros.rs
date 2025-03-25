@@ -531,6 +531,10 @@ macro_rules! with_settings {
 /// assertion within the `glob!` block are reported.  It can be disabled by setting
 /// `INSTA_GLOB_FAIL_FAST` environment variable to `1`.
 ///
+/// Note: Parent directory traversal patterns (e.g., "../**/*.rs") are not supported in the
+/// two-argument form of this macro currently. If you need to access parent
+/// directories, use the three-argument version of this macro instead.
+///
 /// A three-argument version of this macro allows specifying a base directory
 /// for the glob to start in. This allows globbing in arbitrary directories,
 /// including parent directories:
