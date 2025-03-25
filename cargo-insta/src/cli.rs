@@ -289,11 +289,6 @@ fn query_snapshot(
             style("a").green().bold(),
             style("keep the new snapshot").dim()
         );
-        println!(
-            "  {} accept all {}",
-            style("A").green().bold(),
-            style("accept this and all remaining snapshots").dim()
-        );
 
         if old.is_some() {
             println!(
@@ -308,21 +303,11 @@ fn query_snapshot(
                 style("reject the new snapshot").dim()
             );
         }
-        println!(
-            "  {} reject all {}",
-            style("R").red().bold(),
-            style("reject this and all remaining snapshots").dim()
-        );
 
         println!(
             "  {} skip       {}",
             style("s").yellow().bold(),
             style("keep both for now").dim()
-        );
-        println!(
-            "  {} skip all   {}",
-            style("S").yellow().bold(),
-            style("skip this and all remaining snapshots").dim()
         );
         println!(
             "  {} {} info  {}",
@@ -354,6 +339,13 @@ fn query_snapshot(
                 .dim()
             );
         }
+        
+        // Add a subtle hint about uppercase shortcuts at the bottom
+        println!();
+        println!(
+            "  {}",
+            style("Tip: Use uppercase A/R/S to apply to all remaining snapshots").dim()
+        );
 
         loop {
             match term.read_key()? {
