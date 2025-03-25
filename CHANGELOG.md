@@ -11,6 +11,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Remove `linked-hash-map` and `pin-project` dependencies.  #742, #741, #738
 - Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
   `A` to accept all, `R` to reject all, and `S` to skip all remaining snapshots.
+  #745
 
 ## 1.42.2
 
