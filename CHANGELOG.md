@@ -9,6 +9,9 @@ All notable changes to insta and cargo-insta are documented here.
   so they don't contain references to `CARGO_MANIFEST_DIR`. #726 (Pascal Bach)
 - Qualify all references in macros to avoid name clashes. #729 (Austin Schey)
 - Remove `linked-hash-map` and `pin-project` dependencies.  #742, #741, #738
+- Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
+  `A` to accept all, `R` to reject all, and `S` to skip all remaining snapshots.
+  #745
 
 ## 1.42.2
 
