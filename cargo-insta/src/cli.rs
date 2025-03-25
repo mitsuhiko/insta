@@ -339,7 +339,7 @@ fn query_snapshot(
                 .dim()
             );
         }
-        
+
         // Add a subtle hint about uppercase shortcuts at the bottom
         println!();
         println!(
@@ -582,10 +582,10 @@ fn process_snapshots(
             }
 
             num += 1;
-            
+
             let op = match (op, apply_to_all) {
-                (Some(op), _) => op,  // Use provided op if any (from CLI)
-                (_, Some(op)) => op,  // Use apply_to_all if set from previous choice
+                (Some(op), _) => op, // Use provided op if any (from CLI)
+                (_, Some(op)) => op, // Use apply_to_all if set from previous choice
                 _ => {
                     // Otherwise prompt for user choice
                     let choice = query_snapshot(
@@ -601,26 +601,26 @@ fn process_snapshots(
                         &mut show_info,
                         &mut show_diff,
                     )?;
-                    
+
                     // For "All" operations, set the apply_to_all flag and convert to single operation
                     match choice {
                         Operation::AcceptAll => {
                             apply_to_all = Some(Operation::Accept);
                             Operation::Accept
-                        },
+                        }
                         Operation::RejectAll => {
                             apply_to_all = Some(Operation::Reject);
                             Operation::Reject
-                        },
+                        }
                         Operation::SkipAll => {
                             apply_to_all = Some(Operation::Skip);
                             Operation::Skip
-                        },
+                        }
                         op => op,
                     }
                 }
             };
-            
+
             match op {
                 Operation::Accept | Operation::AcceptAll => {
                     snapshot_ref.op = Operation::Accept;
