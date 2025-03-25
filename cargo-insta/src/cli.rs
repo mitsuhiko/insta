@@ -583,7 +583,6 @@ fn process_snapshots(
 
             num += 1;
             
-            // Determine which operation to apply
             let op = match (op, apply_to_all) {
                 (Some(op), _) => op,  // Use provided op if any (from CLI)
                 (_, Some(op)) => op,  // Use apply_to_all if set from previous choice
