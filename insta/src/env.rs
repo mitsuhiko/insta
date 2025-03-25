@@ -512,7 +512,7 @@ pub fn get_cargo_workspace(workspace: Workspace) -> Arc<PathBuf> {
 fn test_get_cargo_workspace_manifest_dir() {
     let workspace = get_cargo_workspace(Workspace::DetectWithCargo(env!("CARGO_MANIFEST_DIR")));
     // The absolute path of the workspace should be a valid directory
-    // In worktrees or other setups, the path might not end with "insta" 
+    // In worktrees or other setups, the path might not end with "insta"
     // but should still be a parent of the manifest directory
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     assert!(manifest_dir.starts_with(&*workspace));
