@@ -289,6 +289,11 @@ fn query_snapshot(
             style("a").green().bold(),
             style("keep the new snapshot").dim()
         );
+        println!(
+            "  {} accept all {}",
+            style("A").green().bold(),
+            style("accept this and all remaining snapshots").dim()
+        );
 
         if old.is_some() {
             println!(
@@ -303,11 +308,21 @@ fn query_snapshot(
                 style("reject the new snapshot").dim()
             );
         }
+        println!(
+            "  {} reject all {}",
+            style("R").red().bold(),
+            style("reject this and all remaining snapshots").dim()
+        );
 
         println!(
             "  {} skip       {}",
             style("s").yellow().bold(),
             style("keep both for now").dim()
+        );
+        println!(
+            "  {} skip all   {}",
+            style("S").yellow().bold(),
+            style("skip this and all remaining snapshots").dim()
         );
         println!(
             "  {} {} info  {}",
@@ -343,8 +358,11 @@ fn query_snapshot(
         loop {
             match term.read_key()? {
                 Key::Char('a') | Key::Enter => return Ok(Operation::Accept),
+                Key::Char('A') => return Ok(Operation::AcceptAll),
                 Key::Char('r') | Key::Escape => return Ok(Operation::Reject),
+                Key::Char('R') => return Ok(Operation::RejectAll),
                 Key::Char('s') | Key::Char(' ') => return Ok(Operation::Skip),
+                Key::Char('S') => return Ok(Operation::SkipAll),
                 Key::Char('i') => {
                     *show_info = !*show_info;
                     break;
@@ -552,6 +570,7 @@ fn process_snapshots(
     let mut num = 0;
     let mut show_info = true;
     let mut show_diff = true;
+    let mut apply_to_all: Option<Operation> = None;
 
     for (snapshot_container, package) in snapshot_containers.iter_mut() {
         let target_file = snapshot_container.target_file().to_path_buf();
@@ -571,32 +590,56 @@ fn process_snapshots(
             }
 
             num += 1;
-            let op = match op {
-                Some(op) => op,
-                None => query_snapshot(
-                    &loc.workspace_root,
-                    &term,
-                    &snapshot_ref.new,
-                    snapshot_ref.old.as_ref(),
-                    package,
-                    snapshot_ref.line,
-                    num,
-                    snapshot_count,
-                    snapshot_file.as_deref(),
-                    &mut show_info,
-                    &mut show_diff,
-                )?,
+            
+            // Determine which operation to apply
+            let op = match (op, apply_to_all) {
+                (Some(op), _) => op,  // Use provided op if any (from CLI)
+                (_, Some(op)) => op,  // Use apply_to_all if set from previous choice
+                _ => {
+                    // Otherwise prompt for user choice
+                    let choice = query_snapshot(
+                        &loc.workspace_root,
+                        &term,
+                        &snapshot_ref.new,
+                        snapshot_ref.old.as_ref(),
+                        package,
+                        snapshot_ref.line,
+                        num,
+                        snapshot_count,
+                        snapshot_file.as_deref(),
+                        &mut show_info,
+                        &mut show_diff,
+                    )?;
+                    
+                    // For "All" operations, set the apply_to_all flag and convert to single operation
+                    match choice {
+                        Operation::AcceptAll => {
+                            apply_to_all = Some(Operation::Accept);
+                            Operation::Accept
+                        },
+                        Operation::RejectAll => {
+                            apply_to_all = Some(Operation::Reject);
+                            Operation::Reject
+                        },
+                        Operation::SkipAll => {
+                            apply_to_all = Some(Operation::Skip);
+                            Operation::Skip
+                        },
+                        op => op,
+                    }
+                }
             };
+            
             match op {
-                Operation::Accept => {
+                Operation::Accept | Operation::AcceptAll => {
                     snapshot_ref.op = Operation::Accept;
                     accepted.push(snapshot_ref.summary());
                 }
-                Operation::Reject => {
+                Operation::Reject | Operation::RejectAll => {
                     snapshot_ref.op = Operation::Reject;
                     rejected.push(snapshot_ref.summary());
                 }
-                Operation::Skip => {
+                Operation::Skip | Operation::SkipAll => {
                     skipped.push(snapshot_ref.summary());
                 }
             }
@@ -604,7 +647,7 @@ fn process_snapshots(
         snapshot_container.commit()?;
     }
 
-    if op.is_none() {
+    if op.is_none() && apply_to_all.is_none() {
         term.clear_screen()?;
     }
 
