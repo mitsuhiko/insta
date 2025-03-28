@@ -784,15 +784,11 @@ fn build_binary_path(extension: &str, path: impl Into<PathBuf>) -> PathBuf {
 
 /// The number of `#` we need to surround a raw string literal with.
 fn required_hashes(text: &str) -> usize {
-    let splits = text.split('"');
-    if splits.clone().count() <= 1 {
-        return 0;
-    }
-
-    splits
+    text.split('"')
+        .skip(1) // Skip the first part which is before the first quote
         .map(|s| s.chars().take_while(|&c| c == '#').count() + 1)
         .max()
-        .unwrap()
+        .unwrap_or_default()
 }
 
 #[test]
