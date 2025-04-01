@@ -12,6 +12,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
   `A` to accept all, `R` to reject all, and `S` to skip all remaining snapshots.
   #745
+- `cargo insta review` fails with a helpful error message when run in a non-TTY environment.
 
 ## 1.42.2
 

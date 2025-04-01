@@ -264,6 +264,14 @@ fn query_snapshot(
     show_info: &mut bool,
     show_diff: &mut bool,
 ) -> Result<Operation, Box<dyn Error>> {
+    // Check if we're running in a TTY environment
+    if !term.is_term() {
+        return Err(err_msg(
+            "Interactive review requires a terminal. Use `cargo insta accept` or `cargo insta reject` \
+            for non-interactive snapshot management, or run this command in a terminal environment."
+        ));
+    }
+
     loop {
         term.clear_screen()?;
 
