@@ -253,6 +253,14 @@ macro_rules! _assert_serialized_snapshot {
         };
         $crate::_assert_snapshot_base!(transform=transform, $value $($arg)*);
     }};
+    // If there's a name, redaction expressions, and debug_expr, capture and pass all to `_assert_snapshot_base`
+    (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, $debug_expr:expr $(,)?) => {{
+        let transform = |value| {
+            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format);
+            value
+        };
+        $crate::_assert_snapshot_base!(transform=transform, $name, $value, $debug_expr);
+    }};
     // If there's a name and redaction expressions, capture and pass to `_assert_snapshot_base`
     (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?} $(,)?) => {{
         let transform = |value| {
