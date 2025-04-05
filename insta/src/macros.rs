@@ -248,24 +248,21 @@ macro_rules! _assert_serialized_snapshot {
     // and pass to `_assert_snapshot_base`
     (format=$format:ident, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?} $($arg:tt)*) => {{
         let transform = |value| {
-            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format);
-            value
+            $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format)
         };
         $crate::_assert_snapshot_base!(transform=transform, $value $($arg)*);
     }};
     // If there's a name, redaction expressions, and debug_expr, capture and pass all to `_assert_snapshot_base`
     (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?}, $debug_expr:expr $(,)?) => {{
         let transform = |value| {
-            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format);
-            value
+            $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format)
         };
         $crate::_assert_snapshot_base!(transform=transform, $name, $value, $debug_expr);
     }};
     // If there's a name and redaction expressions, capture and pass to `_assert_snapshot_base`
     (format=$format:ident, $name:expr, $value:expr, $(match ..)? {$($k:expr => $v:expr),* $(,)?} $(,)?) => {{
         let transform = |value| {
-            let (_, value) = $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format);
-            value
+            $crate::_prepare_snapshot_for_redaction!(value, {$($k => $v),*}, $format)
         };
         $crate::_assert_snapshot_base!(transform=transform, $name, $value);
     }};
@@ -276,7 +273,7 @@ macro_rules! _assert_serialized_snapshot {
             &value,
             $crate::_macro_support::SerializationFormat::$format,
         )};
-        $crate::_assert_snapshot_base!(transform = transform, $($arg)*);
+        $crate::_assert_snapshot_base!(transform=transform, $($arg)*);
     }};
 }
 
@@ -292,12 +289,11 @@ macro_rules! _prepare_snapshot_for_redaction {
                     $crate::_macro_support::Redaction::from($v)
                 ),)*
             ];
-            let value = $crate::_macro_support::serialize_value_redacted(
+            $crate::_macro_support::serialize_value_redacted(
                 &$value,
                 &vec,
                 $crate::_macro_support::SerializationFormat::$format,
-            );
-            (vec, value)
+            )
         }
     }
 }
