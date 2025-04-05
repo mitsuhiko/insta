@@ -369,7 +369,7 @@ Hello, world!
     assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
     --- Original: src/snapshots/test_force_update_current__force_update.snap
     +++ Updated: src/snapshots/test_force_update_current__force_update.snap
-    @@ -1,8 +1,7 @@
+    @@ -1,8 +1,6 @@
     -
      ---
      source: src/lib.rs
