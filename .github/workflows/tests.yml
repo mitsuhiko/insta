@@ -6,6 +6,7 @@ env:
   CARGO_TERM_COLOR: always
   CLICOLOR_FORCE: 1
   RUSTDOCFLAGS: "-Dwarnings"
+  RUSTFLAGS: "-D warnings"
 
 jobs:
   test-latest:
@@ -82,7 +83,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
@@ -97,7 +98,7 @@ jobs:
     continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
@@ -110,7 +111,7 @@ jobs:
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable

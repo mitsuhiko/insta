@@ -1,5 +1,9 @@
-/// Integration tests which allow creating a full repo, running `cargo-insta`
+/// # Functional tests
+///
+/// Functional tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
+///
+/// ## Capturing output
 ///
 /// By default, the output of the inner test is forwarded to the outer test with
 /// a colored prefix. If we want to assert the inner test contains some output,
@@ -18,38 +22,43 @@
 /// );
 /// ```
 ///
-/// Often we want to see output from the test commands we run here; for example
-/// a `dbg` statement we add while debugging. Cargo by default hides the output
-/// of passing tests.
+/// ## Showing output of passing tests
+///
+/// Cargo by default shows the output of failing tests but hides the output of
+/// passing tests. Often we want to see output from the test commands we run
+/// here; for example a `dbg` statement we add while debugging.
 /// - Like any test, to forward the output of a passing outer test (i.e. one of
 ///   the `#[test]`s in this file) to the terminal, pass `--nocapture` to the
 ///   test runner, like `cargo insta test -- --nocapture`.
 /// - To forward the output of a passing inner test (i.e. the test commands we
-///   create and run within an outer test) to the output of an outer test, pass
+///   create and run within the code here) to the output of an outer test, pass
 ///   `--nocapture` in the command we create; for example `.args(["test",
 ///   "--accept", "--", "--nocapture"])`.
-///   - We also need to pass `--nocapture` to the outer test to forward that to
-///     the terminal, per the previous bullet.
+///   - Consistent with the previous bullet, If the outer test is passing we
+///     also need to pass `--nocapture` to the outer test in order to forward
+///     that to the terminal
+///
+/// ## Package names
 ///
 /// Note that the packages must have different names, or we'll see interference
-/// between the tests.
+/// between the tests[^1].
 ///
-/// > That seems to be because they all share the same `target` directory, which
-/// > cargo will confuse for each other if they share the same name. I haven't
-/// > worked out why — this is the case even if the files are the same between
-/// > two tests but with different commands — and those files exist in different
-/// > temporary workspace dirs. (We could try to enforce different names, or
-/// > give up using a consistent target directory for a cache, but it would slow
-/// > down repeatedly running the tests locally. To demonstrate the effect, name
-/// > crates the same... This also causes issues when running the same tests
-/// > concurrently.
+/// [1]: That seems to be because they all share the same `target` directory, which
+///      cargo will confuse for each other if they share the same name. I haven't
+///      worked out why — this is the case even if the files are the same between
+///      two tests but with different commands — and those files exist in different
+///      temporary workspace dirs. (We could try to enforce different names, or
+///      give up using a consistent target directory for a cache, but it would slow
+///      down repeatedly running the tests locally. To demonstrate the effect, name
+///      crates the same... This also causes issues when running the same tests
+///      concurrently.
+///
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 use std::thread;
 
 use console::style;
@@ -60,6 +69,7 @@ use similar::udiff::unified_diff;
 use tempfile::TempDir;
 
 mod binary;
+mod delete_pending;
 mod inline;
 mod workspace;
 
@@ -365,7 +375,6 @@ Hello, world!
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
-    +snapshot_kind: text
      ---
      Hello, world!
     -
@@ -382,7 +391,6 @@ Hello, world!
      source: src/lib.rs
     -expression: 
     +expression: "\"Hello, world!\""
-    +snapshot_kind: text
      ---
      Hello, world!
     -
@@ -763,6 +771,63 @@ Hidden snapshot
         "{}",
         stderr
     );
+}
+
+#[test]
+fn test_snapshot_kind_behavior() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_snapshot_kind")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshots() {
+    insta::assert_snapshot!("new snapshot");
+    insta::assert_snapshot!("existing snapshot");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_snapshot_kind__existing.snap",
+            r#"---
+source: src/lib.rs
+expression: "\"existing snapshot\""
+snapshot_kind: text
+---
+existing snapshot
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run the test with --accept to create the new snapshot
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // Verify the new snapshot was created without snapshot_kind
+    let new_snapshot = std::fs::read_to_string(
+        test_project
+            .workspace_dir
+            .join("src/snapshots/test_snapshot_kind__snapshots.snap"),
+    )
+    .unwrap();
+
+    assert!(!new_snapshot.contains("snapshot_kind:"));
+
+    // Verify both snapshots work with --require-full-match
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--require-full-match"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
 }
 
 #[test]

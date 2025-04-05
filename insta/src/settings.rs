@@ -1,3 +1,6 @@
+use once_cell::sync::Lazy;
+#[cfg(feature = "serde")]
+use serde::{de::value::Error as ValueError, Serialize};
 use std::cell::RefCell;
 use std::future::Future;
 use std::mem;
@@ -5,9 +8,6 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-
-#[cfg(feature = "serde")]
-use serde::{de::value::Error as ValueError, Serialize};
 
 use crate::content::Content;
 #[cfg(feature = "serde")]
@@ -17,26 +17,25 @@ use crate::filters::Filters;
 #[cfg(feature = "redactions")]
 use crate::redaction::{dynamic_redaction, sorted_redaction, ContentPath, Redaction, Selector};
 
-lazy_static::lazy_static! {
-    static ref DEFAULT_SETTINGS: Arc<ActualSettings> = {
-        Arc::new(ActualSettings {
-            sort_maps: false,
-            snapshot_path: "snapshots".into(),
-            snapshot_suffix: "".into(),
-            input_file: None,
-            description: None,
-            info: None,
-            omit_expression: false,
-            prepend_module_to_snapshot: true,
-            #[cfg(feature = "redactions")]
-            redactions: Redactions::default(),
-            #[cfg(feature = "filters")]
-            filters: Filters::default(),
-            #[cfg(feature = "glob")]
-            allow_empty_glob: false,
-        })
-    };
-}
+static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
+    Arc::new(ActualSettings {
+        sort_maps: false,
+        snapshot_path: "snapshots".into(),
+        snapshot_suffix: "".into(),
+        input_file: None,
+        description: None,
+        info: None,
+        omit_expression: false,
+        prepend_module_to_snapshot: true,
+        #[cfg(feature = "redactions")]
+        redactions: Redactions::default(),
+        #[cfg(feature = "filters")]
+        filters: Filters::default(),
+        #[cfg(feature = "glob")]
+        allow_empty_glob: false,
+    })
+});
+
 thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings::new()));
 
 /// Represents stored redactions.
@@ -524,14 +523,18 @@ impl Settings {
     /// # }
     /// ```
     pub fn bind_async<F: Future<Output = T>, T>(&self, future: F) -> impl Future<Output = T> {
-        struct BindingFuture<F>(Arc<ActualSettings>, F);
+        struct BindingFuture<F> {
+            settings: Arc<ActualSettings>,
+            future: F,
+        }
 
         impl<F: Future> Future for BindingFuture<F> {
             type Output = F::Output;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-                let inner = self.0.clone();
-                let future = unsafe { self.map_unchecked_mut(|s| &mut s.1) };
+                let inner = self.settings.clone();
+                // SAFETY: This is okay because `future` is pinned when `self` is.
+                let future = unsafe { self.map_unchecked_mut(|s| &mut s.future) };
                 CURRENT_SETTINGS.with(|x| {
                     let old = {
                         let mut current = x.borrow_mut();
@@ -547,7 +550,10 @@ impl Settings {
             }
         }
 
-        BindingFuture(self.inner.clone(), future)
+        BindingFuture {
+            settings: self.inner.clone(),
+            future,
+        }
     }
 
     /// Binds the settings to the current thread and resets when the drop
@@ -569,7 +575,7 @@ impl Settings {
         CURRENT_SETTINGS.with(|x| {
             let mut x = x.borrow_mut();
             let old = mem::replace(&mut x.inner, self.inner.clone());
-            SettingsBindDropGuard(Some(old))
+            SettingsBindDropGuard(Some(old), std::marker::PhantomData)
         })
     }
 
@@ -580,8 +586,29 @@ impl Settings {
 }
 
 /// Returned from [`Settings::bind_to_scope`]
+///
+/// This type is not shareable between threads:
+///
+/// ```compile_fail E0277
+/// let mut settings = insta::Settings::clone_current();
+/// settings.set_snapshot_suffix("test drop guard");
+/// let guard = settings.bind_to_scope();
+///
+/// std::thread::spawn(move || { let guard = guard; }); // doesn't compile
+/// ```
+///
+/// This is to ensure tests under async runtimes like `tokio` don't show unexpected results
 #[must_use = "The guard is immediately dropped so binding has no effect. Use `let _guard = ...` to bind it."]
-pub struct SettingsBindDropGuard(Option<Arc<ActualSettings>>);
+pub struct SettingsBindDropGuard(
+    Option<Arc<ActualSettings>>,
+    /// A ZST that is not [`Send`] but is [`Sync`]
+    ///
+    /// This is necessary due to the lack of stable [negative impls](https://github.com/rust-lang/rust/issues/68318).
+    ///
+    /// Required as [`SettingsBindDropGuard`] modifies a thread local variable which would end up
+    /// with unexpected results if sent to a different thread.
+    std::marker::PhantomData<std::sync::MutexGuard<'static, ()>>,
+);
 
 impl Drop for SettingsBindDropGuard {
     fn drop(&mut self) {

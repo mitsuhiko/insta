@@ -2,21 +2,76 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Support specifying `cargo-nextest` bin with `INSTA_CARGO_NEXTEST_BIN`.  #721 (Louis Fruleux)
+- Allow setting `INSTA_WORKSPACE_ROOT` at compile time. This is useful for reproducible binaries
+  so they don't contain references to `CARGO_MANIFEST_DIR`. #726 (Pascal Bach)
+- Qualify all references in macros to avoid name clashes. #729 (Austin Schey)
+- Remove `linked-hash-map` and `pin-project` dependencies.  #742, #741, #738
+- Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
+  `A` to accept all, `R` to reject all, and `S` to skip all remaining snapshots.
+  #745
+- `cargo insta review` fails with a helpful error message when run in a non-TTY environment.
+
+## 1.42.2
+
+- Support other indention characters than spaces in inline snapshots.  #679
+- Fix an issue where multiple targets with the same root would cause too many pending snapshots to be reported.  #730
+- Hide `unseen` option in CLI, as it's pending deprecation.  #732
+- Stop `\t` and `\x1b` (ANSI color escape) from causing snapshots to be escaped.  #715
+- Improved handling of inline snapshots within `allow_duplicates! { .. }`.  #712
+
+## 1.42.1
+
+- Improved handling of control characters in inline snapshots.  #713
+- Add pending deprecation warning for `--accept-unseen`. We've left an issue
+  open at <https://github.com/mitsuhiko/insta/issues/659> eliciting feedback on
+  whether anyone uses this for a few months.  A warning will now be printed when
+  `--accept-unseen` is used, and we'll eventually remove the feature unless we
+  get some feedback that it's useful.  #668
+
+## 1.42.0
+
+- Text snapshots no longer contain `snapshot_type: text` in their metadata.  For
+  context, we originally added this in the prior release (1.41.0) to support
+  binary snapshots, but some folks disliked the diff noise on any snapshot
+  changes, and the maintainers' weighted votes favored reverting.  I apologize
+  that this will cause some additional churn for those who used `cargo insta test
+  --force-update-snapshots` to update their snapshots to the 1.41 format;
+  running this again with 1.42 will remove those metadata entries.  To confirm:
+  this doesn't affect whether snapshot tests pass or fail — the worst impact is
+  some additional diffs in metadata.  #690
+- Pending snapshots are no longer removed throughout the workspace by
+  `cargo-insta` before running tests.  Instead, running a test will overwrite or
+  remove its own pending snapshot.  To remove all pending snapshots, use `cargo
+  insta reject` or run tests with `--unreferenced=delete`.  #651
+- `insta::internals::SettingsBindDropGuard` (returned from
+  `Settings::bind_to_scope`) no longer implements `Send`. This was incorrect and
+  any tests relying on this behavior where not working properly. Fixes #694 in
+  #695 by @jalil-salame
+
+## 1.41.1
+
+- Re-release of 1.41.1 to generate release artifacts correctly.
+
 ## 1.41.0
 
 - Experimental support for binary snapshots.  #610 (Florian Plattner)
 
 - `--force-update-snapshots` now causes `cargo-insta` to write every snapshot, regardless of whether
-  it evaluates snapshots fully match, and now implies `--accept`.  This
-  allows for `--force-update-snapshots` to update inline snapshots when
-  delimiters or indentation can be updated.
+  snapshots fully match, and now implies `--accept`.  This
+  allows for `--force-update-snapshots` to update inline snapshots'
+  delimiters and indentation.
 
-  For the existing behavior of limiting writes to when `insta` evaluates writes
-  are required, use `--require-full-match`.  The main difference between
-  `--require-full-match` and the existing behavior of `--force-update-snapshots`
-  is that `cargo-insta` will return a non-zero exit code if any snapshots don't
-  match fully. `--require-full-match` doesn't track inline snapshots' delimiters or
-  indentation.  #644
+  For the previous behavior of `--force-update-snapshots`, which limited writes to
+  snapshots which didn't fully match, use `--require-full-match`.
+  The main difference between `--require-full-match` and the existing behavior of `--force-update-snapshots`
+  is a non-zero exit code on any snapshots which don't fully match.
+
+  Like the previous behavior of `--force-update-snapshots`, `--require-full-match`
+  doesn't track inline snapshots' delimiters or
+  indentation, so can't update if those don't match.  #644
 
 - Inline snapshots only use `#` characters as delimiters when required.  #603
 
@@ -26,6 +81,8 @@ All notable changes to insta and cargo-insta are documented here.
 - Insta runs correctly on packages which reference rust files in a parent path.  #626
 
 - Warnings are printed when any snapshot uses a legacy format.  #599
+
+- `cargo insta --version` now prints a version.  #665
 
 - `insta` now internally uses `INSTA_UPDATE=force` rather than
   `INSTA_FORCE_UPDATE=1`.  (This doesn't affect users of `cargo-insta`, which
@@ -548,7 +605,9 @@ situations.
 To upgrade to the new insta macros and snapshot formats you can use
 [`fastmod`](https://crates.io/crates/fastmod) and `cargo-insta` together:
 
-    $ cargo install fastmod
-    $ cargo install cargo-insta
-    $ fastmod '\bassert_([a-z]+_snapshot)_matches!' 'assert_${`}!' -e rs --accept-all
-    $ cargo insta test --all --force-update-snapshots --accept
+```sh
+cargo install fastmod
+cargo install cargo-insta
+fastmod '\bassert_([a-z]+_snapshot)_matches!' 'assert_${`}!' -e rs --accept-all
+cargo insta test --all --force-update-snapshots --accept
+```

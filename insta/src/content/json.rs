@@ -336,7 +336,7 @@ fn test_to_string() {
         (Content::from("cmdline"), Content::Seq(vec![])),
         (Content::from("extra"), Content::Map(vec![])),
     ]));
-    crate::assert_snapshot!(&json, @r###"{"environments":["development","production"],"cmdline":[],"extra":{}}"###);
+    crate::assert_snapshot!(&json, @r#"{"environments":["development","production"],"cmdline":[],"extra":{}}"#);
 }
 
 #[test]
@@ -352,7 +352,7 @@ fn test_to_string_pretty() {
         (Content::from("cmdline"), Content::Seq(vec![])),
         (Content::from("extra"), Content::Map(vec![])),
     ]));
-    crate::assert_snapshot!(&json, @r###"
+    crate::assert_snapshot!(&json, @r#"
     {
       "environments": [
         "development",
@@ -361,7 +361,7 @@ fn test_to_string_pretty() {
       "cmdline": [],
       "extra": {}
     }
-    "###);
+    "#);
 }
 
 #[test]
@@ -371,12 +371,12 @@ fn test_to_string_num_keys() {
         (Content::from(-23i32), Content::from(false)),
     ]);
     let json = to_string_pretty(&content);
-    crate::assert_snapshot!(&json, @r###"
+    crate::assert_snapshot!(&json, @r#"
     {
       "42": true,
       "-23": false
     }
-    "###);
+    "#);
 }
 
 #[test]
@@ -466,7 +466,7 @@ fn test_to_string_pretty_complex() {
     ]);
     let json = to_string_pretty(&content);
 
-    crate::assert_snapshot!(&json, @r###"
+    crate::assert_snapshot!(&json, @r##"
     {
       "is_alive": true,
       "newtype_variant": {
@@ -525,5 +525,5 @@ fn test_to_string_pretty_complex() {
       "unit": null,
       "crazy_string": "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
     }
-    "###);
+    "##);
 }

@@ -88,7 +88,7 @@ fn test_root_crate_workspace_accept() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,8 +1,13 @@
@@ -105,7 +105,7 @@ fn test_root_crate_workspace_accept() {
          src/main.rs
     +    src/snapshots
     +      src/snapshots/root_crate_workspace_accept__root.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
@@ -145,7 +145,7 @@ fn test_root_crate_no_all() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,4 +1,5 @@
@@ -160,7 +160,7 @@ fn test_root_crate_no_all() {
          src/main.rs
     +    src/snapshots
     +      src/snapshots/root_crate_no_all__root.snap
-    "###     );
+    "     );
 }
 
 fn workspace_with_virtual_manifest(name: String) -> TestFiles {
@@ -247,7 +247,7 @@ fn test_virtual_manifest_all() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,10 +1,15 @@
@@ -266,7 +266,7 @@ fn test_virtual_manifest_all() {
            member-2/src/lib.rs
     +      member-2/src/snapshots
     +        member-2/src/snapshots/virtual_manifest_all_member_2__member_2.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a virtual manifest, running `cargo insta test
@@ -284,7 +284,7 @@ fn test_virtual_manifest_default() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,10 +1,15 @@
@@ -303,7 +303,7 @@ fn test_virtual_manifest_default() {
            member-2/src/lib.rs
     +      member-2/src/snapshots
     +        member-2/src/snapshots/virtual_manifest_default_member_2__member_2.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a virtual manifest, running `cargo insta test
@@ -321,7 +321,7 @@ fn test_virtual_manifest_single_crate() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,9 +1,12 @@
@@ -337,7 +337,55 @@ fn test_virtual_manifest_single_crate() {
        member-2
          member-2/Cargo.toml
          member-2/src
-    "###     );
+    "     );
+}
+
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+// This function locates the compiled test binary in the target directory.
+// It's necessary because the exact filename of the test binary includes a hash
+// that we can't predict, so we need to search for it.
+#[allow(dead_code)]
+fn find_test_binary(dir: &Path) -> PathBuf {
+    dir.join("target/debug/deps")
+        .read_dir()
+        .unwrap()
+        .filter_map(Result::ok)
+        .find(|entry| {
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_str().unwrap_or("");
+            // We're looking for a file that:
+            file_name_str.starts_with("insta_workspace_root_test-") // Matches our test name
+                    && !file_name_str.contains('.') // Doesn't have an extension (it's the executable, not a metadata file)
+                    && entry.metadata().map(|m| m.is_file()).unwrap_or(false) // Is a file, not a directory
+        })
+        .map(|entry| entry.path())
+        .expect("Failed to find test binary")
+}
+
+// This function runs the compiled binary with the given environment and working directory
+#[allow(dead_code)]
+fn run_test_binary(
+    binary_path: &Path,
+    current_dir: &Path,
+    env: Option<(&str, &str)>,
+) -> std::process::Output {
+    let mut cmd = Command::new(binary_path);
+    TestProject::clean_env(&mut cmd);
+    cmd.current_dir(current_dir);
+    if let Some((key, value)) = env {
+        cmd.env(key, value);
+    }
+    cmd.output().unwrap()
+}
+
+// This function extracts strings from a binary
+// Similar to the `strings` program
+#[allow(dead_code)]
+fn extract_strings(binary_path: &Path) -> Vec<(String, u64)> {
+    let config = rust_strings::FileConfig::new(binary_path).with_min_length(5);
+    rust_strings::strings(&config).expect("Unable to extract strings from binary")
 }
 
 // Can't get the test binary discovery to work on Windows, don't have a windows
@@ -348,45 +396,11 @@ fn test_virtual_manifest_single_crate() {
 fn test_insta_workspace_root() {
     use std::{
         fs::{self, remove_dir_all},
-        path::{Path, PathBuf},
+        path::PathBuf,
         process::Command,
     };
 
     use crate::TestProject;
-
-    // This function locates the compiled test binary in the target directory.
-    // It's necessary because the exact filename of the test binary includes a hash
-    // that we can't predict, so we need to search for it.
-    fn find_test_binary(dir: &Path) -> PathBuf {
-        dir.join("target/debug/deps")
-            .read_dir()
-            .unwrap()
-            .filter_map(Result::ok)
-            .find(|entry| {
-                let file_name = entry.file_name();
-                let file_name_str = file_name.to_str().unwrap_or("");
-                // We're looking for a file that:
-                file_name_str.starts_with("insta_workspace_root_test-") // Matches our test name
-                    && !file_name_str.contains('.') // Doesn't have an extension (it's the executable, not a metadata file)
-                    && entry.metadata().map(|m| m.is_file()).unwrap_or(false) // Is a file, not a directory
-            })
-            .map(|entry| entry.path())
-            .expect("Failed to find test binary")
-    }
-
-    fn run_test_binary(
-        binary_path: &Path,
-        current_dir: &Path,
-        env: Option<(&str, &str)>,
-    ) -> std::process::Output {
-        let mut cmd = Command::new(binary_path);
-        TestProject::clean_env(&mut cmd);
-        cmd.current_dir(current_dir);
-        if let Some((key, value)) = env {
-            cmd.env(key, value);
-        }
-        cmd.output().unwrap()
-    }
 
     let test_project = TestFiles::new()
         .add_cargo_toml("insta_workspace_root_test")
@@ -404,16 +418,28 @@ fn test_snapshot() {
         )
         .create_project();
 
+    // Strip the binary to ensure no references to the workspace in the debug symbols
     let mut cargo_cmd = Command::new("cargo");
     TestProject::clean_env(&mut cargo_cmd);
     let output = cargo_cmd
-        .args(["test", "--no-run"])
+        .args(["test", "--no-run", "--config", "profile.test.strip=true"])
         .current_dir(&test_project.workspace_dir)
         .output()
         .unwrap();
     assert!(&output.status.success());
 
     let test_binary_path = find_test_binary(&test_project.workspace_dir);
+
+    let extracted_strings = extract_strings(&test_binary_path);
+
+    assert_eq!(
+        extracted_strings
+            .iter()
+            .filter(|(s, _)| s.contains(test_project.workspace_dir.to_str().unwrap()))
+            .count(),
+        1,
+        "The final doesn't contain only one reference to CARGO_MANIFEST_DIR"
+    );
 
     // Run the test without snapshot (should fail)
     assert!(
@@ -460,6 +486,137 @@ fn test_snapshot() {
         &moved_binary_path,
         &moved_workspace,
         Some(("INSTA_WORKSPACE_ROOT", moved_workspace.to_str().unwrap())),
+    )
+    .status
+    .success());
+}
+
+// Can't get the test binary discovery to work on Windows, don't have a windows
+// machine to hand, others are welcome to fix it. (No specific reason to think
+// that insta doesn't work on windows, just that the test doesn't work.)
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn test_insta_workspace_root_compile_time() {
+    use std::process::Command;
+
+    use crate::TestProject;
+
+    let test_project = TestFiles::new()
+        .add_cargo_toml("insta_workspace_root_test")
+        .add_file(
+            "src/lib.rs",
+            r#"
+use insta::assert_snapshot;
+
+#[test]
+fn test_snapshot() {
+    assert_snapshot!("Hello, world!");
+}
+    "#
+            .to_string(),
+        )
+        .create_project();
+
+    let moved_workspace_compile =
+        tempfile::tempdir().expect("Unable to create temporary test directory");
+
+    // Compile test binary with INSTA_WORKSPACE_ROOT set at compile time
+    // Strip the binary to ensure no references to the workspace in the debug symbols
+    let mut cargo_cmd = Command::new("cargo");
+    TestProject::clean_env(&mut cargo_cmd);
+    let output = cargo_cmd
+        .args(["test", "--no-run", "--config", "profile.test.strip=true"])
+        .env("INSTA_WORKSPACE_ROOT", moved_workspace_compile.path())
+        .current_dir(&test_project.workspace_dir)
+        .output()
+        .unwrap();
+    assert!(&output.status.success());
+
+    let test_binary_path = find_test_binary(&test_project.workspace_dir);
+
+    let extracted_strings = extract_strings(&test_binary_path);
+
+    assert_eq!(
+        extracted_strings
+            .iter()
+            .filter(|(s, _)| s.contains(test_project.workspace_dir.to_str().unwrap()))
+            .count(),
+        0,
+        "The final binary contains a references to CARGO_MANIFEST_DIR"
+    );
+
+    assert_eq!(
+        extracted_strings
+            .iter()
+            .filter(|(s, _)| s.contains(moved_workspace_compile.path().to_str().unwrap()))
+            .count(),
+        1,
+        "The final binary contains not exactly one references to moved workspace"
+    );
+
+    // Run the test without snapshot (should fail)
+    assert!(
+        !&run_test_binary(&test_binary_path, &test_project.workspace_dir, None,)
+            .status
+            .success()
+    );
+
+    // Create the snapshot
+    assert!(&run_test_binary(
+        &test_binary_path,
+        &test_project.workspace_dir,
+        Some(("INSTA_UPDATE", "always")),
+    )
+    .status
+    .success());
+
+    // Verify snapshot creation
+    assert!(moved_workspace_compile
+        .path()
+        .join("src/snapshots")
+        .exists());
+    assert!(moved_workspace_compile
+        .path()
+        .join("src/snapshots/insta_workspace_root_test__snapshot.snap")
+        .exists());
+
+    // Run test in compile time moved workspace without INSTA_WORKSPACE_ROOT (should pass)
+    assert!(
+        &run_test_binary(&test_binary_path, moved_workspace_compile.path(), None)
+            .status
+            .success()
+    );
+
+    // Move the workspace
+    let moved_workspace = {
+        let moved_workspace =
+            tempfile::tempdir().expect("Unable to create temporary test directory");
+        fs::rename(&moved_workspace_compile, &moved_workspace).unwrap();
+        moved_workspace
+    };
+
+    // Verify snapshot moved
+    assert!(moved_workspace.path().join("src/snapshots").exists());
+    assert!(moved_workspace
+        .path()
+        .join("src/snapshots/insta_workspace_root_test__snapshot.snap")
+        .exists());
+
+    // Run test in runtime moved workspace without INSTA_WORKSPACE_ROOT (should fail)
+    assert!(
+        !&run_test_binary(&test_binary_path, moved_workspace.path(), None)
+            .status
+            .success()
+    );
+
+    // Run test in moved workspace with INSTA_WORKSPACE_ROOT (should pass)
+    assert!(&run_test_binary(
+        &test_binary_path,
+        moved_workspace.path(),
+        Some((
+            "INSTA_WORKSPACE_ROOT",
+            moved_workspace.path().to_str().unwrap()
+        )),
     )
     .status
     .success());
@@ -576,7 +733,6 @@ fn test_hello() {
     ---
     source: "../tests/lib.rs"
     expression: hello()
-    snapshot_kind: text
     ---
     Hello, world!
     ---
@@ -666,6 +822,67 @@ fn test_inline() {
     ");
 }
 
+/// Test for issue #678: Insta 1.41.0 finds spurious duplicate snapshots from tests in package root
+#[test]
+fn test_root_test_duplicate_snapshots() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "root_test_duplicate_snapshots"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+
+[[test]]
+name = "root_test"
+path = "root_test.rs"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "root_test.rs",
+            r#"
+#[test]
+fn test_in_root() {
+    insta::assert_snapshot!("name", "content");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run the test to create the snapshot
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    // Assert that we only have one snapshot file
+    assert_snapshot!(test_project.file_tree_diff(), @r"
+    --- Original file tree
+    +++ Updated file tree
+    @@ -1,3 +1,6 @@
+     
+    +  Cargo.lock
+       Cargo.toml
+       root_test.rs
+    +  snapshots
+    +    snapshots/root_test__name.snap.new
+    ");
+
+    // Check if the output reports 2 snapshots instead of 1
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // There should only be 1 snapshot
+    assert!(stderr.contains("1 snapshot to review"), "\n\n{}", stderr);
+}
+
 /// Check that `--manifest` points `cargo-insta` at another path
 #[test]
 fn test_manifest_option() {
@@ -727,7 +944,7 @@ fn test_inline() {
     assert!(output.status.success());
 
     // Verify inline snapshot
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
     @@ -10,5 +10,5 @@
@@ -737,7 +954,7 @@ fn test_inline() {
     -    insta::assert_snapshot!("This is an inline snapshot for manifest path test", @"");
     +    insta::assert_snapshot!("This is an inline snapshot for manifest path test", @"This is an inline snapshot for manifest path test");
      }
-    "##);
+    "#);
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree

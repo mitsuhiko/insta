@@ -10,10 +10,12 @@ use crate::{
     elog,
 };
 
-lazy_static::lazy_static! {
-    static ref WORKSPACES: Mutex<BTreeMap<String, Arc<PathBuf>>> = Mutex::new(BTreeMap::new());
-    static ref TOOL_CONFIGS: Mutex<BTreeMap<PathBuf, Arc<ToolConfig>>> = Mutex::new(BTreeMap::new());
-}
+use once_cell::sync::Lazy;
+
+static WORKSPACES: Lazy<Mutex<BTreeMap<String, Arc<PathBuf>>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
+static TOOL_CONFIGS: Lazy<Mutex<BTreeMap<PathBuf, Arc<ToolConfig>>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
 
 pub fn get_tool_config(workspace_dir: &Path) -> Arc<ToolConfig> {
     TOOL_CONFIGS
@@ -35,6 +37,28 @@ pub enum TestRunner {
     Auto,
     CargoTest,
     Nextest,
+}
+
+#[cfg(feature = "_cargo_insta_internal")]
+impl TestRunner {
+    /// Fall back to `cargo test` if `cargo nextest` isn't installed and
+    /// `test_runner_fallback` is true
+    pub fn resolve_fallback(&self, test_runner_fallback: bool) -> &TestRunner {
+        use crate::utils::get_cargo;
+        if self == &TestRunner::Nextest
+            && test_runner_fallback
+            && std::process::Command::new(get_cargo())
+                .arg("nextest")
+                .arg("--version")
+                .output()
+                .map(|output| !output.status.success())
+                .unwrap_or(true)
+        {
+            &TestRunner::Auto
+        } else {
+            self
+        }
+    }
 }
 
 /// Controls how information is supposed to be displayed.
@@ -406,17 +430,34 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
     }
 }
 
+pub enum Workspace {
+    DetectWithCargo(&'static str),
+    UseAsIs(&'static str),
+}
+
 /// Returns the cargo workspace path for a crate manifest, like
 /// `/Users/janedoe/projects/insta` when passed
 /// `/Users/janedoe/projects/insta/insta/Cargo.toml`.
-pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
-    // If INSTA_WORKSPACE_ROOT environment variable is set, use the value as-is.
+///
+/// If `INSTA_WORKSPACE_ROOT` environment variable is set at runtime, use the value as-is.
+/// If `INSTA_WORKSPACE_ROOT` environment variable is set at compile time, use the value as-is.
+/// If `INSTA_WORKSPACE_ROOT` environment variable is not set, use `cargo metadata` to find the workspace root.
+pub fn get_cargo_workspace(workspace: Workspace) -> Arc<PathBuf> {
     // This is useful where CARGO_MANIFEST_DIR at compilation points to some
     // transient location. This can easily happen when building the test in one
     // directory but running it in another.
     if let Ok(workspace_root) = env::var("INSTA_WORKSPACE_ROOT") {
         return PathBuf::from(workspace_root).into();
     }
+
+    // Distinguish if we need to run `cargo metadata`` or if we can return the workspace
+    // as is.
+    // This is useful if INSTA_WORKSPACE_ROOT was set at compile time, not pointing to
+    // the cargo manifest directory
+    let manifest_dir = match workspace {
+        Workspace::UseAsIs(workspace_root) => return PathBuf::from(workspace_root).into(),
+        Workspace::DetectWithCargo(manifest_dir) => manifest_dir,
+    };
 
     let error_message = || {
         format!(
@@ -468,10 +509,20 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
 }
 
 #[test]
-fn test_get_cargo_workspace() {
-    let workspace = get_cargo_workspace(env!("CARGO_MANIFEST_DIR"));
-    // The absolute path of the workspace, like `/Users/janedoe/projects/insta`
-    assert!(workspace.ends_with("insta"));
+fn test_get_cargo_workspace_manifest_dir() {
+    let workspace = get_cargo_workspace(Workspace::DetectWithCargo(env!("CARGO_MANIFEST_DIR")));
+    // The absolute path of the workspace should be a valid directory
+    // In worktrees or other setups, the path might not end with "insta"
+    // but should still be a parent of the manifest directory
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    assert!(manifest_dir.starts_with(&*workspace));
+}
+
+#[test]
+fn test_get_cargo_workspace_insta_workspace() {
+    let workspace = get_cargo_workspace(Workspace::UseAsIs("/tmp/insta_workspace_root"));
+    // The absolute path of the workspace, like `/tmp/insta_workspace_root`
+    assert!(workspace.ends_with("insta_workspace_root"));
 }
 
 #[cfg(feature = "_cargo_insta_internal")]

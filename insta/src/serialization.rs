@@ -126,14 +126,14 @@ fn test_yaml_serialization() {
         ]),
         SerializationFormat::Yaml,
     );
-    crate::assert_snapshot!(&yaml, @r###"
+    crate::assert_snapshot!(&yaml, @r"
     env:
       - ENVIRONMENT
       - production
     cmdline:
       - my-tool
       - run
-    "###);
+    ");
 
     let inline_yaml = serialize_content(
         Content::Map(vec![
@@ -151,12 +151,12 @@ fn test_yaml_serialization() {
         ]),
         SerializationFormat::Yaml,
     );
-    crate::assert_snapshot!(&inline_yaml, @r###"
+    crate::assert_snapshot!(&inline_yaml, @r"
     env:
       - ENVIRONMENT
       - production
     cmdline:
       - my-tool
       - run
-    "###);
+    ");
 }

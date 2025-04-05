@@ -10,7 +10,6 @@ test: cargotest
 
 cargotest:
 	@echo "CARGO TESTS"
-	@rustup component add rustfmt 2> /dev/null
 	@cargo test -p insta
 	@cargo test -p insta --all-features
 	@cargo test -p insta --no-default-features
@@ -39,6 +38,6 @@ format-check:
 
 lint:
 	@rustup component add clippy 2> /dev/null
-	@cargo clippy --all-targets --workspace -- --deny warnings
+	@cargo clippy --all-targets --all-features -- --deny warnings
 
 .PHONY: all doc test cargotest format format-check lint update-readme
