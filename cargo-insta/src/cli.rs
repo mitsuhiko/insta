@@ -746,12 +746,9 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     }
 
     // If unreferenced wasn't specified, use the config file setting
-    // Otherwise keep the explicitly provided command-line value
-    cmd.unreferenced = Some(match cmd.unreferenced {
-        Some(value) => value,
-        // Use config file setting, defaulting to `ignore`
-        None => loc.tool_config.test_unreferenced(),
-    });
+    cmd.unreferenced = cmd
+        .unreferenced
+        .or_else(|| Some(loc.tool_config.test_unreferenced()));
 
     // Prioritize the command line over the tool config
     let test_runner = match cmd.test_runner {
