@@ -187,7 +187,7 @@ fn test_trailing_comma_in_inline_snapshot() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
     @@ -1,21 +1,19 @@
@@ -223,7 +223,7 @@ fn test_trailing_comma_in_inline_snapshot() {
     +        @"new value",  // comma here
          );
      }
-    "##);
+    "#);
 }
 
 /// Test the old format of inline YAML snapshots with a leading `---` still passes

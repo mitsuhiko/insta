@@ -88,7 +88,7 @@ fn test_root_crate_workspace_accept() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,8 +1,13 @@
@@ -105,7 +105,7 @@ fn test_root_crate_workspace_accept() {
          src/main.rs
     +    src/snapshots
     +      src/snapshots/root_crate_workspace_accept__root.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a default root crate, running `cargo insta
@@ -145,7 +145,7 @@ fn test_root_crate_no_all() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,4 +1,5 @@
@@ -160,7 +160,7 @@ fn test_root_crate_no_all() {
          src/main.rs
     +    src/snapshots
     +      src/snapshots/root_crate_no_all__root.snap
-    "###     );
+    "     );
 }
 
 fn workspace_with_virtual_manifest(name: String) -> TestFiles {
@@ -247,7 +247,7 @@ fn test_virtual_manifest_all() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,10 +1,15 @@
@@ -266,7 +266,7 @@ fn test_virtual_manifest_all() {
            member-2/src/lib.rs
     +      member-2/src/snapshots
     +        member-2/src/snapshots/virtual_manifest_all_member_2__member_2.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a virtual manifest, running `cargo insta test
@@ -284,7 +284,7 @@ fn test_virtual_manifest_default() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,10 +1,15 @@
@@ -303,7 +303,7 @@ fn test_virtual_manifest_default() {
            member-2/src/lib.rs
     +      member-2/src/snapshots
     +        member-2/src/snapshots/virtual_manifest_default_member_2__member_2.snap
-    "###     );
+    "     );
 }
 
 /// Check that in a workspace with a virtual manifest, running `cargo insta test
@@ -321,7 +321,7 @@ fn test_virtual_manifest_single_crate() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r###"
+    assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
     @@ -1,9 +1,12 @@
@@ -337,7 +337,7 @@ fn test_virtual_manifest_single_crate() {
        member-2
          member-2/Cargo.toml
          member-2/src
-    "###     );
+    "     );
 }
 
 use std::path::{Path, PathBuf};
@@ -943,7 +943,7 @@ fn test_inline() {
     assert!(output.status.success());
 
     // Verify inline snapshot
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
     @@ -10,5 +10,5 @@
@@ -953,7 +953,7 @@ fn test_inline() {
     -    insta::assert_snapshot!("This is an inline snapshot for manifest path test", @"");
     +    insta::assert_snapshot!("This is an inline snapshot for manifest path test", @"This is an inline snapshot for manifest path test");
      }
-    "##);
+    "#);
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree

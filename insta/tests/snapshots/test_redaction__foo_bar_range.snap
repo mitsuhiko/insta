@@ -1,6 +1,6 @@
 ---
 source: insta/tests/test_redaction.rs
-expression: "Selector::parse(\".foo.bar[10:20]\").unwrap()"
+expression: "Selector :: parse(\".foo.bar[10:20]\").unwrap()"
 ---
 Selector {
     selectors: [

@@ -121,12 +121,12 @@ fn test_with_random_value_and_match_comma() {
         match .. {
             ".id" => "[id]",
         },
-        @r###"
+        @r#"
     id: "[id]"
     username: john_doe
     email: john@example.com
     extra: ""
-    "###, // comma here
+    "#, // comma here
     );
 }
 
@@ -322,14 +322,14 @@ fn test_redact_newtype_struct() {
 
     assert_json_snapshot!(wrapper, {
         r#".id"# => "[id]"
-    }, @r###"
+    }, @r#"
     {
       "id": "[id]",
       "username": "john_doe",
       "email": "john@example.com",
       "extra": ""
     }
-    "###);
+    "#);
 }
 
 #[cfg(feature = "yaml")]
@@ -347,11 +347,11 @@ fn test_redact_newtype_enum() {
     };
     assert_yaml_snapshot!(visitor, {
         r#".id"# => "[id]",
-    }, @r###"
+    }, @r#"
     Visitor:
       id: "[id]"
       name: my-name
-    "###);
+    "#);
 
     let admin = Role::Admin(User {
         id: 42,
@@ -361,13 +361,13 @@ fn test_redact_newtype_enum() {
     });
     assert_yaml_snapshot!(admin, {
         r#".id"# => "[id]",
-    }, @r###"
+    }, @r#"
     Admin:
       id: "[id]"
       username: john_doe
       email: john@example.com
       extra: ""
-    "###);
+    "#);
 }
 
 #[cfg(feature = "json")]
@@ -386,7 +386,7 @@ fn test_redact_recursive() {
 
     assert_json_snapshot!(root, {
         ".**.id" => "[id]",
-    }, @r###"
+    }, @r#"
     {
       "id": "[id]",
       "next": {
@@ -394,7 +394,7 @@ fn test_redact_recursive() {
         "next": null
       }
     }
-    "###);
+    "#);
 }
 
 #[cfg(feature = "yaml")]
