@@ -197,8 +197,8 @@ struct TestCommand {
     #[arg(long)]
     force_update_snapshots: bool,
     /// Handle unreferenced snapshots after a successful test run.
-    #[arg(long, default_value = "ignore")]
-    unreferenced: UnreferencedSnapshots,
+    #[arg(long)]
+    unreferenced: Option<UnreferencedSnapshots>,
     /// Filters to apply to the insta glob feature.
     #[arg(long)]
     glob_filter: Vec<String>,
@@ -742,8 +742,16 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
         eprintln!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
-        cmd.unreferenced = UnreferencedSnapshots::Delete;
+        cmd.unreferenced = Some(UnreferencedSnapshots::Delete);
     }
+
+    // If unreferenced wasn't specified, use the config file setting
+    // Otherwise keep the explicitly provided command-line value
+    cmd.unreferenced = Some(match cmd.unreferenced {
+        Some(value) => value,
+        // Use config file setting, defaulting to `ignore`
+        None => loc.tool_config.test_unreferenced(),
+    });
 
     // Prioritize the command line over the tool config
     let test_runner = match cmd.test_runner {
@@ -797,7 +805,12 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // tests ran successfully
     if success {
         if let Some(ref snapshot_ref_path) = snapshot_ref_file {
-            handle_unreferenced_snapshots(snapshot_ref_path.borrow(), &loc, cmd.unreferenced)?;
+            handle_unreferenced_snapshots(
+                snapshot_ref_path.borrow(),
+                &loc,
+                // we set this to `Some` above so can't be `None`
+                cmd.unreferenced.unwrap(),
+            )?;
         }
     }
 
@@ -996,7 +1009,7 @@ fn prepare_test_runner<'snapshot_ref>(
     proc.env("INSTA_CARGO_INSTA", "1");
     proc.env("INSTA_CARGO_INSTA_VERSION", cargo_insta_version());
 
-    let snapshot_ref_file = if cmd.unreferenced != UnreferencedSnapshots::Ignore {
+    let snapshot_ref_file = if cmd.unreferenced != Some(UnreferencedSnapshots::Ignore) {
         match snapshot_ref_file {
             Some(path) => Some(Cow::Borrowed(path)),
             None => {
