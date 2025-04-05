@@ -892,7 +892,7 @@ src/
 
 #[test]
 fn test_unreferenced_config_reject() {
-    // This test verifies that the `test.unreferenced: reject` setting in insta.yaml 
+    // This test verifies that the `test.unreferenced: reject` setting in insta.yaml
     // is respected when no command-line argument is provided.
     //
     // Specifically, it tests the fix for issue #757, which ensures that:
