@@ -910,12 +910,6 @@ fn handle_unreferenced_snapshots(
         .filter_map(|e| e.path().canonicalize().ok())
         // The path isn't in the list which the tests wrote to, so it's
         // unreferenced.
-        //
-        // TODO: note that this will include _all_ `.pending-snap` files,
-        // regardless of whether or not a test was run, since we don't record
-        // those in the snapshot references file. We can make that change, but
-        // also we'd like to unify file & inline snapshot handling; if we do
-        // that it'll fix this smaller issue too.
         .filter(|path| !snapshot_files_from_test.contains(path))
         // we don't want to delete the new or pending-snap files, partly because
         // we use their presence to determine if a test created a snapshot and
