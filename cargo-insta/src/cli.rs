@@ -877,7 +877,7 @@ fn handle_unreferenced_snapshots(
         UnreferencedSnapshots::Ignore => return Ok(()),
     };
 
-    let files = fs::read_to_string(snapshot_ref_path)
+    let snapshot_files_from_test = fs::read_to_string(snapshot_ref_path)
         .map(|s| {
             s.lines()
                 .filter_map(|line| fs::canonicalize(line).ok())
@@ -916,13 +916,14 @@ fn handle_unreferenced_snapshots(
         // those in the snapshot references file. We can make that change, but
         // also we'd like to unify file & inline snapshot handling; if we do
         // that it'll fix this smaller issue too.
+        .filter(|path| !snapshot_files_from_test.contains(path))
+        // we don't want to delete the new or pending-snap files, partly because
+        // we use their presence to determine if a test created a snapshot and
+        // so `insta test` should fail
         .filter(|path| {
-            // We also check for the pending path
-            let pending_path = path.with_file_name(format!(
-                "{}.new",
-                path.file_name().unwrap().to_string_lossy()
-            ));
-            !files.contains(path) && !files.contains(&pending_path)
+            path.extension()
+                .map(|x| x != "new" && x != "pending-snap")
+                .unwrap_or(true)
         });
 
         for path in unreferenced_snapshots {

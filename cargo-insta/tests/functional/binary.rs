@@ -177,9 +177,10 @@ fn test_binary_snapshot() {
         )
         .create_project();
 
-    assert!(!&test_project
+    // create the snapshot
+    assert!(&test_project
         .insta_cmd()
-        .args(["test"])
+        .args(["test", "--accept", "--", "--nocapture"])
         .output()
         .unwrap()
         .status
