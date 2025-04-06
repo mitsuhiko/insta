@@ -2,16 +2,19 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## Unreleased
+## 1.43.0
 
+- Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
+  `A` to accept all, `R` to reject all, and `S` to skip all remaining snapshots.
+  #745
+- `--unreferenced=auto` (or other relevant values) no longer cleans up pending
+  snapshots. A bug where `cargo insta test --unreferenced=auto` would
+  incorrectly pass on new pending snapshots has been fixed.
 - Support specifying `cargo-nextest` bin with `INSTA_CARGO_NEXTEST_BIN`.  #721 (Louis Fruleux)
 - Allow setting `INSTA_WORKSPACE_ROOT` at compile time. This is useful for reproducible binaries
   so they don't contain references to `CARGO_MANIFEST_DIR`. #726 (Pascal Bach)
 - Qualify all references in macros to avoid name clashes. #729 (Austin Schey)
 - Remove `linked-hash-map` and `pin-project` dependencies.  #742, #741, #738
-- Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
-  `A` to accept all, `R` to reject all, and `S` to skip all remaining snapshots.
-  #745
 - `cargo insta review` fails with a helpful error message when run in a non-TTY environment.
 
 ## 1.42.2
