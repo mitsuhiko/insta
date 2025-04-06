@@ -534,7 +534,8 @@ fn load_snapshot_containers<'a>(
     Ok((snapshot_containers, roots))
 }
 
-fn process_snapshots(
+/// Processes snapshot files for reviewing, accepting, or rejecting.
+fn review_snapshots(
     quiet: bool,
     snapshot_filter: Option<&[String]>,
     loc: &LocationInfo<'_>,
@@ -812,7 +813,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     }
 
     if cmd.review || cmd.accept {
-        process_snapshots(
+        review_snapshots(
             false,
             None,
             &loc,
@@ -1329,7 +1330,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
     handle_color(opts.color);
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
-            process_snapshots(
+            review_snapshots(
                 cmd.quiet,
                 cmd.snapshot_filter.as_deref(),
                 &handle_target_args(&cmd.target_args, &[])?,
