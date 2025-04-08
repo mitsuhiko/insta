@@ -396,8 +396,13 @@ impl Snapshot {
                     buf.push_str(&line);
                 }
 
+                // We add a closing `---` in recent versions of insta, so we can
+                // eventually handle ending newlines (which we currently discard)
+                let buf = buf.trim_end_matches('\n');
+                let buf = buf.strip_suffix(r#"---"#).unwrap_or(buf);
+
                 TextSnapshotContents {
-                    contents: buf,
+                    contents: buf.into(),
                     kind: TextSnapshotKind::File,
                 }
                 .into()
@@ -557,6 +562,7 @@ impl Snapshot {
         if let SnapshotContents::Text(ref contents) = self.snapshot {
             buf.push_str(&contents.to_string());
             buf.push('\n');
+            buf.push_str("---\n");
         }
 
         buf
