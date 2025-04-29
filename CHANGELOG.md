@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.43.1
+
+This release in identical in rust code to 1.43.0, but reruns the GitHub Actions
+workflows, which failed to create a release within GitHub for 1.43.0.
+
 ## 1.43.0
 
 - Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
