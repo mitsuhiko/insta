@@ -26,6 +26,9 @@ targets = [
 ]
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
+# because of
+# https://github.com/axodotdev/cargo-dist/issues/1760
+allow-dirty = true
 
 [profile.dist]
 inherits = "release"
