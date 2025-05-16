@@ -175,6 +175,9 @@ struct TestProject {
 
 impl TestProject {
     fn new(files: HashMap<PathBuf, String>) -> TestProject {
+        // Using the deprecated into_path() method instead of keep() as keep() was only
+        // introduced in tempfile 3.20.0, but we're using 3.5.0 for MSRV compatibility
+        #[allow(deprecated)]
         let workspace_dir = TempDir::new().unwrap().into_path();
 
         // Create files and replace $PROJECT_PATH in all files
