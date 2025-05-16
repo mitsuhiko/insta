@@ -23,12 +23,12 @@ body:
       label: rustc Version
       description: What version of rustc are you using?
   - type: input
-    id: cargo-insta-version
+    id: insta-version
     attributes:
-      label: cargo-insta Version
-      description: What version of cargo-insta are you using? (in Cargo.toml)
+      label: insta Version
+      description: What version of insta are you using? (in Cargo.toml)
   - type: input
-    id: cargo-insta-command-version
+    id: cargo-insta-version
     attributes:
       label: cargo insta --version output
       description: What does `cargo insta --version` output?
