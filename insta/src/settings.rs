@@ -424,7 +424,7 @@ impl Settings {
     /// Iterate over the redactions.
     #[cfg(feature = "redactions")]
     #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
-    pub(crate) fn iter_redactions(&self) -> impl Iterator<Item = (&Selector, &Redaction)> {
+    pub(crate) fn iter_redactions(&self) -> impl Iterator<Item = (&Selector<'_>, &Redaction)> {
         self.inner.redactions.0.iter().map(|(a, b)| (a, &**b))
     }
 
