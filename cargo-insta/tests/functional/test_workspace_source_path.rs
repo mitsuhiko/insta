@@ -81,8 +81,7 @@ fn test_something() {
     // The source path should be relative and start with ../ (since workspace and project are siblings)
     assert!(
         source_path.starts_with("../"),
-        "Source path should be relative starting with '../', but got: {}",
-        source_path
+        "Source path should be relative starting with '../', but got: {source_path}"
     );
 
     // The path should be exactly ../project1/src/lib.rs
@@ -201,12 +200,10 @@ fn test_app2() {
     // Both should have relative paths
     assert!(
         snapshot1_content.contains("source: \"../../projects/app1/src/lib.rs\""),
-        "App1 snapshot source is not the expected relative path. Got:\n{}",
-        snapshot1_content
+        "App1 snapshot source is not the expected relative path. Got:\n{snapshot1_content}"
     );
     assert!(
         snapshot2_content.contains("source: \"../../projects/app2/src/lib.rs\""),
-        "App2 snapshot source is not the expected relative path. Got:\n{}",
-        snapshot2_content
+        "App2 snapshot source is not the expected relative path. Got:\n{snapshot2_content}"
     );
 }

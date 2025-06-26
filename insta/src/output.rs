@@ -71,7 +71,7 @@ impl<'a> SnapshotPrinter<'a> {
             let width = term_width();
             println!(
                 "{title:━^width$}",
-                title = style(format!(" {} ", title)).bold(),
+                title = style(format!(" {title} ")).bold(),
                 width = width
             );
         }
@@ -420,7 +420,7 @@ fn print_info(metadata: &MetaData) {
         print_line(width);
     }
     if let Some(descr) = metadata.description() {
-        println!("{}", descr);
+        println!("{descr}");
         print_line(width);
     }
     if let Some(info) = metadata.private_info() {

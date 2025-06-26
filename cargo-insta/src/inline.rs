@@ -56,7 +56,7 @@ impl FilePatcher {
             .tempfile_in(self.filename.parent().ok_or("Parent directory not found")?)?;
 
         for line in &self.lines {
-            writeln!(temp_file, "{}", line)?;
+            writeln!(temp_file, "{line}")?;
         }
 
         temp_file.flush()?;

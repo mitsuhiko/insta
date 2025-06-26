@@ -711,7 +711,7 @@ impl TextSnapshotContents {
         // string with unicode escapes from the debug output. We don't attempt
         // block mode (though not impossible to do so).
         if has_control_chars {
-            out.push_str(format!("{:?}", contents).as_str());
+            out.push_str(format!("{contents:?}").as_str());
         } else {
             out.push('"');
             // if we have more than one line we want to change into the block
@@ -732,7 +732,7 @@ impl TextSnapshotContents {
                         })
                         // `lines` removes the final line ending — add back. Include
                         // indentation so the closing delimited aligns with the full string.
-                        .chain(Some(format!("\n{}", indentation))),
+                        .chain(Some(format!("\n{indentation}"))),
                 );
             } else {
                 out.push_str(contents.as_str());

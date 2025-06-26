@@ -166,10 +166,7 @@ impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
         }: BinarySnapshotValue<'a>,
     ) -> Self {
         let (name, extension) = name_and_extension.split_once('.').unwrap_or_else(|| {
-            panic!(
-                "\"{}\" does not match the format \"name.extension\"",
-                name_and_extension,
-            )
+            panic!("\"{name_and_extension}\" does not match the format \"name.extension\"",)
         });
 
         let name = if name.is_empty() {
@@ -216,9 +213,8 @@ fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String
         Some(&was_test_prefixed) => {
             if was_test_prefixed != test_prefixed {
                 panic!(
-                    "Insta snapshot name clash detected between '{}' \
-                     and 'test_{}' in '{}'. Rename one function.",
-                    name, name, module_path
+                    "Insta snapshot name clash detected between '{name}' \
+                     and 'test_{name}' in '{module_path}'. Rename one function."
                 );
             }
         }
@@ -237,7 +233,7 @@ fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String
     let rv = if test_idx == 1 {
         name.to_string()
     } else {
-        format!("{}-{}", name, test_idx)
+        format!("{name}-{test_idx}")
     };
     counters.insert(key, test_idx);
 
@@ -249,7 +245,7 @@ fn add_suffix_to_snapshot_name(name: Cow<'_, str>) -> Cow<'_, str> {
     Settings::with(|settings| {
         settings
             .snapshot_suffix()
-            .map(|suffix| Cow::Owned(format!("{}@{}", name, suffix)))
+            .map(|suffix| Cow::Owned(format!("{name}@{suffix}")))
             .unwrap_or_else(|| name)
     })
 }
@@ -345,7 +341,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     }
                 };
                 if allow_duplicates() {
-                    duplication_key = Some(format!("named:{}|{}", module_path, name));
+                    duplication_key = Some(format!("named:{module_path}|{name}"));
                 }
                 let file = get_snapshot_filename(
                     module_path,
@@ -366,8 +362,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             } => {
                 if allow_duplicates() {
                     duplication_key = Some(format!(
-                        "inline:{}|{}|{}",
-                        function_name, assertion_file, assertion_line
+                        "inline:{function_name}|{assertion_file}|{assertion_line}"
                     ));
                 } else {
                     prevent_inline_duplicate(function_name, assertion_file, assertion_line);
@@ -754,7 +749,7 @@ fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
 }
 
 fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion_line: u32) {
-    let key = format!("{}|{}|{}", function_name, assertion_file, assertion_line);
+    let key = format!("{function_name}|{assertion_file}|{assertion_line}");
     let mut set = INLINE_DUPLICATES.lock().unwrap();
     if set.contains(&key) {
         // drop the lock so we don't poison it

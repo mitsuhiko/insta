@@ -33,13 +33,13 @@ impl fmt::Display for ContentPath<'_> {
             match *item {
                 PathItem::Content(ref ctx) => {
                     if let Some(s) = ctx.as_str() {
-                        write!(f, "{}", s)?;
+                        write!(f, "{s}")?;
                     } else {
                         write!(f, "<content>")?;
                     }
                 }
-                PathItem::Field(name) => write!(f, "{}", name)?,
-                PathItem::Index(idx, _) => write!(f, "{}", idx)?,
+                PathItem::Field(name) => write!(f, "{name}")?,
+                PathItem::Index(idx, _) => write!(f, "{idx}")?,
             }
         }
         Ok(())
