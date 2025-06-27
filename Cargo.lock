@@ -70,7 +70,7 @@ version = "1.43.1"
 dependencies = [
  "cargo_metadata",
  "clap",
- "console",
+ "console 0.16.0",
  "ignore",
  "insta",
  "itertools",
@@ -168,9 +168,21 @@ checksum = "8a2dd5a6fe8c6e3502f568a6353e5273bbb15193ad9a89e457b9970798efbea1"
 
 [[package]]
 name = "console"
-version = "0.15.12"
+version = "0.15.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88a18407950d6c9c2b496788efd35faf8790c24dca57ccf6818c749caf9a6065"
+checksum = "054ccb5b10f9f2cbf51eb355ca1d05c2d279ce1804688d0db74b4733a5aeafd8"
+dependencies = [
+ "encode_unicode",
+ "libc",
+ "once_cell",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "console"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e09ced7ebbccb63b4c65413d821f2e00ce54c5ca4514ddc6b3c892fdbcbc69d"
 dependencies = [
  "encode_unicode",
  "libc",
@@ -357,7 +369,7 @@ name = "insta"
 version = "1.43.1"
 dependencies = [
  "clap",
- "console",
+ "console 0.16.0",
  "csv",
  "globset",
  "once_cell",
@@ -733,7 +745,7 @@ version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e041bb827d1bfca18f213411d51b665309f1afb37a04a5d1464530e13779fc0f"
 dependencies = [
- "console",
+ "console 0.15.11",
  "similar",
 ]
 
