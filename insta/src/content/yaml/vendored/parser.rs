@@ -229,7 +229,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
                 self.load_mapping(recv)
             }
             _ => {
-                println!("UNREACHABLE EVENT: {:?}", first_ev);
+                println!("UNREACHABLE EVENT: {first_ev:?}");
                 unreachable!();
             }
         }

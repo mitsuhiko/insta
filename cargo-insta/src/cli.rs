@@ -278,7 +278,7 @@ fn query_snapshot(
         println!(
             "{}{}{} {}@{}:",
             style("Reviewing [").bold(),
-            style(format!("{}/{}", i, n)).yellow().bold(),
+            style(format!("{i}/{n}")).yellow().bold(),
             style("]").bold(),
             pkg.name.as_str(),
             &pkg.version,
@@ -449,12 +449,9 @@ fn handle_target_args<'a>(
         (None, None) => {}
     };
 
-    let metadata = cmd.exec().map_err(|e| {
-        format!(
-            "failed to load cargo metadata: {}. Command details: {:?}",
-            e, cmd
-        )
-    })?;
+    let metadata = cmd
+        .exec()
+        .map_err(|e| format!("failed to load cargo metadata: {e}. Command details: {cmd:?}"))?;
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
 
@@ -501,7 +498,7 @@ fn handle_target_args<'a>(
         .iter()
         .map(|x| {
             if let Some(no_period) = x.strip_prefix(".") {
-                eprintln!("`{}` supplied as an extension. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
+                eprintln!("`{x}` supplied as an extension. This will use `foo.{x}` as file names; likely you want `{no_period}` instead.")
             };
             x.as_str()
         })
@@ -656,19 +653,19 @@ fn review_snapshots(
         if !accepted.is_empty() {
             println!("{}:", style("accepted").green());
             for item in accepted {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
         if !rejected.is_empty() {
             println!("{}:", style("rejected").red());
             for item in rejected {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
         if !skipped.is_empty() {
             println!("{}:", style("skipped").yellow());
             for item in skipped {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
     }
@@ -941,7 +938,7 @@ fn handle_unreferenced_snapshots(
                 // load it, since these are in a different format; just delete
                 if path.extension() == Some(std::ffi::OsStr::new("pending-snap")) {
                     if let Err(e) = fs::remove_file(path) {
-                        eprintln!("Failed to remove file: {}", e);
+                        eprintln!("Failed to remove file: {e}");
                     }
                 } else {
                     let snapshot = match Snapshot::from_file(&path) {
@@ -1156,7 +1153,7 @@ fn prepare_test_runner<'snapshot_ref>(
     if matches!(color, ColorWhen::Auto)
         && matches!(test_runner, TestRunner::CargoTest | TestRunner::Auto)
     {
-        proc.arg(format!("--color={}", color));
+        proc.arg(format!("--color={color}"));
     };
     Ok((proc, snapshot_ref_file, prevents_doc_run))
 }
@@ -1273,7 +1270,7 @@ fn show_undiscovered_hint(
                 let fname = x.file_name().to_string_lossy();
                 extensions
                     .iter()
-                    .any(|ext| fname.ends_with(&format!(".{}.new", ext)))
+                    .any(|ext| fname.ends_with(&format!(".{ext}.new")))
                     || fname.ends_with(".pending-snap")
             })
             .map(|x| x.path().to_path_buf())

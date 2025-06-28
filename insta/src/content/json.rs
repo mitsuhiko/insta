@@ -7,7 +7,7 @@ use crate::content::Content;
 const COMPACT_MAX_CHARS: usize = 120;
 
 pub fn format_float<T: Display>(value: T) -> String {
-    let mut rv = format!("{}", value);
+    let mut rv = format!("{value}");
     if !rv.contains('.') {
         rv.push_str(".0");
     }
@@ -116,16 +116,16 @@ impl Serializer {
         match value {
             Content::Bool(true) => self.write_str("true"),
             Content::Bool(false) => self.write_str("false"),
-            Content::U8(n) => write!(self.out, "{}", n).unwrap(),
-            Content::U16(n) => write!(self.out, "{}", n).unwrap(),
-            Content::U32(n) => write!(self.out, "{}", n).unwrap(),
-            Content::U64(n) => write!(self.out, "{}", n).unwrap(),
-            Content::U128(n) => write!(self.out, "{}", n).unwrap(),
-            Content::I8(n) => write!(self.out, "{}", n).unwrap(),
-            Content::I16(n) => write!(self.out, "{}", n).unwrap(),
-            Content::I32(n) => write!(self.out, "{}", n).unwrap(),
-            Content::I64(n) => write!(self.out, "{}", n).unwrap(),
-            Content::I128(n) => write!(self.out, "{}", n).unwrap(),
+            Content::U8(n) => write!(self.out, "{n}").unwrap(),
+            Content::U16(n) => write!(self.out, "{n}").unwrap(),
+            Content::U32(n) => write!(self.out, "{n}").unwrap(),
+            Content::U64(n) => write!(self.out, "{n}").unwrap(),
+            Content::U128(n) => write!(self.out, "{n}").unwrap(),
+            Content::I8(n) => write!(self.out, "{n}").unwrap(),
+            Content::I16(n) => write!(self.out, "{n}").unwrap(),
+            Content::I32(n) => write!(self.out, "{n}").unwrap(),
+            Content::I64(n) => write!(self.out, "{n}").unwrap(),
+            Content::I128(n) => write!(self.out, "{n}").unwrap(),
             Content::F32(f) => {
                 if f.is_finite() {
                     self.write_str(&format_float(f));

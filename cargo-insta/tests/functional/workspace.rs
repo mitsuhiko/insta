@@ -879,7 +879,7 @@ fn test_in_root() {
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // There should only be 1 snapshot
-    assert!(stderr.contains("1 snapshot to review"), "\n\n{}", stderr);
+    assert!(stderr.contains("1 snapshot to review"), "\n\n{stderr}");
 }
 
 /// Check that `--manifest` points `cargo-insta` at another path

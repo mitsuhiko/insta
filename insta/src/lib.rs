@@ -35,13 +35,14 @@
 //! * [Read the main documentation](https://insta.rs/docs/) which does not just
 //!   cover the API of the crate but also many of the details of how it works.
 //! * There is a screencast that shows the entire workflow: [watch the insta
-//! introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be).
+//!   introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be).
 //!
 //! # Writing Tests
 //!
 //! ```
 //! use insta::assert_debug_snapshot;
 //!
+//! # #[allow(clippy::test_attr_in_doctest)]
 //! #[test]
 //! fn test_snapshots() {
 //!     assert_debug_snapshot!(vec![1, 2, 3]);

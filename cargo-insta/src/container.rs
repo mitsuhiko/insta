@@ -33,13 +33,13 @@ impl PendingSnapshot {
         use std::fmt::Write;
         let mut rv = String::new();
         if let Some(source) = self.new.metadata().source() {
-            write!(&mut rv, "{}", source).unwrap();
+            write!(&mut rv, "{source}").unwrap();
         }
         if let Some(line) = self.line {
-            write!(&mut rv, ":{}", line).unwrap();
+            write!(&mut rv, ":{line}").unwrap();
         }
         if let Some(name) = self.new.snapshot_name() {
-            write!(&mut rv, " ({})", name).unwrap();
+            write!(&mut rv, " ({name})").unwrap();
         }
         rv
     }
@@ -173,8 +173,7 @@ impl SnapshotContainer {
         let try_removing_snapshot = |p: &Path| {
             fs::remove_file(p).unwrap_or_else(|_| {
                     eprintln!(
-                        "Pending snapshot file at {:?} couldn't be removed. It was likely removed by another process.",
-                        p
+                        "Pending snapshot file at {p:?} couldn't be removed. It was likely removed by another process."
                     );
                 });
         };

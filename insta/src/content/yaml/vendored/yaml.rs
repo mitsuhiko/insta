@@ -672,7 +672,7 @@ subcommands3:
         let out = YamlLoader::load_from_str(s).unwrap();
         let doc = &out.into_iter().next().unwrap();
 
-        println!("{:#?}", doc);
+        println!("{doc:#?}");
         assert_eq!(doc["subcommands"][0]["server"], Yaml::Null);
         assert!(doc["subcommands2"][0]["server"].as_hash().is_some());
         assert!(doc["subcommands3"][0]["server"].as_hash().is_some());

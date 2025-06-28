@@ -306,8 +306,7 @@ Unused snapshot
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("encountered unreferenced snapshots"),
-        "Expected error message about unreferenced snapshots, got: {}",
-        stderr
+        "Expected error message about unreferenced snapshots, got: {stderr}"
     );
 
     // Now run without flags - this should also fail due to the config file setting
@@ -328,8 +327,7 @@ Unused snapshot
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("encountered unreferenced snapshots"),
-        "Expected error message about unreferenced snapshots, got: {}",
-        stderr
+        "Expected error message about unreferenced snapshots, got: {stderr}"
     );
 
     // Run with --unreferenced=delete to clean up

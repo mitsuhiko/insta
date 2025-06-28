@@ -126,7 +126,7 @@ impl TestFiles {
             format!(
                 r#"
 [package]
-name = "{}"
+name = "{name}"
 version = "0.1.0"
 edition = "2021"
 
@@ -135,8 +135,7 @@ doctest = false
 
 [dependencies]
 insta = {{ path = '$PROJECT_PATH' }}
-"#,
-                name
+"#
             ),
         )
     }
@@ -258,8 +257,8 @@ impl TestProject {
             &updated_content,
             3,
             Some((
-                &format!("Original: {}", file_path),
-                &format!("Updated: {}", file_path),
+                &format!("Original: {file_path}"),
+                &format!("Updated: {file_path}"),
             )),
         )
     }
@@ -308,14 +307,13 @@ fn test_force_update_snapshots() {
                 format!(
                     r#"
 [package]
-name = "test_force_update_{}"
+name = "test_force_update_{name}"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-insta = {}
-"#,
-                    name, insta_dependency
+insta = {insta_dependency}
+"#
                 )
                 .to_string(),
             )
@@ -330,10 +328,7 @@ fn test_snapshot_with_newline() {
                 .to_string(),
             )
             .add_file(
-                format!(
-                    "src/snapshots/test_force_update_{}__force_update.snap",
-                    name
-                ),
+                format!("src/snapshots/test_force_update_{name}__force_update.snap"),
                 r#"
 ---
 source: src/lib.rs
