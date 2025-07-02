@@ -137,16 +137,13 @@ impl PendingInlineSnapshot {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum SnapshotKind {
+    #[default]
     Text,
-    Binary { extension: String },
-}
-
-impl Default for SnapshotKind {
-    fn default() -> Self {
-        SnapshotKind::Text
-    }
+    Binary {
+        extension: String,
+    },
 }
 
 /// Snapshot metadata information.

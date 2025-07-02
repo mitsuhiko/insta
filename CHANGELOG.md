@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Bumped `libc` crate to `0.2.174`, fixing building on musl targets, and increasing the MSRV of
+  `insta` to `1.64.0` (released Sept 2022)
+
 ## 1.43.1
 
 This release in identical in rust code to 1.43.0, but reruns the GitHub Actions
