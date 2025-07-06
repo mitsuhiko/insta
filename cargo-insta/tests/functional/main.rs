@@ -70,6 +70,7 @@ use tempfile::TempDir;
 
 mod binary;
 mod delete_pending;
+mod glob_filter;
 mod inline;
 mod test_workspace_source_path;
 mod unreferenced;
