@@ -2,10 +2,14 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## Unreleased
+## 1.43.2
 
+- Preserve snapshot names with `INSTA_GLOB_FILTER`. #786
 - Bumped `libc` crate to `0.2.174`, fixing building on musl targets, and increasing the MSRV of
-  `insta` to `1.64.0` (released Sept 2022)
+  `insta` to `1.64.0` (released Sept 2022). #784
+- Fix clippy 1.88 errors. #783
+- Fix source path in snapshots for non-child workspaces. #778
+- Add lifetime to Selector in redaction iterator. #779
 
 ## 1.43.1
 
