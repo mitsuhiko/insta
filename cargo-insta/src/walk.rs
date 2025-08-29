@@ -76,7 +76,7 @@ pub(crate) fn make_snapshot_walker(
 
     extensions
         .iter()
-        .flat_map(|ext| [format!("*.{}", ext), format!("*.{}.new", ext)])
+        .flat_map(|ext| [format!("*.{ext}"), format!("*.{ext}.new")])
         .chain(std::iter::once("*.pending-snap".to_string()))
         .for_each(|pattern| {
             override_builder.add(&pattern).unwrap();

@@ -24,6 +24,7 @@ fn test_snapshot_file() {
         )
         .create_project();
 
+    // initially it'll fail
     assert!(!&test_project
         .insta_cmd()
         .args(["test", "--", "--nocapture"])
@@ -32,18 +33,26 @@ fn test_snapshot_file() {
         .status
         .success());
 
+    // then it'll pass with `--accept`
+    assert!(&test_project
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap()
+        .status
+        .success());
+
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,8 @@
+    @@ -1,4 +1,7 @@
      
     +  Cargo.lock
        Cargo.toml
        src
-    +    src/.lib.rs.pending-snap
          src/lib.rs
     +    src/snapshots
-    +      src/snapshots/delete_unreferenced__snapshot_file.snap.new
+    +      src/snapshots/delete_unreferenced__snapshot_file.snap
     ");
 
     // Now remove the tests; the pending snapshots should be deleted when

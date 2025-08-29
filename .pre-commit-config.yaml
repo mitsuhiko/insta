@@ -24,6 +24,10 @@ repos:
       - id: markdown-link-check
         name: markdown-link-check-all
         stages: [manual]
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
   - repo: local
     hooks:
       - id: no-dbg

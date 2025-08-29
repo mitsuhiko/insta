@@ -197,8 +197,8 @@ struct TestCommand {
     #[arg(long)]
     force_update_snapshots: bool,
     /// Handle unreferenced snapshots after a successful test run.
-    #[arg(long, default_value = "ignore")]
-    unreferenced: UnreferencedSnapshots,
+    #[arg(long)]
+    unreferenced: Option<UnreferencedSnapshots>,
     /// Filters to apply to the insta glob feature.
     #[arg(long)]
     glob_filter: Vec<String>,
@@ -278,7 +278,7 @@ fn query_snapshot(
         println!(
             "{}{}{} {}@{}:",
             style("Reviewing [").bold(),
-            style(format!("{}/{}", i, n)).yellow().bold(),
+            style(format!("{i}/{n}")).yellow().bold(),
             style("]").bold(),
             pkg.name.as_str(),
             &pkg.version,
@@ -449,12 +449,9 @@ fn handle_target_args<'a>(
         (None, None) => {}
     };
 
-    let metadata = cmd.exec().map_err(|e| {
-        format!(
-            "failed to load cargo metadata: {}. Command details: {:?}",
-            e, cmd
-        )
-    })?;
+    let metadata = cmd
+        .exec()
+        .map_err(|e| format!("failed to load cargo metadata: {e}. Command details: {cmd:?}"))?;
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
 
@@ -501,7 +498,7 @@ fn handle_target_args<'a>(
         .iter()
         .map(|x| {
             if let Some(no_period) = x.strip_prefix(".") {
-                eprintln!("`{}` supplied as an extension. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
+                eprintln!("`{x}` supplied as an extension. This will use `foo.{x}` as file names; likely you want `{no_period}` instead.")
             };
             x.as_str()
         })
@@ -534,7 +531,8 @@ fn load_snapshot_containers<'a>(
     Ok((snapshot_containers, roots))
 }
 
-fn process_snapshots(
+/// Processes snapshot files for reviewing, accepting, or rejecting.
+fn review_snapshots(
     quiet: bool,
     snapshot_filter: Option<&[String]>,
     loc: &LocationInfo<'_>,
@@ -655,19 +653,19 @@ fn process_snapshots(
         if !accepted.is_empty() {
             println!("{}:", style("accepted").green());
             for item in accepted {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
         if !rejected.is_empty() {
             println!("{}:", style("rejected").red());
             for item in rejected {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
         if !skipped.is_empty() {
             println!("{}:", style("skipped").yellow());
             for item in skipped {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
     }
@@ -742,8 +740,13 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
         eprintln!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
-        cmd.unreferenced = UnreferencedSnapshots::Delete;
+        cmd.unreferenced = Some(UnreferencedSnapshots::Delete);
     }
+
+    // If unreferenced wasn't specified, use the config file setting
+    cmd.unreferenced = cmd
+        .unreferenced
+        .or_else(|| Some(loc.tool_config.test_unreferenced()));
 
     // Prioritize the command line over the tool config
     let test_runner = match cmd.test_runner {
@@ -797,12 +800,17 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // tests ran successfully
     if success {
         if let Some(ref snapshot_ref_path) = snapshot_ref_file {
-            handle_unreferenced_snapshots(snapshot_ref_path.borrow(), &loc, cmd.unreferenced)?;
+            handle_unreferenced_snapshots(
+                snapshot_ref_path.borrow(),
+                &loc,
+                // we set this to `Some` above so can't be `None`
+                cmd.unreferenced.unwrap(),
+            )?;
         }
     }
 
     if cmd.review || cmd.accept {
-        process_snapshots(
+        review_snapshots(
             false,
             None,
             &loc,
@@ -866,7 +874,7 @@ fn handle_unreferenced_snapshots(
         UnreferencedSnapshots::Ignore => return Ok(()),
     };
 
-    let files = fs::read_to_string(snapshot_ref_path)
+    let snapshot_files_from_test = fs::read_to_string(snapshot_ref_path)
         .map(|s| {
             s.lines()
                 .filter_map(|line| fs::canonicalize(line).ok())
@@ -899,19 +907,14 @@ fn handle_unreferenced_snapshots(
         .filter_map(|e| e.path().canonicalize().ok())
         // The path isn't in the list which the tests wrote to, so it's
         // unreferenced.
-        //
-        // TODO: note that this will include _all_ `.pending-snap` files,
-        // regardless of whether or not a test was run, since we don't record
-        // those in the snapshot references file. We can make that change, but
-        // also we'd like to unify file & inline snapshot handling; if we do
-        // that it'll fix this smaller issue too.
+        .filter(|path| !snapshot_files_from_test.contains(path))
+        // we don't want to delete the new or pending-snap files, partly because
+        // we use their presence to determine if a test created a snapshot and
+        // so `insta test` should fail
         .filter(|path| {
-            // We also check for the pending path
-            let pending_path = path.with_file_name(format!(
-                "{}.new",
-                path.file_name().unwrap().to_string_lossy()
-            ));
-            !files.contains(path) && !files.contains(&pending_path)
+            path.extension()
+                .map(|x| x != "new" && x != "pending-snap")
+                .unwrap_or(true)
         });
 
         for path in unreferenced_snapshots {
@@ -935,7 +938,7 @@ fn handle_unreferenced_snapshots(
                 // load it, since these are in a different format; just delete
                 if path.extension() == Some(std::ffi::OsStr::new("pending-snap")) {
                     if let Err(e) = fs::remove_file(path) {
-                        eprintln!("Failed to remove file: {}", e);
+                        eprintln!("Failed to remove file: {e}");
                     }
                 } else {
                     let snapshot = match Snapshot::from_file(&path) {
@@ -996,7 +999,7 @@ fn prepare_test_runner<'snapshot_ref>(
     proc.env("INSTA_CARGO_INSTA", "1");
     proc.env("INSTA_CARGO_INSTA_VERSION", cargo_insta_version());
 
-    let snapshot_ref_file = if cmd.unreferenced != UnreferencedSnapshots::Ignore {
+    let snapshot_ref_file = if cmd.unreferenced != Some(UnreferencedSnapshots::Ignore) {
         match snapshot_ref_file {
             Some(path) => Some(Cow::Borrowed(path)),
             None => {
@@ -1150,7 +1153,7 @@ fn prepare_test_runner<'snapshot_ref>(
     if matches!(color, ColorWhen::Auto)
         && matches!(test_runner, TestRunner::CargoTest | TestRunner::Auto)
     {
-        proc.arg(format!("--color={}", color));
+        proc.arg(format!("--color={color}"));
     };
     Ok((proc, snapshot_ref_file, prevents_doc_run))
 }
@@ -1267,7 +1270,7 @@ fn show_undiscovered_hint(
                 let fname = x.file_name().to_string_lossy();
                 extensions
                     .iter()
-                    .any(|ext| fname.ends_with(&format!(".{}.new", ext)))
+                    .any(|ext| fname.ends_with(&format!(".{ext}.new")))
                     || fname.ends_with(".pending-snap")
             })
             .map(|x| x.path().to_path_buf())
@@ -1319,7 +1322,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
     handle_color(opts.color);
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
-            process_snapshots(
+            review_snapshots(
                 cmd.quiet,
                 cmd.snapshot_filter.as_deref(),
                 &handle_target_args(&cmd.target_args, &[])?,

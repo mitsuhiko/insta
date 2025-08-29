@@ -18,15 +18,20 @@ body:
         2. [Second step]
         3. etc.
   - type: input
-    id: insta-version
-    attributes:
-      label: Insta Version
-      description: What version of insta are you using?
-  - type: input
     id: rustc-version
     attributes:
       label: rustc Version
       description: What version of rustc are you using?
+  - type: input
+    id: insta-version
+    attributes:
+      label: insta Version
+      description: What version of insta are you using? (in Cargo.toml)
+  - type: input
+    id: cargo-insta-version
+    attributes:
+      label: cargo insta --version output
+      description: What does `cargo insta --version` output?
   - type: textarea
     id: expectations
     attributes:

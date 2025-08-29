@@ -24,7 +24,7 @@ pub fn get_tool_config(workspace_dir: &Path) -> Arc<ToolConfig> {
         .entry(workspace_dir.to_path_buf())
         .or_insert_with(|| {
             ToolConfig::from_workspace(workspace_dir)
-                .unwrap_or_else(|e| panic!("Error building config from {:?}: {}", workspace_dir, e))
+                .unwrap_or_else(|e| panic!("Error building config from {workspace_dir:?}: {e}"))
                 .into()
         })
         .clone()
@@ -108,8 +108,8 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Deserialize(_) => write!(f, "failed to deserialize tool config"),
-            Error::Env(var) => write!(f, "invalid value for env var '{}'", var),
-            Error::Config(var) => write!(f, "invalid value for config '{}'", var),
+            Error::Env(var) => write!(f, "invalid value for env var '{var}'"),
+            Error::Config(var) => write!(f, "invalid value for config '{var}'"),
         }
     }
 }
@@ -459,12 +459,8 @@ pub fn get_cargo_workspace(workspace: Workspace) -> Arc<PathBuf> {
         Workspace::DetectWithCargo(manifest_dir) => manifest_dir,
     };
 
-    let error_message = || {
-        format!(
-            "`cargo metadata --format-version=1 --no-deps` in path `{}`",
-            manifest_dir
-        )
-    };
+    let error_message =
+        || format!("`cargo metadata --format-version=1 --no-deps` in path `{manifest_dir}`");
 
     WORKSPACES
         .lock()

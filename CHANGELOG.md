@@ -4,14 +4,27 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Bumped `libc` crate to `0.2.174`, fixing building on musl targets, and increasing the MSRV of
+  `insta` to `1.64.0` (released Sept 2022)
+
+## 1.43.1
+
+This release in identical in rust code to 1.43.0, but reruns the GitHub Actions
+workflows, which failed to create a release within GitHub for 1.43.0.
+
+## 1.43.0
+
+- Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
+  `A` to accept all, `R` to reject all, and `S` to skip all remaining snapshots.
+  #745
+- `--unreferenced=auto` (or other relevant values) no longer cleans up pending
+  snapshots. A bug where `cargo insta test --unreferenced=auto` would
+  incorrectly pass on new pending snapshots has been fixed.
 - Support specifying `cargo-nextest` bin with `INSTA_CARGO_NEXTEST_BIN`.  #721 (Louis Fruleux)
 - Allow setting `INSTA_WORKSPACE_ROOT` at compile time. This is useful for reproducible binaries
   so they don't contain references to `CARGO_MANIFEST_DIR`. #726 (Pascal Bach)
 - Qualify all references in macros to avoid name clashes. #729 (Austin Schey)
 - Remove `linked-hash-map` and `pin-project` dependencies.  #742, #741, #738
-- Add uppercase keyboard shortcuts for bulk operations in `cargo insta review`:
-  `A` to accept all, `R` to reject all, and `S` to skip all remaining snapshots.
-  #745
 - `cargo insta review` fails with a helpful error message when run in a non-TTY environment.
 
 ## 1.42.2
