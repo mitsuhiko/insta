@@ -62,15 +62,13 @@ fn test_another() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         !stderr.contains("In a future version"),
-        "Deprecation warning should not appear with additional separator: {}",
-        stderr
+        "Deprecation warning should not appear with additional separator: {stderr}"
     );
 
     // With --status-level none, we should see minimal output
     assert!(
         !stderr.contains("PASS"),
-        "PASS should not appear with --status-level none: {}",
-        stderr
+        "PASS should not appear with --status-level none: {stderr}"
     );
 }
 
@@ -115,8 +113,7 @@ fn test_simple() {
     // The deprecation warning SHOULD appear with single separator
     assert!(
         stderr.contains("The single `--` separator with nextest will change behavior"),
-        "Deprecation warning should appear with single separator. Stderr: {}",
-        stderr
+        "Deprecation warning should appear with single separator. Stderr: {stderr}"
     );
 }
 
@@ -156,8 +153,7 @@ fn test_basic() {
     // No deprecation warning should appear for cargo test
     assert!(
         !stderr.contains("In a future version"),
-        "Deprecation warning should not appear with cargo test: {}",
-        stderr
+        "Deprecation warning should not appear with cargo test: {stderr}"
     );
 }
 
@@ -212,8 +208,7 @@ fn test_visible() {
 
     assert!(
         combined_output.contains("PASS"),
-        "PASS should appear with --status-level all. Output: {}",
-        combined_output
+        "PASS should appear with --status-level all. Output: {combined_output}"
     );
 }
 
@@ -309,21 +304,18 @@ fn test_another() {
     // Should see the filtered test running (PASS line)
     assert!(
         combined_output.contains("PASS") && combined_output.contains("test_with_filter"),
-        "Should see test_with_filter passing in output: {}",
-        combined_output
+        "Should see test_with_filter passing in output: {combined_output}"
     );
 
     // The other test should be skipped (filtered out by test binary arg)
     assert!(
         combined_output.contains("SKIP") && combined_output.contains("test_another"),
-        "Should see test_another being skipped (filtered out): {}",
-        combined_output
+        "Should see test_another being skipped (filtered out): {combined_output}"
     );
 
     // Verify we ran 1 test and skipped 1
     assert!(
         combined_output.contains("1 test run: 1 passed, 1 skipped"),
-        "Should show 1 test run and 1 skipped: {}",
-        combined_output
+        "Should show 1 test run and 1 skipped: {combined_output}"
     );
 }
