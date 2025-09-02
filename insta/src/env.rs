@@ -459,49 +459,78 @@ pub fn get_cargo_workspace(workspace: Workspace) -> Arc<PathBuf> {
         Workspace::DetectWithCargo(manifest_dir) => manifest_dir,
     };
 
-    let error_message =
-        || format!("`cargo metadata --format-version=1 --no-deps` in path `{manifest_dir}`");
-
     WORKSPACES
         .lock()
         // we really do not care about poisoning here.
         .unwrap()
         .entry(manifest_dir.to_string())
-        .or_insert_with(|| {
-            let output = std::process::Command::new(
-                env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()),
-            )
-            .args(["metadata", "--format-version=1", "--no-deps"])
-            .current_dir(manifest_dir)
-            .output()
-            .unwrap_or_else(|e| panic!("failed to run {}\n\n{}", error_message(), e));
-
-            crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
-                std::str::from_utf8(&output.stdout).unwrap(),
-            )
-            .map_err(|e| e.to_string())
-            .and_then(|docs| {
-                docs.into_iter()
-                    .next()
-                    .ok_or_else(|| "No content found in yaml".to_string())
-            })
-            .and_then(|metadata| {
-                metadata["workspace_root"]
-                    .clone()
-                    .into_string()
-                    .ok_or_else(|| "Couldn't find `workspace_root`".to_string())
-            })
-            .map(|path| PathBuf::from(path).into())
-            .unwrap_or_else(|e| {
-                panic!(
-                    "failed to parse cargo metadata output from {}: {}\n\n{:?}",
-                    error_message(),
-                    e,
-                    output.stdout
-                )
-            })
+        .or_insert_with(|| match get_cargo_workspace_innner(manifest_dir) {
+            Some(path) => path,
+            None => {
+                eprintln!(
+                    "error: failed to get cargo workspace for {}, will use manifest directory",
+                    manifest_dir
+                );
+                Arc::new(PathBuf::from(manifest_dir))
+            }
         })
         .clone()
+}
+
+fn get_cargo_workspace_innner(manifest_dir: &'static str) -> Option<Arc<PathBuf>> {
+    let error_message =
+        || format!("`cargo metadata --format-version=1 --no-deps` in path `{manifest_dir}`");
+
+    let res = std::process::Command::new(env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()))
+        .args(["metadata", "--format-version=1", "--no-deps"])
+        .current_dir(manifest_dir)
+        .output();
+
+    let output = match res {
+        Ok(output) => {
+            if output.status.success() {
+                output.stdout.to_vec()
+            } else {
+                eprintln!(
+                    "error: failed to run {}: {:?}",
+                    error_message(),
+                    &output.stderr
+                );
+                return None;
+            }
+        }
+        Err(e) => {
+            eprintln!("error: failed to run {}: {}", error_message(), e);
+            return None;
+        }
+    };
+
+    let res = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
+        std::str::from_utf8(&output).unwrap(),
+    )
+    .map_err(|e| e.to_string())
+    .and_then(|docs| {
+        docs.into_iter()
+            .next()
+            .ok_or_else(|| "No content found in yaml".to_string())
+    })
+    .and_then(|metadata| {
+        metadata["workspace_root"]
+            .clone()
+            .into_string()
+            .ok_or_else(|| "Couldn't find `workspace_root`".to_string())
+    });
+
+    match res {
+        Ok(path) => Some(Arc::new(path.into())),
+        Err(e) => {
+            eprintln!(
+                "error: failed to get cargo workspace for {}: {}",
+                manifest_dir, e
+            );
+            None
+        }
+    }
 }
 
 #[test]
