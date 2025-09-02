@@ -2,6 +2,13 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- `cargo-insta` now passes all arguments following `cargo insta test --` directly to the test runner.
+  When using `nextest`, the test runner interprets arguments after an additional `--` separator as arguments
+  for test binaries. This allows setting nextest options like `--status-level` and test binary arguments in a
+  single command. Example: `cargo insta test -- --status-level fail -- --test-arg`. #795
+
 ## 1.43.2
 
 - Preserve snapshot names with `INSTA_GLOB_FILTER`. #786
