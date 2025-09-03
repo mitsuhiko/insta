@@ -1161,40 +1161,23 @@ fn prepare_test_runner<'snapshot_ref>(
     proc.args(["--color", color.to_string().as_str()]);
     proc.args(extra_args);
 
-    // Parse cargo_options for additional -- separator when using nextest
-    // When we see an additional separator pattern like: -- nextest-args -- test-args
-    // We pass "nextest-args -- test-args" to nextest, which will interpret
-    // its own -- separator according to its conventions
-    let (nextest_args, test_binary_args, has_additional_separator) =
-        if matches!(test_runner, TestRunner::Nextest) {
-            // Look for an additional -- separator in cargo_options
-            if let Some(separator_pos) = cmd.cargo_options.iter().position(|arg| arg == "--") {
-                // Found an additional separator, split the args
-                // Everything before goes directly to nextest (before its -- separator)
-                // Everything after (including the --) gets passed through nextest's separator
-                let nextest_args = &cmd.cargo_options[..separator_pos];
-                let test_binary_args = &cmd.cargo_options[separator_pos + 1..];
-                (nextest_args.to_vec(), test_binary_args.to_vec(), true)
-            } else {
-                // No additional separator, maintain current behavior for now
-                (vec![], cmd.cargo_options.clone(), false)
-            }
-        } else {
-            // Not nextest, maintain current behavior
-            (vec![], cmd.cargo_options.clone(), false)
-        };
+    // Nextest interprets its own -- separator, so pass all args directly to it.
+    // Cargo test requires args after our -- separator to reach test binaries.
+    let has_additional_separator = matches!(test_runner, TestRunner::Nextest) 
+        && cmd.cargo_options.iter().any(|arg| arg == "--");
 
-    // Add nextest-specific args before the -- separator
-    if matches!(test_runner, TestRunner::Nextest) && !nextest_args.is_empty() {
-        proc.args(&nextest_args);
+    if matches!(test_runner, TestRunner::Nextest) {
+        // Pass all args to nextest before our separator - nextest handles its own separator
+        proc.args(&cmd.cargo_options);
+        proc.arg("--");
+    } else {
+        // For cargo test, args go after the separator
+        proc.arg("--");
+        if !cmd.no_quiet {
+            proc.arg("-q");
+        }
+        proc.args(&cmd.cargo_options);
     }
-
-    // Items after this are passed to the test runner
-    proc.arg("--");
-    if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
-        proc.arg("-q");
-    }
-    proc.args(&test_binary_args);
 
     // Show deprecation warning for single -- with nextest
     if matches!(test_runner, TestRunner::Nextest)
