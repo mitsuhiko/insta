@@ -43,7 +43,7 @@
 /// Note that the packages must have different names, or we'll see interference
 /// between the tests[^1].
 ///
-/// [1]: That seems to be because they all share the same `target` directory, which
+/// [^1]: That seems to be because they all share the same `target` directory, which
 ///      cargo will confuse for each other if they share the same name. I haven't
 ///      worked out why — this is the case even if the files are the same between
 ///      two tests but with different commands — and those files exist in different
