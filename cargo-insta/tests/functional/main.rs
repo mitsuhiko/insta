@@ -834,28 +834,25 @@ fn test_snapshot() {
     // Check both stdout and stderr for the diff output
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined_output = format!("{}\n{}", stdout, stderr);
+    let combined_output = format!("{stdout}\n{stderr}");
 
     // Check that line numbers in the diff start at 1, not 0
     // The diff should show line numbers like "1     1 │" for the first line
     assert!(
         combined_output.contains("    1     1 │ line1"),
-        "Expected line numbers to start at 1, but got:\n{}",
-        combined_output
+        "Expected line numbers to start at 1, but got:\n{combined_output}"
     );
 
     // Also check line 2 which has the modification
     assert!(
         combined_output.contains("    2       │-modified_line2")
             || combined_output.contains("          2 │+line2"),
-        "Expected line 2 to be numbered as 2, but got:\n{}",
-        combined_output
+        "Expected line 2 to be numbered as 2, but got:\n{combined_output}"
     );
 
     // And verify line 5 is numbered as 5
     assert!(
         combined_output.contains("    5     5 │ line5"),
-        "Expected line 5 to be numbered as 5, but got:\n{}",
-        combined_output
+        "Expected line 5 to be numbered as 5, but got:\n{combined_output}"
     );
 }
