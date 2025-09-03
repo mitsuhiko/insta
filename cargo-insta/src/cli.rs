@@ -119,7 +119,7 @@ struct ProcessCommand {
     quiet: bool,
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 #[command(rename_all = "kebab-case", next_help_heading = "Test Runner Options")]
 struct TestRunnerOptions {
     /// Test only this package's library unit tests
@@ -175,7 +175,7 @@ struct TestRunnerOptions {
     target: Option<String>,
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 #[command(rename_all = "kebab-case")]
 struct TestCommand {
     /// Accept all snapshots after test.
@@ -226,7 +226,21 @@ struct TestCommand {
     target_args: TargetArgs,
     #[command(flatten)]
     test_runner_options: TestRunnerOptions,
-    /// Options passed to cargo test
+    /// Arguments passed to the test runner.
+    ///
+    /// Use `--` to separate insta arguments from test runner arguments.
+    ///
+    /// With cargo test:
+    ///   `cargo insta test -- --nocapture`
+    ///
+    /// With nextest, all arguments are passed to nextest, which interprets
+    /// its own `--` separator:
+    ///   `cargo insta test -- --status-level fail -- --nocapture`
+    ///   (nextest sees: `--status-level fail -- --nocapture`)
+    ///
+    /// Single separator with nextest currently passes args to test binaries
+    /// by leveraging nextest's test filter behavior - unrecognized args before
+    /// nextest's separator are treated as test name filters.
     #[arg(last = true)]
     cargo_options: Vec<String>,
 }
@@ -777,8 +791,18 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // even on crates that specify `doctests = false`. But I don't think there's
     // a way to replicate the `cargo test` behavior.
     if matches!(cmd.test_runner, TestRunner::Nextest) && !prevents_doc_run {
+        // When running doctests, we need to pass only the test binary args, not nextest args
+        // Create a modified command with only test binary args
+        let mut doctest_cmd = cmd.clone();
+
+        // If there's an additional separator, extract only the test binary args
+        if let Some(separator_pos) = cmd.cargo_options.iter().position(|arg| arg == "--") {
+            doctest_cmd.cargo_options = cmd.cargo_options[separator_pos + 1..].to_vec();
+        }
+        // If no additional separator, pass all args (maintains backward compatibility)
+
         let (mut proc, _, _) = prepare_test_runner(
-            &cmd,
+            &doctest_cmd,
             &TestRunner::CargoTest,
             color,
             &["--doc"],
@@ -1138,12 +1162,42 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     proc.args(["--color", color.to_string().as_str()]);
     proc.args(extra_args);
-    // Items after this are passed to the test runner
-    proc.arg("--");
-    if !cmd.no_quiet && matches!(test_runner, TestRunner::CargoTest) {
-        proc.arg("-q");
+
+    // Argument routing strategy:
+    // - Nextest: Pass all args BEFORE our separator. Nextest interprets its own -- within those args.
+    //   This provides backward compatibility because nextest treats unrecognized args before its
+    //   separator as test name filters that get passed to test binaries.
+    // - Cargo test: Pass all args AFTER our separator to test binaries.
+    if matches!(test_runner, TestRunner::Nextest) {
+        // Pass all args to nextest before our separator - nextest handles its own separator
+        proc.args(&cmd.cargo_options);
+        proc.arg("--");
+    } else {
+        // For cargo test, args go after the separator
+        proc.arg("--");
+        if !cmd.no_quiet {
+            proc.arg("-q");
+        }
+        proc.args(&cmd.cargo_options);
     }
-    proc.args(&cmd.cargo_options);
+
+    // Show deprecation warning for single -- with nextest
+    if matches!(test_runner, TestRunner::Nextest)
+        && !cmd.cargo_options.is_empty()
+        && !cmd.cargo_options.iter().any(|arg| arg == "--")
+    {
+        eprintln!(
+            "{} The single `--` separator with nextest will change behavior in a future version.\n\
+            \n  Currently: `cargo insta test -- test-args` → passes to test binaries\n\
+            \n             (nextest treats unrecognized args as test name filters)\n\
+            \n  Future:    `cargo insta test -- test-args` → passes to nextest\n\
+            \n             (allows full control of nextest options)\n\
+            \n  For explicit control use: `cargo insta test -- nextest-args -- test-binary-args`\n\
+            \n  Note: This change only affects nextest users. Cargo test behavior remains unchanged.",
+            style("warning:").yellow().bold()
+        );
+    }
+
     // Currently libtest uses a different approach to color, so we need to pass
     // it again to get output from the test runner as well as cargo. See
     // https://github.com/rust-lang/cargo/issues/1983 for more

@@ -72,6 +72,7 @@ mod binary;
 mod delete_pending;
 mod glob_filter;
 mod inline;
+mod nextest_args;
 mod test_workspace_source_path;
 mod unreferenced;
 mod workspace;

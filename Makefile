@@ -14,6 +14,7 @@ cargotest:
 	@cargo test -p insta --all-features
 	@cargo test -p insta --no-default-features
 	@cargo test -p insta --features redactions -- --test-threads 1
+	@command -v cargo-nextest >/dev/null 2>&1 || cargo install cargo-nextest --locked
 	@cargo test -p cargo-insta
 
 check-minver:
