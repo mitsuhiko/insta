@@ -4,6 +4,7 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Fix panics when `cargo metadata` fails to execute or parse (e.g., when cargo is not in PATH or returns invalid output). Now falls back to using the manifest directory as the workspace root. #798 (@adriangb)
 - Changed diff line numbers to 1-based indexing.
 
 ## 1.43.2
