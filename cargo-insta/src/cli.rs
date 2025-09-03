@@ -238,7 +238,9 @@ struct TestCommand {
     ///   `cargo insta test -- --status-level fail -- --nocapture`
     ///   (nextest sees: `--status-level fail -- --nocapture`)
     ///
-    /// Single separator with nextest currently passes args to test binaries.
+    /// Single separator with nextest currently passes args to test binaries
+    /// by leveraging nextest's test filter behavior - unrecognized args before
+    /// nextest's separator are treated as test name filters.
     #[arg(last = true)]
     cargo_options: Vec<String>,
 }
@@ -1161,8 +1163,11 @@ fn prepare_test_runner<'snapshot_ref>(
     proc.args(["--color", color.to_string().as_str()]);
     proc.args(extra_args);
 
-    // Nextest interprets its own -- separator, so pass all args directly to it.
-    // Cargo test requires args after our -- separator to reach test binaries.
+    // Argument routing strategy:
+    // - Nextest: Pass all args BEFORE our separator. Nextest interprets its own -- within those args.
+    //   This provides backward compatibility because nextest treats unrecognized args before its
+    //   separator as test name filters that get passed to test binaries.
+    // - Cargo test: Pass all args AFTER our separator to test binaries.
     if matches!(test_runner, TestRunner::Nextest) {
         // Pass all args to nextest before our separator - nextest handles its own separator
         proc.args(&cmd.cargo_options);
@@ -1182,7 +1187,13 @@ fn prepare_test_runner<'snapshot_ref>(
         && !cmd.cargo_options.iter().any(|arg| arg == "--")
     {
         eprintln!(
-            "{} The single `--` separator with nextest will change behavior in a future version.\n  Currently: `cargo insta test -- test-args` → passes to test binaries\n  Future:    `cargo insta test -- test-args` → passes to nextest\n  To let nextest handle argument separation: `cargo insta test -- nextest-args -- test-binary-args`",
+            "{} The single `--` separator with nextest will change behavior in a future version.\n\
+            \n  Currently: `cargo insta test -- test-args` → passes to test binaries\n\
+            \n             (nextest treats unrecognized args as test name filters)\n\
+            \n  Future:    `cargo insta test -- test-args` → passes to nextest\n\
+            \n             (allows full control of nextest options)\n\
+            \n  For explicit control use: `cargo insta test -- nextest-args -- test-binary-args`\n\
+            \n  Note: This change only affects nextest users. Cargo test behavior remains unchanged.",
             style("warning:").yellow().bold()
         );
     }

@@ -8,6 +8,12 @@ All notable changes to insta and cargo-insta are documented here.
   When using `nextest`, the test runner interprets arguments after an additional `--` separator as arguments
   for test binaries. This allows setting nextest options like `--status-level` and test binary arguments in a
   single command. Example: `cargo insta test -- --status-level fail -- --test-arg`. #795
+  
+  **Note on backward compatibility:** With a single `--` separator, nextest treats unrecognized arguments 
+  before its separator as test name filters that are passed to test binaries. This means 
+  `cargo insta test -- test_name` continues to work as before. However, this only applies to arguments 
+  that nextest doesn't recognize - nextest-specific flags would be consumed by nextest itself.
+- Fix panics when `cargo metadata` fails to execute or parse (e.g., when cargo is not in PATH or returns invalid output). Now falls back to using the manifest directory as the workspace root. #798 (@adriangb)
 - Changed diff line numbers to 1-based indexing.
 
 ## 1.43.2
