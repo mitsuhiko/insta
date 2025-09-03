@@ -804,3 +804,58 @@ src/
         stderr
     );
 }
+
+#[test]
+fn test_line_numbers_1_based() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_line_numbers")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("line1\nline2\nline3\nline4\nline5", @"line1\nmodified_line2\nline3\nline4\nline5");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run test to trigger failure and capture diff output
+    // Use --no-ignore and -- --nocapture to get the full diff output
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--no-ignore", "--", "--nocapture"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    // Check both stdout and stderr for the diff output
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined_output = format!("{}\n{}", stdout, stderr);
+
+    // Check that line numbers in the diff start at 1, not 0
+    // The diff should show line numbers like "1     1 │" for the first line
+    assert!(
+        combined_output.contains("    1     1 │ line1"),
+        "Expected line numbers to start at 1, but got:\n{}",
+        combined_output
+    );
+
+    // Also check line 2 which has the modification
+    assert!(
+        combined_output.contains("    2       │-modified_line2")
+            || combined_output.contains("          2 │+line2"),
+        "Expected line 2 to be numbered as 2, but got:\n{}",
+        combined_output
+    );
+
+    // And verify line 5 is numbered as 5
+    assert!(
+        combined_output.contains("    5     5 │ line5"),
+        "Expected line 5 to be numbered as 5, but got:\n{}",
+        combined_output
+    );
+}

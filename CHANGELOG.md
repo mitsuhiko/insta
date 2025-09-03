@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Changed diff line numbers to 1-based indexing.
+
 ## 1.43.2
 
 - Preserve snapshot names with `INSTA_GLOB_FILTER`. #786
