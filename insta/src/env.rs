@@ -464,7 +464,7 @@ pub fn get_cargo_workspace(workspace: Workspace) -> Arc<PathBuf> {
         // we really do not care about poisoning here.
         .unwrap()
         .entry(manifest_dir.to_string())
-        .or_insert_with(|| match get_cargo_workspace_innner(manifest_dir) {
+        .or_insert_with(|| match get_cargo_workspace_inner(manifest_dir) {
             Some(path) => path,
             None => {
                 eprintln!(
@@ -477,7 +477,7 @@ pub fn get_cargo_workspace(workspace: Workspace) -> Arc<PathBuf> {
         .clone()
 }
 
-fn get_cargo_workspace_innner(manifest_dir: &'static str) -> Option<Arc<PathBuf>> {
+fn get_cargo_workspace_inner(manifest_dir: &'static str) -> Option<Arc<PathBuf>> {
     let error_message =
         || format!("`cargo metadata --format-version=1 --no-deps` in path `{manifest_dir}`");
 
