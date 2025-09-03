@@ -1163,9 +1163,6 @@ fn prepare_test_runner<'snapshot_ref>(
 
     // Nextest interprets its own -- separator, so pass all args directly to it.
     // Cargo test requires args after our -- separator to reach test binaries.
-    let has_additional_separator = matches!(test_runner, TestRunner::Nextest) 
-        && cmd.cargo_options.iter().any(|arg| arg == "--");
-
     if matches!(test_runner, TestRunner::Nextest) {
         // Pass all args to nextest before our separator - nextest handles its own separator
         proc.args(&cmd.cargo_options);
@@ -1182,7 +1179,7 @@ fn prepare_test_runner<'snapshot_ref>(
     // Show deprecation warning for single -- with nextest
     if matches!(test_runner, TestRunner::Nextest)
         && !cmd.cargo_options.is_empty()
-        && !has_additional_separator
+        && !cmd.cargo_options.iter().any(|arg| arg == "--")
     {
         eprintln!(
             "{} The single `--` separator with nextest will change behavior in a future version.\n  Currently: `cargo insta test -- test-args` → passes to test binaries\n  Future:    `cargo insta test -- test-args` → passes to nextest\n  To let nextest handle argument separation: `cargo insta test -- nextest-args -- test-binary-args`",
