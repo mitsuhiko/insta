@@ -8,6 +8,7 @@ All notable changes to insta and cargo-insta are documented here.
   When using `nextest`, the test runner interprets arguments after an additional `--` separator as arguments
   for test binaries. This allows setting nextest options like `--status-level` and test binary arguments in a
   single command. Example: `cargo insta test -- --status-level fail -- --test-arg`. #795
+- Changed diff line numbers to 1-based indexing.
 
 ## 1.43.2
 
