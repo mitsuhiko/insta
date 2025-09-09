@@ -222,6 +222,9 @@ struct TestCommand {
     /// Disable force-passing of snapshot tests (deprecated)
     #[arg(long, hide = true)]
     no_force_pass: bool,
+    /// Disable running doctests when using nextest test runner
+    #[arg(long)]
+    disable_nextest_doctest: bool,
     #[command(flatten)]
     target_args: TargetArgs,
     #[command(flatten)]
@@ -673,6 +676,27 @@ fn review_snapshots(
     Ok(())
 }
 
+/// Check if any of the packages have doctests
+fn has_doctests(packages: &[Package]) -> bool {
+    for package in packages {
+        for target in &package.targets {
+            // Skip non-source targets
+            if target.kind.iter().any(|kind| kind == "custom-build") {
+                continue;
+            }
+
+            // Check if the target source file exists and contains doctests
+            if let Ok(content) = fs::read_to_string(&target.src_path) {
+                // Look for doc comment blocks with code blocks
+                if content.contains("/// ```") || content.contains("//! ```") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 /// Run the tests
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
@@ -776,7 +800,19 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // Note that unlike `cargo test`, `cargo test --doctest` will run doctests
     // even on crates that specify `doctests = false`. But I don't think there's
     // a way to replicate the `cargo test` behavior.
-    if matches!(cmd.test_runner, TestRunner::Nextest) && !prevents_doc_run {
+    if matches!(cmd.test_runner, TestRunner::Nextest)
+        && !prevents_doc_run
+        && !cmd.disable_nextest_doctest
+    {
+        // Check if there are doctests and show warning
+        if has_doctests(&loc.packages) {
+            eprintln!(
+                "{}: insta won't run a separate doctest process when using nextest in the future. \
+                 Pass `--disable-nextest-doctest` to update to this behavior now and silence this warning.",
+                style("warning").bold().yellow()
+            );
+        }
+
         let (mut proc, _, _) = prepare_test_runner(
             &cmd,
             &TestRunner::CargoTest,

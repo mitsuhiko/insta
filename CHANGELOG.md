@@ -4,6 +4,10 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Add `--disable-nextest-doctest` flag to `cargo insta test` to disable running doctests with 
+  nextest. Shows a deprecation warning when nextest is used with doctests without this flag, to prepare `cargo insta` to no longer run
+  a separate doctest process when using nextest in the future. #803
+
 ## 1.43.2
 
 - Fix panics when `cargo metadata` fails to execute or parse (e.g., when cargo is not in PATH or returns invalid output). Now falls back to using the manifest directory as the workspace root. #798 (@adriangb)
