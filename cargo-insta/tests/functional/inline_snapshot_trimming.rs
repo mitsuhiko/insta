@@ -67,7 +67,7 @@ world
 ");
 }
 "#####
-            .to_string(),
+                .to_string(),
         )
         .create_project();
 
@@ -147,7 +147,7 @@ fn test_single_line_with_padding() {
     "###);
 }
 "#####
-            .to_string(),
+                .to_string(),
         )
         .create_project();
 
@@ -282,7 +282,7 @@ fn test_code_block() {
     "##);
 }
 "####
-            .to_string(),
+                .to_string(),
         )
         .create_project();
 
@@ -330,7 +330,7 @@ bar
 ");
 }
 "#####
-            .to_string(),
+                .to_string(),
         )
         .create_project();
 
@@ -374,7 +374,7 @@ fn test_multi_line_needs_migration() {
     "###);
 }
 "#####
-            .to_string(),
+                .to_string(),
         )
         .create_project();
 
@@ -518,7 +518,7 @@ fn test_old_with_excess() {
     "###);
 }
 "####
-            .to_string(),
+                .to_string(),
         )
         .create_project();
 
