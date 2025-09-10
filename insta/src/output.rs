@@ -236,7 +236,7 @@ impl<'a> SnapshotPrinter<'a> {
                                 print!(
                                     "{:>5} {:>5} │{}",
                                     "",
-                                    style(change.new_index().unwrap()).cyan().dim().bold(),
+                                    style(change.new_index().unwrap() + 1).cyan().dim().bold(),
                                     style("+").green(),
                                 );
                                 for &(emphasized, change) in change.values() {
@@ -252,7 +252,7 @@ impl<'a> SnapshotPrinter<'a> {
                                 has_changes = true;
                                 print!(
                                     "{:>5} {:>5} │{}",
-                                    style(change.old_index().unwrap()).cyan().dim(),
+                                    style(change.old_index().unwrap() + 1).cyan().dim(),
                                     "",
                                     style("-").red(),
                                 );
@@ -268,8 +268,8 @@ impl<'a> SnapshotPrinter<'a> {
                             ChangeTag::Equal => {
                                 print!(
                                     "{:>5} {:>5} │ ",
-                                    style(change.old_index().unwrap()).cyan().dim(),
-                                    style(change.new_index().unwrap()).cyan().dim().bold(),
+                                    style(change.old_index().unwrap() + 1).cyan().dim(),
+                                    style(change.new_index().unwrap() + 1).cyan().dim().bold(),
                                 );
                                 for &(_, change) in change.values() {
                                     let change = render_invisible(change, newlines_matter);

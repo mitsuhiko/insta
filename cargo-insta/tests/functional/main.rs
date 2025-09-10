@@ -43,7 +43,7 @@
 /// Note that the packages must have different names, or we'll see interference
 /// between the tests[^1].
 ///
-/// [1]: That seems to be because they all share the same `target` directory, which
+/// [^1]: That seems to be because they all share the same `target` directory, which
 ///      cargo will confuse for each other if they share the same name. I haven't
 ///      worked out why — this is the case even if the files are the same between
 ///      two tests but with different commands — and those files exist in different
@@ -72,6 +72,8 @@ mod binary;
 mod delete_pending;
 mod glob_filter;
 mod inline;
+mod inline_snapshot_trimming;
+mod nextest_doctest;
 mod test_workspace_source_path;
 mod unreferenced;
 mod workspace;
@@ -280,6 +282,7 @@ impl TestProject {
                 let path_str = path.to_str().map(|s| s.replace('\\', "/")).unwrap();
                 format!("{}{}", "  ".repeat(entry.depth()), path_str)
             })
+            .filter(|line| !line.is_empty())
             .chain(std::iter::once(String::new()))
             .collect::<Vec<_>>()
             .join("\n")
@@ -509,6 +512,7 @@ fn test_wrong_indent_force() {
     foo
     foo
     "#, @r#"
+
                 foo
                 foo
     "#);
@@ -539,8 +543,6 @@ fn test_wrong_indent_force() {
 
 #[test]
 fn test_matches_fully_linebreaks() {
-    // Until #563 merges, we should be OK with different leading newlines, even
-    // in exact / full match mode.
     let test_project = TestFiles::new()
         .add_cargo_toml("exact-match-inline")
         .add_file(
@@ -556,6 +558,8 @@ fn test_additional_linebreak() {
         "insta_tests__tests",
     )
     "#, @r#"
+
+
     (
         "name_foo",
         "insta_tests__tests",
@@ -567,8 +571,7 @@ fn test_additional_linebreak() {
         )
         .create_project();
 
-    // Confirm the test passes despite the indent
-    let output = test_project
+    assert!(&test_project
         .insta_cmd()
         .args([
             "test",
@@ -578,8 +581,9 @@ fn test_additional_linebreak() {
             "--nocapture",
         ])
         .output()
-        .unwrap();
-    assert!(&output.status.success());
+        .unwrap()
+        .status
+        .success());
 }
 
 #[test]
@@ -620,6 +624,7 @@ fn foo_always_missing() {
     // Check for the name clash error message
     assert!(error_output.contains("Insta snapshot name clash detected between 'foo_always_missing' and 'test_foo_always_missing' in 'snapshot_name_clash_test'. Rename one function."));
 }
+
 #[test]
 fn test_hidden_snapshots() {
     let test_project = TestFiles::new()
@@ -804,5 +809,57 @@ src/
         !stderr.contains("found undiscovered pending snapshots"),
         "{}",
         stderr
+    );
+}
+
+#[test]
+fn test_line_numbers_1_based() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_line_numbers")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("line1\nline2\nline3\nline4\nline5", @"line1\nmodified_line2\nline3\nline4\nline5");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run test to trigger failure and capture diff output
+    // Use --no-ignore and -- --nocapture to get the full diff output
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--no-ignore", "--", "--nocapture"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    // Check both stdout and stderr for the diff output
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined_output = format!("{stdout}\n{stderr}");
+
+    // Check that line numbers in the diff start at 1, not 0
+    // The diff should show line numbers like "1     1 │" for the first line
+    assert!(
+        combined_output.contains("    1     1 │ line1"),
+        "Expected line numbers to start at 1, but got:\n{combined_output}"
+    );
+
+    // Also check line 2 which has the modification
+    assert!(
+        combined_output.contains("    2       │-modified_line2")
+            || combined_output.contains("          2 │+line2"),
+        "Expected line 2 to be numbered as 2, but got:\n{combined_output}"
+    );
+
+    // And verify line 5 is numbered as 5
+    assert!(
+        combined_output.contains("    5     5 │ line5"),
+        "Expected line 5 to be numbered as 5, but got:\n{combined_output}"
     );
 }

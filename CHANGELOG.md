@@ -4,8 +4,29 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Add `--disable-nextest-doctest` flag to `cargo insta test` to disable running doctests with 
+  nextest. Shows a deprecation warning when nextest is used with doctests without this flag, to prepare `cargo insta` to no longer run
+  a separate doctest process when using nextest in the future. #803
+
+- We no longer trim starting newlines during assertions, which allows asserting
+  the number of leading newlines match. Existing assertions with different
+  leading newlines will pass and print a warning suggesting running with
+  `--force-update-snapshots`.  They may fail in the future.  (Note that we still
+  currently allow differing _trailing_ newlines, though may adjust this in the
+  future).  #563
+
+
+## 1.43.2
+
+- Fix panics when `cargo metadata` fails to execute or parse (e.g., when cargo is not in PATH or returns invalid output). Now falls back to using the manifest directory as the workspace root. #798 (@adriangb)
+- Fix clippy `uninlined_format_args` lint warnings. #801
+- Changed diff line numbers to 1-based indexing. #799
+- Preserve snapshot names with `INSTA_GLOB_FILTER`. #786
 - Bumped `libc` crate to `0.2.174`, fixing building on musl targets, and increasing the MSRV of
-  `insta` to `1.64.0` (released Sept 2022)
+  `insta` to `1.64.0` (released Sept 2022). #784
+- Fix clippy 1.88 errors. #783
+- Fix source path in snapshots for non-child workspaces. #778
+- Add lifetime to Selector in redaction iterator. #779
 
 ## 1.43.1
 
