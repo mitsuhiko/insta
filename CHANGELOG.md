@@ -4,6 +4,13 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Inline snapshots now have excess indentation removed automatically. When inline
+  snapshots are updated or created with `--accept`, common leading whitespace is
+  stripped from each line to create cleaner, more readable snapshots. This preserves
+  relative indentation within the snapshot content while removing unnecessary padding.
+  The `--force-update-snapshots` flag will aggressively minimize indentation to the
+  most compact form possible.
+
 ## 1.43.2
 
 - Fix panics when `cargo metadata` fails to execute or parse (e.g., when cargo is not in PATH or returns invalid output). Now falls back to using the manifest directory as the workspace root. #798 (@adriangb)
