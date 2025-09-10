@@ -15,8 +15,6 @@ use std::process::Stdio;
 /// ## Backwards Compatibility:
 /// - Old snapshots with excess indentation still work (trimming already existed)
 /// - No warnings are issued for indentation (only for missing newlines)
-
-/// Test that ONLY multiline snapshots without leading newline trigger warnings
 #[test]
 fn test_warning_only_for_missing_newline() {
     // Test 1: Missing leading newline - SHOULD WARN
@@ -80,8 +78,7 @@ line2
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         !stderr.contains("Multiline inline snapshot values should start and end with a newline"),
-        "Should NOT warn when leading newline is present. Got: {}",
-        stderr
+        "Should NOT warn when leading newline is present. Got: {stderr}"
     );
 
     // Test 3: Single-line - SHOULD NOT WARN
@@ -109,8 +106,7 @@ fn test_single() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         !stderr.contains("Multiline inline snapshot values should start and end with a newline"),
-        "Should NOT warn for single-line snapshots. Got: {}",
-        stderr
+        "Should NOT warn for single-line snapshots. Got: {stderr}"
     );
 }
 
