@@ -860,8 +860,7 @@ fn test_in_root() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,3 +1,6 @@
-     
+    @@ -1,2 +1,5 @@
     +  Cargo.lock
        Cargo.toml
        root_test.rs

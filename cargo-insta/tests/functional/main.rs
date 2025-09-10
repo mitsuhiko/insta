@@ -73,6 +73,7 @@ mod delete_pending;
 mod glob_filter;
 mod inline;
 mod test_workspace_source_path;
+mod trimming;
 mod unreferenced;
 mod workspace;
 

@@ -1142,7 +1142,7 @@ b
             .to_string(),
             TextSnapshotKind::Inline
         )
-        .to_inline(0),
+        .to_inline(""),
         r##""    ab""##
     );
 
@@ -1217,7 +1217,7 @@ fn test_min_indentation() {
    2
    "#,
         ),
-        3
+        "   ".to_string()
     );
 
     assert_eq!(
@@ -1226,7 +1226,7 @@ fn test_min_indentation() {
             1
     2"#
         ),
-        4
+        "    ".to_string()
     );
 
     assert_eq!(
@@ -1236,7 +1236,7 @@ fn test_min_indentation() {
             2
     "#
         ),
-        12
+        "            ".to_string()
     );
 
     assert_eq!(
@@ -1246,7 +1246,7 @@ fn test_min_indentation() {
    2
 "#
         ),
-        3
+        "   ".to_string()
     );
 
     assert_eq!(
@@ -1255,10 +1255,10 @@ fn test_min_indentation() {
         a
     "#
         ),
-        8
+        "        ".to_string()
     );
 
-    assert_eq!(min_indentation(""), 0);
+    assert_eq!(min_indentation(""), "".to_string());
 
     assert_eq!(
         min_indentation(
@@ -1268,7 +1268,7 @@ fn test_min_indentation() {
 c
     "#
         ),
-        0
+        "".to_string()
     );
 
     assert_eq!(
@@ -1277,7 +1277,7 @@ c
 a
     "#
         ),
-        0
+        "".to_string()
     );
 
     assert_eq!(
@@ -1285,7 +1285,7 @@ a
             "
     a"
         ),
-        4
+        "    ".to_string()
     );
 
     assert_eq!(
@@ -1293,11 +1293,11 @@ a
             r#"a
   a"#
         ),
-        0
+        "".to_string()
     );
 
     assert_eq!(
-        normalize_inline_snapshot(
+        normalize_inline(
             r#"
 			1
 	2"#
@@ -1308,7 +1308,7 @@ a
     );
 
     assert_eq!(
-        normalize_inline_snapshot(
+        normalize_inline(
             r#"
 	  	  1
 	  	  2
@@ -1320,62 +1320,11 @@ a
 "###
     );
 }
-   1
-   2
-"#;
-    assert_eq!(min_indentation(t), 3);
-
-    let t = r#"
-        a
-    "#;
-    assert_eq!(min_indentation(t), 8);
-
-    let t = "";
-    assert_eq!(min_indentation(t), 0);
-
-    let t = r#"
-    a
-    b
-c
-    "#;
-    assert_eq!(min_indentation(t), 0);
-
-    let t = r#"
-a
-    "#;
-    assert_eq!(min_indentation(t), 0);
-
-    let t = "
-    a";
-    assert_eq!(min_indentation(t), 4);
-
-    let t = r#"a
-  a"#;
-    assert_eq!(min_indentation(t), 0);
-}
-
-=======
 
 #[test]
-fn test_min_indentation() {
+fn test_min_indentation_additional() {
     use similar_asserts::assert_eq;
-    let t = r#"
-   1
-   2
-    "#;
-    assert_eq!(min_indentation(t), "   ".to_string());
-
-    let t = r#"
-            1
-    2"#;
-    assert_eq!(min_indentation(t), "    ".to_string());
-
-    let t = r#"
-            1
-            2
-    "#;
-    assert_eq!(min_indentation(t), "            ".to_string());
-
+    
     let t = r#"
    1
    2
@@ -1398,12 +1347,11 @@ c
     assert_eq!(min_indentation(t), "".to_string());
 
     let t = r#"
-a
-    "#;
+a"#;
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = "
-    a";
+    let t = r#"
+    a"#;
     assert_eq!(min_indentation(t), "    ".to_string());
 
     let t = r#"a
@@ -1467,7 +1415,7 @@ fn test_ownership() {
 #[test]
 fn test_empty_lines() {
     assert_snapshot!(r#"single line should fit on a single line"#, @"single line should fit on a single line");
-    assert_snapshot!(r#"single line should fit on a single line, even if it's really really really really really really really really really long"#, @"single line should fit on a single line, even if it's really really really really really really really really really long");
+    assert_snapshot!(r##"single line should fit on a single line, even if it's really really really really really really really really really long"##, @"single line should fit on a single line, even if it's really really really really really really really really really long");
 
     assert_snapshot!(r#"multiline content starting on first line
 

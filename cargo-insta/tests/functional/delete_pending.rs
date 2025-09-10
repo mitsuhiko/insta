@@ -45,7 +45,7 @@ fn test_snapshot_file() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,3 +1,7 @@
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src
