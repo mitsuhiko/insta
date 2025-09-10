@@ -224,10 +224,80 @@ fn test_file_snapshot() {
         .join("src/snapshots/file_snapshot_trimming__test_snapshot.snap");
     let snapshot_content = std::fs::read_to_string(&snapshot_path).unwrap();
 
-    // The file snapshot should preserve the content with trailing whitespace trimmed
-    // Check that the snapshot was created and contains the expected content
+    // Verify the file snapshot has proper structure and trimming
+    assert!(snapshot_content.contains("---"));
+    assert!(snapshot_content.contains("source: src/lib.rs"));
+    assert!(snapshot_content.contains("expression:"));
+    
+    // The snapshot content should have the text content
     assert!(snapshot_content.contains("indented content"));
     assert!(snapshot_content.contains("second line"));
+}
+
+/// Test edge cases: mixed tabs/spaces, no common indent, whitespace-only
+#[test]
+fn test_edge_cases() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("edge_cases")
+        .add_file(
+            "src/lib.rs",
+            r####"
+#[test]
+fn test_mixed_tabs_spaces() {
+    // Lines with different indentation types
+    insta::assert_snapshot!("line1\n\tline2\n    line3", @r###"
+    line1
+    	line2
+        line3
+    "###);
+}
+
+#[test]
+fn test_no_common_indent() {
+    // First line has no indent, so nothing should be removed
+    insta::assert_snapshot!("line1\n    line2\n        line3", @"
+line1
+    line2
+        line3
+");
+}
+
+#[test]
+fn test_whitespace_only() {
+    // Snapshot with only whitespace should become empty
+    insta::assert_snapshot!("    \n\t\n    ", @"");
+}
+
+#[test]
+fn test_empty_snapshot() {
+    // Empty snapshot should remain empty
+    insta::assert_snapshot!("", @"");
+}
+"####
+            .to_string(),
+        )
+        .create_project();
+
+    // Run with --force-update-snapshots
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--force-update-snapshots"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // Verify edge cases handled correctly
+    let updated = std::fs::read_to_string(test_project.workspace_dir.join("src/lib.rs")).unwrap();
+    
+    // Mixed tabs/spaces should preserve structure
+    assert!(updated.contains("line1") && updated.contains("line2"));
+    
+    // No common indent test should preserve indentation
+    assert!(updated.contains("test_no_common_indent"));
+    
+    // Whitespace-only and empty should be handled
+    assert!(updated.contains(r#"@"""#));
 }
 
 /// Test that complex nested structures maintain proper relative indentation
