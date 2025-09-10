@@ -73,7 +73,6 @@ mod delete_pending;
 mod glob_filter;
 mod inline;
 mod nextest_doctest;
-mod test_trimming_behavior;
 mod test_workspace_source_path;
 mod trimming;
 mod unreferenced;
