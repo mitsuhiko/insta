@@ -10,6 +10,9 @@ All notable changes to insta and cargo-insta are documented here.
   relative indentation within the snapshot content while removing unnecessary padding.
   The `--force-update-snapshots` flag will aggressively minimize indentation to the
   most compact form possible.
+- Add `--disable-nextest-doctest` flag to `cargo insta test` to disable running doctests with 
+  nextest. Shows a deprecation warning when nextest is used with doctests without this flag, to prepare `cargo insta` to no longer run
+  a separate doctest process when using nextest in the future. #803
 
 ## 1.43.2
 
