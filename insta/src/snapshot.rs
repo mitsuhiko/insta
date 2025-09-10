@@ -1324,7 +1324,7 @@ a
 #[test]
 fn test_min_indentation_additional() {
     use similar_asserts::assert_eq;
-    
+
     let t = r#"
    1
    2
