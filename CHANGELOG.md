@@ -4,22 +4,19 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
-- `--force-update-snapshots` now causes `cargo-insta` to write every snapshot, regardless of whether
-  snapshots fully match, and now implies `--accept`.  This
-  allows for `--force-update-snapshots` to update inline snapshots'
-  delimiters and indentation.
+- We no longer trim starting newlines during assertions, which allows asserting
+  the number of leading newlines match. Existing assertions with different
+  leading newlines will pass and print a warning suggesting running with
+  `--force-update-snapshots`.  They may fail in the future.  (Note that we still
+  currently allow differing _trailing_ newlines, though may adjust this in the
+  future).  #563
 
-  For the previous behavior of `--force-update-snapshots`, which limited writes to
-  snapshots which didn't fully match, use `--require-full-match`.
-  The main difference between `--require-full-match` and the existing behavior of `--force-update-snapshots`
-  is a non-zero exit code on any snapshots which don't fully match.
-
-  Like the previous behavior of `--force-update-snapshots`, `--require-full-match`
-  doesn't track inline snapshots' delimiters or
-  indentation, so can't update if those don't match.  #810
 
 ## 1.43.2
 
+- Fix panics when `cargo metadata` fails to execute or parse (e.g., when cargo is not in PATH or returns invalid output). Now falls back to using the manifest directory as the workspace root. #798 (@adriangb)
+- Fix clippy `uninlined_format_args` lint warnings. #801
+- Changed diff line numbers to 1-based indexing. #799
 - Preserve snapshot names with `INSTA_GLOB_FILTER`. #786
 - Bumped `libc` crate to `0.2.174`, fixing building on musl targets, and increasing the MSRV of
   `insta` to `1.64.0` (released Sept 2022). #784
