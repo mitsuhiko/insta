@@ -4,12 +4,19 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
-- Inline snapshots now have excess indentation removed automatically. When inline
-  snapshots are updated or created with `--accept`, common leading whitespace is
-  stripped from each line to create cleaner, more readable snapshots. This preserves
-  relative indentation within the snapshot content while removing unnecessary padding.
-  The `--force-update-snapshots` flag will aggressively minimize indentation to the
-  most compact form possible. #810
+- `--force-update-snapshots` now causes `cargo-insta` to write every snapshot, regardless of whether
+  snapshots fully match, and now implies `--accept`.  This
+  allows for `--force-update-snapshots` to update inline snapshots'
+  delimiters and indentation.
+
+  For the previous behavior of `--force-update-snapshots`, which limited writes to
+  snapshots which didn't fully match, use `--require-full-match`.
+  The main difference between `--require-full-match` and the existing behavior of `--force-update-snapshots`
+  is a non-zero exit code on any snapshots which don't fully match.
+
+  Like the previous behavior of `--force-update-snapshots`, `--require-full-match`
+  doesn't track inline snapshots' delimiters or
+  indentation, so can't update if those don't match.  #810
 - Add `--disable-nextest-doctest` flag to `cargo insta test` to disable running doctests with 
   nextest. Shows a deprecation warning when nextest is used with doctests without this flag, to prepare `cargo insta` to no longer run
   a separate doctest process when using nextest in the future. #803
@@ -97,20 +104,6 @@ workflows, which failed to create a release within GitHub for 1.43.0.
   `--force-update-snapshots`.  They may fail in the future.  (Note that we still
   currently allow differing _trailing_ newlines, though may adjust this in the
   future).  #563
-
-- `--force-update-snapshots` now causes `cargo-insta` to write every snapshot, regardless of whether
-  snapshots fully match, and now implies `--accept`.  This
-  allows for `--force-update-snapshots` to update inline snapshots'
-  delimiters and indentation.
-
-  For the previous behavior of `--force-update-snapshots`, which limited writes to
-  snapshots which didn't fully match, use `--require-full-match`.
-  The main difference between `--require-full-match` and the existing behavior of `--force-update-snapshots`
-  is a non-zero exit code on any snapshots which don't fully match.
-
-  Like the previous behavior of `--force-update-snapshots`, `--require-full-match`
-  doesn't track inline snapshots' delimiters or
-  indentation, so can't update if those don't match.  #644
 
 - Inline snapshots only use `#` characters as delimiters when required.  #603
 
