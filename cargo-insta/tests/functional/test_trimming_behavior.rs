@@ -33,12 +33,12 @@ fn test_needs_trimming() {
 
     // Verify the snapshot was trimmed
     let updated = std::fs::read_to_string(test_project.workspace_dir.join("src/lib.rs")).unwrap();
-    
+
     // Check that the excess indentation was removed
     // The snapshot should now have just the base 4-space indent from the function
     assert!(
-        updated.contains("@r\"\n    hello\n    world\n    \"") || 
-        updated.contains("@\"hello\\nworld\""),
+        updated.contains("@r\"\n    hello\n    world\n    \"")
+            || updated.contains("@\"hello\\nworld\""),
         "Updated content doesn't contain expected trimmed snapshot"
     );
 }
@@ -74,12 +74,12 @@ fn test_relative() {
     assert!(output.status.success());
 
     let updated = std::fs::read_to_string(test_project.workspace_dir.join("src/lib.rs")).unwrap();
-    
+
     // Check that relative indentation is preserved
     // The minimum 8 spaces are removed, preserving the relative indents
     assert!(
-        updated.contains("@r\"\n    line1\n      line2\n        line3\n    \"") ||
-        updated.contains("@\"line1\\n  line2\\n    line3\""),
+        updated.contains("@r\"\n    line1\n      line2\n        line3\n    \"")
+            || updated.contains("@\"line1\\n  line2\\n    line3\""),
         "Relative indentation not preserved correctly"
     );
 }
@@ -111,12 +111,12 @@ fn test_tabs() {
     assert!(output.status.success());
 
     let updated = std::fs::read_to_string(test_project.workspace_dir.join("src/lib.rs")).unwrap();
-    
+
     // Check that tabs were removed (two tabs from each line)
     // The warning message indicates the multiline format was problematic
     assert!(
-        updated.contains("@\"hello\\nworld\"") || 
-        updated.contains("hello") && updated.contains("world"),
+        updated.contains("@\"hello\\nworld\"")
+            || updated.contains("hello") && updated.contains("world"),
         "Tabs not handled correctly"
     );
 }
@@ -150,7 +150,7 @@ fn test_single() {
     assert!(output.status.success());
 
     let updated = std::fs::read_to_string(test_project.workspace_dir.join("src/lib.rs")).unwrap();
-    
+
     // Check that single line was compacted
     assert!(updated.contains("@\"hello\""));
 }
