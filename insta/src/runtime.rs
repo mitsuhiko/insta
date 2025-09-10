@@ -384,8 +384,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     module_path.replace("::", "__"),
                     None,
                     MetaData::default(),
-                    TextSnapshotContents::new(contents.to_string(), TextSnapshotKind::Inline)
-                        .into(),
+                    SnapshotContents::Text(TextSnapshotContents::from_inline_literal(contents)),
                 ));
             }
         };

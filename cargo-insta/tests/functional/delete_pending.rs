@@ -45,8 +45,7 @@ fn test_snapshot_file() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,7 @@
-     
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -70,8 +69,7 @@ fn test_snapshot_file() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,6 @@
-     
+    @@ -1,3 +1,5 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -116,8 +114,7 @@ fn test_file_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,7 @@
-     
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -158,8 +155,7 @@ fn test_file_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,9 @@
-     
+    @@ -1,3 +1,8 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -183,8 +179,7 @@ fn test_file_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,7 @@
-     
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -206,8 +201,7 @@ fn test_file_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,9 @@
-     
+    @@ -1,3 +1,8 @@
     +  Cargo.lock
        Cargo.toml
        src
@@ -250,8 +244,7 @@ fn test_file_snapshot() {
     assert_snapshot!(test_project.file_tree_diff(), @r"
     --- Original file tree
     +++ Updated file tree
-    @@ -1,4 +1,7 @@
-     
+    @@ -1,3 +1,6 @@
     +  Cargo.lock
        Cargo.toml
        src

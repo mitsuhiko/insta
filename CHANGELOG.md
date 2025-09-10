@@ -8,6 +8,14 @@ All notable changes to insta and cargo-insta are documented here.
   nextest. Shows a deprecation warning when nextest is used with doctests without this flag, to prepare `cargo insta` to no longer run
   a separate doctest process when using nextest in the future. #803
 
+- We no longer trim starting newlines during assertions, which allows asserting
+  the number of leading newlines match. Existing assertions with different
+  leading newlines will pass and print a warning suggesting running with
+  `--force-update-snapshots`.  They may fail in the future.  (Note that we still
+  currently allow differing _trailing_ newlines, though may adjust this in the
+  future).  #563
+
+
 ## 1.43.2
 
 - Fix panics when `cargo metadata` fails to execute or parse (e.g., when cargo is not in PATH or returns invalid output). Now falls back to using the manifest directory as the workspace root. #798 (@adriangb)
