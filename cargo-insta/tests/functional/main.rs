@@ -74,8 +74,8 @@ mod glob_filter;
 mod inline;
 mod nextest_doctest;
 mod test_workspace_source_path;
+mod test_trimming_behavior;
 mod trimming;
-mod trimming_indentation;
 mod unreferenced;
 mod workspace;
 
