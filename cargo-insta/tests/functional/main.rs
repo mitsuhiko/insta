@@ -75,6 +75,7 @@ mod inline;
 mod nextest_doctest;
 mod test_workspace_source_path;
 mod trimming;
+mod trimming_indentation;
 mod unreferenced;
 mod workspace;
 
