@@ -68,14 +68,13 @@ use itertools::Itertools;
 use similar::udiff::unified_diff;
 use tempfile::TempDir;
 
-mod backwards_compat;
 mod binary;
 mod delete_pending;
 mod glob_filter;
 mod inline;
+mod inline_snapshot_trimming;
 mod nextest_doctest;
 mod test_workspace_source_path;
-mod trimming;
 mod unreferenced;
 mod workspace;
 
