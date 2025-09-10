@@ -138,7 +138,7 @@ impl<'a> YamlEmitter<'a> {
                 if need_quotes(v) {
                     escape_str(self.writer, v)?;
                 } else {
-                    write!(self.writer, "{}", v)?;
+                    write!(self.writer, "{v}")?;
                 }
                 Ok(())
             }
@@ -151,11 +151,11 @@ impl<'a> YamlEmitter<'a> {
                 Ok(())
             }
             Yaml::Integer(v) => {
-                write!(self.writer, "{}", v)?;
+                write!(self.writer, "{v}")?;
                 Ok(())
             }
             Yaml::Real(ref v) => {
-                write!(self.writer, "{}", v)?;
+                write!(self.writer, "{v}")?;
                 Ok(())
             }
             Yaml::Null | Yaml::BadValue => {
@@ -340,8 +340,8 @@ a4:
             let mut emitter = YamlEmitter::new(&mut writer);
             emitter.dump(doc).unwrap();
         }
-        println!("original:\n{}", s);
-        println!("emitted:\n{}", writer);
+        println!("original:\n{s}");
+        println!("emitted:\n{writer}");
         let docs_new = match YamlLoader::load_from_str(&writer) {
             Ok(y) => y,
             Err(e) => panic!("{}", e),
@@ -431,7 +431,7 @@ z: string with spaces"#;
             emitter.dump(doc).unwrap();
         }
 
-        assert_eq!(s, writer, "actual:\n\n{}\n", writer);
+        assert_eq!(s, writer, "actual:\n\n{writer}\n");
     }
 
     #[test]
@@ -491,8 +491,7 @@ bool1: false"#;
 
         assert_eq!(
             expected, writer,
-            "expected:\n{}\nactual:\n{}\n",
-            expected, writer
+            "expected:\n{expected}\nactual:\n{writer}\n"
         );
     }
 
@@ -535,8 +534,8 @@ a:
             let mut emitter = YamlEmitter::new(&mut writer);
             emitter.dump(doc).unwrap();
         }
-        println!("original:\n{}", s);
-        println!("emitted:\n{}", writer);
+        println!("original:\n{s}");
+        println!("emitted:\n{writer}");
 
         assert_eq!(s, writer);
     }
@@ -559,8 +558,8 @@ a:
             let mut emitter = YamlEmitter::new(&mut writer);
             emitter.dump(doc).unwrap();
         }
-        println!("original:\n{}", s);
-        println!("emitted:\n{}", writer);
+        println!("original:\n{s}");
+        println!("emitted:\n{writer}");
 
         assert_eq!(s, writer);
     }
@@ -581,8 +580,8 @@ a:
             let mut emitter = YamlEmitter::new(&mut writer);
             emitter.dump(doc).unwrap();
         }
-        println!("original:\n{}", s);
-        println!("emitted:\n{}", writer);
+        println!("original:\n{s}");
+        println!("emitted:\n{writer}");
 
         assert_eq!(s, writer);
     }

@@ -24,7 +24,7 @@ pub fn get_tool_config(workspace_dir: &Path) -> Arc<ToolConfig> {
         .entry(workspace_dir.to_path_buf())
         .or_insert_with(|| {
             ToolConfig::from_workspace(workspace_dir)
-                .unwrap_or_else(|e| panic!("Error building config from {:?}: {}", workspace_dir, e))
+                .unwrap_or_else(|e| panic!("Error building config from {workspace_dir:?}: {e}"))
                 .into()
         })
         .clone()
@@ -108,8 +108,8 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Deserialize(_) => write!(f, "failed to deserialize tool config"),
-            Error::Env(var) => write!(f, "invalid value for env var '{}'", var),
-            Error::Config(var) => write!(f, "invalid value for config '{}'", var),
+            Error::Env(var) => write!(f, "invalid value for env var '{var}'"),
+            Error::Config(var) => write!(f, "invalid value for config '{var}'"),
         }
     }
 }
@@ -430,11 +430,19 @@ pub fn snapshot_update_behavior(tool_config: &ToolConfig, unseen: bool) -> Snaps
     }
 }
 
+pub enum Workspace {
+    DetectWithCargo(&'static str),
+    UseAsIs(&'static str),
+}
+
 /// Returns the cargo workspace path for a crate manifest, like
 /// `/Users/janedoe/projects/insta` when passed
 /// `/Users/janedoe/projects/insta/insta/Cargo.toml`.
-pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
-    // If INSTA_WORKSPACE_ROOT environment variable is set, use the value as-is.
+///
+/// If `INSTA_WORKSPACE_ROOT` environment variable is set at runtime, use the value as-is.
+/// If `INSTA_WORKSPACE_ROOT` environment variable is set at compile time, use the value as-is.
+/// If `INSTA_WORKSPACE_ROOT` environment variable is not set, use `cargo metadata` to find the workspace root.
+pub fn get_cargo_workspace(workspace: Workspace) -> Arc<PathBuf> {
     // This is useful where CARGO_MANIFEST_DIR at compilation points to some
     // transient location. This can easily happen when building the test in one
     // directory but running it in another.
@@ -442,11 +450,13 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
         return PathBuf::from(workspace_root).into();
     }
 
-    let error_message = || {
-        format!(
-            "`cargo metadata --format-version=1 --no-deps` in path `{}`",
-            manifest_dir
-        )
+    // Distinguish if we need to run `cargo metadata`` or if we can return the workspace
+    // as is.
+    // This is useful if INSTA_WORKSPACE_ROOT was set at compile time, not pointing to
+    // the cargo manifest directory
+    let manifest_dir = match workspace {
+        Workspace::UseAsIs(workspace_root) => return PathBuf::from(workspace_root).into(),
+        Workspace::DetectWithCargo(manifest_dir) => manifest_dir,
     };
 
     WORKSPACES
@@ -455,47 +465,60 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> Arc<PathBuf> {
         .unwrap()
         .entry(manifest_dir.to_string())
         .or_insert_with(|| {
-            let output = std::process::Command::new(
-                env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()),
-            )
-            .args(["metadata", "--format-version=1", "--no-deps"])
-            .current_dir(manifest_dir)
-            .output()
-            .unwrap_or_else(|e| panic!("failed to run {}\n\n{}", error_message(), e));
-
-            crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(
-                std::str::from_utf8(&output.stdout).unwrap(),
-            )
-            .map_err(|e| e.to_string())
-            .and_then(|docs| {
-                docs.into_iter()
-                    .next()
-                    .ok_or_else(|| "No content found in yaml".to_string())
-            })
-            .and_then(|metadata| {
-                metadata["workspace_root"]
-                    .clone()
-                    .into_string()
-                    .ok_or_else(|| "Couldn't find `workspace_root`".to_string())
-            })
-            .map(|path| PathBuf::from(path).into())
-            .unwrap_or_else(|e| {
-                panic!(
-                    "failed to parse cargo metadata output from {}: {}\n\n{:?}",
-                    error_message(),
-                    e,
-                    output.stdout
-                )
+            get_cargo_workspace_from_metadata(manifest_dir).unwrap_or_else(|e| {
+                eprintln!("cargo metadata failed in {manifest_dir}: {e}");
+                eprintln!("will use manifest directory as fallback");
+                Arc::new(PathBuf::from(manifest_dir))
             })
         })
         .clone()
 }
 
+fn get_cargo_workspace_from_metadata(
+    manifest_dir: &str,
+) -> Result<Arc<PathBuf>, Box<dyn std::error::Error>> {
+    let output =
+        std::process::Command::new(env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()))
+            .args(["metadata", "--format-version=1", "--no-deps"])
+            .current_dir(manifest_dir)
+            .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("command failed with {}: {stderr}", output.status).into());
+    }
+
+    let stdout =
+        std::str::from_utf8(&output.stdout).map_err(|e| format!("invalid UTF-8 in output: {e}"))?;
+
+    let docs = crate::content::yaml::vendored::yaml::YamlLoader::load_from_str(stdout)
+        .map_err(|e| format!("failed to parse YAML: {e}"))?;
+
+    let metadata = docs.into_iter().next().ok_or("no content found in YAML")?;
+
+    let workspace_root = metadata["workspace_root"]
+        .clone()
+        .into_string()
+        .ok_or("couldn't find 'workspace_root' in metadata")?;
+
+    Ok(Arc::new(workspace_root.into()))
+}
+
 #[test]
-fn test_get_cargo_workspace() {
-    let workspace = get_cargo_workspace(env!("CARGO_MANIFEST_DIR"));
-    // The absolute path of the workspace, like `/Users/janedoe/projects/insta`
-    assert!(workspace.ends_with("insta"));
+fn test_get_cargo_workspace_manifest_dir() {
+    let workspace = get_cargo_workspace(Workspace::DetectWithCargo(env!("CARGO_MANIFEST_DIR")));
+    // The absolute path of the workspace should be a valid directory
+    // In worktrees or other setups, the path might not end with "insta"
+    // but should still be a parent of the manifest directory
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    assert!(manifest_dir.starts_with(&*workspace));
+}
+
+#[test]
+fn test_get_cargo_workspace_insta_workspace() {
+    let workspace = get_cargo_workspace(Workspace::UseAsIs("/tmp/insta_workspace_root"));
+    // The absolute path of the workspace, like `/tmp/insta_workspace_root`
+    assert!(workspace.ends_with("insta_workspace_root"));
 }
 
 #[cfg(feature = "_cargo_insta_internal")]

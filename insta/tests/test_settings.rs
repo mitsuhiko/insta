@@ -16,12 +16,12 @@ fn test_simple() {
     let mut settings = insta::Settings::new();
     settings.set_sort_maps(true);
     settings.bind(|| {
-        assert_yaml_snapshot!(&map, @r###"
+        assert_yaml_snapshot!(&map, @r"
         a: first value
         b: second value
         c: third value
         d: fourth value
-        "###);
+        ");
     });
 }
 
@@ -38,12 +38,12 @@ fn test_bound_to_scope() {
         let mut settings = Settings::new();
         settings.set_sort_maps(true);
         let _guard = settings.bind_to_scope();
-        assert_yaml_snapshot!(&map, @r###"
+        assert_yaml_snapshot!(&map, @r"
         a: first value
         b: second value
         c: third value
         d: fourth value
-        "###);
+        ");
     }
 
     assert!(!Settings::clone_current().sort_maps());
@@ -59,12 +59,12 @@ fn test_settings_macro() {
     map.insert("d", "fourth value");
 
     with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(&map, @r###"
+        insta::assert_yaml_snapshot!(&map, @r"
         a: first value
         b: second value
         c: third value
         d: fourth value
-        "###);
+        ");
     });
 }
 

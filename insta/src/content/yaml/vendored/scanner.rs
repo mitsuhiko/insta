@@ -400,7 +400,7 @@ impl<T: Iterator<Item = char>> Scanner<T> {
             ':' | '?' if !is_blankz(nc) && self.flow_level == 0 => self.fetch_plain_scalar(),
             '%' | '@' | '`' => Err(ScanError::new(
                 self.mark,
-                &format!("unexpected character: `{}'", c),
+                &format!("unexpected character: `{c}'"),
             )),
             _ => self.fetch_plain_scalar(),
         }

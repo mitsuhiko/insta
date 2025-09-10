@@ -35,13 +35,14 @@
 //! * [Read the main documentation](https://insta.rs/docs/) which does not just
 //!   cover the API of the crate but also many of the details of how it works.
 //! * There is a screencast that shows the entire workflow: [watch the insta
-//! introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be).
+//!   introduction screencast](https://www.youtube.com/watch?v=rCHrMqE4JOY&feature=youtu.be).
 //!
 //! # Writing Tests
 //!
 //! ```
 //! use insta::assert_debug_snapshot;
 //!
+//! # #[allow(clippy::test_attr_in_doctest)]
 //! #[test]
 //! fn test_snapshots() {
 //!     assert_debug_snapshot!(vec![1, 2, 3]);
@@ -227,6 +228,7 @@
 //! # these are used by cargo insta test
 //! test:
 //!   # also set by INSTA_TEST_RUNNER
+//!   # cargo-nextest binary path can be explicitly set by INSTA_CARGO_NEXTEST_BIN
 //!   runner: "auto" | "cargo-test" | "nextest"
 //!   # whether to fallback to `cargo-test` if `nextest` is not available,
 //!   # also set by INSTA_TEST_RUNNER_FALLBACK, default false
@@ -344,11 +346,13 @@ pub use crate::redaction::{dynamic_redaction, rounded_redaction, sorted_redactio
 #[doc(hidden)]
 pub mod _macro_support {
     pub use crate::content::Content;
-    pub use crate::env::get_cargo_workspace;
+    pub use crate::env::{get_cargo_workspace, Workspace};
     pub use crate::runtime::{
         assert_snapshot, with_allow_duplicates, AutoName, BinarySnapshotValue, InlineValue,
         SnapshotValue,
     };
+    pub use core::{file, line, module_path};
+    pub use std::{any, env, format, option_env, path, vec};
 
     #[cfg(feature = "serde")]
     pub use crate::serialization::{serialize_value, SerializationFormat, SnapshotLocation};

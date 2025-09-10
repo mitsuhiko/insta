@@ -36,6 +36,11 @@ static GLOB_FILTER: Lazy<Vec<GlobMatcher>> = Lazy::new(|| {
 });
 
 pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &str, mut f: F) {
+    // Check if the pattern contains parent directory traversal (../)
+    if pattern.contains("../") || pattern.starts_with("..") {
+        panic!("Parent directory traversal is not supported in glob patterns. Use the three-argument form of glob! with an explicit base directory instead.");
+    }
+
     // If settings.allow_empty_glob() == true and `base` doesn't exist, skip
     // everything. This is necessary as `base` is user-controlled via `glob!/3`
     // and may not exist.
@@ -62,7 +67,8 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
     });
 
     // step 1: collect all matching files
-    let mut matching_files = vec![];
+    let mut all_matching_files = vec![];
+    let mut filtered_files = vec![];
     for file in walker {
         let file = file.unwrap();
         let path = file.path();
@@ -72,6 +78,7 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
         }
 
         glob_found_matches = true;
+        all_matching_files.push(path.to_path_buf());
 
         // if there is a glob filter, skip if it does not match this path
         if !GLOB_FILTER.is_empty() && !GLOB_FILTER.iter().any(|x| x.is_match(stripped_path)) {
@@ -79,12 +86,17 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
             continue;
         }
 
-        matching_files.push(path.to_path_buf());
+        filtered_files.push(path.to_path_buf());
     }
 
     // step 2: sort, determine common prefix and run assertions
-    matching_files.sort();
-    let common_prefix = find_common_prefix(&matching_files);
+    all_matching_files.sort();
+    filtered_files.sort();
+
+    // Use the common prefix from ALL matching files, not just filtered ones
+    // This preserves the original snapshot naming when filtering
+    let common_prefix = find_common_prefix(&all_matching_files);
+    let matching_files = filtered_files;
     for path in &matching_files {
         settings.set_input_file(path);
 

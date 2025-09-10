@@ -26,6 +26,13 @@ targets = [
 ]
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
+# because of
+# https://github.com/axodotdev/cargo-dist/issues/1760
+allow-dirty = ["ci"]
+
+[workspace.metadata.dist.github-custom-runners]
+x86_64-unknown-linux-gnu = "ubuntu-22.04"
+x86_64-unknown-linux-musl = "ubuntu-22.04"
 
 [profile.dist]
 inherits = "release"

@@ -1,6 +1,6 @@
 ---
 source: insta/tests/test_redaction.rs
-expression: "&User {\n        id: 975,\n        username: \"jason_doe\".to_string(),\n        email: Email(\"jason@example.com\".to_string()),\n        extra: \"ssn goes here\".to_string(),\n    }"
+expression: "&User\n{\n    id: 975, username: \"jason_doe\".to_string(), email:\n    Email(\"jason@example.com\".to_string()), extra:\n    \"ssn goes here\".to_string(),\n}"
 ---
 {
   "id": "[id]",

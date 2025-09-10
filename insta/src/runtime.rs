@@ -166,10 +166,7 @@ impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
         }: BinarySnapshotValue<'a>,
     ) -> Self {
         let (name, extension) = name_and_extension.split_once('.').unwrap_or_else(|| {
-            panic!(
-                "\"{}\" does not match the format \"name.extension\"",
-                name_and_extension,
-            )
+            panic!("\"{name_and_extension}\" does not match the format \"name.extension\"",)
         });
 
         let name = if name.is_empty() {
@@ -216,9 +213,8 @@ fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String
         Some(&was_test_prefixed) => {
             if was_test_prefixed != test_prefixed {
                 panic!(
-                    "Insta snapshot name clash detected between '{}' \
-                     and 'test_{}' in '{}'. Rename one function.",
-                    name, name, module_path
+                    "Insta snapshot name clash detected between '{name}' \
+                     and 'test_{name}' in '{module_path}'. Rename one function."
                 );
             }
         }
@@ -237,7 +233,7 @@ fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String
     let rv = if test_idx == 1 {
         name.to_string()
     } else {
-        format!("{}-{}", name, test_idx)
+        format!("{name}-{test_idx}")
     };
     counters.insert(key, test_idx);
 
@@ -249,7 +245,7 @@ fn add_suffix_to_snapshot_name(name: Cow<'_, str>) -> Cow<'_, str> {
     Settings::with(|settings| {
         settings
             .snapshot_suffix()
-            .map(|suffix| Cow::Owned(format!("{}@{}", name, suffix)))
+            .map(|suffix| Cow::Owned(format!("{name}@{suffix}")))
             .unwrap_or_else(|| name)
     })
 }
@@ -345,7 +341,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     }
                 };
                 if allow_duplicates() {
-                    duplication_key = Some(format!("named:{}|{}", module_path, name));
+                    duplication_key = Some(format!("named:{module_path}|{name}"));
                 }
                 let file = get_snapshot_filename(
                     module_path,
@@ -366,8 +362,7 @@ impl<'a> SnapshotAssertionContext<'a> {
             } => {
                 if allow_duplicates() {
                     duplication_key = Some(format!(
-                        "inline:{}|{}|{}",
-                        function_name, assertion_file, assertion_line
+                        "inline:{function_name}|{assertion_file}|{assertion_line}"
                     ));
                 } else {
                     prevent_inline_duplicate(function_name, assertion_file, assertion_line);
@@ -435,7 +430,27 @@ impl<'a> SnapshotAssertionContext<'a> {
             self.module_path.replace("::", "__"),
             self.snapshot_name.as_ref().map(|x| x.to_string()),
             Settings::with(|settings| MetaData {
-                source: Some(path_to_storage(Path::new(self.assertion_file))),
+                source: {
+                    let source_path = Path::new(self.assertion_file);
+                    // We need to compute a relative path from the workspace to the source file.
+                    // This is necessary for workspace setups where the project is not a direct
+                    // child of the workspace root (e.g., when workspace and project are siblings).
+                    // We canonicalize paths first to properly handle symlinks.
+                    let canonicalized_base = self.workspace.canonicalize().ok();
+                    let canonicalized_path = source_path.canonicalize().ok();
+
+                    let relative = if let (Some(base), Some(path)) =
+                        (canonicalized_base, canonicalized_path)
+                    {
+                        path_relative_from(&path, &base)
+                            .unwrap_or_else(|| source_path.to_path_buf())
+                    } else {
+                        // If canonicalization fails, try with original paths
+                        path_relative_from(source_path, self.workspace)
+                            .unwrap_or_else(|| source_path.to_path_buf())
+                    };
+                    Some(path_to_storage(&relative))
+                },
                 assertion_line: Some(self.assertion_line),
                 description: settings.description().map(Into::into),
                 expression: if settings.omit_expression() {
@@ -684,8 +699,56 @@ impl<'a> SnapshotAssertionContext<'a> {
     }
 }
 
+/// Computes a relative path from `base` to `path`, returning a path with `../` components
+/// if necessary.
+///
+/// This function is vendored from the old Rust standard library implementation
+/// (pre-1.0, removed in RFC 474) and is distributed under the same terms as the
+/// Rust project (MIT/Apache-2.0 dual license).
+///
+/// Unlike `Path::strip_prefix`, this function can handle cases where `path` is not
+/// a descendant of `base`, making it suitable for finding relative paths between
+/// arbitrary directories (e.g., between sibling directories in a workspace).
+fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
+    use std::path::Component;
+
+    if path.is_absolute() != base.is_absolute() {
+        if path.is_absolute() {
+            Some(PathBuf::from(path))
+        } else {
+            None
+        }
+    } else {
+        let mut ita = path.components();
+        let mut itb = base.components();
+        let mut comps: Vec<Component> = vec![];
+        loop {
+            match (ita.next(), itb.next()) {
+                (None, None) => break,
+                (Some(a), None) => {
+                    comps.push(a);
+                    comps.extend(ita.by_ref());
+                    break;
+                }
+                (None, _) => comps.push(Component::ParentDir),
+                (Some(a), Some(b)) if comps.is_empty() && a == b => {}
+                (Some(a), Some(_b)) => {
+                    comps.push(Component::ParentDir);
+                    for _ in itb {
+                        comps.push(Component::ParentDir);
+                    }
+                    comps.push(a);
+                    comps.extend(ita.by_ref());
+                    break;
+                }
+            }
+        }
+        Some(comps.iter().map(|c| c.as_os_str()).collect())
+    }
+}
+
 fn prevent_inline_duplicate(function_name: &str, assertion_file: &str, assertion_line: u32) {
-    let key = format!("{}|{}|{}", function_name, assertion_file, assertion_line);
+    let key = format!("{function_name}|{assertion_file}|{assertion_line}");
     let mut set = INLINE_DUPLICATES.lock().unwrap();
     if set.contains(&key) {
         // drop the lock so we don't poison it

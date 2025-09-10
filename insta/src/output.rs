@@ -71,7 +71,7 @@ impl<'a> SnapshotPrinter<'a> {
             let width = term_width();
             println!(
                 "{title:━^width$}",
-                title = style(format!(" {} ", title)).bold(),
+                title = style(format!(" {title} ")).bold(),
                 width = width
             );
         }
@@ -236,7 +236,7 @@ impl<'a> SnapshotPrinter<'a> {
                                 print!(
                                     "{:>5} {:>5} │{}",
                                     "",
-                                    style(change.new_index().unwrap()).cyan().dim().bold(),
+                                    style(change.new_index().unwrap() + 1).cyan().dim().bold(),
                                     style("+").green(),
                                 );
                                 for &(emphasized, change) in change.values() {
@@ -252,7 +252,7 @@ impl<'a> SnapshotPrinter<'a> {
                                 has_changes = true;
                                 print!(
                                     "{:>5} {:>5} │{}",
-                                    style(change.old_index().unwrap()).cyan().dim(),
+                                    style(change.old_index().unwrap() + 1).cyan().dim(),
                                     "",
                                     style("-").red(),
                                 );
@@ -268,8 +268,8 @@ impl<'a> SnapshotPrinter<'a> {
                             ChangeTag::Equal => {
                                 print!(
                                     "{:>5} {:>5} │ ",
-                                    style(change.old_index().unwrap()).cyan().dim(),
-                                    style(change.new_index().unwrap()).cyan().dim().bold(),
+                                    style(change.old_index().unwrap() + 1).cyan().dim(),
+                                    style(change.new_index().unwrap() + 1).cyan().dim().bold(),
                                 );
                                 for &(_, change) in change.values() {
                                     let change = render_invisible(change, newlines_matter);
@@ -420,7 +420,7 @@ fn print_info(metadata: &MetaData) {
         print_line(width);
     }
     if let Some(descr) = metadata.description() {
-        println!("{}", descr);
+        println!("{descr}");
         print_line(width);
     }
     if let Some(info) = metadata.private_info() {

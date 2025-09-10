@@ -1,5 +1,9 @@
-/// Integration tests which allow creating a full repo, running `cargo-insta`
+/// # Functional tests
+///
+/// Functional tests which allow creating a full repo, running `cargo-insta`
 /// and then checking the output.
+///
+/// ## Capturing output
 ///
 /// By default, the output of the inner test is forwarded to the outer test with
 /// a colored prefix. If we want to assert the inner test contains some output,
@@ -18,38 +22,43 @@
 /// );
 /// ```
 ///
-/// Often we want to see output from the test commands we run here; for example
-/// a `dbg` statement we add while debugging. Cargo by default hides the output
-/// of passing tests.
+/// ## Showing output of passing tests
+///
+/// Cargo by default shows the output of failing tests but hides the output of
+/// passing tests. Often we want to see output from the test commands we run
+/// here; for example a `dbg` statement we add while debugging.
 /// - Like any test, to forward the output of a passing outer test (i.e. one of
 ///   the `#[test]`s in this file) to the terminal, pass `--nocapture` to the
 ///   test runner, like `cargo insta test -- --nocapture`.
 /// - To forward the output of a passing inner test (i.e. the test commands we
-///   create and run within an outer test) to the output of an outer test, pass
+///   create and run within the code here) to the output of an outer test, pass
 ///   `--nocapture` in the command we create; for example `.args(["test",
 ///   "--accept", "--", "--nocapture"])`.
-///   - We also need to pass `--nocapture` to the outer test to forward that to
-///     the terminal, per the previous bullet.
+///   - Consistent with the previous bullet, If the outer test is passing we
+///     also need to pass `--nocapture` to the outer test in order to forward
+///     that to the terminal
+///
+/// ## Package names
 ///
 /// Note that the packages must have different names, or we'll see interference
-/// between the tests.
+/// between the tests[^1].
 ///
-/// > That seems to be because they all share the same `target` directory, which
-/// > cargo will confuse for each other if they share the same name. I haven't
-/// > worked out why — this is the case even if the files are the same between
-/// > two tests but with different commands — and those files exist in different
-/// > temporary workspace dirs. (We could try to enforce different names, or
-/// > give up using a consistent target directory for a cache, but it would slow
-/// > down repeatedly running the tests locally. To demonstrate the effect, name
-/// > crates the same... This also causes issues when running the same tests
-/// > concurrently.
+/// [^1]: That seems to be because they all share the same `target` directory, which
+///      cargo will confuse for each other if they share the same name. I haven't
+///      worked out why — this is the case even if the files are the same between
+///      two tests but with different commands — and those files exist in different
+///      temporary workspace dirs. (We could try to enforce different names, or
+///      give up using a consistent target directory for a cache, but it would slow
+///      down repeatedly running the tests locally. To demonstrate the effect, name
+///      crates the same... This also causes issues when running the same tests
+///      concurrently.
+///
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 use std::thread;
 
 use console::style;
@@ -61,7 +70,10 @@ use tempfile::TempDir;
 
 mod binary;
 mod delete_pending;
+mod glob_filter;
 mod inline;
+mod test_workspace_source_path;
+mod unreferenced;
 mod workspace;
 
 /// Wraps a formatting function to be used as a `Stdio`
@@ -115,7 +127,7 @@ impl TestFiles {
             format!(
                 r#"
 [package]
-name = "{}"
+name = "{name}"
 version = "0.1.0"
 edition = "2021"
 
@@ -124,8 +136,7 @@ doctest = false
 
 [dependencies]
 insta = {{ path = '$PROJECT_PATH' }}
-"#,
-                name
+"#
             ),
         )
     }
@@ -165,6 +176,9 @@ struct TestProject {
 
 impl TestProject {
     fn new(files: HashMap<PathBuf, String>) -> TestProject {
+        // Using the deprecated into_path() method instead of keep() as keep() was only
+        // introduced in tempfile 3.20.0, but we're using 3.5.0 for MSRV compatibility
+        #[allow(deprecated)]
         let workspace_dir = TempDir::new().unwrap().into_path();
 
         // Create files and replace $PROJECT_PATH in all files
@@ -244,8 +258,8 @@ impl TestProject {
             &updated_content,
             3,
             Some((
-                &format!("Original: {}", file_path),
-                &format!("Updated: {}", file_path),
+                &format!("Original: {file_path}"),
+                &format!("Updated: {file_path}"),
             )),
         )
     }
@@ -295,14 +309,13 @@ fn test_force_update_snapshots() {
                 format!(
                     r#"
 [package]
-name = "test_force_update_{}"
+name = "test_force_update_{name}"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-insta = {}
-"#,
-                    name, insta_dependency
+insta = {insta_dependency}
+"#
                 )
                 .to_string(),
             )
@@ -317,10 +330,7 @@ fn test_snapshot_with_newline() {
                 .to_string(),
             )
             .add_file(
-                format!(
-                    "src/snapshots/test_force_update_{}__force_update.snap",
-                    name
-                ),
+                format!("src/snapshots/test_force_update_{name}__force_update.snap"),
                 r#"
 ---
 source: src/lib.rs
@@ -612,89 +622,6 @@ fn foo_always_missing() {
 }
 
 #[test]
-fn test_unreferenced_delete() {
-    let test_project = TestFiles::new()
-        .add_cargo_toml("test_unreferenced_delete")
-        .add_file(
-            "src/lib.rs",
-            r#"
-#[test]
-fn test_snapshot() {
-    insta::assert_snapshot!("Hello, world!");
-}
-"#
-            .to_string(),
-        )
-        .create_project();
-
-    // Run tests to create snapshots
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--accept"])
-        .output()
-        .unwrap();
-
-    assert!(&output.status.success());
-
-    // Manually add an unreferenced snapshot
-    let unreferenced_snapshot_path = test_project
-        .workspace_dir
-        .join("src/snapshots/test_unreferenced_delete__unused_snapshot.snap");
-    std::fs::create_dir_all(unreferenced_snapshot_path.parent().unwrap()).unwrap();
-    std::fs::write(
-        &unreferenced_snapshot_path,
-        r#"---
-source: src/lib.rs
-expression: "Unused snapshot"
----
-Unused snapshot
-"#,
-    )
-    .unwrap();
-
-    assert_snapshot!(test_project.file_tree_diff(), @r"
-    --- Original file tree
-    +++ Updated file tree
-    @@ -1,3 +1,7 @@
-    +  Cargo.lock
-       Cargo.toml
-       src
-         src/lib.rs
-    +    src/snapshots
-    +      src/snapshots/test_unreferenced_delete__snapshot.snap
-    +      src/snapshots/test_unreferenced_delete__unused_snapshot.snap
-    ");
-
-    // Run cargo insta test with --unreferenced=delete
-    let output = test_project
-        .insta_cmd()
-        .args([
-            "test",
-            "--unreferenced=delete",
-            "--accept",
-            "--",
-            "--nocapture",
-        ])
-        .output()
-        .unwrap();
-
-    assert!(&output.status.success());
-
-    // We should now see the unreferenced snapshot deleted
-    assert_snapshot!(test_project.file_tree_diff(), @r"
-    --- Original file tree
-    +++ Updated file tree
-    @@ -1,3 +1,6 @@
-    +  Cargo.lock
-       Cargo.toml
-       src
-         src/lib.rs
-    +    src/snapshots
-    +      src/snapshots/test_unreferenced_delete__snapshot.snap
-    ");
-}
-
-#[test]
 fn test_hidden_snapshots() {
     let test_project = TestFiles::new()
         .add_cargo_toml("test_hidden_snapshots")
@@ -878,5 +805,57 @@ src/
         !stderr.contains("found undiscovered pending snapshots"),
         "{}",
         stderr
+    );
+}
+
+#[test]
+fn test_line_numbers_1_based() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_line_numbers")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("line1\nline2\nline3\nline4\nline5", @"line1\nmodified_line2\nline3\nline4\nline5");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run test to trigger failure and capture diff output
+    // Use --no-ignore and -- --nocapture to get the full diff output
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--no-ignore", "--", "--nocapture"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    // Check both stdout and stderr for the diff output
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined_output = format!("{stdout}\n{stderr}");
+
+    // Check that line numbers in the diff start at 1, not 0
+    // The diff should show line numbers like "1     1 │" for the first line
+    assert!(
+        combined_output.contains("    1     1 │ line1"),
+        "Expected line numbers to start at 1, but got:\n{combined_output}"
+    );
+
+    // Also check line 2 which has the modification
+    assert!(
+        combined_output.contains("    2       │-modified_line2")
+            || combined_output.contains("          2 │+line2"),
+        "Expected line 2 to be numbered as 2, but got:\n{combined_output}"
+    );
+
+    // And verify line 5 is numbered as 5
+    assert!(
+        combined_output.contains("    5     5 │ line5"),
+        "Expected line 5 to be numbered as 5, but got:\n{combined_output}"
     );
 }

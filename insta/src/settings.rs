@@ -424,7 +424,7 @@ impl Settings {
     /// Iterate over the redactions.
     #[cfg(feature = "redactions")]
     #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
-    pub(crate) fn iter_redactions(&self) -> impl Iterator<Item = (&Selector, &Redaction)> {
+    pub(crate) fn iter_redactions(&self) -> impl Iterator<Item = (&Selector<'_>, &Redaction)> {
         self.inner.redactions.0.iter().map(|(a, b)| (a, &**b))
     }
 
@@ -523,15 +523,18 @@ impl Settings {
     /// # }
     /// ```
     pub fn bind_async<F: Future<Output = T>, T>(&self, future: F) -> impl Future<Output = T> {
-        #[pin_project::pin_project]
-        struct BindingFuture<F>(Arc<ActualSettings>, #[pin] F);
+        struct BindingFuture<F> {
+            settings: Arc<ActualSettings>,
+            future: F,
+        }
 
         impl<F: Future> Future for BindingFuture<F> {
             type Output = F::Output;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-                let inner = self.0.clone();
-                let future = self.project().1;
+                let inner = self.settings.clone();
+                // SAFETY: This is okay because `future` is pinned when `self` is.
+                let future = unsafe { self.map_unchecked_mut(|s| &mut s.future) };
                 CURRENT_SETTINGS.with(|x| {
                     let old = {
                         let mut current = x.borrow_mut();
@@ -547,7 +550,10 @@ impl Settings {
             }
         }
 
-        BindingFuture(self.inner.clone(), future)
+        BindingFuture {
+            settings: self.inner.clone(),
+            future,
+        }
     }
 
     /// Binds the settings to the current thread and resets when the drop

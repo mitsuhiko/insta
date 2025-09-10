@@ -138,16 +138,13 @@ impl PendingInlineSnapshot {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum SnapshotKind {
+    #[default]
     Text,
-    Binary { extension: String },
-}
-
-impl Default for SnapshotKind {
-    fn default() -> Self {
-        SnapshotKind::Text
-    }
+    Binary {
+        extension: String,
+    },
 }
 
 /// Snapshot metadata information.
@@ -725,17 +722,16 @@ impl TextSnapshotContents {
 
     /// Returns the string literal, including `#` delimiters, to insert into a
     /// Rust source file.
-    pub fn to_inline(&self, indentation: usize) -> String {
+    pub fn to_inline(&self, indentation: &str) -> String {
         let contents = self.normalize();
         let mut out = String::new();
 
         // Some characters can't be escaped in a raw string literal, so we need
         // to escape the string if it contains them. We prefer escaping control
-        // characters which except for newlines, which we prefer to see as
-        // actual newlines.
+        // characters except for newlines, tabs, and ESC.
         let has_control_chars = contents
             .chars()
-            .any(|c| c != '\n' && c.is_control() || c == '\0');
+            .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c));
 
         // We prefer raw strings for strings containing a quote or an escape
         // character, and for strings containing newlines (which reduces diffs).
@@ -752,7 +748,7 @@ impl TextSnapshotContents {
         // string with unicode escapes from the debug output. We don't attempt
         // block mode (though not impossible to do so).
         if has_control_chars {
-            out.push_str(format!("{:?}", contents).as_str());
+            out.push_str(format!("{contents:?}").as_str());
         } else {
             out.push('"');
             // if we have more than one line we want to change into the block
@@ -766,15 +762,14 @@ impl TextSnapshotContents {
                         // it, but it works...)
                         .map(|l| {
                             format!(
-                                "\n{:width$}{l}",
-                                "",
-                                width = if l.is_empty() { 0 } else { indentation },
+                                "\n{i}{l}",
+                                i = if l.is_empty() { "" } else { indentation },
                                 l = l
                             )
                         })
                         // `lines` removes the final line ending — add back. Include
                         // indentation so the closing delimited aligns with the full string.
-                        .chain(Some(format!("\n{:width$}", "", width = indentation))),
+                        .chain(Some(format!("\n{indentation}"))),
                 );
             } else {
                 out.push_str(contents.as_str());
@@ -826,15 +821,11 @@ fn build_binary_path(extension: &str, path: impl Into<PathBuf>) -> PathBuf {
 
 /// The number of `#` we need to surround a raw string literal with.
 fn required_hashes(text: &str) -> usize {
-    let splits = text.split('"');
-    if splits.clone().count() <= 1 {
-        return 0;
-    }
-
-    splits
+    text.split('"')
+        .skip(1) // Skip the first part which is before the first quote
         .map(|s| s.chars().take_while(|&c| c == '#').count() + 1)
         .max()
-        .unwrap()
+        .unwrap_or_default()
 }
 
 #[test]
@@ -852,18 +843,21 @@ fn test_required_hashes() {
     assert_snapshot!(required_hashes(r###"r"#"Raw string"#""###), @"2");
 }
 
-fn count_leading_spaces(value: &str) -> usize {
-    value.chars().take_while(|x| x.is_whitespace()).count()
+fn leading_space(value: &str) -> String {
+    value
+        .chars()
+        .take_while(|x| x.is_whitespace())
+        .collect::<String>()
 }
 
-fn min_indentation(snapshot: &str) -> usize {
+fn min_indentation(snapshot: &str) -> String {
     let lines = snapshot.trim_end().lines();
 
     lines
         .filter(|l| !l.is_empty())
-        .map(count_leading_spaces)
-        .min()
-        .unwrap_or(0)
+        .map(leading_space)
+        .min_by(|a, b| a.len().cmp(&b.len()))
+        .unwrap_or("".into())
 }
 
 /// Normalize snapshot value, which we apply to both generated and literal
@@ -878,7 +872,7 @@ fn normalize_inline(snapshot: &str) -> String {
     let indentation = min_indentation(snapshot);
     snapshot
         .lines()
-        .map(|l| l.get(indentation..).unwrap_or(""))
+        .map(|l| l.get(indentation.len()..).unwrap_or(""))
         .collect::<Vec<&str>>()
         .join("\n")
 }
@@ -1018,28 +1012,28 @@ fn names_of_path(path: &Path) -> (String, String) {
 #[test]
 fn test_names_of_path() {
     assert_debug_snapshot!(
-        names_of_path(Path::new("/src/snapshots/insta_tests__tests__name_foo.snap")), @r###"
+        names_of_path(Path::new("/src/snapshots/insta_tests__tests__name_foo.snap")), @r#"
     (
         "name_foo",
         "insta_tests__tests",
     )
-    "###
+    "#
     );
     assert_debug_snapshot!(
-        names_of_path(Path::new("/src/snapshots/name_foo.snap")), @r###"
+        names_of_path(Path::new("/src/snapshots/name_foo.snap")), @r#"
     (
         "name_foo",
         "",
     )
-    "###
+    "#
     );
     assert_debug_snapshot!(
-        names_of_path(Path::new("foo/src/snapshots/go1.20.5.snap")), @r###"
+        names_of_path(Path::new("foo/src/snapshots/go1.20.5.snap")), @r#"
     (
         "go1.20.5",
         "",
     )
-    "###
+    "#
     );
 }
 
@@ -1090,10 +1084,10 @@ fn test_snapshot_contents_to_inline() {
     use similar_asserts::assert_eq;
     let snapshot_contents =
         TextSnapshotContents::new("testing".to_string(), TextSnapshotKind::Inline);
-    assert_eq!(snapshot_contents.to_inline(0), r#""testing""#);
+    assert_eq!(snapshot_contents.to_inline(""), r#""testing""#);
 
     assert_eq!(
-        TextSnapshotContents::new("\na\nb".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("\na\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##"r"
 
 a
@@ -1102,7 +1096,7 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline(4),
+        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline("    "),
         r##"r"
     a
     b
@@ -1111,7 +1105,7 @@ b
 
     assert_eq!(
         TextSnapshotContents::new("\n    a\n    b".to_string(), TextSnapshotKind::Inline)
-            .to_inline(0),
+            .to_inline(""),
         r##"r"
 
 a
@@ -1120,7 +1114,8 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("\na\n\nb".to_string(), TextSnapshotKind::Inline).to_inline(4),
+        TextSnapshotContents::new("\na\n\nb".to_string(), TextSnapshotKind::Inline)
+            .to_inline("    "),
         r##"r"
 
     a
@@ -1136,7 +1131,7 @@ b
             .to_string(),
             TextSnapshotKind::Inline
         )
-        .to_inline(0),
+        .to_inline(""),
         r#""ab""#
     );
 
@@ -1152,7 +1147,7 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##"r"
 
 ab
@@ -1160,35 +1155,37 @@ ab
     );
 
     assert_eq!(
-        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r#""ab""#
     );
 
     // Test control and special characters
     assert_eq!(
-        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline(0),
-        r##""a\tb""##
+        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        r##""a	b""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(0),
-        // No block mode for control characters
-        r##""a\t\nb""##
+        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        r##"r"
+a	
+b
+""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##""a\rb""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         // Nul byte is printed as `\0` in Rust string literals
         r##""a\0b""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         // Replacement character is returned as the character in literals
         r##""a�b""##
     );
@@ -1197,12 +1194,12 @@ ab
 #[test]
 fn test_snapshot_contents_hashes() {
     assert_eq!(
-        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r#""a###b""#
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline).to_inline(0),
+        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r#####"r"
 a
 \###b
@@ -1298,7 +1295,138 @@ a
         ),
         0
     );
+
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
+			1
+	2"#
+        ),
+        r###"
+		1
+2"###
+    );
+
+    assert_eq!(
+        normalize_inline_snapshot(
+            r#"
+	  	  1
+	  	  2
+    "#
+        ),
+        r###"
+1
+2
+"###
+    );
 }
+   1
+   2
+"#;
+    assert_eq!(min_indentation(t), 3);
+
+    let t = r#"
+        a
+    "#;
+    assert_eq!(min_indentation(t), 8);
+
+    let t = "";
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+    a
+    b
+c
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = r#"
+a
+    "#;
+    assert_eq!(min_indentation(t), 0);
+
+    let t = "
+    a";
+    assert_eq!(min_indentation(t), 4);
+
+    let t = r#"a
+  a"#;
+    assert_eq!(min_indentation(t), 0);
+}
+
+=======
+
+#[test]
+fn test_min_indentation() {
+    use similar_asserts::assert_eq;
+    let t = r#"
+   1
+   2
+    "#;
+    assert_eq!(min_indentation(t), "   ".to_string());
+
+    let t = r#"
+            1
+    2"#;
+    assert_eq!(min_indentation(t), "    ".to_string());
+
+    let t = r#"
+            1
+            2
+    "#;
+    assert_eq!(min_indentation(t), "            ".to_string());
+
+    let t = r#"
+   1
+   2
+"#;
+    assert_eq!(min_indentation(t), "   ".to_string());
+
+    let t = r#"
+        a
+    "#;
+    assert_eq!(min_indentation(t), "        ".to_string());
+
+    let t = "";
+    assert_eq!(min_indentation(t), "".to_string());
+
+    let t = r#"
+    a
+    b
+c
+    "#;
+    assert_eq!(min_indentation(t), "".to_string());
+
+    let t = r#"
+a
+    "#;
+    assert_eq!(min_indentation(t), "".to_string());
+
+    let t = "
+    a";
+    assert_eq!(min_indentation(t), "    ".to_string());
+
+    let t = r#"a
+  a"#;
+    assert_eq!(min_indentation(t), "".to_string());
+
+    let t = r#"
+ 	1
+ 	2
+    "#;
+    assert_eq!(min_indentation(t), " 	".to_string());
+
+    let t = r#"
+  	  	  	1
+  	2"#;
+    assert_eq!(min_indentation(t), "  	".to_string());
+
+    let t = r#"
+			1
+	2"#;
+    assert_eq!(min_indentation(t), "	".to_string());
+}
+
 #[test]
 fn test_inline_snapshot_value_newline() {
     // https://github.com/mitsuhiko/insta/issues/39
@@ -1344,12 +1472,11 @@ fn test_empty_lines() {
     assert_snapshot!(r#"multiline content starting on first line
 
     final line
-    "#, @r###"
+    "#, @r"
     multiline content starting on first line
 
         final line
-
-    "###);
+    ");
 
     assert_snapshot!(r#"
     multiline content starting on second line

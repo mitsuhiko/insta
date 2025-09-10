@@ -150,7 +150,7 @@ struct TestRunnerOptions {
     #[arg(long, value_name = "SPEC")]
     exclude: Vec<String>,
     /// Space-separated list of features to activate
-    #[arg(long, value_name = "FEATURES")]
+    #[arg(short = 'F', long, value_name = "FEATURES")]
     features: Option<String>,
     /// Number of parallel jobs, defaults to # of CPUs
     #[arg(short = 'j', long)]
@@ -188,7 +188,7 @@ struct TestCommand {
     #[arg(long)]
     review: bool,
     /// Accept all new (previously unseen).
-    #[arg(long)]
+    #[arg(long, hide = true)]
     accept_unseen: bool,
     /// Do not reject pending snapshots before run (deprecated).
     #[arg(long, hide = true)]
@@ -197,8 +197,8 @@ struct TestCommand {
     #[arg(long)]
     force_update_snapshots: bool,
     /// Handle unreferenced snapshots after a successful test run.
-    #[arg(long, default_value = "ignore")]
-    unreferenced: UnreferencedSnapshots,
+    #[arg(long)]
+    unreferenced: Option<UnreferencedSnapshots>,
     /// Filters to apply to the insta glob feature.
     #[arg(long)]
     glob_filter: Vec<String>,
@@ -264,13 +264,21 @@ fn query_snapshot(
     show_info: &mut bool,
     show_diff: &mut bool,
 ) -> Result<Operation, Box<dyn Error>> {
+    // Check if we're running in a TTY environment
+    if !term.is_term() {
+        return Err(err_msg(
+            "Interactive review requires a terminal. Use `cargo insta accept` or `cargo insta reject` \
+            for non-interactive snapshot management, or run this command in a terminal environment."
+        ));
+    }
+
     loop {
         term.clear_screen()?;
 
         println!(
             "{}{}{} {}@{}:",
             style("Reviewing [").bold(),
-            style(format!("{}/{}", i, n)).yellow().bold(),
+            style(format!("{i}/{n}")).yellow().bold(),
             style("]").bold(),
             pkg.name.as_str(),
             &pkg.version,
@@ -340,11 +348,21 @@ fn query_snapshot(
             );
         }
 
+        // Add a subtle hint about uppercase shortcuts at the bottom
+        println!();
+        println!(
+            "  {}",
+            style("Tip: Use uppercase A/R/S to apply to all remaining snapshots").dim()
+        );
+
         loop {
             match term.read_key()? {
                 Key::Char('a') | Key::Enter => return Ok(Operation::Accept),
+                Key::Char('A') => return Ok(Operation::AcceptAll),
                 Key::Char('r') | Key::Escape => return Ok(Operation::Reject),
+                Key::Char('R') => return Ok(Operation::RejectAll),
                 Key::Char('s') | Key::Char(' ') => return Ok(Operation::Skip),
+                Key::Char('S') => return Ok(Operation::SkipAll),
                 Key::Char('i') => {
                     *show_info = !*show_info;
                     break;
@@ -431,12 +449,9 @@ fn handle_target_args<'a>(
         (None, None) => {}
     };
 
-    let metadata = cmd.exec().map_err(|e| {
-        format!(
-            "failed to load cargo metadata: {}. Command details: {:?}",
-            e, cmd
-        )
-    })?;
+    let metadata = cmd
+        .exec()
+        .map_err(|e| format!("failed to load cargo metadata: {e}. Command details: {cmd:?}"))?;
     let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
     let tool_config = ToolConfig::from_workspace(&workspace_root)?;
 
@@ -483,7 +498,7 @@ fn handle_target_args<'a>(
         .iter()
         .map(|x| {
             if let Some(no_period) = x.strip_prefix(".") {
-                eprintln!("`{}` supplied as an extension. This will use `foo.{}` as file names; likely you want `{}` instead.", x, x, no_period)
+                eprintln!("`{x}` supplied as an extension. This will use `foo.{x}` as file names; likely you want `{no_period}` instead.")
             };
             x.as_str()
         })
@@ -516,7 +531,8 @@ fn load_snapshot_containers<'a>(
     Ok((snapshot_containers, roots))
 }
 
-fn process_snapshots(
+/// Processes snapshot files for reviewing, accepting, or rejecting.
+fn review_snapshots(
     quiet: bool,
     snapshot_filter: Option<&[String]>,
     loc: &LocationInfo<'_>,
@@ -552,6 +568,7 @@ fn process_snapshots(
     let mut num = 0;
     let mut show_info = true;
     let mut show_diff = true;
+    let mut apply_to_all: Option<Operation> = None;
 
     for (snapshot_container, package) in snapshot_containers.iter_mut() {
         let target_file = snapshot_container.target_file().to_path_buf();
@@ -571,32 +588,55 @@ fn process_snapshots(
             }
 
             num += 1;
-            let op = match op {
-                Some(op) => op,
-                None => query_snapshot(
-                    &loc.workspace_root,
-                    &term,
-                    &snapshot_ref.new,
-                    snapshot_ref.old.as_ref(),
-                    package,
-                    snapshot_ref.line,
-                    num,
-                    snapshot_count,
-                    snapshot_file.as_deref(),
-                    &mut show_info,
-                    &mut show_diff,
-                )?,
+
+            let op = match (op, apply_to_all) {
+                (Some(op), _) => op, // Use provided op if any (from CLI)
+                (_, Some(op)) => op, // Use apply_to_all if set from previous choice
+                _ => {
+                    // Otherwise prompt for user choice
+                    let choice = query_snapshot(
+                        &loc.workspace_root,
+                        &term,
+                        &snapshot_ref.new,
+                        snapshot_ref.old.as_ref(),
+                        package,
+                        snapshot_ref.line,
+                        num,
+                        snapshot_count,
+                        snapshot_file.as_deref(),
+                        &mut show_info,
+                        &mut show_diff,
+                    )?;
+
+                    // For "All" operations, set the apply_to_all flag and convert to single operation
+                    match choice {
+                        Operation::AcceptAll => {
+                            apply_to_all = Some(Operation::Accept);
+                            Operation::Accept
+                        }
+                        Operation::RejectAll => {
+                            apply_to_all = Some(Operation::Reject);
+                            Operation::Reject
+                        }
+                        Operation::SkipAll => {
+                            apply_to_all = Some(Operation::Skip);
+                            Operation::Skip
+                        }
+                        op => op,
+                    }
+                }
             };
+
             match op {
-                Operation::Accept => {
+                Operation::Accept | Operation::AcceptAll => {
                     snapshot_ref.op = Operation::Accept;
                     accepted.push(snapshot_ref.summary());
                 }
-                Operation::Reject => {
+                Operation::Reject | Operation::RejectAll => {
                     snapshot_ref.op = Operation::Reject;
                     rejected.push(snapshot_ref.summary());
                 }
-                Operation::Skip => {
+                Operation::Skip | Operation::SkipAll => {
                     skipped.push(snapshot_ref.summary());
                 }
             }
@@ -604,7 +644,7 @@ fn process_snapshots(
         snapshot_container.commit()?;
     }
 
-    if op.is_none() {
+    if op.is_none() && apply_to_all.is_none() {
         term.clear_screen()?;
     }
 
@@ -613,19 +653,19 @@ fn process_snapshots(
         if !accepted.is_empty() {
             println!("{}:", style("accepted").green());
             for item in accepted {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
         if !rejected.is_empty() {
             println!("{}:", style("rejected").red());
             for item in rejected {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
         if !skipped.is_empty() {
             println!("{}:", style("skipped").yellow());
             for item in skipped {
-                println!("  {}", item);
+                println!("  {item}");
             }
         }
     }
@@ -636,6 +676,13 @@ fn process_snapshots(
 /// Run the tests
 fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &cmd.test_runner_options.package)?;
+
+    if cmd.accept_unseen {
+        eprintln!(
+            "{} If this option is materially helpful to you, please add a comment at https://github.com/mitsuhiko/insta/issues/659.", 
+            style("`--accept-unseen` is pending deprecation.").bold().yellow()
+        )
+    }
 
     // Based on any configs in the config file, update the test command. Default
     // is `SnapshotUpdate::Auto`.
@@ -693,8 +740,13 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // Legacy command
     if cmd.delete_unreferenced_snapshots {
         eprintln!("Warning: `--delete-unreferenced-snapshots` is deprecated. Use `--unreferenced=delete` instead.");
-        cmd.unreferenced = UnreferencedSnapshots::Delete;
+        cmd.unreferenced = Some(UnreferencedSnapshots::Delete);
     }
+
+    // If unreferenced wasn't specified, use the config file setting
+    cmd.unreferenced = cmd
+        .unreferenced
+        .or_else(|| Some(loc.tool_config.test_unreferenced()));
 
     // Prioritize the command line over the tool config
     let test_runner = match cmd.test_runner {
@@ -748,12 +800,17 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // tests ran successfully
     if success {
         if let Some(ref snapshot_ref_path) = snapshot_ref_file {
-            handle_unreferenced_snapshots(snapshot_ref_path.borrow(), &loc, cmd.unreferenced)?;
+            handle_unreferenced_snapshots(
+                snapshot_ref_path.borrow(),
+                &loc,
+                // we set this to `Some` above so can't be `None`
+                cmd.unreferenced.unwrap(),
+            )?;
         }
     }
 
     if cmd.review || cmd.accept {
-        process_snapshots(
+        review_snapshots(
             false,
             None,
             &loc,
@@ -817,7 +874,7 @@ fn handle_unreferenced_snapshots(
         UnreferencedSnapshots::Ignore => return Ok(()),
     };
 
-    let files = fs::read_to_string(snapshot_ref_path)
+    let snapshot_files_from_test = fs::read_to_string(snapshot_ref_path)
         .map(|s| {
             s.lines()
                 .filter_map(|line| fs::canonicalize(line).ok())
@@ -850,19 +907,14 @@ fn handle_unreferenced_snapshots(
         .filter_map(|e| e.path().canonicalize().ok())
         // The path isn't in the list which the tests wrote to, so it's
         // unreferenced.
-        //
-        // TODO: note that this will include _all_ `.pending-snap` files,
-        // regardless of whether or not a test was run, since we don't record
-        // those in the snapshot references file. We can make that change, but
-        // also we'd like to unify file & inline snapshot handling; if we do
-        // that it'll fix this smaller issue too.
+        .filter(|path| !snapshot_files_from_test.contains(path))
+        // we don't want to delete the new or pending-snap files, partly because
+        // we use their presence to determine if a test created a snapshot and
+        // so `insta test` should fail
         .filter(|path| {
-            // We also check for the pending path
-            let pending_path = path.with_file_name(format!(
-                "{}.new",
-                path.file_name().unwrap().to_string_lossy()
-            ));
-            !files.contains(path) && !files.contains(&pending_path)
+            path.extension()
+                .map(|x| x != "new" && x != "pending-snap")
+                .unwrap_or(true)
         });
 
         for path in unreferenced_snapshots {
@@ -886,7 +938,7 @@ fn handle_unreferenced_snapshots(
                 // load it, since these are in a different format; just delete
                 if path.extension() == Some(std::ffi::OsStr::new("pending-snap")) {
                     if let Err(e) = fs::remove_file(path) {
-                        eprintln!("Failed to remove file: {}", e);
+                        eprintln!("Failed to remove file: {e}");
                     }
                 } else {
                     let snapshot = match Snapshot::from_file(&path) {
@@ -930,14 +982,16 @@ fn prepare_test_runner<'snapshot_ref>(
     snapshot_ref_file: Option<&'snapshot_ref Path>,
     loc: &LocationInfo,
 ) -> Result<(process::Command, Option<Cow<'snapshot_ref, Path>>, bool), Box<dyn Error>> {
-    let mut proc = process::Command::new(get_cargo());
-    match test_runner {
+    let mut proc = match test_runner {
         TestRunner::CargoTest | TestRunner::Auto => {
+            let mut proc = process::Command::new(get_cargo());
             proc.arg("test");
+            proc
         }
         TestRunner::Nextest => {
-            proc.arg("nextest");
+            let mut proc = get_cargo_nextest_command();
             proc.arg("run");
+            proc
         }
     };
 
@@ -945,7 +999,7 @@ fn prepare_test_runner<'snapshot_ref>(
     proc.env("INSTA_CARGO_INSTA", "1");
     proc.env("INSTA_CARGO_INSTA_VERSION", cargo_insta_version());
 
-    let snapshot_ref_file = if cmd.unreferenced != UnreferencedSnapshots::Ignore {
+    let snapshot_ref_file = if cmd.unreferenced != Some(UnreferencedSnapshots::Ignore) {
         match snapshot_ref_file {
             Some(path) => Some(Cow::Borrowed(path)),
             None => {
@@ -1099,9 +1153,21 @@ fn prepare_test_runner<'snapshot_ref>(
     if matches!(color, ColorWhen::Auto)
         && matches!(test_runner, TestRunner::CargoTest | TestRunner::Auto)
     {
-        proc.arg(format!("--color={}", color));
+        proc.arg(format!("--color={color}"));
     };
     Ok((proc, snapshot_ref_file, prevents_doc_run))
+}
+
+fn get_cargo_nextest_command() -> std::process::Command {
+    let cargo_nextest = env::var_os("INSTA_CARGO_NEXTEST_BIN");
+    match cargo_nextest.as_deref() {
+        Some(cargo_nextest_bin_path) => process::Command::new(cargo_nextest_bin_path),
+        None => {
+            let mut proc = process::Command::new(get_cargo());
+            proc.arg("nextest");
+            proc
+        }
+    }
 }
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
@@ -1204,7 +1270,7 @@ fn show_undiscovered_hint(
                 let fname = x.file_name().to_string_lossy();
                 extensions
                     .iter()
-                    .any(|ext| fname.ends_with(&format!(".{}.new", ext)))
+                    .any(|ext| fname.ends_with(&format!(".{ext}.new")))
                     || fname.ends_with(".pending-snap")
             })
             .map(|x| x.path().to_path_buf())
@@ -1256,7 +1322,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
     handle_color(opts.color);
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
-            process_snapshots(
+            review_snapshots(
                 cmd.quiet,
                 cmd.snapshot_filter.as_deref(),
                 &handle_target_args(&cmd.target_args, &[])?,
@@ -1271,5 +1337,32 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         Command::Test(cmd) => test_run(cmd, opts.color.unwrap_or(ColorWhen::Auto)),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_cargo_nextest_command_from_env_variables() {
+        env::set_var("INSTA_CARGO_NEXTEST_BIN", "/a/custom/path/to/cargo-nextest");
+        let command = get_cargo_nextest_command();
+        assert_eq!(
+            command.get_program().to_string_lossy(),
+            "/a/custom/path/to/cargo-nextest"
+        );
+        assert_eq!(command.get_args().len(), 0);
+        env::remove_var("INSTA_CARGO_NEXTEST_BIN");
+
+        env::set_var("CARGO", "/a/path/to/cargo");
+        let command = get_cargo_nextest_command();
+        assert_eq!(command.get_program().to_string_lossy(), "/a/path/to/cargo");
+        let args: Vec<String> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect();
+        assert_eq!(args, vec!["nextest"]);
+        env::remove_var("CARGO");
     }
 }

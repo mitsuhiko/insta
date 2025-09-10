@@ -11,8 +11,11 @@ use crate::inline::FilePatcher;
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Operation {
     Accept,
+    AcceptAll,
     Reject,
+    RejectAll,
     Skip,
+    SkipAll,
 }
 
 #[derive(Debug, Clone)]
@@ -30,13 +33,13 @@ impl PendingSnapshot {
         use std::fmt::Write;
         let mut rv = String::new();
         if let Some(source) = self.new.metadata().source() {
-            write!(&mut rv, "{}", source).unwrap();
+            write!(&mut rv, "{source}").unwrap();
         }
         if let Some(line) = self.line {
-            write!(&mut rv, ":{}", line).unwrap();
+            write!(&mut rv, ":{line}").unwrap();
         }
         if let Some(name) = self.new.snapshot_name() {
-            write!(&mut rv, " ({})", name).unwrap();
+            write!(&mut rv, " ({name})").unwrap();
         }
         rv
     }
@@ -170,8 +173,7 @@ impl SnapshotContainer {
         let try_removing_snapshot = |p: &Path| {
             fs::remove_file(p).unwrap_or_else(|_| {
                     eprintln!(
-                        "Pending snapshot file at {:?} couldn't be removed. It was likely removed by another process.",
-                        p
+                        "Pending snapshot file at {p:?} couldn't be removed. It was likely removed by another process."
                     );
                 });
         };
@@ -183,7 +185,7 @@ impl SnapshotContainer {
 
             for (idx, snapshot) in self.snapshots.iter().enumerate() {
                 match snapshot.op {
-                    Operation::Accept => {
+                    Operation::Accept | Operation::AcceptAll => {
                         patcher.set_new_content(
                             idx,
                             match snapshot.new.contents() {
@@ -193,8 +195,8 @@ impl SnapshotContainer {
                         );
                         did_accept = true;
                     }
-                    Operation::Reject => {}
-                    Operation::Skip => {
+                    Operation::Reject | Operation::RejectAll => {}
+                    Operation::Skip | Operation::SkipAll => {
                         new_pending.push(PendingInlineSnapshot::new(
                             Some(snapshot.new.clone()),
                             snapshot.old.clone(),
@@ -218,7 +220,7 @@ impl SnapshotContainer {
             debug_assert!(self.snapshots.len() == 1);
             for snapshot in self.snapshots.iter() {
                 match snapshot.op {
-                    Operation::Accept => {
+                    Operation::Accept | Operation::AcceptAll => {
                         try_removing_snapshot(&self.pending_path);
 
                         if let Some(ref old) = snapshot.old {
@@ -235,14 +237,14 @@ impl SnapshotContainer {
                         // path again.
                         snapshot.new.save(&self.target_path)?;
                     }
-                    Operation::Reject => {
+                    Operation::Reject | Operation::RejectAll => {
                         try_removing_snapshot(&self.pending_path);
 
                         if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
                             try_removing_snapshot(&path);
                         }
                     }
-                    Operation::Skip => {}
+                    Operation::Skip | Operation::SkipAll => {}
                 }
             }
         }
