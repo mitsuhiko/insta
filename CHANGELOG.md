@@ -4,6 +4,10 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Add `--disable-nextest-doctest` flag to `cargo insta test` to disable running doctests with 
+  nextest. Shows a deprecation warning when nextest is used with doctests without this flag, to prepare `cargo insta` to no longer run
+  a separate doctest process when using nextest in the future. #803
+
 - We no longer trim starting newlines during assertions, which allows asserting
   the number of leading newlines match. Existing assertions with different
   leading newlines will pass and print a warning suggesting running with

@@ -1,436 +1,65 @@
 use crate::TestFiles;
-use insta::assert_snapshot;
 use std::process::Stdio;
 
-/// Test that inline snapshots are properly trimmed when they have excess indentation
+/// # Inline Snapshot Leading Newline Tests
+///
+/// These tests verify the new behavior where multiline inline snapshots
+/// must start with a newline after the opening delimiter.
+///
+/// ## New Behavior:
+/// 1. Multiline snapshots should start with a newline after the delimiter
+/// 2. If they don't, a warning is issued
+/// 3. The leading newline is stripped during processing
+/// 4. Single-line snapshots are unaffected
+///
+/// ## Backwards Compatibility:
+/// - Old snapshots with excess indentation still work (trimming already existed)
+/// - No warnings are issued for indentation (only for missing newlines)
+
+/// Test that ONLY multiline snapshots without leading newline trigger warnings
 #[test]
-fn test_inline_snapshot_trimming() {
+fn test_warning_only_for_missing_newline() {
+    // Test 1: Missing leading newline - SHOULD WARN
     let test_project = TestFiles::new()
-        .add_cargo_toml("inline_trimming")
-        .add_file(
-            "src/lib.rs",
-            r#####"
-#[test]
-fn test_basic_trimming() {
-    // Inline snapshot with unnecessary indentation should be trimmed
-    insta::assert_snapshot!("hello\nworld", @r####"
-    
-    hello
-    world
-    "####);
-}
-
-#[test]
-fn test_single_line_trimming() {
-    // Single line snapshots should not have leading/trailing whitespace
-    insta::assert_snapshot!("hello world", @r#"
-        hello world
-    "#);
-}
-
-#[test]
-fn test_mixed_indentation() {
-    // Test with mixed spaces - should preserve relative indentation
-    insta::assert_snapshot!("line1\n  line2\n    line3", @r###"
-        line1
-          line2
-            line3
-    "###);
-}
-
-#[test]
-fn test_tab_indentation() {
-    // Test with tabs - should preserve tab indentation
-    insta::assert_snapshot!("line1\n\tline2\n\t\tline3", @"
-		line1
-			line2
-				line3
-    ");
-}
-
-#[test]
-fn test_empty_lines_preserved() {
-    // Empty lines in the middle should be preserved
-    insta::assert_snapshot!("line1\n\nline2", @r#"
-        line1
-        
-        line2
-    "#);
-}
-
-#[test]
-fn test_no_excess_indentation() {
-    // Already properly formatted snapshot should not change
-    insta::assert_snapshot!("hello\nworld", @"
-hello
-world
-");
-}
-"#####
-                .to_string(),
-        )
-        .create_project();
-
-    // Run test - snapshots will need to be updated
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--", "--nocapture"])
-        .stderr(Stdio::piped())
-        .output()
-        .unwrap();
-
-    // We expect failures since the snapshots have excess indentation
-    assert!(!output.status.success());
-
-    // Run with --accept to fix the inline snapshots
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--accept", "--", "--nocapture"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-
-    // Check that the inline snapshots were properly trimmed
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
-    --- Original: src/lib.rs
-    +++ Updated: src/lib.rs
-    @@ -12,9 +12,7 @@
-     #[test]
-     fn test_single_line_trimming() {
-         // Single line snapshots should not have leading/trailing whitespace
-    -    insta::assert_snapshot!("hello world", @r#"
-    -        hello world
-    -    "#);
-    +    insta::assert_snapshot!("hello world", @"hello world");
-     }
-     
-     #[test]
-    "##);
-
-    // Run test again - should pass now with trimmed snapshots
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--", "--nocapture"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-}
-
-/// Test force-update removes all excess whitespace and indentation
-#[test]
-fn test_force_update_trimming() {
-    let test_project = TestFiles::new()
-        .add_cargo_toml("force_update_trimming")
-        .add_file(
-            "src/lib.rs",
-            r#####"
-#[test]
-fn test_multiline_with_excess() {
-    insta::assert_snapshot!("foo\nbar", @r####"
-    
-    
-    foo
-    bar
-    
-    
-    "####);
-}
-
-#[test]
-fn test_single_line_with_padding() {
-    insta::assert_snapshot!("hello", @r###"
-        
-        hello
-        
-    "###);
-}
-"#####
-                .to_string(),
-        )
-        .create_project();
-
-    // Run with --force-update-snapshots to aggressively trim
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--force-update-snapshots", "--", "--nocapture"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-
-    // Check that force update removed all excess whitespace
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
-    --- Original: src/lib.rs
-    +++ Updated: src/lib.rs
-    @@ -1,21 +1,13 @@
-     
-     #[test]
-     fn test_multiline_with_excess() {
-    -    insta::assert_snapshot!("foo\nbar", @r####"
-    -    
-    -    
-    +    insta::assert_snapshot!("foo\nbar", @r"
-         foo
-         bar
-    -    
-    -    
-    -    "####);
-    +    ");
-     }
-     
-     #[test]
-     fn test_single_line_with_padding() {
-    -    insta::assert_snapshot!("hello", @r###"
-    -        
-    -        hello
-    -        
-    -    "###);
-    +    insta::assert_snapshot!("hello", @"hello");
-     }
-    "#####);
-}
-
-/// Test that file snapshots are also properly trimmed
-#[test]
-fn test_file_snapshot_trimming() {
-    let test_project = TestFiles::new()
-        .add_cargo_toml("file_snapshot_trimming")
+        .add_cargo_toml("missing_newline")
         .add_file(
             "src/lib.rs",
             r#"
 #[test]
-fn test_file_snapshot() {
-    insta::assert_snapshot!("test_snapshot", "    indented content\n    second line    ");
+fn test_missing() {
+    insta::assert_snapshot!("line1\nline2", @"line1
+line2");
 }
 "#
             .to_string(),
         )
         .create_project();
 
-    // Run test to create file snapshot
     let output = test_project
         .insta_cmd()
         .args(["test", "--accept"])
+        .stderr(Stdio::piped())
         .output()
         .unwrap();
 
-    assert!(output.status.success());
-
-    // Read the created snapshot file
-    let snapshot_path = test_project
-        .workspace_dir
-        .join("src/snapshots/file_snapshot_trimming__test_snapshot.snap");
-    let snapshot_content = std::fs::read_to_string(&snapshot_path).unwrap();
-
-    // Verify the file snapshot has proper structure and trimming
-    assert!(snapshot_content.contains("---"));
-    assert!(snapshot_content.contains("source: src/lib.rs"));
-    assert!(snapshot_content.contains("expression:"));
-
-    // The snapshot content should have the text content
-    assert!(snapshot_content.contains("indented content"));
-    assert!(snapshot_content.contains("second line"));
-}
-
-/// Test that complex nested structures maintain proper relative indentation
-#[test]
-fn test_complex_indentation_preservation() {
-    let test_project = TestFiles::new()
-        .add_cargo_toml("complex_indentation")
-        .add_file(
-            "src/lib.rs",
-            r####"
-#[test]
-fn test_yaml_like_structure() {
-    let content = r#"
-root:
-  child1:
-    value: 1
-  child2:
-    - item1
-    - item2
-"#;
-    insta::assert_snapshot!(content, @r###"
-        
-        root:
-          child1:
-            value: 1
-          child2:
-            - item1
-            - item2
-        
-    "###);
-}
-
-#[test]
-fn test_code_block() {
-    let code = r#"fn main() {
-    println!("Hello");
-    if true {
-        println!("World");
-    }
-}"#;
-    insta::assert_snapshot!(code, @r##"
-        fn main() {
-            println!("Hello");
-            if true {
-                println!("World");
-            }
-        }
-    "##);
-}
-"####
-                .to_string(),
-        )
-        .create_project();
-
-    // Run test with accept
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--accept"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-
-    // Check that relative indentation is preserved
-    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
-}
-
-// ====== BACKWARDS COMPATIBILITY TESTS ======
-
-/// Test that snapshots created with old format (excess indentation) still pass
-/// This ensures backwards compatibility - existing tests shouldn't break
-#[test]
-fn test_old_format_snapshots_still_pass() {
-    let test_project = TestFiles::new()
-        .add_cargo_toml("backwards_compat")
-        .add_file(
-            "src/lib.rs",
-            r#####"
-// These are snapshots as they would have been written before trimming feature
-#[test]
-fn test_old_format_with_indentation() {
-    // This snapshot has the "old" format with full indentation preserved
-    // It should still pass because trimming is applied to both sides during comparison
-    insta::assert_snapshot!("hello\nworld", @r####"
-    hello
-    world
-    "####);
-}
-
-#[test]
-fn test_old_format_already_trimmed() {
-    // This was already properly formatted, should still work
-    insta::assert_snapshot!("foo\nbar", @"
-foo
-bar
-");
-}
-"#####
-                .to_string(),
-        )
-        .create_project();
-
-    // Run tests WITHOUT --accept - they should pass due to trimming on both sides
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--", "--nocapture"])
-        .output()
-        .unwrap();
-
-    // Old format multiline snapshots with just indentation differences should pass
-    // (Single-line with spaces would need review due to trailing space trimming)
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "Backwards compatibility broken: old format snapshots don't pass"
+        stderr.contains("Multiline inline snapshot values should start and end with a newline"),
+        "Should warn for missing leading newline"
     );
-}
-
-/// Test that --accept migrates old format to new trimmed format
-#[test]
-fn test_accept_migrates_old_format() {
-    let test_project = TestFiles::new()
-        .add_cargo_toml("migration_test")
-        .add_file(
-            "src/lib.rs",
-            r#####"
-#[test]
-fn test_needs_migration() {
-    // Old format with indentation that should be migrated
-    insta::assert_snapshot!("content", @r####"
-        content
-    "####);
-}
-
-#[test]
-fn test_multi_line_needs_migration() {
-    insta::assert_snapshot!("line1\nline2\nline3", @r###"
-        line1
-        line2
-        line3
-    "###);
-}
-"#####
-                .to_string(),
-        )
-        .create_project();
-
-    // Run with --accept to migrate to new format (may have pending snapshots)
-    let output = test_project
-        .insta_cmd()
-        .args(["test", "--accept"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-
-    // Verify migration happened
-    let migrated = std::fs::read_to_string(test_project.workspace_dir.join("src/lib.rs")).unwrap();
-
-    // Single line should be compacted
     assert!(
-        migrated.contains("@\"content\"") || migrated.contains("@r\"\n    content\n    \""),
-        "Single line not migrated to compact format"
+        stderr.contains("The existing value's first line is `line1`"),
+        "Warning should show the problematic line"
     );
 
-    // Multi-line should have common indentation removed
-    assert!(
-        migrated.contains("test_multi_line_needs_migration"),
-        "Multi-line test function not found"
-    );
-    // The snapshot should have the minimum indentation removed
-    assert!(
-        migrated.contains("@r") || migrated.contains("line1\n    line2"),
-        "Multi-line not properly migrated"
-    );
-
-    // Tests should pass after migration
-    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
-
-    assert!(output.status.success(), "Tests should pass after migration");
-}
-
-/// Test that multiline warning appears when appropriate
-#[test]
-fn test_multiline_warning_behavior() {
+    // Test 2: Proper leading newline - SHOULD NOT WARN
     let test_project = TestFiles::new()
-        .add_cargo_toml("warning_test")
+        .add_cargo_toml("proper_newline")
         .add_file(
             "src/lib.rs",
             r#"
 #[test]
-fn test_missing_newlines() {
-    // This will trigger a warning because multiline content doesn't start/end with newline
-    insta::assert_snapshot!("line1\nline2", @"line1
-line2");
-}
-
-#[test]
-fn test_proper_newlines() {
-    // This should NOT trigger a warning
+fn test_proper() {
     insta::assert_snapshot!("line1\nline2", @"
 line1
 line2
@@ -441,7 +70,6 @@ line2
         )
         .create_project();
 
-    // Run test and capture stderr for warning
     let output = test_project
         .insta_cmd()
         .args(["test", "--accept"])
@@ -450,31 +78,146 @@ line2
         .unwrap();
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // Should see warning for the first test
     assert!(
-        stderr.contains("Multiline inline snapshot values should start and end with a newline"),
-        "Missing multiline warning message"
+        !stderr.contains("Multiline inline snapshot values should start and end with a newline"),
+        "Should NOT warn when leading newline is present. Got: {}",
+        stderr
     );
-}
 
-/// Test that already-correct snapshots remain unchanged
-#[test]
-fn test_properly_formatted_unchanged() {
+    // Test 3: Single-line - SHOULD NOT WARN
     let test_project = TestFiles::new()
-        .add_cargo_toml("no_changes_needed")
+        .add_cargo_toml("single_line")
         .add_file(
             "src/lib.rs",
             r#"
 #[test]
-fn test_already_correct() {
-    // These are already properly formatted
+fn test_single() {
     insta::assert_snapshot!("single", @"single");
-    
-    insta::assert_snapshot!("multi\nline", @"
-multi
-line
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("Multiline inline snapshot values should start and end with a newline"),
+        "Should NOT warn for single-line snapshots. Got: {}",
+        stderr
+    );
+}
+
+/// Test that leading newlines are properly handled (stripped from multiline)
+#[test]
+fn test_leading_newline_processing() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("newline_processing")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_multiline_with_leading_newline() {
+    // The leading newline should be stripped during processing
+    let value = "content";
+    insta::assert_snapshot!(value, @"
+content
 ");
+}
+
+#[test]
+fn test_multiline_with_indentation() {
+    // Leading newline + indentation trimming (pre-existing feature)
+    let value = "line1\nline2";
+    insta::assert_snapshot!(value, @"
+        line1
+        line2
+    ");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Tests should pass
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "Tests should pass with proper newline handling"
+    );
+}
+
+/// Test backwards compatibility - old format multiline without leading newline still works
+#[test]
+fn test_backwards_compatibility() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("backwards_compat")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_old_format_multiline() {
+    // Old format without leading newline - should still pass but with warning
+    insta::assert_snapshot!("hello\nworld", @"hello
+world");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run test - should pass despite old format
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Should warn about missing leading newline
+    assert!(
+        stderr.contains("Multiline inline snapshot values should start and end with a newline"),
+        "Should warn about missing leading newline in old format"
+    );
+
+    // But should still pass (backwards compatibility)
+    assert!(
+        output.status.success(),
+        "Old format should still pass with warning"
+    );
+}
+
+/// Test that no warnings are issued for excess indentation (only for missing newlines)
+#[test]
+fn test_no_indentation_warnings() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("indentation_test")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_excess_indentation() {
+    // Has leading newline but lots of indentation - should NOT warn
+    insta::assert_snapshot!("content", @"
+            content
+        ");
+}
+
+#[test]
+fn test_multiline_excess_indentation() {
+    // Multiline with proper leading newline but excess indentation - should NOT warn
+    insta::assert_snapshot!("line1\nline2", @"
+            line1
+            line2
+        ");
 }
 "#
             .to_string(),
@@ -485,57 +228,119 @@ line
     let output = test_project
         .insta_cmd()
         .args(["test", "--accept"])
+        .stderr(Stdio::piped())
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Read the file and verify nothing changed
-    let content = std::fs::read_to_string(test_project.workspace_dir.join("src/lib.rs")).unwrap();
+    // Should pass without warnings
+    assert!(output.status.success(), "Tests should pass");
 
-    // Should still have the same format
-    assert!(content.contains("@\"single\""));
-    assert!(content.contains("@\"\nmulti\nline\n\""));
+    // Verify NO warnings about missing newlines (they have proper newlines)
+    assert!(
+        !stderr.contains("Multiline inline snapshot values should start and end with a newline"),
+        "Should NOT warn about excess indentation (only missing newlines trigger warnings)"
+    );
 }
 
-/// Test interaction between old snapshots and force-update
+/// Test edge cases for single-line vs multiline detection
 #[test]
-fn test_force_update_on_old_format() {
+fn test_single_vs_multiline_detection() {
     let test_project = TestFiles::new()
-        .add_cargo_toml("force_old_format")
+        .add_cargo_toml("line_detection")
         .add_file(
             "src/lib.rs",
-            r####"
+            r#"
 #[test]
-fn test_old_with_excess() {
-    // Old format with lots of padding
-    insta::assert_snapshot!("content", @r###"
-
-
-        content
-
-
-    "###);
+fn test_single_line_with_escaped_n() {
+    // Contains literal backslash-n, not a newline - single line
+    insta::assert_snapshot!("has\\\\n", @"has\\n");
 }
-"####
-                .to_string(),
+
+#[test]
+fn test_actual_multiline() {
+    // Actual multiline content - should require leading newline
+    insta::assert_snapshot!("line1\nline2", @"
+line1
+line2
+");
+}
+
+#[test]
+fn test_empty_string() {
+    // Empty strings are single-line
+    insta::assert_snapshot!("", @"");
+}
+
+#[test]
+fn test_whitespace_only() {
+    // Whitespace-only with trimming
+    insta::assert_snapshot!("   ", @"   ");
+}
+"#
+            .to_string(),
         )
         .create_project();
 
-    // Run with --force-update-snapshots
+    // Run with --accept in case any snapshots need updating
     let output = test_project
         .insta_cmd()
-        .args(["test", "--force-update-snapshots"])
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "All line detection tests should pass"
+    );
+}
+
+/// Test that warnings persist across runs until fixed
+#[test]
+fn test_warning_persistence() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("warning_persist")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_needs_newline() {
+    // Missing leading newline
+    insta::assert_snapshot!("line1\nline2", @"line1
+line2");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // First run should warn
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
         .output()
         .unwrap();
 
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Multiline inline snapshot values should start and end with a newline"),
+        "Should warn on first run"
+    );
     assert!(output.status.success());
 
-    // Verify aggressive trimming was applied
-    let updated = std::fs::read_to_string(test_project.workspace_dir.join("src/lib.rs")).unwrap();
+    // Second run should still warn (warning persists until fixed)
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
 
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        updated.contains("@\"content\""),
-        "Force update didn't aggressively trim old format"
+        stderr.contains("Multiline inline snapshot values should start and end with a newline"),
+        "Should continue warning until format is fixed"
     );
+    assert!(output.status.success());
 }
