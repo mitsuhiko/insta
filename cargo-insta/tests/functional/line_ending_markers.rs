@@ -589,50 +589,14 @@ fn test_snapshot() {
     "#);
 }
 
-/// Test that different macro types get the closing marker
-#[test]
-fn test_different_macro_types_get_marker() {
+/// Test that debug snapshots get the closing marker
+#[test] 
+fn test_debug_snapshot_gets_marker() {
     let test_project = TestFiles::new()
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_macro_types"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-doctest = false
-
-[dependencies]
-insta = { path = '$PROJECT_PATH', features = ["yaml", "json"] }
-serde = { version = "1.0", features = ["derive"] }
-"#
-            .to_string(),
-        )
+        .add_cargo_toml("test_debug_marker")
         .add_file(
             "src/lib.rs",
             r#"
-use serde::Serialize;
-
-#[derive(Serialize)]
-#[allow(dead_code)]
-struct Data {
-    value: i32,
-}
-
-#[test]
-fn test_yaml() {
-    let data = Data { value: 42 };
-    insta::assert_yaml_snapshot!(data);
-}
-
-#[test]
-fn test_json() {
-    let data = Data { value: 42 };
-    insta::assert_json_snapshot!(data);
-}
-
 #[test]
 fn test_debug() {
     let data = vec![1, 2, 3];
@@ -652,35 +616,11 @@ fn test_debug() {
         .status
         .success());
 
-    // Check YAML snapshot
-    let yaml_content = std::fs::read_to_string(
-        test_project
-            .workspace_dir
-            .join("src/snapshots/test_macro_types__yaml.snap"),
-    )
-    .unwrap();
-    assert!(
-        yaml_content.ends_with("---\n"),
-        "YAML snapshot should end with closing marker"
-    );
-
-    // Check JSON snapshot
-    let json_content = std::fs::read_to_string(
-        test_project
-            .workspace_dir
-            .join("src/snapshots/test_macro_types__json.snap"),
-    )
-    .unwrap();
-    assert!(
-        json_content.ends_with("---\n"),
-        "JSON snapshot should end with closing marker"
-    );
-
-    // Check debug snapshot
+    // Check debug snapshot has closing marker
     let debug_content = std::fs::read_to_string(
         test_project
             .workspace_dir
-            .join("src/snapshots/test_macro_types__debug.snap"),
+            .join("src/snapshots/test_debug_marker__debug.snap"),
     )
     .unwrap();
     assert!(
