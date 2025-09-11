@@ -396,8 +396,13 @@ impl Snapshot {
 
                 // We add a closing `---` in recent versions of insta, so we can
                 // eventually handle ending newlines (which we currently discard)
-                let buf = buf.trim_end_matches('\n');
-                let buf = buf.strip_suffix(r#"---"#).unwrap_or(buf);
+                // The closing marker is always on its own line, so check for \n---
+                let buf = if buf.ends_with("\n---") {
+                    &buf[..buf.len() - 4] // Remove "\n---"
+                } else {
+                    // Old format without closing marker, just trim trailing newlines
+                    buf.trim_end_matches('\n')
+                };
 
                 TextSnapshotContents {
                     contents: buf.into(),
@@ -680,7 +685,27 @@ impl TextSnapshotContents {
                 TextSnapshotKind::File => out.to_string(),
             }
         }
-        as_str_legacy(self) == as_str_legacy(other)
+
+        // Compare snapshots with legacy format handling
+        let self_str = as_str_legacy(self);
+        let other_str = as_str_legacy(other);
+
+        // First try exact match
+        if self_str == other_str {
+            return true;
+        }
+
+        // Handle the edge case where old snapshot content naturally ended with "---\n"
+        // and was incorrectly handled. Since self is always the old snapshot and
+        // other is always the new/generated snapshot, we only need to check one direction.
+        // If the old is shorter and the new ends with "\n---", try adding it to old.
+
+        if self_str.len() + 4 == other_str.len() && other_str.ends_with("\n---") {
+            // self (old) is shorter, other (new) has the trailing "\n---"
+            format!("{}\n---", self_str) == other_str
+        } else {
+            false
+        }
     }
 
     /// Convert a literal snapshot value (i.e. the string inside the quotes,

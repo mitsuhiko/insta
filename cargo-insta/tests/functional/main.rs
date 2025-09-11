@@ -73,6 +73,7 @@ mod delete_pending;
 mod glob_filter;
 mod inline;
 mod inline_snapshot_trimming;
+mod line_ending_markers;
 mod nextest_doctest;
 mod test_workspace_source_path;
 mod unreferenced;
