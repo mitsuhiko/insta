@@ -593,7 +593,23 @@ fn test_snapshot() {
 #[test]
 fn test_different_macro_types_get_marker() {
     let test_project = TestFiles::new()
-        .add_cargo_toml("test_macro_types")
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_macro_types"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["yaml", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+"#
+            .to_string(),
+        )
         .add_file(
             "src/lib.rs",
             r#"
@@ -624,26 +640,6 @@ fn test_debug() {
 }
 "#
             .to_string(),
-        )
-        .add_file(
-            "Cargo.toml",
-            r#"
-[package]
-name = "test_macro_types"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-insta = { path = "$PROJECT_PATH", features = ["yaml", "json"] }
-serde = { version = "1.0", features = ["derive"] }
-
-[dev-dependencies]
-"#
-            .replace(
-                "$PROJECT_PATH",
-                &env!("CARGO_MANIFEST_DIR").replace('\\', "/"),
-            )
-            .replace("cargo-insta", "insta"),
         )
         .create_project();
 
