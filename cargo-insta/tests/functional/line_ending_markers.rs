@@ -600,6 +600,7 @@ fn test_different_macro_types_get_marker() {
 use serde::Serialize;
 
 #[derive(Serialize)]
+#[allow(dead_code)]
 struct Data {
     value: i32,
 }
