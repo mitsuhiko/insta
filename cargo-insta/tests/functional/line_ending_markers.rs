@@ -639,7 +639,10 @@ serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 "#
-            .replace("$PROJECT_PATH", &env!("CARGO_MANIFEST_DIR").replace('\\', "/"))
+            .replace(
+                "$PROJECT_PATH",
+                &env!("CARGO_MANIFEST_DIR").replace('\\', "/"),
+            )
             .replace("cargo-insta", "insta"),
         )
         .create_project();
