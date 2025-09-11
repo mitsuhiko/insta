@@ -590,7 +590,7 @@ fn test_snapshot() {
 }
 
 /// Test that debug snapshots get the closing marker
-#[test] 
+#[test]
 fn test_debug_snapshot_gets_marker() {
     let test_project = TestFiles::new()
         .add_cargo_toml("test_debug_marker")
