@@ -6,14 +6,6 @@ use crate::content::Content;
 /// when [`to_string_pretty`] is used.
 const COMPACT_MAX_CHARS: usize = 120;
 
-pub fn format_float<T: Display>(value: T) -> String {
-    let mut rv = format!("{value}");
-    if !rv.contains('.') {
-        rv.push_str(".0");
-    }
-    rv
-}
-
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Format {
     Condensed,
@@ -126,20 +118,8 @@ impl Serializer {
             Content::I32(n) => write!(self.out, "{n}").unwrap(),
             Content::I64(n) => write!(self.out, "{n}").unwrap(),
             Content::I128(n) => write!(self.out, "{n}").unwrap(),
-            Content::F32(f) => {
-                if f.is_finite() {
-                    self.write_str(&format_float(f));
-                } else {
-                    self.write_str("null")
-                }
-            }
-            Content::F64(f) => {
-                if f.is_finite() {
-                    self.write_str(&format_float(f));
-                } else {
-                    self.write_str("null")
-                }
-            }
+            Content::F32(f) => self.write_float(f, f.is_finite()),
+            Content::F64(f) => self.write_float(f, f.is_finite()),
             Content::Char(c) => self.write_escaped_str(&(*c).to_string()),
             Content::String(s) => self.write_escaped_str(s),
             Content::Bytes(bytes) => {
@@ -203,6 +183,19 @@ impl Serializer {
                 self.serialize_object(fields);
                 self.end_container('}', false);
             }
+        }
+    }
+
+    fn write_float(&mut self, n: impl Display, is_finite: bool) {
+        if is_finite {
+            let start = self.out.len();
+            write!(self.out, "{n}").unwrap();
+            // ensure the result has .0 for whole numbers to be round-trip safe
+            if !self.out[start..].contains('.') {
+                self.out.push_str(".0");
+            }
+        } else {
+            self.write_str("null");
         }
     }
 
