@@ -240,6 +240,15 @@ macro_rules! assert_compact_json_snapshot {
     };
 }
 
+#[cfg(feature = "json-pretty-compact")]
+#[cfg_attr(docsrs, doc(cfg(feature = "json")))]
+#[macro_export]
+macro_rules! assert_compact_pretty_json_snapshot {
+    ($($arg:tt)*) => {
+        $crate::_assert_serialized_snapshot!(format=JsonPrettyCompact, $($arg)*);
+    };
+}
+
 // This macro handles optional trailing commas.
 #[doc(hidden)]
 #[macro_export]
