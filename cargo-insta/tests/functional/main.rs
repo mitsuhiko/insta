@@ -74,6 +74,7 @@ mod glob_filter;
 mod inline;
 mod inline_snapshot_trimming;
 mod nextest_doctest;
+mod test_runner_fallback;
 mod test_workspace_source_path;
 mod unreferenced;
 mod workspace;
