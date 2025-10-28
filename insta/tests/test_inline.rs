@@ -299,6 +299,8 @@ fn test_inline_test_in_loop() {
 #[test]
 fn test_inline_snapshot_whitespace() {
     assert_snapshot!("\n\nfoo\n\n    bar\n\n", @r"
+
+
     foo
 
         bar

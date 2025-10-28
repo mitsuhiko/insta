@@ -557,11 +557,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     if should_print {
                         elog!(
                             "{} {}",
-                            if unseen {
-                                style("created previously unseen snapshot").green()
-                            } else {
-                                style("updated snapshot").green()
-                            },
+                            style("updated snapshot").green(),
                             style(snapshot_file.display()).cyan().underlined(),
                         );
                     }
