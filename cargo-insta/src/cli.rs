@@ -226,7 +226,7 @@ struct TestCommand {
         overrides_with = "_no_test_runner_fallback"
     )]
     test_runner_fallback: Option<bool>,
-    /// Don't fallback to cargo test if nextest is not available [default]
+    /// Don't fallback to cargo test if nextest is not available \[default\]
     #[arg(
         long = "no-test-runner-fallback",
         overrides_with = "test_runner_fallback"
