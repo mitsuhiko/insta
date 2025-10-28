@@ -214,8 +214,24 @@ struct TestCommand {
     /// Picks the test runner.
     #[arg(long, default_value = "auto")]
     test_runner: TestRunner,
-    #[arg(long)]
+    /// Fallback to cargo test if nextest is not available.
+    ///
+    /// Use --test-runner-fallback to enable, --test-runner-fallback=false to disable,
+    /// or --no-test-runner-fallback as a shorthand for disabling
+    #[arg(
+        long = "test-runner-fallback",
+        num_args(0..=1),
+        default_missing_value = "true",
+        require_equals = true,
+        overrides_with = "_no_test_runner_fallback"
+    )]
     test_runner_fallback: Option<bool>,
+    /// Don't fallback to cargo test if nextest is not available \[default\]
+    #[arg(
+        long = "no-test-runner-fallback",
+        overrides_with = "test_runner_fallback"
+    )]
+    _no_test_runner_fallback: bool,
     /// Delete unreferenced snapshots after a successful test run (deprecated)
     #[arg(long, hide = true)]
     delete_unreferenced_snapshots: bool,
@@ -232,6 +248,20 @@ struct TestCommand {
     /// Options passed to cargo test
     #[arg(last = true)]
     cargo_options: Vec<String>,
+}
+
+impl TestCommand {
+    fn test_runner_fallback_value(&self) -> Option<bool> {
+        // When _no_test_runner_fallback is true, it means --no-test-runner-fallback
+        // was the last flag specified (clap's overrides_with sets the overridden flag
+        // to its default value). Otherwise, use test_runner_fallback which may be
+        // Some(true/false) if the flag was used, or None if no flag was provided.
+        if self._no_test_runner_fallback {
+            Some(false)
+        } else {
+            self.test_runner_fallback
+        }
+    }
 }
 
 #[derive(Args, Debug)]
@@ -779,7 +809,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         TestRunner::Nextest => TestRunner::Nextest,
     };
     let test_runner = test_runner.resolve_fallback(
-        cmd.test_runner_fallback
+        cmd.test_runner_fallback_value()
             .unwrap_or(loc.tool_config.test_runner_fallback()),
     );
 
