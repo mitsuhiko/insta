@@ -110,7 +110,10 @@ impl ActualSettings {
     #[cfg(feature = "serde")]
     pub fn info<S: Serialize>(&mut self, s: &S) {
         let serializer = ContentSerializer::<ValueError>::new();
+        #[cfg(feature = "redactions")]
         let mut content = Serialize::serialize(s, serializer).unwrap();
+        #[cfg(not(feature = "redactions"))]
+        let content = Serialize::serialize(s, serializer).unwrap();
 
         // Apply redactions to metadata immediately when set. Unlike snapshot
         // content (which is redacted lazily during serialization), metadata is
