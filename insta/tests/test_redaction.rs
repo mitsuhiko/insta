@@ -609,7 +609,7 @@ fn test_named_redacted_supported_form() {
     );
 }
 
-#[cfg(feature = "yaml")]
+#[cfg(all(feature = "yaml", feature = "redactions"))]
 #[test]
 fn test_metadata_redaction() {
     #[derive(Serialize)]
@@ -630,7 +630,7 @@ fn test_metadata_redaction() {
     });
 }
 
-#[cfg(feature = "yaml")]
+#[cfg(all(feature = "yaml", feature = "redactions"))]
 #[test]
 fn test_metadata_raw_info_no_redaction() {
     use insta::internals::Content;
