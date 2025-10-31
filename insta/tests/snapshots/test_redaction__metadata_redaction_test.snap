@@ -1,0 +1,10 @@
+---
+source: insta/tests/test_redaction.rs
+expression: "&vec![1, 2, 3]"
+info:
+  secret: "[REDACTED]"
+  public: visible
+---
+- 1
+- 2
+- 3
