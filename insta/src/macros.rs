@@ -469,9 +469,9 @@ macro_rules! assert_snapshot {
 /// Settings configuration macro.
 ///
 /// This macro lets you bind some [`Settings`](crate::Settings) temporarily.  The first argument
-/// takes key value pairs that should be set, the second is the block to
+/// takes key value pairs that should be set, and the second is the block to
 /// execute.  All settings can be set (`sort_maps => value` maps to `set_sort_maps(value)`).
-/// The exception are redactions which can only be set to a vector this way.
+/// The exception are redactions, which can only be set to a vector this way.
 ///
 /// This example:
 ///
@@ -492,7 +492,7 @@ macro_rules! assert_snapshot {
 /// });
 /// ```
 ///
-/// Note: before insta 0.17 this macro used
+/// Note: before insta 0.17, this macro used
 /// [`Settings::new`](crate::Settings::new) which meant that original settings
 /// were always reset rather than extended.
 #[macro_export]
