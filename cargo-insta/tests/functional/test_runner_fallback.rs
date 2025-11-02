@@ -94,6 +94,37 @@ fn test_snapshot() {
     );
 }
 
+/// Test that --test-runner-fallback true (with space) enables fallback (backward compatibility)
+#[test]
+fn test_runner_fallback_space_true() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_runner_fallback_space_true")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("value", @"value");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run with --test-runner-fallback true (space syntax, backward compatibility)
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--test-runner-fallback", "true"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test should succeed with --test-runner-fallback true\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 /// Test that --no-test-runner-fallback disables fallback
 #[test]
 fn test_no_test_runner_fallback_flag() {
