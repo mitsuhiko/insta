@@ -133,12 +133,12 @@ impl ActualSettings {
 
 /// Configures how insta operates at test time.
 ///
-/// Settings are always bound to a thread and some default settings are always
+/// Settings are always bound to a thread, and some default settings are always
 /// available.  These settings can be changed and influence how insta behaves on
-/// that thread.  They can either temporarily or permanently changed.
+/// that thread.  They can be either temporarily or permanently changed.
 ///
 /// This can be used to influence how the snapshot macros operate.
-/// For instance it can be useful to force ordering of maps when
+/// For instance, it can be useful to force ordering of maps when
 /// unordered structures are used through settings.
 ///
 /// Some of the settings can be changed but shouldn't as it will make it harder
@@ -195,7 +195,7 @@ impl Settings {
     /// Enables forceful sorting of maps before serialization.
     ///
     /// Note that this only applies to snapshots that undergo serialization
-    /// (eg: does not work for [`assert_debug_snapshot!`](crate::assert_debug_snapshot!).)
+    /// (eg: does not work for [`assert_debug_snapshot!`](crate::assert_debug_snapshot!)).
     ///
     /// The default value is `false`.
     pub fn set_sort_maps(&mut self, value: bool) {
@@ -244,8 +244,8 @@ impl Settings {
     /// Sets the snapshot suffix.
     ///
     /// The snapshot suffix is added to all snapshot names with an `@` sign
-    /// between.  For instance if the snapshot suffix is set to `"foo"` and
-    /// the snapshot would be named `"snapshot"` it turns into `"snapshot@foo"`.
+    /// between.  For instance, if the snapshot suffix is set to `"foo"`, and
+    /// the snapshot would be named `"snapshot"`, it turns into `"snapshot@foo"`.
     /// This is useful to separate snapshots if you want to use test
     /// parameterization.
     pub fn set_snapshot_suffix<I: Into<String>>(&mut self, suffix: I) {
@@ -268,7 +268,7 @@ impl Settings {
 
     /// Sets the input file reference.
     ///
-    /// This value is completely unused by the snapshot testing system but it
+    /// This value is completely unused by the snapshot testing system, but it
     /// allows storing some metadata with a snapshot that refers back to the
     /// input file.  The path stored here is made relative to the workspace root
     /// before storing with the snapshot.
@@ -289,8 +289,8 @@ impl Settings {
     /// Sets the description.
     ///
     /// The description is stored alongside the snapshot and will be displayed
-    /// in the diff UI.  When a snapshot is captured the Rust expression for that
-    /// snapshot is always retained.  However sometimes that information is not
+    /// in the diff UI.  When a snapshot is captured, the Rust expression for that
+    /// snapshot is always retained.  However, sometimes that information is not
     /// super useful by itself, particularly when working with loops and generated
     /// tests.  In that case the `description` can be set as extra information.
     ///
@@ -478,7 +478,7 @@ impl Settings {
 
     /// Sets the snapshot path.
     ///
-    /// If not absolute it's relative to where the test is in.
+    /// If not absolute, it's relative to where the test is in.
     ///
     /// Defaults to `snapshots`.
     pub fn set_snapshot_path<P: AsRef<Path>>(&mut self, path: P) {
@@ -559,9 +559,9 @@ impl Settings {
     /// Binds the settings to the current thread and resets when the drop
     /// guard is released.
     ///
-    /// This is the recommended way to temporarily bind settings and replaces
-    /// the earlier [`bind_to_scope`](Settings::bind_to_scope) and relies on
-    /// drop guards.  An alternative is [`bind`](Settings::bind) which binds
+    /// This is the recommended way to temporarily bind settings. It replaces
+    /// the earlier [`bind_to_scope`](Settings::bind_to_scope), and relies on
+    /// drop guards.  An alternative is [`bind`](Settings::bind), which binds
     /// for the duration of the block it wraps.
     ///
     /// ```
