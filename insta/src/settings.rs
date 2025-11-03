@@ -56,6 +56,17 @@ impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
     }
 }
 
+#[cfg(feature = "redactions")]
+impl Redactions {
+    /// Applies all redactions to the given content.
+    pub(crate) fn apply_to_content(&self, mut content: Content) -> Content {
+        for (selector, redaction) in self.0.iter() {
+            content = selector.redact(content, redaction);
+        }
+        content
+    }
+}
+
 #[derive(Clone)]
 #[doc(hidden)]
 pub struct ActualSettings {
@@ -100,6 +111,15 @@ impl ActualSettings {
     pub fn info<S: Serialize>(&mut self, s: &S) {
         let serializer = ContentSerializer::<ValueError>::new();
         let content = Serialize::serialize(s, serializer).unwrap();
+
+        // Apply redactions to metadata immediately when set. Unlike snapshot
+        // content (which is redacted lazily during serialization), metadata is
+        // redacted eagerly to ensure sensitive data never reaches the stored
+        // settings. The redacted content is then written to the snapshot file
+        // as-is without further redaction.
+        #[cfg(feature = "redactions")]
+        let content = self.redactions.apply_to_content(content);
+
         self.info = Some(content);
     }
 
@@ -319,6 +339,9 @@ impl Settings {
     /// As an example the input parameters to the function that creates the snapshot
     /// can be persisted here.
     ///
+    /// **Note:** Redactions configured via [`Self::add_redaction`] are automatically
+    /// applied to the info metadata when it is set.
+    ///
     /// Alternatively you can use [`Self::set_raw_info`] instead.
     #[cfg(feature = "serde")]
     #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
@@ -329,6 +352,10 @@ impl Settings {
     /// Sets the info from a content object.
     ///
     /// This works like [`Self::set_info`] but does not require [`serde`].
+    ///
+    /// **Note:** Unlike [`Self::set_info`], this method does NOT automatically apply
+    /// redactions. If you need redactions applied to metadata, use [`Self::set_info`]
+    /// instead (which requires the `serde` feature).
     pub fn set_raw_info(&mut self, content: &Content) {
         self._private_inner_mut().raw_info(content);
     }
@@ -421,11 +448,11 @@ impl Settings {
         self._private_inner_mut().redactions.0.clear();
     }
 
-    /// Iterate over the redactions.
+    /// Apply redactions to content.
     #[cfg(feature = "redactions")]
     #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
-    pub(crate) fn iter_redactions(&self) -> impl Iterator<Item = (&Selector<'_>, &Redaction)> {
-        self.inner.redactions.0.iter().map(|(a, b)| (a, &**b))
+    pub(crate) fn apply_redactions(&self, content: Content) -> Content {
+        self.inner.redactions.apply_to_content(content)
     }
 
     /// Adds a new filter.

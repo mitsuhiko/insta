@@ -29,9 +29,7 @@ pub fn serialize_content(mut content: Content, format: SerializationFormat) -> S
         }
         #[cfg(feature = "redactions")]
         {
-            for (selector, redaction) in settings.iter_redactions() {
-                content = selector.redact(content, redaction);
-            }
+            content = settings.apply_redactions(content);
         }
         content
     });
