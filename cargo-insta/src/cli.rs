@@ -156,7 +156,7 @@ struct TestRunnerOptions {
     #[arg(short = 'j', long)]
     jobs: Option<usize>,
     /// Build artifacts in release mode, with optimizations
-    #[arg(long)]
+    #[arg(short = 'r', long)]
     release: bool,
     /// Build artifacts with the specified profile
     #[arg(long)]
