@@ -13,6 +13,11 @@ import { InlineSnapshotProvider } from "./InlineSnapshotProvider";
 import { PendingSnapshotsProvider } from "./PendingSnapshotsProvider";
 import { Snapshot } from "./Snapshot";
 import { SnapshotPathProvider } from "./SnapshotPathProvider";
+import {
+  SnapshotDocumentLinkProvider,
+  openSourceDocument,
+  SOURCE_COMMAND
+} from "./SnapshotDocumentLinkProvider";
 import { findCargoRoots, projectUsesInsta } from "./cargo";
 import { processAllSnapshots, processInlineSnapshot } from "./insta";
 
@@ -201,6 +206,7 @@ function performOnAllSnapshots(op: "accept" | "reject") {
 export function activate(context: ExtensionContext): void {
   const pendingSnapshots = new PendingSnapshotsProvider();
   const snapshotPathProvider = new SnapshotPathProvider();
+  const snapshotDocumentLinkProvider = new SnapshotDocumentLinkProvider();
 
   const snapWatcher = workspace.createFileSystemWatcher(
     "**/*.{snap,snap.new,pending-snap}"
@@ -224,6 +230,14 @@ export function activate(context: ExtensionContext): void {
     snapWatcher,
     cargoLockWatcher,
     window.registerTreeDataProvider("pendingInstaSnapshots", pendingSnapshots),
+    languages.registerDocumentLinkProvider(
+      { language: "insta-snapshots" },
+      snapshotDocumentLinkProvider
+    ),
+    languages.registerDocumentLinkProvider(
+      { scheme: "instaInlineSnapshot" },
+      snapshotDocumentLinkProvider
+    ),
     workspace.registerTextDocumentContentProvider(
       "instaInlineSnapshot",
       new InlineSnapshotProvider(pendingSnapshots)
@@ -267,6 +281,7 @@ export function activate(context: ExtensionContext): void {
     ),
     commands.registerCommand("mitsuhiko.insta.reject-all-snapshots", () =>
       performOnAllSnapshots("reject")
-    )
+    ),
+    commands.registerCommand(SOURCE_COMMAND, openSourceDocument)
   );
 }
