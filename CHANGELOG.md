@@ -4,17 +4,27 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
-- Add `--disable-nextest-doctest` flag to `cargo insta test` to disable running doctests with 
+## 1.44.0
+
+- Added non-interactive snapshot review and reject modes for use in non-TTY environments
+  (LLMs, CI pipelines, scripts). `cargo insta review --snapshot <path>` and
+  `cargo insta reject --snapshot <path>` now work without a terminal. Enhanced
+  `pending-snapshots` output with usage instructions and workspace-relative paths. #815
+- Add `--disable-nextest-doctest` flag to `cargo insta test` to disable running doctests with
   nextest. Shows a deprecation warning when nextest is used with doctests without this flag, to prepare `cargo insta` to no longer run
   a separate doctest process when using nextest in the future. #803
-
+- Add ergonomic `--test-runner-fallback` / `--no-test-runner-fallback` flags to `cargo insta test`. #811
+- Apply redactions to snapshot metadata. #813
+- Remove confusing 'previously unseen snapshot' message. #812
+- Speed up JSON float rendering. #806 (@nyurik)
+- Allow globset version up to 0.4.16. #810 (@g0hl1n)
+- Improve documentation. #814 (@tshepang)
 - We no longer trim starting newlines during assertions, which allows asserting
   the number of leading newlines match. Existing assertions with different
   leading newlines will pass and print a warning suggesting running with
   `--force-update-snapshots`.  They may fail in the future.  (Note that we still
   currently allow differing _trailing_ newlines, though may adjust this in the
   future).  #563
-
 
 ## 1.43.2
 
