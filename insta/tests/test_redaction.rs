@@ -608,3 +608,45 @@ fn test_named_redacted_supported_form() {
         }
     );
 }
+
+#[cfg(all(feature = "yaml", feature = "redactions"))]
+#[test]
+fn test_metadata_redaction() {
+    #[derive(Serialize)]
+    struct Info {
+        secret: String,
+        public: String,
+    }
+
+    let mut settings = insta::Settings::new();
+    settings.add_redaction(".secret", "[REDACTED]");
+    settings.set_info(&Info {
+        secret: "sensitive_value".into(),
+        public: "visible".into(),
+    });
+
+    settings.bind(|| {
+        assert_yaml_snapshot!("metadata_redaction_test", &vec![1, 2, 3]);
+    });
+}
+
+#[cfg(all(feature = "yaml", feature = "redactions"))]
+#[test]
+fn test_metadata_raw_info_no_redaction() {
+    use insta::internals::Content;
+
+    let mut settings = insta::Settings::new();
+    settings.add_redaction(".secret", "[REDACTED]");
+
+    // Create content that would be redacted if redactions were applied
+    let content = Content::Map(vec![
+        (Content::from("secret"), Content::from("sensitive_value")),
+        (Content::from("public"), Content::from("visible")),
+    ]);
+
+    settings.set_raw_info(&content);
+
+    settings.bind(|| {
+        assert_yaml_snapshot!("metadata_raw_info_no_redaction", &vec![1, 2, 3]);
+    });
+}

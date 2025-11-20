@@ -1430,11 +1430,10 @@ fn test_empty_lines() {
     multiline content starting on second line
 
     final line
-    "#, @r###"
+    "#, @r"
 
-        multiline content starting on second line
+    multiline content starting on second line
 
-        final line
-
-    "###);
+    final line
+    ");
 }

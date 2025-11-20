@@ -222,7 +222,6 @@ struct TestCommand {
         long = "test-runner-fallback",
         num_args(0..=1),
         default_missing_value = "true",
-        require_equals = true,
         overrides_with = "_no_test_runner_fallback"
     )]
     test_runner_fallback: Option<bool>,
