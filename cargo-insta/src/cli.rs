@@ -299,8 +299,13 @@ fn query_snapshot(
     // Check if we're running in a TTY environment
     if !term.is_term() {
         return Err(err_msg(
-            "Interactive review requires a terminal. Use `cargo insta accept` or `cargo insta reject` \
-            for non-interactive snapshot management, or run this command in a terminal environment."
+            "Interactive review requires a terminal. For non-interactive snapshot management:\n\
+            - Use `cargo insta pending-snapshots` to list pending snapshots\n\
+            - Use `cargo insta review --snapshot <path>` to view a specific snapshot diff\n\
+            - Use `cargo insta reject --snapshot <path>` to view and reject a specific snapshot\n\
+            - Use `cargo insta accept` or `cargo insta reject` to accept/reject all snapshots\n\
+            - Use `cargo insta accept --snapshot <path>` to accept a specific snapshot\n\
+            Or run this command in a terminal environment.",
         ));
     }
 
@@ -563,6 +568,21 @@ fn load_snapshot_containers<'a>(
     Ok((snapshot_containers, roots))
 }
 
+/// Formats a snapshot key for use in filters and display.
+/// Returns "path" for file snapshots or "path:line" for inline snapshots.
+/// Converts absolute paths to workspace-relative paths.
+fn format_snapshot_key(workspace_root: &Path, target_file: &Path, line: Option<u32>) -> String {
+    let relative_path = target_file
+        .strip_prefix(workspace_root)
+        .unwrap_or(target_file);
+
+    if let Some(line) = line {
+        format!("{}:{}", relative_path.display(), line)
+    } else {
+        format!("{}", relative_path.display())
+    }
+}
+
 /// Processes snapshot files for reviewing, accepting, or rejecting.
 fn review_snapshots(
     quiet: bool,
@@ -602,17 +622,19 @@ fn review_snapshots(
     let mut show_diff = true;
     let mut apply_to_all: Option<Operation> = None;
 
+    // Non-interactive mode: if we have a filter and no TTY, just show diffs.
+    // Accept doesn't need display (it just accepts), but review and reject should show what they're affecting.
+    let non_interactive_display = snapshot_filter.is_some()
+        && !term.is_term()
+        && (op.is_none() || matches!(op, Some(Operation::Reject)));
+
     for (snapshot_container, package) in snapshot_containers.iter_mut() {
         let target_file = snapshot_container.target_file().to_path_buf();
         let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
         for snapshot_ref in snapshot_container.iter_snapshots() {
             // if a filter is provided, check if the snapshot reference is included
             if let Some(filter) = snapshot_filter {
-                let key = if let Some(line) = snapshot_ref.line {
-                    format!("{}:{}", target_file.display(), line)
-                } else {
-                    format!("{}", target_file.display())
-                };
+                let key = format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
                 if !filter.contains(&key) {
                     skipped.push(snapshot_ref.summary());
                     continue;
@@ -620,6 +642,44 @@ fn review_snapshots(
             }
 
             num += 1;
+
+            // In non-interactive display mode, show the snapshot diff
+            if non_interactive_display {
+                println!(
+                    "{}{}:",
+                    style("Snapshot: ").bold(),
+                    style(&snapshot_ref.summary()).yellow()
+                );
+                println!("  Package: {}@{}", package.name.as_str(), &package.version);
+                println!();
+
+                let mut printer = SnapshotPrinter::new(
+                    &loc.workspace_root,
+                    snapshot_ref.old.as_ref(),
+                    &snapshot_ref.new,
+                );
+                printer.set_snapshot_file(snapshot_file.as_deref());
+                printer.set_line(snapshot_ref.line);
+                printer.set_show_info(true);
+                printer.set_show_diff(true);
+                printer.print();
+
+                println!();
+
+                // If we're in review mode (no op), just show instructions and skip
+                if op.is_none() {
+                    let key =
+                        format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
+                    println!("To accept: cargo insta accept --snapshot '{}'", key);
+                    println!("To reject: cargo insta reject --snapshot '{}'", key);
+                    println!();
+
+                    skipped.push(snapshot_ref.summary());
+                    continue;
+                }
+                // Otherwise fall through to apply the operation (reject)
+                // Note: Only reject mode reaches here because review mode returns early above
+            }
 
             let op = match (op, apply_to_all) {
                 (Some(op), _) => op, // Use provided op if any (from CLI)
@@ -1265,10 +1325,14 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
     let loc = handle_target_args(&cmd.target_args, &[])?;
     let (mut snapshot_containers, _) = load_snapshot_containers(&loc)?;
 
+    let mut snapshot_keys = vec![];
+
     for (snapshot_container, _package) in snapshot_containers.iter_mut() {
         let target_file = snapshot_container.target_file().to_path_buf();
         let is_inline = snapshot_container.snapshot_file().is_none();
         for snapshot_ref in snapshot_container.iter_snapshots() {
+            let key = format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
+
             if cmd.as_json {
                 let old_snapshot = snapshot_ref.old.as_ref().map(|x| match x.contents() {
                     SnapshotContents::Text(x) => x.to_string(),
@@ -1291,11 +1355,37 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                     SnapshotKey::FileSnapshot { path: &target_file }
                 };
                 println!("{}", serde_json::to_string(&info).unwrap());
-            } else if is_inline {
-                println!("{}:{}", target_file.display(), snapshot_ref.line.unwrap());
             } else {
-                println!("{}", target_file.display());
+                snapshot_keys.push(key);
             }
+        }
+    }
+
+    if !cmd.as_json {
+        if snapshot_keys.is_empty() {
+            println!("No pending snapshots.");
+        } else {
+            println!("Pending snapshots:");
+            for key in &snapshot_keys {
+                println!("  {}", key);
+            }
+            println!();
+            println!(
+                "To review a snapshot: cargo insta review --snapshot '{}'",
+                snapshot_keys[0]
+            );
+            println!(
+                "To accept a snapshot: cargo insta accept --snapshot '{}'",
+                snapshot_keys[0]
+            );
+            println!(
+                "To reject a snapshot: cargo insta reject --snapshot '{}'",
+                snapshot_keys[0]
+            );
+            println!();
+            println!("To review all interactively: cargo insta review");
+            println!("To accept all: cargo insta accept");
+            println!("To reject all: cargo insta reject");
         }
     }
 
