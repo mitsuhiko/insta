@@ -5,7 +5,7 @@ resolver = "2"
 # Config for 'dist'
 [workspace.metadata.dist]
 # The preferred dist version to use in CI (Cargo.toml SemVer syntax)
-cargo-dist-version = "0.27.0"
+cargo-dist-version = "0.30.2"
 # CI backends to support
 ci = "github"
 # Whether to install an updater program
@@ -33,6 +33,7 @@ allow-dirty = ["ci"]
 [workspace.metadata.dist.github-custom-runners]
 x86_64-unknown-linux-gnu = "ubuntu-22.04"
 x86_64-unknown-linux-musl = "ubuntu-22.04"
+x86_64-pc-windows-msvc = "windows-2022"
 
 [profile.dist]
 inherits = "release"
