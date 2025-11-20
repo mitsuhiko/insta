@@ -4,6 +4,11 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+## 1.44.1
+
+- Add `--dnd` alias for `--disable-nextest-doctest` flag to make it easier to silence the deprecation warning. #822
+- Update cargo-dist to 0.30.2 and fix Windows runner to use windows-2022. #821
+
 ## 1.44.0
 
 - Added non-interactive snapshot review and reject modes for use in non-TTY environments
