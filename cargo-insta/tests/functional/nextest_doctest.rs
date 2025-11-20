@@ -46,7 +46,7 @@ fn test_simple() {
         "Expected warning message not found in stderr:\n{stderr}"
     );
     assert!(
-        stderr.contains("Pass `--disable-nextest-doctest` to update to this behavior now and silence this warning"),
+        stderr.contains("Pass `--disable-nextest-doctest` (or `--dnd`) to update to this behavior now and silence this warning"),
         "Expected flag suggestion not found in stderr:\n{stderr}"
     );
 }
@@ -179,5 +179,48 @@ fn test_simple() {
     assert!(
         !stderr.contains("warning: insta won't run a separate doctest process"),
         "Warning should not appear with cargo-test runner:\n{stderr}"
+    );
+}
+
+/// Test that nextest with --dnd alias doesn't show warning
+#[test]
+fn test_nextest_doctest_dnd_alias_no_warning() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_nextest_doctest_dnd_alias")
+        .add_file(
+            "src/lib.rs",
+            r#"
+/// This is a function with a doctest
+///
+/// ```
+/// assert_eq!(test_nextest_doctest_dnd_alias::add(2, 2), 4);
+/// ```
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+#[test]
+fn test_simple() {
+    insta::assert_snapshot!("test_value", @"test_value");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run with nextest and the --dnd alias, capture stderr to verify no warning
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--test-runner", "nextest", "--dnd", "--accept"])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("warning: insta won't run a separate doctest process"),
+        "Warning message should not appear when --dnd alias is used:\n{stderr}"
     );
 }

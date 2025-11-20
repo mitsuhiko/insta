@@ -238,7 +238,7 @@ struct TestCommand {
     #[arg(long, hide = true)]
     no_force_pass: bool,
     /// Disable running doctests when using nextest test runner
-    #[arg(long)]
+    #[arg(long, alias = "dnd")]
     disable_nextest_doctest: bool,
     #[command(flatten)]
     target_args: TargetArgs,
@@ -897,7 +897,7 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
         if has_doctests(&loc.packages) {
             eprintln!(
                 "{}: insta won't run a separate doctest process when using nextest in the future. \
-                 Pass `--disable-nextest-doctest` to update to this behavior now and silence this warning.",
+                 Pass `--disable-nextest-doctest` (or `--dnd`) to update to this behavior now and silence this warning.",
                 style("warning").bold().yellow()
             );
         }
