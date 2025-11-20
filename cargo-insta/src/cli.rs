@@ -622,8 +622,8 @@ fn review_snapshots(
     let mut show_diff = true;
     let mut apply_to_all: Option<Operation> = None;
 
-    // Non-interactive mode: if we have a filter and no TTY, just show diffs
-    // This applies to review (op is None) and reject with specific snapshots
+    // Non-interactive mode: if we have a filter and no TTY, just show diffs.
+    // Accept doesn't need display (it just accepts), but review and reject should show what they're affecting.
     let non_interactive_display = snapshot_filter.is_some()
         && !term.is_term()
         && (op.is_none() || matches!(op, Some(Operation::Reject)));
