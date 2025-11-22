@@ -39,6 +39,7 @@ json = ["serde"]
 ron = ["dep:ron", "serde"]
 toml = ["dep:toml", "serde"]
 yaml = ["serde"]
+json-pretty-compact = ["dep:json-pretty-compact", "dep:serde_json", "serde"]
 
 # internal feature exclusive to cargo-insta
 _cargo_insta_internal = ["clap"]
@@ -60,6 +61,8 @@ regex = { version = "1.6.0", default-features = false, optional = true, features
 serde = { version = "1.0.117", optional = true }
 once_cell = "1.20.2"
 clap = { workspace = true, optional = true }
+serde_json = { version = "1.0.145", optional = true }
+json-pretty-compact = { version = "0.1.2", optional = true }
 
 [dev-dependencies]
 rustc_version = "0.4.0"
