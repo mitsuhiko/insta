@@ -2,9 +2,21 @@ use std::process::Stdio;
 
 use crate::TestFiles;
 
+fn nextest_available() -> bool {
+    std::process::Command::new("cargo")
+        .args(["nextest", "--version"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 /// Test that nextest with doctests shows a warning
 #[test]
 fn test_nextest_doctest_warning() {
+    if !nextest_available() {
+        eprintln!("Skipping test: cargo-nextest not installed");
+        return;
+    }
     let test_project = TestFiles::new()
         .add_cargo_toml("test_nextest_doctest_warning")
         .add_file(
@@ -54,6 +66,10 @@ fn test_simple() {
 /// Test that nextest with --disable-nextest-doctest flag doesn't show warning
 #[test]
 fn test_nextest_doctest_flag_no_warning() {
+    if !nextest_available() {
+        eprintln!("Skipping test: cargo-nextest not installed");
+        return;
+    }
     let test_project = TestFiles::new()
         .add_cargo_toml("test_nextest_doctest_flag")
         .add_file(
@@ -103,6 +119,10 @@ fn test_simple() {
 /// Test that no warning appears when there are no doctests
 #[test]
 fn test_nextest_no_doctests_no_warning() {
+    if !nextest_available() {
+        eprintln!("Skipping test: cargo-nextest not installed");
+        return;
+    }
     let test_project = TestFiles::new()
         .add_cargo_toml("test_nextest_no_doctests")
         .add_file(
@@ -185,6 +205,10 @@ fn test_simple() {
 /// Test that nextest with --dnd alias doesn't show warning
 #[test]
 fn test_nextest_doctest_dnd_alias_no_warning() {
+    if !nextest_available() {
+        eprintln!("Skipping test: cargo-nextest not installed");
+        return;
+    }
     let test_project = TestFiles::new()
         .add_cargo_toml("test_nextest_doctest_dnd_alias")
         .add_file(
