@@ -734,9 +734,11 @@ impl TextSnapshotContents {
             .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c));
 
         // We prefer raw strings for strings containing a quote or an escape
-        // character, and for strings containing newlines (which reduces diffs).
+        // character, as these would require escaping in regular strings.
         // We can't use raw strings for some control characters.
-        if !has_control_chars && contents.contains(['\\', '"', '\n']) {
+        // We don't use raw strings just for newlines, as they can appear
+        // literally in regular strings (avoids clippy::needless_raw_strings).
+        if !has_control_chars && contents.contains(['\\', '"']) {
             out.push('r');
         }
 
@@ -1088,7 +1090,7 @@ fn test_snapshot_contents_to_inline() {
 
     assert_eq!(
         TextSnapshotContents::new("\na\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        r##"r"
+        r##""
 
 a
 b
@@ -1097,7 +1099,7 @@ b
 
     assert_eq!(
         TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline("    "),
-        r##"r"
+        r##""
     a
     b
     ""##
@@ -1106,7 +1108,7 @@ b
     assert_eq!(
         TextSnapshotContents::new("\n    a\n    b".to_string(), TextSnapshotKind::Inline)
             .to_inline(""),
-        r##"r"
+        r##""
 
 a
 b
@@ -1116,7 +1118,7 @@ b
     assert_eq!(
         TextSnapshotContents::new("\na\n\nb".to_string(), TextSnapshotKind::Inline)
             .to_inline("    "),
-        r##"r"
+        r##""
 
     a
 
@@ -1148,7 +1150,7 @@ b
 
     assert_eq!(
         TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        r##"r"
+        r##""
 
 ab
 ""##
@@ -1167,10 +1169,10 @@ ab
 
     assert_eq!(
         TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        r##"r"
-a	
+        "\"
+a\t
 b
-""##
+\""
     );
 
     assert_eq!(
@@ -1420,7 +1422,7 @@ fn test_empty_lines() {
     assert_snapshot!(r#"multiline content starting on first line
 
     final line
-    "#, @r"
+    "#, @"
     multiline content starting on first line
 
         final line
@@ -1430,7 +1432,7 @@ fn test_empty_lines() {
     multiline content starting on second line
 
     final line
-    "#, @r"
+    "#, @"
 
     multiline content starting on second line
 

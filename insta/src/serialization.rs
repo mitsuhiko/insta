@@ -126,7 +126,7 @@ fn test_yaml_serialization() {
         ]),
         SerializationFormat::Yaml,
     );
-    crate::assert_snapshot!(&yaml, @r"
+    crate::assert_snapshot!(&yaml, @"
     env:
       - ENVIRONMENT
       - production
@@ -151,7 +151,7 @@ fn test_yaml_serialization() {
         ]),
         SerializationFormat::Yaml,
     );
-    crate::assert_snapshot!(&inline_yaml, @r"
+    crate::assert_snapshot!(&inline_yaml, @"
     env:
       - ENVIRONMENT
       - production

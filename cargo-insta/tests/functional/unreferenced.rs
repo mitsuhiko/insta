@@ -174,7 +174,7 @@ Unused snapshot
     )
     .unwrap();
 
-    insta::assert_snapshot!(test_project.file_tree_diff(), @r"
+    insta::assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,7 @@
@@ -203,7 +203,7 @@ Unused snapshot
     assert!(&output.status.success());
 
     // We should now see the unreferenced snapshot deleted
-    insta::assert_snapshot!(test_project.file_tree_diff(), @r"
+    insta::assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@

@@ -6,6 +6,7 @@
 //! MSRV requirements, we vendor it temporarily.
 
 #![allow(unused)]
+#![allow(clippy::needless_raw_strings)]
 
 pub mod emitter;
 pub mod parser;

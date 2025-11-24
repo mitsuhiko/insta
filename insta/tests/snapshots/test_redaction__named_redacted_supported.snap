@@ -1,6 +1,6 @@
 ---
 source: insta/tests/test_redaction.rs
-expression: "&complex_obj"
+expression: "&obj"
 ---
 id: "[id]"
 items:

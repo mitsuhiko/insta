@@ -4,3 +4,4 @@ target
 .aider*
 .env
 .idea
+*.rlib
