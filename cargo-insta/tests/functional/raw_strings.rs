@@ -157,4 +157,3 @@ This is invalid yaml:
      }
     "####);
 }
-
