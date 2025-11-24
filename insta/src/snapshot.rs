@@ -1211,6 +1211,7 @@ a
 }
 
 #[test]
+#[allow(clippy::needless_raw_strings)]
 fn test_min_indentation() {
     use similar_asserts::assert_eq;
     assert_eq!(
@@ -1325,6 +1326,7 @@ a
 }
 
 #[test]
+#[allow(clippy::needless_raw_strings)]
 fn test_min_indentation_additional() {
     use similar_asserts::assert_eq;
 
