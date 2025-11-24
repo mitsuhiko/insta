@@ -1387,6 +1387,7 @@ fn test_inline_snapshot_value_newline() {
 }
 
 #[test]
+#[allow(clippy::needless_raw_strings)]
 fn test_parse_yaml_error() {
     use std::env::temp_dir;
     let mut temp = temp_dir();
@@ -1418,6 +1419,7 @@ fn test_ownership() {
 }
 
 #[test]
+#[allow(clippy::needless_raw_strings)]
 fn test_empty_lines() {
     assert_snapshot!(r#"single line should fit on a single line"#, @"single line should fit on a single line");
     assert_snapshot!(r##"single line should fit on a single line, even if it's really really really really really really really really really long"##, @"single line should fit on a single line, even if it's really really really really really really really really really long");
