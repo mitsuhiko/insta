@@ -880,6 +880,7 @@ fn normalize_inline(snapshot: &str) -> String {
 }
 
 #[test]
+#[allow(clippy::needless_raw_strings)]
 fn test_normalize_inline_snapshot() {
     fn normalized_of_literal(snapshot: &str) -> String {
         normalize_inline(&TextSnapshotContents::from_inline_literal(snapshot).contents)
