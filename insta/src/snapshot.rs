@@ -880,7 +880,6 @@ fn normalize_inline(snapshot: &str) -> String {
 }
 
 #[test]
-#[allow(clippy::needless_raw_strings)]
 fn test_normalize_inline_snapshot() {
     fn normalized_of_literal(snapshot: &str) -> String {
         normalize_inline(&TextSnapshotContents::from_inline_literal(snapshot).contents)
@@ -903,12 +902,12 @@ fn test_normalize_inline_snapshot() {
 
     assert_eq!(
         normalized_of_literal(
-            r#"
+            "
             1
     2
-    "#
+    "
         ),
-        r"        1
+        "        1
 2
 "
     );
@@ -920,7 +919,7 @@ fn test_normalize_inline_snapshot() {
             2
     "
         ),
-        r"1
+        "1
 2
 "
     );
@@ -949,11 +948,11 @@ fn test_normalize_inline_snapshot() {
 
     assert_eq!(
         normalized_of_literal(
-            r#"
+            "
     a
     b
 c
-    "#
+    "
         ),
         "    a
     b
@@ -1211,53 +1210,52 @@ a
 }
 
 #[test]
-#[allow(clippy::needless_raw_strings)]
 fn test_min_indentation() {
     use similar_asserts::assert_eq;
     assert_eq!(
         min_indentation(
-            r#"
+            "
    1
    2
-   "#,
+   ",
         ),
         "   ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
             1
-    2"#
+    2"
         ),
         "    ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
             1
             2
-    "#
+    "
         ),
         "            ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
    1
    2
-"#
+"
         ),
         "   ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
         a
-    "#
+    "
         ),
         "        ".to_string()
     );
@@ -1266,20 +1264,20 @@ fn test_min_indentation() {
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
     a
     b
 c
-    "#
+    "
         ),
         "".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
 a
-    "#
+    "
         ),
         "".to_string()
     );
@@ -1294,89 +1292,88 @@ a
 
     assert_eq!(
         min_indentation(
-            r#"a
-  a"#
+            "a
+  a"
         ),
         "".to_string()
     );
 
     assert_eq!(
         normalize_inline(
-            r#"
+            "
 			1
-	2"#
+	2"
         ),
-        r###"
+        "
 		1
-2"###
+2"
     );
 
     assert_eq!(
         normalize_inline(
-            r#"
+            "
 	  	  1
 	  	  2
-    "#
+    "
         ),
-        r###"
+        "
 1
 2
-"###
+"
     );
 }
 
 #[test]
-#[allow(clippy::needless_raw_strings)]
 fn test_min_indentation_additional() {
     use similar_asserts::assert_eq;
 
-    let t = r#"
+    let t = "
    1
    2
-"#;
+";
     assert_eq!(min_indentation(t), "   ".to_string());
 
-    let t = r#"
+    let t = "
         a
-    "#;
+    ";
     assert_eq!(min_indentation(t), "        ".to_string());
 
     let t = "";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = r#"
+    let t = "
     a
     b
 c
-    "#;
+    ";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = r#"
-a"#;
+    let t = "
+a";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = r#"
-    a"#;
+    let t = "
+    a";
     assert_eq!(min_indentation(t), "    ".to_string());
 
-    let t = r#"a
-  a"#;
+    let t = "a
+  a";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = r#"
+    let t = "
  	1
  	2
-    "#;
+    ";
     assert_eq!(min_indentation(t), " 	".to_string());
 
-    let t = r#"
+    let t = "
   	  	  	1
-  	2"#;
+  	2";
     assert_eq!(min_indentation(t), "  	".to_string());
 
-    let t = r#"
+    let t = "
 			1
-	2"#;
+	2";
     assert_eq!(min_indentation(t), "	".to_string());
 }
 
@@ -1387,19 +1384,18 @@ fn test_inline_snapshot_value_newline() {
 }
 
 #[test]
-#[allow(clippy::needless_raw_strings)]
 fn test_parse_yaml_error() {
     use std::env::temp_dir;
     let mut temp = temp_dir();
     temp.push("bad.yaml");
     let mut f = fs::File::create(temp.clone()).unwrap();
 
-    let invalid = r#"---
+    let invalid = "---
     This is invalid yaml:
      {
         {
     ---
-    "#;
+    ";
 
     f.write_all(invalid.as_bytes()).unwrap();
 
@@ -1419,25 +1415,24 @@ fn test_ownership() {
 }
 
 #[test]
-#[allow(clippy::needless_raw_strings)]
 fn test_empty_lines() {
-    assert_snapshot!(r#"single line should fit on a single line"#, @"single line should fit on a single line");
-    assert_snapshot!(r##"single line should fit on a single line, even if it's really really really really really really really really really long"##, @"single line should fit on a single line, even if it's really really really really really really really really really long");
+    assert_snapshot!("single line should fit on a single line", @"single line should fit on a single line");
+    assert_snapshot!("single line should fit on a single line, even if it's really really really really really really really really really long", @"single line should fit on a single line, even if it's really really really really really really really really really long");
 
-    assert_snapshot!(r#"multiline content starting on first line
+    assert_snapshot!("multiline content starting on first line
 
     final line
-    "#, @"
+    ", @"
     multiline content starting on first line
 
         final line
     ");
 
-    assert_snapshot!(r#"
+    assert_snapshot!("
     multiline content starting on second line
 
     final line
-    "#, @"
+    ", @"
 
     multiline content starting on second line
 
