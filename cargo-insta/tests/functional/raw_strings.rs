@@ -52,10 +52,10 @@ fn test_with_backslash_needs_raw() {
 
     // Verify that needless raw strings are converted to regular strings,
     // but necessary raw strings are preserved
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r#####"
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r###"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -2,27 +2,29 @@
+    @@ -2,8 +2,8 @@
      #[test]
      fn test_single_line() {
          // These raw strings don't contain backslashes or quotes, so they're needless
@@ -64,12 +64,11 @@ fn test_with_backslash_needs_raw() {
     +    insta::assert_snapshot!(r#"single line should fit on a single line"#, @"single line should fit on a single line");
     +    insta::assert_snapshot!(r##"single line should fit on a single line, even if it's really really really really really really really really really long"##, @"single line should fit on a single line, even if it's really really really really really really really really really long");
      }
-
+     
      #[test]
-     fn test_multiline_only() {
-         // Multiline content without quotes or backslashes
+    @@ -12,17 +12,21 @@
          insta::assert_snapshot!(r#"multiline content starting on first line
-
+     
          final line
     -    "#, @"");
     +    "#, @"
@@ -78,21 +77,21 @@ fn test_with_backslash_needs_raw() {
     +        final line
     +    ");
      }
-
+     
      #[test]
      fn test_with_quotes_needs_raw() {
          // This one needs raw strings because it contains quotes
     -    insta::assert_snapshot!(r#"content with "quotes""#, @"");
     +    insta::assert_snapshot!(r#"content with "quotes""#, @r#"content with "quotes""#);
      }
-
+     
      #[test]
      fn test_with_backslash_needs_raw() {
          // This one needs raw strings because it contains backslashes
     -    insta::assert_snapshot!(r"content with \backslash", @"");
     +    insta::assert_snapshot!(r"content with \backslash", @r"content with \backslash");
      }
-    "#####);
+    "###);
 }
 
 /// Test YAML format with multiline content (no quotes or backslashes)
@@ -139,11 +138,11 @@ This is invalid yaml:
     assert!(&output.status.success());
 
     // The output should use regular strings (not raw) since it doesn't contain quotes or backslashes
-    assert_snapshot!(test_project.diff("src/lib.rs"), @r####"
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -6,5 +6,11 @@
-             {
+    @@ -7,5 +7,11 @@
+      {
          {
      ---
     -    "#, @"");
@@ -155,5 +154,5 @@ This is invalid yaml:
     +    ---
     +    ");
      }
-    "####);
+    "##);
 }
