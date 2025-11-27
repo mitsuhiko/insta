@@ -1,10 +1,14 @@
-use serde::de::value::Error as ValueError;
-use serde::Serialize;
+use core::str::FromStr;
+use serde::{Serialize, de::value::Error as ValueError};
 #[cfg(feature = "ron")]
 use std::borrow::Cow;
+use toml_edit::{Value, visit_mut::*};
+use toml_writer::ToTomlValue;
 
-use crate::content::{json, yaml, Content, ContentSerializer};
-use crate::settings::Settings;
+use crate::{
+    content::{Content, ContentSerializer, json, yaml},
+    settings::Settings,
+};
 
 pub enum SerializationFormat {
     #[cfg(feature = "csv")]
@@ -79,7 +83,33 @@ pub fn serialize_content(mut content: Content, format: SerializationFormat) -> S
         }
         #[cfg(feature = "toml")]
         SerializationFormat::Toml => {
-            let mut rv = toml::to_string_pretty(&content).unwrap();
+            struct SingleQuoter;
+
+            impl VisitMut for SingleQuoter {
+                fn visit_value_mut(&mut self, node: &mut Value) {
+                    if let Value::String(f) = node {
+                        let builder = toml_writer::TomlStringBuilder::new(f.value().as_str());
+                        let formatted = builder
+                            .as_literal()
+                            .unwrap_or(builder.as_default())
+                            .to_toml_value();
+
+                        if let Ok(value) = Value::from_str(&formatted) {
+                            *node = value;
+                        }
+                    }
+
+                    // Most of the time, you will also need to call the default implementation to recurse
+                    // further down the document tree.
+                    visit_value_mut(self, node);
+                }
+            }
+
+            let mut dm = toml_edit::ser::to_document(&content).unwrap();
+            let mut visitor = SingleQuoter;
+            visitor.visit_document_mut(&mut dm);
+
+            let mut rv = dm.to_string();
             if rv.ends_with('\n') {
                 rv.truncate(rv.len() - 1);
             }
