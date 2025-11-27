@@ -356,9 +356,9 @@ impl<'a> SnapshotAssertionContext<'a> {
                             old_snapshot = Some(snapshot);
                         }
                         Err(err) => {
-                            // If we can't parse the snapshot (e.g., merge conflicts,
-                            // corruption), log a warning and proceed. The test will
-                            // generate a new pending snapshot for review.
+                            // If we can't parse the snapshot (e.g., invalid YAML,
+                            // merge conflicts, truncated file), log a warning and
+                            // proceed. The test will generate a new pending snapshot.
                             elog!(
                                 "{}: Failed to parse snapshot file; \
                                  a new snapshot will be generated: {}\n  Error: {}",

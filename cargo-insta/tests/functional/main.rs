@@ -926,7 +926,7 @@ Hello, world! (modified)
 }
 
 #[test]
-fn test_corrupted_snapshot_handled_gracefully() {
+fn test_unparsable_snapshot_invalid_yaml() {
     // When a snapshot file has invalid YAML (not parseable), we log a warning and
     // let the test proceed, generating a new pending snapshot for review.
     // Previously this would crash the test run with a parse error.
