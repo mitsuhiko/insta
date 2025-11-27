@@ -670,7 +670,31 @@ impl TextSnapshotContents {
                 None => out,
             };
             match sc.kind {
-                TextSnapshotKind::Inline => legacy_inline_normalize(out),
+                TextSnapshotKind::Inline => {
+                    let out = legacy_inline_normalize(out);
+                    // Handle old multiline format where single-line content was stored
+                    // with code indentation (e.g., @r"\n    content\n    "). After
+                    // from_inline_literal processing, this becomes "    content\n    "
+                    // with leading spaces from source code indentation.
+                    //
+                    // We detect this by checking:
+                    // 1. Raw contents contain a newline (came from multiline literal)
+                    // 2. After trimming, it's effectively single-line (the legacy pattern)
+                    //
+                    // This distinguishes:
+                    // - Legacy single-line in multiline: @r"\n    X\n    " → trim
+                    // - Modern single-line: @"    X" → don't trim (intentional spaces)
+                    // - True multiline: @r"\n    A\n    B\n" → don't trim (>1 line)
+                    //
+                    // See: https://github.com/mitsuhiko/insta/pull/819#issuecomment-3583709431
+                    let is_legacy_single_line_in_multiline =
+                        sc.contents.contains('\n') && sc.contents.trim_end().lines().count() <= 1;
+                    if is_legacy_single_line_in_multiline {
+                        out.trim_start().to_string()
+                    } else {
+                        out
+                    }
+                }
                 TextSnapshotKind::File => out.to_string(),
             }
         }
