@@ -866,3 +866,133 @@ fn test_snapshot() {
         "Expected line 5 to be numbered as 5, but got:\n{combined_output}"
     );
 }
+
+#[test]
+fn test_snapshot_with_merge_conflict() {
+    // A snapshot file containing git merge conflict markers should be detected
+    // and handled gracefully - the test continues and creates a new pending snapshot.
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_merge_conflict")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_merge_conflict__snapshot.snap",
+            r#"<<<<<<< HEAD
+---
+source: src/lib.rs
+expression: "\"Hello, world!\""
+---
+Hello, world!
+=======
+---
+source: src/lib.rs
+expression: "\"Hello, world!\""
+---
+Hello, world! (modified)
+>>>>>>> feature-branch
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run the test
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Inner test passes (merge conflict is detected and handled gracefully)
+    assert!(
+        stdout.contains("test test_snapshot ... ok"),
+        "Expected inner test to pass, got:\n{stdout}"
+    );
+
+    // Warning about merge conflicts is shown
+    assert!(
+        stderr.contains("unresolved merge conflicts"),
+        "Expected merge conflict warning, got:\n{stderr}"
+    );
+
+    // A new snapshot is stored
+    assert!(
+        stderr.contains("stored new snapshot"),
+        "Expected new snapshot to be stored, got:\n{stderr}"
+    );
+}
+
+#[test]
+fn test_snapshot_with_merge_conflict_in_yaml() {
+    // Test case where the merge conflict occurs within the YAML metadata section.
+    // Conflict markers are detected before parsing, and the test continues gracefully.
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_merge_conflict_yaml")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_merge_conflict_yaml__snapshot.snap",
+            r#"---
+source: src/lib.rs
+<<<<<<< HEAD
+expression: "\"Hello, world!\""
+=======
+expression: "\"Hello, world! (modified)\""
+>>>>>>> feature-branch
+---
+Hello, world!
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run the test
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Inner test passes (merge conflict is detected and handled gracefully)
+    assert!(
+        stdout.contains("test test_snapshot ... ok"),
+        "Expected inner test to pass, got:\n{stdout}"
+    );
+
+    // Warning about merge conflicts is shown
+    assert!(
+        stderr.contains("unresolved merge conflicts"),
+        "Expected merge conflict warning, got:\n{stderr}"
+    );
+
+    // A new snapshot is stored
+    assert!(
+        stderr.contains("stored new snapshot"),
+        "Expected new snapshot to be stored, got:\n{stderr}"
+    );
+}
