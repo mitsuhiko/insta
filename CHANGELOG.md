@@ -2,7 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## Unreleased
+## 1.44.3
+
+- Fix a regression in 1.44.2 where merge conflict detection was too aggressive, incorrectly flagging snapshot content containing `======` or similar patterns as conflicts. #832
+- Fix a regression in 1.42.2 where inline snapshot updates would corrupt the file when code preceded the macro (e.g., `let output = assert_snapshot!(...)`). #833
 
 ## 1.44.2
 
