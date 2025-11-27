@@ -351,28 +351,22 @@ impl<'a> SnapshotAssertionContext<'a> {
                     is_doctest,
                 );
                 if fs::metadata(&file).is_ok() {
-                    // Check for merge conflicts before parsing (line-based detection
-                    // handles markers at any position and is more robust)
-                    let has_conflict = fs::read_to_string(&file)
-                        .map(|content| {
-                            content.lines().any(|line| {
-                                line.starts_with("<<<<<<<")
-                                    || line.starts_with("=======")
-                                    || line.starts_with(">>>>>>>")
-                            })
-                        })
-                        .unwrap_or(false);
-
-                    if has_conflict {
-                        elog!(
-                            "{}: Snapshot file has unresolved merge conflicts, \
-                             ignoring: {}",
-                            style("warning").yellow().bold(),
-                            file.display()
-                        );
-                        // old_snapshot stays None - treat as missing
-                    } else {
-                        old_snapshot = Some(Snapshot::from_file(&file)?);
+                    match Snapshot::from_file(&file) {
+                        Ok(snapshot) => {
+                            old_snapshot = Some(snapshot);
+                        }
+                        Err(err) => {
+                            // If we can't parse the snapshot (e.g., merge conflicts,
+                            // corruption), log a warning and proceed. The test will
+                            // generate a new pending snapshot for review.
+                            elog!(
+                                "{}: Failed to parse snapshot file; \
+                                 a new snapshot will be generated: {}\n  Error: {}",
+                                style("warning").yellow().bold(),
+                                file.display(),
+                                err
+                            );
+                        }
                     }
                 }
                 snapshot_name = Some(name);
