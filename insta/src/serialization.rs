@@ -1,12 +1,15 @@
-use core::str::FromStr;
-use serde::{Serialize, de::value::Error as ValueError};
+use serde::{de::value::Error as ValueError, Serialize};
 #[cfg(feature = "ron")]
 use std::borrow::Cow;
-use toml_edit::{Value, visit_mut::*};
-use toml_writer::ToTomlValue;
+#[cfg(feature = "toml")]
+use {
+    core::str::FromStr,
+    toml_edit::{visit_mut::*, Value},
+    toml_writer::ToTomlValue,
+};
 
 use crate::{
-    content::{Content, ContentSerializer, json, yaml},
+    content::{json, yaml, Content, ContentSerializer},
     settings::Settings,
 };
 
@@ -99,8 +102,6 @@ pub fn serialize_content(mut content: Content, format: SerializationFormat) -> S
                         }
                     }
 
-                    // Most of the time, you will also need to call the default implementation to recurse
-                    // further down the document tree.
                     visit_value_mut(self, node);
                 }
             }
