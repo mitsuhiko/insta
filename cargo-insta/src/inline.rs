@@ -449,4 +449,219 @@ fn test_function() {
         // NOT "    let output = " which would cause the regression described in #833
         assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
     }
+
+    #[test]
+    fn test_find_snapshot_macro_in_if_block() {
+        // Corner case: macro inside if block with code before it on same line
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    if true { assert_snapshot!("test", @"test"); }
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+        // Should only capture leading whitespace, not "    if true { "
+        assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_in_match_arm() {
+        // Corner case: macro in match arm
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    match x {
+        _ => assert_snapshot!("test", @"test"),
+    }
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(6).unwrap();
+        // Should only capture leading whitespace, not "        _ => "
+        assert_debug_snapshot!(snapshot.indentation, @r#""        ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_no_indentation() {
+        // Corner case: macro at column 0 (no indentation)
+        let content = r######"
+use insta::assert_snapshot;
+
+assert_snapshot!("test", @"test");
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(4).unwrap();
+        // No indentation at all
+        assert_debug_snapshot!(snapshot.indentation, @r#""""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_after_method_chain() {
+        // Corner case: macro result used in method chain
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    let _ = assert_snapshot!("test", @"test");
+    foo.bar().baz(assert_snapshot!("nested", @"nested"));
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        // First snapshot at line 5
+        let snapshot1 = file_patcher.find_snapshot_macro(5).unwrap();
+        assert_debug_snapshot!(snapshot1.indentation, @r#""    ""#);
+
+        // Second snapshot at line 6 (nested in method call)
+        let snapshot2 = file_patcher.find_snapshot_macro(6).unwrap();
+        // Should only capture leading whitespace, not "    foo.bar().baz("
+        assert_debug_snapshot!(snapshot2.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_mixed_whitespace() {
+        // Corner case: mixed tabs and spaces (tab then spaces)
+        let content = "
+use insta::assert_snapshot;
+
+fn test_function() {
+\t   assert_snapshot!(\"test\", @\"test\");
+}
+";
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+        // Should capture the tab and spaces
+        assert_debug_snapshot!(snapshot.indentation, @r#""\t   ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_closure() {
+        // Corner case: macro inside closure
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    let f = || assert_snapshot!("test", @"test");
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+        // Should only capture leading whitespace, not "    let f = || "
+        assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_multiple_on_same_line() {
+        // Corner case: multiple macros on the same line
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    if true { assert_snapshot!("a", @"a"); assert_snapshot!("b", @"b"); }
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        // Both snapshots are on line 5
+        // Note: find_snapshot_macro returns the first macro found on a line
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+        // Should only capture leading whitespace
+        assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_deeply_nested() {
+        // Corner case: macro deeply nested in expressions
+        let content = r######"
+use insta::assert_snapshot;
+
+fn test_function() {
+    foo.bar(|x| x.baz().qux(|| assert_snapshot!("test", @"test")));
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+        // Should only capture leading whitespace, not the deeply nested expression
+        assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_qualified_path_with_code_before() {
+        // Corner case: fully qualified path (insta::assert_snapshot!) with code before it
+        // This exercises the scan_for_path_start function which walks back through :: tokens
+        let content = r######"
+fn test_function() {
+    let output = insta::assert_snapshot!("test", @"test");
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(3).unwrap();
+        // Should only capture leading whitespace, not "    let output = "
+        // even though scan_for_path_start finds "insta" as the path start
+        assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
 }
