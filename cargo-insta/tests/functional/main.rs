@@ -68,6 +68,7 @@ use itertools::Itertools;
 use similar::udiff::unified_diff;
 use tempfile::TempDir;
 
+mod back_compat;
 mod binary;
 mod delete_pending;
 mod glob_filter;
@@ -864,5 +865,245 @@ fn test_snapshot() {
     assert!(
         combined_output.contains("    5     5 │ line5"),
         "Expected line 5 to be numbered as 5, but got:\n{combined_output}"
+    );
+}
+
+#[test]
+fn test_unparsable_snapshot_at_start() {
+    // When a snapshot file starts with garbage (e.g., merge conflict markers),
+    // the test should still pass and generate a new snapshot for review.
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_merge_conflict")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_merge_conflict__snapshot.snap",
+            r#"<<<<<<< HEAD
+---
+source: src/lib.rs
+expression: "\"Hello, world!\""
+---
+Hello, world!
+=======
+---
+source: src/lib.rs
+expression: "\"Hello, world!\""
+---
+Hello, world! (modified)
+>>>>>>> feature-branch
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Test passes and generates new snapshot for review
+    assert!(
+        stdout.contains("test test_snapshot ... ok"),
+        "Expected test to pass, got:\n{stdout}"
+    );
+    assert!(
+        stderr.contains("stored new snapshot"),
+        "Expected new snapshot to be stored, got:\n{stderr}"
+    );
+}
+
+#[test]
+fn test_corrupted_snapshot_handled_gracefully() {
+    // When a snapshot file has invalid YAML (not parseable), we log a warning and
+    // let the test proceed, generating a new pending snapshot for review.
+    // Previously this would crash the test run with a parse error.
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_corrupted")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_corrupted__snapshot.snap",
+            // Invalid YAML: unquoted special characters, missing closing delimiter
+            r#"---
+source: src/lib.rs
+expression: this is not valid yaml: [unclosed
+---
+Hello, world!
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Test passes - corrupted snapshot skipped, new one generated
+    assert!(
+        stdout.contains("test test_snapshot ... ok"),
+        "Expected test to pass, got:\n{stdout}"
+    );
+
+    // Warning about parse failure
+    assert!(
+        stderr.contains("Failed to parse snapshot file"),
+        "Expected parse failure warning, got:\n{stderr}"
+    );
+
+    // New snapshot stored for review
+    assert!(
+        stderr.contains("stored new snapshot"),
+        "Expected new snapshot to be stored, got:\n{stderr}"
+    );
+}
+
+#[test]
+fn test_unparsable_snapshot_in_yaml() {
+    // When a snapshot file has merge conflict markers in the YAML header,
+    // it can't be parsed. We log a warning and let the test proceed.
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_yaml_conflict")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_yaml_conflict__snapshot.snap",
+            r#"---
+source: src/lib.rs
+<<<<<<< HEAD
+expression: "\"Hello, world!\""
+=======
+expression: "\"Hello, world! (modified)\""
+>>>>>>> feature-branch
+---
+Hello, world!
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Test passes - unparsable snapshot skipped, new one generated
+    assert!(
+        stdout.contains("test test_snapshot ... ok"),
+        "Expected test to pass, got:\n{stdout}"
+    );
+    assert!(
+        stderr.contains("Failed to parse snapshot file"),
+        "Expected parse failure warning, got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("stored new snapshot"),
+        "Expected new snapshot to be stored, got:\n{stderr}"
+    );
+}
+
+#[test]
+fn test_valid_snapshot_with_separator_lines() {
+    // Regression test for https://github.com/mitsuhiko/insta/issues/832
+    // A valid snapshot containing `==============================` separator lines
+    // (common in CLI output) should NOT be treated as having merge conflicts.
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_separator")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_cli_output() {
+    insta::assert_snapshot!(
+        "cli_output",
+        "Validating migration checksums\n==============================\nAll good!"
+    );
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_separator__cli_output.snap",
+            r#"---
+source: src/lib.rs
+expression: "\"Validating migration checksums\\n==============================\\nAll good!\""
+---
+Validating migration checksums
+==============================
+All good!
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test"])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Test should pass - this is a valid snapshot
+    assert!(
+        stdout.contains("test test_cli_output ... ok"),
+        "Expected test to pass, got:\n{stdout}"
+    );
+
+    // No warning about parse failure or merge conflicts
+    assert!(
+        !stderr.contains("Failed to parse"),
+        "Should NOT warn about parse failure for valid snapshot, got:\n{stderr}"
+    );
+
+    // No new snapshot should be created - the existing one is correct
+    assert!(
+        !stderr.contains("stored new snapshot"),
+        "Should NOT create new snapshot for valid existing snapshot, got:\n{stderr}"
     );
 }
