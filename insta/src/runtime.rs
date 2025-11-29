@@ -822,6 +822,114 @@ where
     }
 }
 
+/// (Experimental) Reads a snapshot's text content from disk.
+///
+/// This function resolves the snapshot path using the same logic as `assert_snapshot!`
+/// and returns the snapshot contents as a string. This is useful when you need to
+/// use a snapshot's value programmatically rather than just asserting against it.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The snapshot file does not exist
+/// - The snapshot file cannot be parsed
+/// - The snapshot contains binary content (use `read_binary_snapshot_content` instead)
+///
+/// # Example
+///
+/// ```ignore
+/// let expected = insta::read_snapshot!("my_snapshot");
+/// // Use `expected` in your test logic
+/// ```
+pub fn read_snapshot_content(
+    name: Option<&str>,
+    workspace: &Path,
+    function_name: &str,
+    module_path: &str,
+    assertion_file: &str,
+) -> Result<String, Box<dyn Error>> {
+    let is_doctest = is_doctest(function_name);
+
+    let snapshot_name: Cow<'_, str> = match name {
+        Some(name) => add_suffix_to_snapshot_name(Cow::Borrowed(name)),
+        None => {
+            if is_doctest {
+                return Err("Cannot determine reliable names for snapshot in doctests. Please use explicit names instead.".into());
+            }
+            detect_snapshot_name(function_name, module_path)?.into()
+        }
+    };
+
+    let snapshot_file = get_snapshot_filename(
+        module_path,
+        assertion_file,
+        &snapshot_name,
+        workspace,
+        is_doctest,
+    );
+
+    let snapshot = Snapshot::from_file(&snapshot_file)?;
+
+    match snapshot.contents() {
+        SnapshotContents::Text(text) => Ok(text.to_string()),
+        SnapshotContents::Binary(_) => {
+            Err("Cannot read binary snapshot as text; use read_binary_snapshot! instead".into())
+        }
+    }
+}
+
+/// (Experimental) Reads a snapshot's binary content from disk.
+///
+/// This function resolves the snapshot path using the same logic as `assert_binary_snapshot!`
+/// and returns the snapshot contents as a byte vector.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The snapshot file does not exist
+/// - The snapshot file cannot be parsed
+/// - The snapshot contains text content (use `read_snapshot_content` instead)
+pub fn read_binary_snapshot_content(
+    name: &str,
+    workspace: &Path,
+    function_name: &str,
+    module_path: &str,
+    assertion_file: &str,
+) -> Result<Vec<u8>, Box<dyn Error>> {
+    let is_doctest = is_doctest(function_name);
+
+    // Binary snapshots require explicit names with extensions
+    let (snapshot_name, _extension) = name
+        .split_once('.')
+        .ok_or_else(|| format!("\"{name}\" does not match the format \"name.extension\""))?;
+
+    let snapshot_name = if snapshot_name.is_empty() {
+        if is_doctest {
+            return Err("Cannot determine reliable names for snapshot in doctests. Please use explicit names instead.".into());
+        }
+        detect_snapshot_name(function_name, module_path)?
+    } else {
+        add_suffix_to_snapshot_name(Cow::Borrowed(snapshot_name)).into_owned()
+    };
+
+    let snapshot_file = get_snapshot_filename(
+        module_path,
+        assertion_file,
+        &snapshot_name,
+        workspace,
+        is_doctest,
+    );
+
+    let snapshot = Snapshot::from_file(&snapshot_file)?;
+
+    match snapshot.contents() {
+        SnapshotContents::Binary(bytes) => Ok(bytes.as_ref().clone()),
+        SnapshotContents::Text(_) => {
+            Err("Cannot read text snapshot as binary; use read_snapshot! instead".into())
+        }
+    }
+}
+
 /// This function is invoked from the macros to run the main assertion logic.
 ///
 /// This will create the assertion context, run the main logic to assert
