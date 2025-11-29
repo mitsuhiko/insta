@@ -74,6 +74,7 @@ mod delete_pending;
 mod glob_filter;
 mod inline;
 mod inline_snapshot_trimming;
+mod line_ending_markers;
 mod nextest_doctest;
 mod test_runner_fallback;
 mod test_workspace_source_path;
@@ -378,7 +379,7 @@ Hello, world!
     assert_snapshot!(test_current_insta.diff("src/snapshots/test_force_update_current__force_update.snap"), @r#"
     --- Original: src/snapshots/test_force_update_current__force_update.snap
     +++ Updated: src/snapshots/test_force_update_current__force_update.snap
-    @@ -1,8 +1,5 @@
+    @@ -1,8 +1,6 @@
     -
      ---
      source: src/lib.rs
@@ -388,6 +389,7 @@ Hello, world!
      Hello, world!
     -
     -
+    +---
     "#);
 
     assert_snapshot!(test_insta_1_40_0.diff("src/snapshots/test_force_update_1_40_0__force_update.snap"), @r#"
