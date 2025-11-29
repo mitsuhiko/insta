@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;
-use std::io::{ErrorKind, Write};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str;
@@ -35,14 +35,17 @@ thread_local! {
     static RECORDED_DUPLICATES: RefCell<Vec<BTreeMap<String, Snapshot>>> = RefCell::default()
 }
 
-// This macro is basically eprintln but without being captured and
-// hidden by the test runner.
+// Writes to stderr and also to a warnings file (if INSTA_WARNINGS_FILE is set).
+// The warnings file allows cargo-insta to display warnings after tests complete,
+// since test runners like nextest suppress output from passing tests by default.
 #[macro_export]
 macro_rules! elog {
-    () => (write!(std::io::stderr()).ok());
-    ($($arg:tt)*) => ({
-        writeln!(std::io::stderr(), $($arg)*).ok();
-    })
+    ($($arg:tt)*) => {{
+        use std::io::Write as _;
+        let msg = format!($($arg)*);
+        let _ = writeln!(std::io::stderr(), "{}", msg);
+        $crate::env::memoize_warning(&msg);
+    }};
 }
 #[cfg(feature = "glob")]
 macro_rules! print_or_panic {
