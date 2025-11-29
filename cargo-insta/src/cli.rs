@@ -875,6 +875,12 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     let (mut proc, snapshot_ref_file, prevents_doc_run) =
         prepare_test_runner(&cmd, test_runner, color, &[], None, &loc)?;
 
+    // Set up warnings file for collecting warnings from test processes.
+    // This is necessary because test runners like nextest suppress stdout/stderr
+    // from passing tests by default.
+    let warnings_file = env::temp_dir().join(format!("insta-warnings-{}", Uuid::new_v4()));
+    proc.env("INSTA_WARNINGS_FILE", &warnings_file);
+
     if let Some(workspace_root) = &cmd.target_args.workspace_root {
         proc.current_dir(workspace_root);
     }
@@ -910,7 +916,22 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
             snapshot_ref_file.as_deref(),
             &loc,
         )?;
+        // Use the same warnings file for doctests
+        proc.env("INSTA_WARNINGS_FILE", &warnings_file);
         success = success && proc.status()?.success();
+    }
+
+    // Display any warnings collected during tests (deduplicated)
+    if warnings_file.exists() {
+        if let Ok(contents) = fs::read_to_string(&warnings_file) {
+            let mut seen = std::collections::BTreeSet::new();
+            for line in contents.lines().map(str::trim).filter(|l| !l.is_empty()) {
+                if seen.insert(line.to_owned()) {
+                    eprintln!("{}", line);
+                }
+            }
+        }
+        fs::remove_file(&warnings_file).ok();
     }
 
     if !success && cmd.review {

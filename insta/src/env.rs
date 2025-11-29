@@ -564,6 +564,16 @@ pub fn memoize_snapshot_file(snapshot_file: &Path) {
     }
 }
 
+/// Appends a warning to the warnings file for cargo-insta to display after tests.
+/// Best-effort: does nothing if `INSTA_WARNINGS_FILE` is not set or IO fails.
+pub fn memoize_warning(message: &str) {
+    if let Ok(path) = env::var("INSTA_WARNINGS_FILE") {
+        if let Ok(mut f) = fs::OpenOptions::new().append(true).create(true).open(path) {
+            let _ = writeln!(f, "{}", message);
+        }
+    }
+}
+
 fn resolve<'a>(value: &'a Content, path: &[&str]) -> Option<&'a Content> {
     path.iter()
         .try_fold(value, |node, segment| match node.resolve_inner() {
