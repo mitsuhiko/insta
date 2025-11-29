@@ -161,11 +161,11 @@ fn test_toml_inline() {
         id: 42,
         username: "peter-doe".into(),
         email: Email("peter@doe.invalid".into()),
-    }, @r###"
+    }, @r"
     id = 42
     username = 'peter-doe'
     email = 'peter@doe.invalid'
-    "###);
+    ");
 }
 
 #[cfg(feature = "json")]
