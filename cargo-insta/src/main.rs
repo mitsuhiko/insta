@@ -1,4 +1,5 @@
 #![warn(clippy::doc_markdown)]
+#![warn(clippy::needless_raw_strings)]
 #![warn(rustdoc::all)]
 
 //! <div align="center">

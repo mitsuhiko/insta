@@ -758,9 +758,11 @@ impl TextSnapshotContents {
             .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c));
 
         // We prefer raw strings for strings containing a quote or an escape
-        // character, and for strings containing newlines (which reduces diffs).
+        // character, as these would require escaping in regular strings.
         // We can't use raw strings for some control characters.
-        if !has_control_chars && contents.contains(['\\', '"', '\n']) {
+        // We don't use raw strings just for newlines, as they can appear
+        // literally in regular strings (avoids clippy::needless_raw_strings).
+        if !has_control_chars && contents.contains(['\\', '"']) {
             out.push('r');
         }
 
@@ -924,12 +926,12 @@ fn test_normalize_inline_snapshot() {
 
     assert_eq!(
         normalized_of_literal(
-            r#"
+            "
             1
     2
-    "#
+    "
         ),
-        r"        1
+        "        1
 2
 "
     );
@@ -941,7 +943,7 @@ fn test_normalize_inline_snapshot() {
             2
     "
         ),
-        r"1
+        "1
 2
 "
     );
@@ -970,11 +972,11 @@ fn test_normalize_inline_snapshot() {
 
     assert_eq!(
         normalized_of_literal(
-            r#"
+            "
     a
     b
 c
-    "#
+    "
         ),
         "    a
     b
@@ -1112,7 +1114,7 @@ fn test_snapshot_contents_to_inline() {
 
     assert_eq!(
         TextSnapshotContents::new("\na\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        r##"r"
+        r##""
 
 a
 b
@@ -1121,7 +1123,7 @@ b
 
     assert_eq!(
         TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline("    "),
-        r##"r"
+        r##""
     a
     b
     ""##
@@ -1130,7 +1132,7 @@ b
     assert_eq!(
         TextSnapshotContents::new("\n    a\n    b".to_string(), TextSnapshotKind::Inline)
             .to_inline(""),
-        r##"r"
+        r##""
 
 a
 b
@@ -1140,7 +1142,7 @@ b
     assert_eq!(
         TextSnapshotContents::new("\na\n\nb".to_string(), TextSnapshotKind::Inline)
             .to_inline("    "),
-        r##"r"
+        r##""
 
     a
 
@@ -1172,7 +1174,7 @@ b
 
     assert_eq!(
         TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        r##"r"
+        r##""
 
 ab
 ""##
@@ -1191,10 +1193,10 @@ ab
 
     assert_eq!(
         TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        r##"r"
-a	
+        "\"
+a\t
 b
-""##
+\""
     );
 
     assert_eq!(
@@ -1236,48 +1238,48 @@ fn test_min_indentation() {
     use similar_asserts::assert_eq;
     assert_eq!(
         min_indentation(
-            r#"
+            "
    1
    2
-   "#,
+   ",
         ),
         "   ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
             1
-    2"#
+    2"
         ),
         "    ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
             1
             2
-    "#
+    "
         ),
         "            ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
    1
    2
-"#
+"
         ),
         "   ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
         a
-    "#
+    "
         ),
         "        ".to_string()
     );
@@ -1286,20 +1288,20 @@ fn test_min_indentation() {
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
     a
     b
 c
-    "#
+    "
         ),
         "".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            r#"
+            "
 a
-    "#
+    "
         ),
         "".to_string()
     );
@@ -1314,34 +1316,34 @@ a
 
     assert_eq!(
         min_indentation(
-            r#"a
-  a"#
+            "a
+  a"
         ),
         "".to_string()
     );
 
     assert_eq!(
         normalize_inline(
-            r#"
+            "
 			1
-	2"#
+	2"
         ),
-        r###"
+        "
 		1
-2"###
+2"
     );
 
     assert_eq!(
         normalize_inline(
-            r#"
+            "
 	  	  1
 	  	  2
-    "#
+    "
         ),
-        r###"
+        "
 1
 2
-"###
+"
     );
 }
 
@@ -1349,53 +1351,53 @@ a
 fn test_min_indentation_additional() {
     use similar_asserts::assert_eq;
 
-    let t = r#"
+    let t = "
    1
    2
-"#;
+";
     assert_eq!(min_indentation(t), "   ".to_string());
 
-    let t = r#"
+    let t = "
         a
-    "#;
+    ";
     assert_eq!(min_indentation(t), "        ".to_string());
 
     let t = "";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = r#"
+    let t = "
     a
     b
 c
-    "#;
+    ";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = r#"
-a"#;
+    let t = "
+a";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = r#"
-    a"#;
+    let t = "
+    a";
     assert_eq!(min_indentation(t), "    ".to_string());
 
-    let t = r#"a
-  a"#;
+    let t = "a
+  a";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = r#"
+    let t = "
  	1
  	2
-    "#;
+    ";
     assert_eq!(min_indentation(t), " 	".to_string());
 
-    let t = r#"
+    let t = "
   	  	  	1
-  	2"#;
+  	2";
     assert_eq!(min_indentation(t), "  	".to_string());
 
-    let t = r#"
+    let t = "
 			1
-	2"#;
+	2";
     assert_eq!(min_indentation(t), "	".to_string());
 }
 
@@ -1412,12 +1414,12 @@ fn test_parse_yaml_error() {
     temp.push("bad.yaml");
     let mut f = fs::File::create(temp.clone()).unwrap();
 
-    let invalid = r#"---
+    let invalid = "---
     This is invalid yaml:
      {
         {
     ---
-    "#;
+    ";
 
     f.write_all(invalid.as_bytes()).unwrap();
 
@@ -1438,23 +1440,23 @@ fn test_ownership() {
 
 #[test]
 fn test_empty_lines() {
-    assert_snapshot!(r#"single line should fit on a single line"#, @"single line should fit on a single line");
-    assert_snapshot!(r##"single line should fit on a single line, even if it's really really really really really really really really really long"##, @"single line should fit on a single line, even if it's really really really really really really really really really long");
+    assert_snapshot!("single line should fit on a single line", @"single line should fit on a single line");
+    assert_snapshot!("single line should fit on a single line, even if it's really really really really really really really really really long", @"single line should fit on a single line, even if it's really really really really really really really really really long");
 
-    assert_snapshot!(r#"multiline content starting on first line
+    assert_snapshot!("multiline content starting on first line
 
     final line
-    "#, @r"
+    ", @"
     multiline content starting on first line
 
         final line
     ");
 
-    assert_snapshot!(r#"
+    assert_snapshot!("
     multiline content starting on second line
 
     final line
-    "#, @r"
+    ", @"
 
     multiline content starting on second line
 

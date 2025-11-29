@@ -23,7 +23,7 @@ fn test_binary_snapshot() {
 
     assert!(!&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,7 @@
@@ -62,7 +62,7 @@ fn test_binary_snapshot() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,7 @@
@@ -118,7 +118,7 @@ fn test_binary_snapshot() {
 
     assert!(!&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,9 @@
@@ -141,7 +141,7 @@ fn test_binary_snapshot() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,7 @@
@@ -192,7 +192,7 @@ fn test_binary_snapshot() {
         .status
         .success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,5 @@
@@ -229,7 +229,7 @@ fn test() {
         .unwrap();
 
     assert!(&output.status.success());
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@
@@ -259,7 +259,7 @@ fn test() {
         .unwrap();
 
     assert!(&output.status.success());
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,7 @@
@@ -298,7 +298,7 @@ fn test() {
         .unwrap();
 
     assert!(&output.status.success());
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,7 @@
@@ -329,7 +329,7 @@ fn test() {
         .unwrap();
 
     assert!(&output.status.success());
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@
@@ -369,7 +369,7 @@ fn test_snapshot() {
 
     test_project.update_file("src/lib.rs", "".to_string());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,7 @@
@@ -398,7 +398,7 @@ fn test_snapshot() {
     assert!(&output.status.success());
 
     // We should now see the unreferenced snapshot deleted
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,5 @@
