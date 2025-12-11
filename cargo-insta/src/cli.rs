@@ -889,9 +889,11 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // Note that unlike `cargo test`, `cargo test --doctest` will run doctests
     // even on crates that specify `doctests = false`. But I don't think there's
     // a way to replicate the `cargo test` behavior.
+    let disable_nextest_doctest =
+        cmd.disable_nextest_doctest || loc.tool_config.disable_nextest_doctest();
     if matches!(cmd.test_runner, TestRunner::Nextest)
         && !prevents_doc_run
-        && !cmd.disable_nextest_doctest
+        && !disable_nextest_doctest
     {
         // Check if there are doctests and show warning
         if has_doctests(&loc.packages) {

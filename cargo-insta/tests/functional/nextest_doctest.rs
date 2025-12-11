@@ -248,3 +248,58 @@ fn test_simple() {
         "Warning message should not appear when --dnd alias is used:\n{stderr}"
     );
 }
+
+/// Test that nextest with config file option doesn't show warning
+#[test]
+fn test_nextest_doctest_config_no_warning() {
+    if !nextest_available() {
+        eprintln!("Skipping test: cargo-nextest not installed");
+        return;
+    }
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_nextest_doctest_config")
+        .add_file(
+            "insta.yaml",
+            r#"
+test:
+  disable_nextest_doctest: true
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+/// This is a function with a doctest
+///
+/// ```
+/// assert_eq!(test_nextest_doctest_config::add(2, 2), 4);
+/// ```
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+#[test]
+fn test_simple() {
+    insta::assert_snapshot!("test_value", @"test_value");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run with nextest - config should suppress warning
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--test-runner", "nextest", "--accept"])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("warning: insta won't run a separate doctest process"),
+        "Warning message should not appear when config is set:\n{stderr}"
+    );
+}
