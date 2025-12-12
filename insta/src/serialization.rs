@@ -23,6 +23,8 @@ pub enum SerializationFormat {
     Yaml,
     Json,
     JsonCompact,
+    #[cfg(feature = "json-pretty-compact")]
+    JsonPrettyCompact,
 }
 
 #[derive(Debug)]
@@ -47,6 +49,16 @@ pub fn serialize_content(mut content: Content, format: SerializationFormat) -> S
         SerializationFormat::Yaml => yaml::to_string(&content)[4..].to_string(),
         SerializationFormat::Json => json::to_string_pretty(&content),
         SerializationFormat::JsonCompact => json::to_string_compact(&content),
+        #[cfg(feature = "json-pretty-compact")]
+        SerializationFormat::JsonPrettyCompact => {
+            let mut buf = Vec::new();
+            let mut ser = serde_json::Serializer::with_formatter(
+                &mut buf,
+                json_pretty_compact::PrettyCompactFormatter::new(),
+            );
+            content.serialize(&mut ser).unwrap();
+            String::from_utf8(buf).unwrap()
+        }
         #[cfg(feature = "csv")]
         SerializationFormat::Csv => {
             let mut buf = Vec::with_capacity(128);
