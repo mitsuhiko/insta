@@ -117,6 +117,9 @@ struct ProcessCommand {
     /// Do not print to stdout.
     #[arg(short = 'q', long)]
     quiet: bool,
+    /// External diff tool to use (e.g., "delta --side-by-side").
+    #[arg(long, env = "INSTA_DIFF_TOOL")]
+    diff_tool: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -1479,6 +1482,10 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
     handle_color(opts.color);
     match opts.command {
         Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
+            // Set diff tool env var so insta library can read it
+            if let Some(ref diff_tool) = cmd.diff_tool {
+                env::set_var("INSTA_DIFF_TOOL", diff_tool);
+            }
             review_snapshots(
                 cmd.quiet,
                 cmd.snapshot_filter.as_deref(),

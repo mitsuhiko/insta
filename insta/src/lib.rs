@@ -251,6 +251,28 @@
 //!   warn_undiscovered: true / false
 //! ```
 //!
+//! # External Diff Tools
+//!
+//! By default, insta displays diffs inline in unified format. You can configure
+//! an external diff tool via the `INSTA_DIFF_TOOL` environment variable. When set,
+//! insta writes the old and new snapshot contents to temporary files and invokes
+//! your diff tool with those files as arguments.
+//!
+//! ```bash
+//! # Use delta for syntax-highlighted diffs
+//! export INSTA_DIFF_TOOL=delta
+//!
+//! # With arguments
+//! export INSTA_DIFF_TOOL="delta --side-by-side"
+//!
+//! # Or any other diff tool
+//! export INSTA_DIFF_TOOL=difftastic
+//! ```
+//!
+//! This is a user-level setting (not project-level) since diff tool preference
+//! varies by developer. The tool is invoked as `<tool> [args...] <old_file> <new_file>`.
+//! If the tool fails to run, insta falls back to the built-in diff.
+//!
 //! # Optional: Faster Runs
 //!
 //! Insta benefits from being compiled in release mode, even as dev dependency.
@@ -277,7 +299,8 @@
 mod macros;
 mod content;
 mod env;
-mod output;
+#[doc(hidden)]
+pub mod output;
 mod runtime;
 #[cfg(feature = "serde")]
 mod serialization;

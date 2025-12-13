@@ -1106,3 +1106,101 @@ All good!
         "Should NOT create new snapshot for valid existing snapshot, got:\n{stderr}"
     );
 }
+
+/// Test that INSTA_DIFF_TOOL is used when reviewing snapshots
+#[test]
+#[cfg(unix)]
+fn test_external_diff_tool() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_external_diff")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("new content");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_external_diff__snapshot.snap",
+            r#"---
+source: src/lib.rs
+expression:
+---
+old content
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run cargo insta test with INSTA_DIFF_TOOL set to `diff`
+    // The diff output should appear in stderr (captured through print!)
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--check"])
+        .env("INSTA_DIFF_TOOL", "diff")
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // The external diff tool output should be visible in stdout
+    // `diff` outputs lines starting with < and > for differences
+    assert!(
+        stdout.contains("< old content") || stdout.contains("> new content"),
+        "Expected external diff tool output, got:\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}
+
+/// Test that INSTA_DIFF_TOOL supports arguments (e.g., "diff -u")
+#[test]
+#[cfg(unix)]
+fn test_external_diff_tool_with_args() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_diff_args")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("new content");
+}
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/snapshots/test_diff_args__snapshot.snap",
+            r#"---
+source: src/lib.rs
+expression:
+---
+old content
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Use "diff -u" for unified format (tests argument passing)
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--check"])
+        .env("INSTA_DIFF_TOOL", "diff -u")
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Unified diff format uses --- and +++ for file headers, and -/+ for changes
+    assert!(
+        stdout.contains("-old content") || stdout.contains("+new content"),
+        "Expected unified diff output (with -u flag), got:\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}
