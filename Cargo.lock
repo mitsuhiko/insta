@@ -394,6 +394,7 @@ dependencies = [
  "serde",
  "similar",
  "similar-asserts",
+ "tempfile",
  "toml_edit",
  "toml_writer",
  "walkdir",
