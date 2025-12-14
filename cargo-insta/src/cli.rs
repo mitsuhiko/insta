@@ -66,7 +66,7 @@ impl fmt::Display for ColorWhen {
 enum Command {
     /// Interactively review snapshots
     #[command(alias = "verify")]
-    Review(ProcessCommand),
+    Review(ReviewCommand),
     /// Rejects all snapshots
     Reject(ProcessCommand),
     /// Accept all snapshots
@@ -117,6 +117,12 @@ struct ProcessCommand {
     /// Do not print to stdout.
     #[arg(short = 'q', long)]
     quiet: bool,
+}
+
+#[derive(Args, Debug)]
+struct ReviewCommand {
+    #[command(flatten)]
+    process: ProcessCommand,
     /// External diff tool to use (e.g., "delta --side-by-side").
     #[arg(long, env = "INSTA_DIFF_TOOL")]
     diff_tool: Option<String>,
@@ -1481,23 +1487,27 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
 
     handle_color(opts.color);
     match opts.command {
-        Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
-            // Set diff tool env var so insta library can read it
+        Command::Review(ref cmd) => {
             if let Some(ref diff_tool) = cmd.diff_tool {
                 env::set_var("INSTA_DIFF_TOOL", diff_tool);
             }
             review_snapshots(
-                cmd.quiet,
-                cmd.snapshot_filter.as_deref(),
-                &handle_target_args(&cmd.target_args, &[])?,
-                match opts.command {
-                    Command::Review(_) => None,
-                    Command::Accept(_) => Some(Operation::Accept),
-                    Command::Reject(_) => Some(Operation::Reject),
-                    _ => unreachable!(),
-                },
+                cmd.process.quiet,
+                cmd.process.snapshot_filter.as_deref(),
+                &handle_target_args(&cmd.process.target_args, &[])?,
+                None,
             )
         }
+        Command::Accept(ref cmd) | Command::Reject(ref cmd) => review_snapshots(
+            cmd.quiet,
+            cmd.snapshot_filter.as_deref(),
+            &handle_target_args(&cmd.target_args, &[])?,
+            match opts.command {
+                Command::Accept(_) => Some(Operation::Accept),
+                Command::Reject(_) => Some(Operation::Reject),
+                _ => unreachable!(),
+            },
+        ),
         Command::Test(cmd) => test_run(cmd, opts.color.unwrap_or(ColorWhen::Auto)),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
