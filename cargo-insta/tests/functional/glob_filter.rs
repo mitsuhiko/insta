@@ -60,11 +60,11 @@ fn test_glob_snapshots() {
         names.join("\n")
     };
 
-    assert_snapshot!(get_snapshot_list(), @r###"
+    assert_snapshot!(get_snapshot_list(), @"
     test_glob_filter__glob_snapshots@apple.txt.snap
     test_glob_filter__glob_snapshots@banana.txt.snap
     test_glob_filter__glob_snapshots@cherry.txt.snap
-    "###);
+    ");
 
     // Clean and run with INSTA_GLOB_FILTER to filter to single file
     std::fs::remove_dir_all(&snapshot_dir).unwrap();

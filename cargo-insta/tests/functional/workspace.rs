@@ -88,7 +88,7 @@ fn test_root_crate_workspace_accept() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,7 +1,12 @@
@@ -144,7 +144,7 @@ fn test_root_crate_no_all() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,4 @@
@@ -245,7 +245,7 @@ fn test_virtual_manifest_all() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,9 +1,14 @@
@@ -281,7 +281,7 @@ fn test_virtual_manifest_default() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,9 +1,14 @@
@@ -317,7 +317,7 @@ fn test_virtual_manifest_single_crate() {
 
     assert!(&output.status.success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,8 +1,11 @@
@@ -676,7 +676,7 @@ fn test_hello() {
     assert!(!&output.status.success());
 
     // Verify that the snapshot was created in the correct location
-    assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
+    assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @"
     proj
       proj/Cargo.lock
       proj/Cargo.toml
@@ -699,7 +699,7 @@ fn test_hello() {
     assert!(&output.status.success());
 
     // Verify that the snapshot was created in the correct location
-    assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @r"
+    assert_snapshot!(TestProject::current_file_tree(&test_project.workspace_dir), @"
     proj
       proj/Cargo.lock
       proj/Cargo.toml
@@ -802,7 +802,7 @@ fn test_inline() {
      }
     "#);
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@
@@ -857,7 +857,7 @@ fn test_in_root() {
         .unwrap();
 
     // Assert that we only have one snapshot file
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,2 +1,5 @@
@@ -947,7 +947,7 @@ fn test_inline() {
     +    insta::assert_snapshot!("This is an inline snapshot for manifest path test", @"This is an inline snapshot for manifest path test");
      }
     "#);
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@

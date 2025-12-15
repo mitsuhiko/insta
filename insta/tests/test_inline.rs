@@ -14,7 +14,7 @@ use std::thread;
 
 #[test]
 fn test_simple() {
-    assert_debug_snapshot!(vec![1, 2, 3, 4], @r"
+    assert_debug_snapshot!(vec![1, 2, 3, 4], @"
     [
         1,
         2,
@@ -193,7 +193,7 @@ fn test_yaml_inline() {
         id: 42,
         username: "peter-pan".into(),
         email: "peterpan@wonderland.invalid".into()
-    }, @r"
+    }, @"
     id: 42
     username: peter-pan
     email: peterpan@wonderland.invalid
@@ -230,7 +230,7 @@ fn test_non_basic_plane() {
 
 #[test]
 fn test_multiline_with_empty_lines() {
-    assert_snapshot!("# first\nsecond\n  third\n\n# alternative", @r"
+    assert_snapshot!("# first\nsecond\n  third\n\n# alternative", @"
     # first
     second
       third
@@ -243,7 +243,7 @@ fn test_multiline_with_empty_lines() {
 #[test]
 fn test_compact_json() {
     assert_compact_json_snapshot!((1..30).collect::<Vec<_>>(), @"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]");
-    assert_compact_json_snapshot!((1..34).collect::<Vec<_>>(), @r"
+    assert_compact_json_snapshot!((1..34).collect::<Vec<_>>(), @"
     [
       1,
       2,
@@ -298,7 +298,7 @@ fn test_inline_test_in_loop() {
 
 #[test]
 fn test_inline_snapshot_whitespace() {
-    assert_snapshot!("\n\nfoo\n\n    bar\n\n", @r"
+    assert_snapshot!("\n\nfoo\n\n    bar\n\n", @"
 
 
     foo
@@ -309,7 +309,7 @@ fn test_inline_snapshot_whitespace() {
 
 #[test]
 fn test_indentation() {
-    assert_snapshot!("aaa\nbbb\nccc\nddd", @r"
+    assert_snapshot!("aaa\nbbb\nccc\nddd", @"
     aaa
     bbb
     ccc
