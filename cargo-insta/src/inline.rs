@@ -228,6 +228,16 @@ impl FilePatcher {
                             (span.end().line - 1, span.end().column),
                         )
                     }
+                    // Support for @{ ... } TokenStream inline snapshots
+                    TokenTree::Group(group)
+                        if matches!(group.delimiter(), proc_macro2::Delimiter::Brace) =>
+                    {
+                        let span = group.span();
+                        (
+                            (span.start().line - 1, span.start().column),
+                            (span.end().line - 1, span.end().column),
+                        )
+                    }
                     _ => return false,
                 };
 

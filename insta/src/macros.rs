@@ -612,3 +612,112 @@ macro_rules! allow_duplicates {
         })
     }
 }
+
+/// Asserts a [`proc_macro2::TokenStream`] snapshot.
+///
+/// **Feature:** `tokenstream` (disabled by default)
+///
+/// This macro compares TokenStream values for snapshot testing. For file-based
+/// snapshots, it formats the tokens using `prettier-please` for readable output,
+/// falling back to [`TokenStream::to_string()`] if formatting fails.
+///
+/// For inline snapshots using the `@{...}` syntax, comparison is semantic -
+/// TokenStreams are compared structurally, ignoring whitespace differences.
+///
+/// # Examples
+///
+/// File-based snapshot (auto-named):
+///
+/// ```no_run
+/// # use proc_macro2::TokenStream;
+/// # use quote::quote;
+/// let tokens: TokenStream = quote! {
+///     struct MyStruct {
+///         field: i32,
+///     }
+/// };
+/// insta::assert_token_snapshot!(tokens);
+/// ```
+///
+/// Named snapshot:
+///
+/// ```no_run
+/// # use proc_macro2::TokenStream;
+/// # use quote::quote;
+/// let tokens: TokenStream = quote! { fn foo() {} };
+/// insta::assert_token_snapshot!("my_function", tokens);
+/// ```
+///
+/// Inline snapshot with semantic comparison:
+///
+/// ```no_run
+/// # use proc_macro2::TokenStream;
+/// # use quote::quote;
+/// let tokens: TokenStream = quote! { struct Foo; };
+/// insta::assert_token_snapshot!(tokens, @{ struct Foo; });
+/// ```
+#[cfg(feature = "tokenstream")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokenstream")))]
+#[macro_export]
+macro_rules! assert_token_snapshot {
+    // Inline mode: value, @{ tokens }
+    ($value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
+        let ref_ts: $crate::_macro_support::proc_macro2::TokenStream =
+            $crate::_macro_support::quote::quote!( $($ref_tokens)* );
+        let value_ts: &$crate::_macro_support::proc_macro2::TokenStream = &$value;
+
+        let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(value_ts, &ref_ts);
+
+        if !tokens_match {
+            // Tokens don't match - use the standard assertion infrastructure to show diff
+            let ref_str = $crate::_macro_support::tokenstream_pretty_print(&ref_ts);
+            let val_str = $crate::_macro_support::tokenstream_pretty_print(value_ts);
+
+            $crate::_macro_support::assert_snapshot(
+                ($crate::_macro_support::InlineValue(&ref_str), val_str.as_str()).into(),
+                $crate::_get_workspace_root!().as_path(),
+                $crate::_function_name!(),
+                $crate::_macro_support::module_path!(),
+                $crate::_macro_support::file!(),
+                $crate::_macro_support::line!(),
+                stringify!($value),
+            )
+            .unwrap()
+        }
+    }};
+
+    // Named inline mode: name, value, @{ tokens }
+    ($name:expr, $value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
+        let ref_ts: $crate::_macro_support::proc_macro2::TokenStream =
+            $crate::_macro_support::quote::quote!( $($ref_tokens)* );
+        let value_ts: &$crate::_macro_support::proc_macro2::TokenStream = &$value;
+
+        let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(value_ts, &ref_ts);
+
+        if !tokens_match {
+            let ref_str = $crate::_macro_support::tokenstream_pretty_print(&ref_ts);
+            let val_str = $crate::_macro_support::tokenstream_pretty_print(value_ts);
+
+            $crate::_macro_support::assert_snapshot(
+                ($crate::_macro_support::InlineValue(&ref_str), val_str.as_str()).into(),
+                $crate::_get_workspace_root!().as_path(),
+                $crate::_function_name!(),
+                $crate::_macro_support::module_path!(),
+                $crate::_macro_support::file!(),
+                $crate::_macro_support::line!(),
+                stringify!($value),
+            )
+            .unwrap()
+        }
+    }};
+
+    // File-based mode: delegate to _assert_snapshot_base with tokenstream transform
+    ($($arg:tt)*) => {
+        $crate::_assert_snapshot_base!(
+            transform = |v: &$crate::_macro_support::proc_macro2::TokenStream| {
+                $crate::_macro_support::tokenstream_pretty_print(v)
+            },
+            $($arg)*
+        )
+    };
+}
