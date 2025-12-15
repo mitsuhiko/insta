@@ -148,6 +148,8 @@ pub struct ToolConfig {
     review_include_hidden: bool,
     #[cfg(feature = "_cargo_insta_internal")]
     review_warn_undiscovered: bool,
+    #[cfg(feature = "_cargo_insta_internal")]
+    disable_nextest_doctest: bool,
 }
 
 impl ToolConfig {
@@ -324,6 +326,10 @@ impl ToolConfig {
             review_warn_undiscovered: resolve(&cfg, &["review", "warn_undiscovered"])
                 .and_then(|x| x.as_bool())
                 .unwrap_or(true),
+            #[cfg(feature = "_cargo_insta_internal")]
+            disable_nextest_doctest: resolve(&cfg, &["test", "disable_nextest_doctest"])
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false),
         })
     }
 
@@ -392,6 +398,10 @@ impl ToolConfig {
 
     pub fn review_warn_undiscovered(&self) -> bool {
         self.review_warn_undiscovered
+    }
+
+    pub fn disable_nextest_doctest(&self) -> bool {
+        self.disable_nextest_doctest
     }
 }
 

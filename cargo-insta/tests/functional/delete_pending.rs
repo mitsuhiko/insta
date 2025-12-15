@@ -42,7 +42,7 @@ fn test_snapshot_file() {
         .status
         .success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@
@@ -66,7 +66,7 @@ fn test_snapshot_file() {
         .status
         .success());
 
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,5 @@
@@ -111,7 +111,7 @@ fn test_file_snapshot() {
         .success());
 
     // Verify the file tree has a `.snap` file
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@
@@ -152,7 +152,7 @@ fn test_file_snapshot() {
         .success());
 
     // Verify pending snapshots exist
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,8 @@
@@ -176,7 +176,7 @@ fn test_file_snapshot() {
         .success());
 
     // Pending snapshots should be deleted
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@
@@ -198,7 +198,7 @@ fn test_file_snapshot() {
         .success());
 
     // They should be back...
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,8 @@
@@ -241,7 +241,7 @@ fn test_file_snapshot() {
         .success());
 
     // Verify the pending snapshots are deleted
-    assert_snapshot!(test_project.file_tree_diff(), @r"
+    assert_snapshot!(test_project.file_tree_diff(), @"
     --- Original file tree
     +++ Updated file tree
     @@ -1,3 +1,6 @@

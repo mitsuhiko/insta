@@ -66,7 +66,7 @@ impl fmt::Display for ColorWhen {
 enum Command {
     /// Interactively review snapshots
     #[command(alias = "verify")]
-    Review(ProcessCommand),
+    Review(ReviewCommand),
     /// Rejects all snapshots
     Reject(ProcessCommand),
     /// Accept all snapshots
@@ -117,6 +117,15 @@ struct ProcessCommand {
     /// Do not print to stdout.
     #[arg(short = 'q', long)]
     quiet: bool,
+}
+
+#[derive(Args, Debug)]
+struct ReviewCommand {
+    #[command(flatten)]
+    process: ProcessCommand,
+    /// External diff tool to use (e.g., "delta --side-by-side").
+    #[arg(long, env = "INSTA_DIFF_TOOL")]
+    diff_tool: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -889,9 +898,11 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     // Note that unlike `cargo test`, `cargo test --doctest` will run doctests
     // even on crates that specify `doctests = false`. But I don't think there's
     // a way to replicate the `cargo test` behavior.
+    let disable_nextest_doctest =
+        cmd.disable_nextest_doctest || loc.tool_config.disable_nextest_doctest();
     if matches!(cmd.test_runner, TestRunner::Nextest)
         && !prevents_doc_run
-        && !cmd.disable_nextest_doctest
+        && !disable_nextest_doctest
     {
         // Check if there are doctests and show warning
         if has_doctests(&loc.packages) {
@@ -1476,19 +1487,27 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
 
     handle_color(opts.color);
     match opts.command {
-        Command::Review(ref cmd) | Command::Accept(ref cmd) | Command::Reject(ref cmd) => {
+        Command::Review(ref cmd) => {
+            if let Some(ref diff_tool) = cmd.diff_tool {
+                env::set_var("INSTA_DIFF_TOOL", diff_tool);
+            }
             review_snapshots(
-                cmd.quiet,
-                cmd.snapshot_filter.as_deref(),
-                &handle_target_args(&cmd.target_args, &[])?,
-                match opts.command {
-                    Command::Review(_) => None,
-                    Command::Accept(_) => Some(Operation::Accept),
-                    Command::Reject(_) => Some(Operation::Reject),
-                    _ => unreachable!(),
-                },
+                cmd.process.quiet,
+                cmd.process.snapshot_filter.as_deref(),
+                &handle_target_args(&cmd.process.target_args, &[])?,
+                None,
             )
         }
+        Command::Accept(ref cmd) | Command::Reject(ref cmd) => review_snapshots(
+            cmd.quiet,
+            cmd.snapshot_filter.as_deref(),
+            &handle_target_args(&cmd.target_args, &[])?,
+            match opts.command {
+                Command::Accept(_) => Some(Operation::Accept),
+                Command::Reject(_) => Some(Operation::Reject),
+                _ => unreachable!(),
+            },
+        ),
         Command::Test(cmd) => test_run(cmd, opts.color.unwrap_or(ColorWhen::Auto)),
         Command::Show(cmd) => show_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),

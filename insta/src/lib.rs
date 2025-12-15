@@ -1,4 +1,5 @@
 #![warn(clippy::doc_markdown)]
+#![warn(clippy::needless_raw_strings)]
 #![warn(rustdoc::all)]
 
 //! <div align="center">
@@ -233,6 +234,8 @@
 //!   # whether to fallback to `cargo-test` if `nextest` is not available,
 //!   # also set by INSTA_TEST_RUNNER_FALLBACK, default false
 //!   test_runner_fallback: true/false
+//!   # disable running doctests separately when using nextest
+//!   disable_nextest_doctest: true/false
 //!   # automatically assume --review was passed to cargo insta test
 //!   auto_review: true/false
 //!   # automatically assume --accept-unseen was passed to cargo insta test
@@ -248,6 +251,28 @@
 //!   # defaults to true but creates a performance hit.
 //!   warn_undiscovered: true / false
 //! ```
+//!
+//! # External Diff Tools
+//!
+//! By default, insta displays diffs inline in unified format. You can configure
+//! an external diff tool via the `INSTA_DIFF_TOOL` environment variable. When set,
+//! insta writes the old and new snapshot contents to temporary files and invokes
+//! your diff tool with those files as arguments.
+//!
+//! ```bash
+//! # Use delta for syntax-highlighted diffs
+//! export INSTA_DIFF_TOOL=delta
+//!
+//! # With arguments
+//! export INSTA_DIFF_TOOL="delta --side-by-side"
+//!
+//! # Or any other diff tool
+//! export INSTA_DIFF_TOOL=difftastic
+//! ```
+//!
+//! This is a user-level setting (not project-level) since diff tool preference
+//! varies by developer. The tool is invoked as `<tool> [args...] <old_file> <new_file>`.
+//! If the tool fails to run, insta falls back to the built-in diff.
 //!
 //! # Optional: Faster Runs
 //!
@@ -275,7 +300,8 @@
 mod macros;
 mod content;
 mod env;
-mod output;
+#[doc(hidden)]
+pub mod output;
 mod runtime;
 #[cfg(feature = "serde")]
 mod serialization;

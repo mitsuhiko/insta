@@ -1,5 +1,6 @@
 use std::borrow::Cow;
-use std::{path::Path, time::Duration};
+use std::process::Command;
+use std::{env, path::Path, time::Duration};
 
 use similar::{Algorithm, ChangeTag, TextDiff};
 
@@ -197,6 +198,16 @@ impl<'a> SnapshotPrinter<'a> {
         } {
             let old_text = old.as_deref().unwrap_or("");
             let new_text = new.as_deref().unwrap_or("");
+
+            // Check for external diff tool
+            if let Ok(tool) = env::var("INSTA_DIFF_TOOL") {
+                if !tool.is_empty()
+                    && invoke_external_diff_tool(&tool, old_text, new_text, self.snapshot_file)
+                {
+                    println!(); // Add spacing after external tool output
+                    return;
+                }
+            }
 
             let newlines_matter = newlines_matter(old_text, new_text);
             let diff = TextDiff::configure()
@@ -440,6 +451,87 @@ fn encode_file_link_escape(path: &Path) -> String {
         path.display(),
         path.display()
     )
+}
+
+/// Invokes an external diff tool with the old and new snapshot contents.
+///
+/// Returns `true` if the external tool was successfully invoked, `false` if it failed
+/// (in which case the caller should fall back to the built-in diff).
+///
+/// This function is public for testing purposes.
+#[doc(hidden)]
+pub fn invoke_external_diff_tool(
+    tool: &str,
+    old_content: &str,
+    new_content: &str,
+    snapshot_file: Option<&Path>,
+) -> bool {
+    let dir = match tempfile::tempdir() {
+        Ok(dir) => dir,
+        Err(err) => {
+            eprintln!("warning: failed to create temp dir for diff tool: {err}");
+            return false;
+        }
+    };
+
+    // Use snapshot file stem for naming (helps diff tools with syntax detection).
+    // Fall back to generic name - these are ephemeral temp files anyway.
+    let base_name = snapshot_file
+        .and_then(|p| p.file_stem())
+        .and_then(|s| s.to_str())
+        .unwrap_or("snapshot");
+    let old_path = dir.path().join(format!("{base_name}.old.snap"));
+    let new_path = dir.path().join(format!("{base_name}.new.snap"));
+
+    // Write old content
+    if let Err(err) = std::fs::write(&old_path, old_content) {
+        eprintln!("warning: failed to write old snapshot to temp file: {err}");
+        return false;
+    }
+
+    // Write new content
+    if let Err(err) = std::fs::write(&new_path, new_content) {
+        eprintln!("warning: failed to write new snapshot to temp file: {err}");
+        return false;
+    }
+
+    // Invoke the diff tool from the temp directory so paths are relative/clean.
+    // We capture stdout/stderr and print them ourselves so the output goes through
+    // the same capture mechanism as the built-in diff (important for cargo test).
+    let old_filename = old_path.file_name().unwrap();
+    let new_filename = new_path.file_name().unwrap();
+
+    // Split tool string to support arguments (e.g., "delta --side-by-side")
+    let mut parts = tool.split_whitespace();
+    let cmd = match parts.next() {
+        Some(cmd) => cmd,
+        None => return false,
+    };
+    let mut command = Command::new(cmd);
+    command.args(parts);
+    command.current_dir(dir.path());
+    command.arg(old_filename);
+    command.arg(new_filename);
+
+    match command.output() {
+        Ok(output) => {
+            // Print captured output through normal channels so it gets captured
+            // by cargo test when appropriate (just like the built-in diff)
+            if !output.stdout.is_empty() {
+                print!("{}", String::from_utf8_lossy(&output.stdout));
+            }
+            if !output.stderr.is_empty() {
+                eprint!("{}", String::from_utf8_lossy(&output.stderr));
+            }
+            // Non-zero exit is normal for diff tools when files differ
+            true
+        }
+        Err(err) => {
+            eprintln!("warning: failed to invoke diff tool `{tool}`: {err}");
+            false
+        }
+    }
+    // Temp dir is cleaned up when `dir` goes out of scope
 }
 
 #[test]

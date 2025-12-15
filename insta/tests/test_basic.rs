@@ -129,7 +129,7 @@ fn test_trailing_crlf() {
 
 #[test]
 fn test_trailing_crlf_inline() {
-    insta::assert_snapshot!("foo\r\nbar\r\nbaz\r\n", @r"
+    insta::assert_snapshot!("foo\r\nbar\r\nbaz\r\n", @"
     foo
     bar
     baz
