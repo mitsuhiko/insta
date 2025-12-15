@@ -328,6 +328,16 @@ pub enum TextSnapshotKind {
     File,
 }
 
+/// Format for inline snapshot output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InlineFormat {
+    /// Standard string literal format: `@"..."`
+    #[default]
+    Text,
+    /// TokenStream brace format: `@{ ... }`
+    Tokens,
+}
+
 /// A helper to work with file snapshots.
 #[derive(Debug, Clone)]
 pub struct Snapshot {
@@ -750,8 +760,16 @@ impl TextSnapshotContents {
 
     /// Returns the string literal, including `#` delimiters, to insert into a
     /// Rust source file.
-    pub fn to_inline(&self, indentation: &str) -> String {
+    ///
+    /// When `format` is `InlineFormat::Tokens`, outputs `{ ... }` brace format
+    /// for TokenStream snapshots instead of string literals.
+    pub fn to_inline(&self, indentation: &str, format: InlineFormat) -> String {
         let contents = self.normalize();
+
+        // For TokenStream format, output braces with the raw content
+        if matches!(format, InlineFormat::Tokens) {
+            return format!("{{ {} }}", contents);
+        }
         let mut out = String::new();
 
         let needs_escaping = Self::needs_escaped_format(&contents);
@@ -926,12 +944,12 @@ fn test_normalize_inline_snapshot() {
 
     assert_eq!(
         normalized_of_literal(
-            "
+            r#"
             1
     2
-    "
+    "#
         ),
-        "        1
+        r"        1
 2
 "
     );
@@ -943,7 +961,7 @@ fn test_normalize_inline_snapshot() {
             2
     "
         ),
-        "1
+        r"1
 2
 "
     );
@@ -972,11 +990,11 @@ fn test_normalize_inline_snapshot() {
 
     assert_eq!(
         normalized_of_literal(
-            "
+            r#"
     a
     b
 c
-    "
+    "#
         ),
         "    a
     b
@@ -1110,11 +1128,11 @@ fn test_snapshot_contents_to_inline() {
     use similar_asserts::assert_eq;
     let snapshot_contents =
         TextSnapshotContents::new("testing".to_string(), TextSnapshotKind::Inline);
-    assert_eq!(snapshot_contents.to_inline(""), r#""testing""#);
+    assert_eq!(snapshot_contents.to_inline("", InlineFormat::Text), r#""testing""#);
 
     assert_eq!(
-        TextSnapshotContents::new("\na\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        r##""
+        TextSnapshotContents::new("\na\nb".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        r##"r"
 
 a
 b
@@ -1122,8 +1140,8 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline("    "),
-        r##""
+        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline("    ", InlineFormat::Text),
+        r##"r"
     a
     b
     ""##
@@ -1131,8 +1149,8 @@ b
 
     assert_eq!(
         TextSnapshotContents::new("\n    a\n    b".to_string(), TextSnapshotKind::Inline)
-            .to_inline(""),
-        r##""
+            .to_inline("", InlineFormat::Text),
+        r##"r"
 
 a
 b
@@ -1141,8 +1159,8 @@ b
 
     assert_eq!(
         TextSnapshotContents::new("\na\n\nb".to_string(), TextSnapshotKind::Inline)
-            .to_inline("    "),
-        r##""
+            .to_inline("    ", InlineFormat::Text),
+        r##"r"
 
     a
 
@@ -1157,7 +1175,7 @@ b
             .to_string(),
             TextSnapshotKind::Inline
         )
-        .to_inline(""),
+        .to_inline("", InlineFormat::Text),
         r#""ab""#
     );
 
@@ -1168,39 +1186,36 @@ b
             .to_string(),
             TextSnapshotKind::Inline
         )
-        .to_inline(""),
+        .to_inline("", InlineFormat::Text),
         r##""    ab""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        r##""
+        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        r##"r"
 
 ab
 ""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
         r#""ab""#
     );
 
     // Test control and special characters
     assert_eq!(
-        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
         r##""a	b""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        "\"
-a\t
-b
-\""
+        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        "r\"\na\t\nb\n\""
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
         r##""a\rb""##
     );
 
@@ -1213,13 +1228,13 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
         // Nul byte is printed as `\0` in Rust string literals
         r##""a\0b""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
         // Replacement character is returned as the character in literals
         r##""a�b""##
     );
@@ -1297,12 +1312,12 @@ fn test_escaped_format_preserves_content() {
 #[test]
 fn test_snapshot_contents_hashes() {
     assert_eq!(
-        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
         r#""a###b""#
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
         r#####"r"
 a
 \###b
@@ -1328,48 +1343,48 @@ fn test_min_indentation() {
     use similar_asserts::assert_eq;
     assert_eq!(
         min_indentation(
-            "
+            r#"
    1
    2
-   ",
+   "#,
         ),
         "   ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            "
+            r#"
             1
-    2"
+    2"#
         ),
         "    ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            "
+            r#"
             1
             2
-    "
+    "#
         ),
         "            ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            "
+            r#"
    1
    2
-"
+"#
         ),
         "   ".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            "
+            r#"
         a
-    "
+    "#
         ),
         "        ".to_string()
     );
@@ -1378,20 +1393,20 @@ fn test_min_indentation() {
 
     assert_eq!(
         min_indentation(
-            "
+            r#"
     a
     b
 c
-    "
+    "#
         ),
         "".to_string()
     );
 
     assert_eq!(
         min_indentation(
-            "
+            r#"
 a
-    "
+    "#
         ),
         "".to_string()
     );
@@ -1406,34 +1421,34 @@ a
 
     assert_eq!(
         min_indentation(
-            "a
-  a"
+            r#"a
+  a"#
         ),
         "".to_string()
     );
 
     assert_eq!(
         normalize_inline(
-            "
+            r#"
 			1
-	2"
+	2"#
         ),
-        "
+        r###"
 		1
-2"
+2"###
     );
 
     assert_eq!(
         normalize_inline(
-            "
+            r#"
 	  	  1
 	  	  2
-    "
+    "#
         ),
-        "
+        r###"
 1
 2
-"
+"###
     );
 }
 
@@ -1441,53 +1456,53 @@ a
 fn test_min_indentation_additional() {
     use similar_asserts::assert_eq;
 
-    let t = "
+    let t = r#"
    1
    2
-";
+"#;
     assert_eq!(min_indentation(t), "   ".to_string());
 
-    let t = "
+    let t = r#"
         a
-    ";
+    "#;
     assert_eq!(min_indentation(t), "        ".to_string());
 
     let t = "";
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = "
+    let t = r#"
     a
     b
 c
-    ";
+    "#;
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = "
-a";
+    let t = r#"
+a"#;
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = "
-    a";
+    let t = r#"
+    a"#;
     assert_eq!(min_indentation(t), "    ".to_string());
 
-    let t = "a
-  a";
+    let t = r#"a
+  a"#;
     assert_eq!(min_indentation(t), "".to_string());
 
-    let t = "
+    let t = r#"
  	1
  	2
-    ";
+    "#;
     assert_eq!(min_indentation(t), " 	".to_string());
 
-    let t = "
+    let t = r#"
   	  	  	1
-  	2";
+  	2"#;
     assert_eq!(min_indentation(t), "  	".to_string());
 
-    let t = "
+    let t = r#"
 			1
-	2";
+	2"#;
     assert_eq!(min_indentation(t), "	".to_string());
 }
 
@@ -1504,12 +1519,12 @@ fn test_parse_yaml_error() {
     temp.push("bad.yaml");
     let mut f = fs::File::create(temp.clone()).unwrap();
 
-    let invalid = "---
+    let invalid = r#"---
     This is invalid yaml:
      {
         {
     ---
-    ";
+    "#;
 
     f.write_all(invalid.as_bytes()).unwrap();
 
@@ -1530,23 +1545,23 @@ fn test_ownership() {
 
 #[test]
 fn test_empty_lines() {
-    assert_snapshot!("single line should fit on a single line", @"single line should fit on a single line");
-    assert_snapshot!("single line should fit on a single line, even if it's really really really really really really really really really long", @"single line should fit on a single line, even if it's really really really really really really really really really long");
+    assert_snapshot!(r#"single line should fit on a single line"#, @"single line should fit on a single line");
+    assert_snapshot!(r##"single line should fit on a single line, even if it's really really really really really really really really really long"##, @"single line should fit on a single line, even if it's really really really really really really really really really long");
 
-    assert_snapshot!("multiline content starting on first line
+    assert_snapshot!(r#"multiline content starting on first line
 
     final line
-    ", @"
+    "#, @r"
     multiline content starting on first line
 
         final line
     ");
 
-    assert_snapshot!("
+    assert_snapshot!(r#"
     multiline content starting on second line
 
     final line
-    ", @"
+    "#, @r"
 
     multiline content starting on second line
 

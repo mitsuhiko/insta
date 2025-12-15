@@ -55,7 +55,7 @@ fn test_token_inline() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Verify the @{} was updated - cargo-insta converts to string format
+    // Verify the @{} was updated - cargo-insta preserves brace format
     assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
@@ -64,7 +64,7 @@ fn test_token_inline() {
      fn test_token_inline() {
          let tokens: TokenStream = quote! { struct Foo; };
     -    insta::assert_token_snapshot!(tokens, @{});
-    +    insta::assert_token_snapshot!(tokens, @"struct Foo;");
+    +    insta::assert_token_snapshot!(tokens, @{ struct Foo; });
      }
     "#);
 }

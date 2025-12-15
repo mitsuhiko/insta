@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use insta::_cargo_insta_support::TextSnapshotContents;
+use insta::InlineFormat;
 use proc_macro2::{LineColumn, TokenTree};
 
 use syn::__private::ToTokens;
@@ -15,6 +16,7 @@ struct InlineSnapshot {
     start: (usize, usize),
     end: (usize, usize),
     indentation: String,
+    format: InlineFormat,
 }
 
 #[derive(Clone)]
@@ -107,7 +109,7 @@ impl FilePatcher {
 
         // replace lines
         let snapshot_line_contents =
-            [prefix, snapshot.to_inline(&inline.indentation), suffix].join("");
+            [prefix, snapshot.to_inline(&inline.indentation, inline.format), suffix].join("");
 
         self.lines.splice(
             inline.start.0..=inline.end.0,
@@ -220,12 +222,13 @@ impl FilePatcher {
                     }
                 }
 
-                let (start, end) = match &tokens[tokens.len() - 1] {
+                let (start, end, format) = match &tokens[tokens.len() - 1] {
                     TokenTree::Literal(lit) => {
                         let span = lit.span();
                         (
                             (span.start().line - 1, span.start().column),
                             (span.end().line - 1, span.end().column),
+                            InlineFormat::Text,
                         )
                     }
                     // Support for @{ ... } TokenStream inline snapshots
@@ -236,6 +239,7 @@ impl FilePatcher {
                         (
                             (span.start().line - 1, span.start().column),
                             (span.end().line - 1, span.end().column),
+                            InlineFormat::Tokens,
                         )
                     }
                     _ => return false,
@@ -248,6 +252,7 @@ impl FilePatcher {
                         start,
                         end,
                         indentation,
+                        format,
                     },
                 ));
                 true
