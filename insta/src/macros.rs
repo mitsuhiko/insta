@@ -662,10 +662,8 @@ macro_rules! allow_duplicates {
 macro_rules! assert_token_snapshot {
     // Inline mode: value, @{ tokens }
     ($value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
-        use $crate::_macro_support::quote::ToTokens as _;
-        let ref_ts: $crate::_macro_support::proc_macro2::TokenStream =
-            $crate::_macro_support::quote::quote!( $($ref_tokens)* );
-        let value_ts = (&$value).to_token_stream();
+        let ref_ts = $crate::_macro_support::quote::quote!( $($ref_tokens)* );
+        let value_ts = $crate::_macro_support::quote::ToTokens::to_token_stream(&$value);
 
         let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(&value_ts, &ref_ts);
 
@@ -676,7 +674,7 @@ macro_rules! assert_token_snapshot {
             let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&value_ts);
 
             $crate::_macro_support::assert_snapshot(
-                ($crate::_macro_support::InlineValue(&ref_str), val_str.as_str()).into(),
+                ($crate::_macro_support::InlineValue(&ref_str), &val_str[..]).into(),
                 $crate::_get_workspace_root!().as_path(),
                 $crate::_function_name!(),
                 $crate::_macro_support::module_path!(),
@@ -690,10 +688,8 @@ macro_rules! assert_token_snapshot {
 
     // Named inline mode: name, value, @{ tokens }
     ($name:expr, $value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
-        use $crate::_macro_support::quote::ToTokens as _;
-        let ref_ts: $crate::_macro_support::proc_macro2::TokenStream =
-            $crate::_macro_support::quote::quote!( $($ref_tokens)* );
-        let value_ts = (&$value).to_token_stream();
+        let ref_ts = $crate::_macro_support::quote::quote!( $($ref_tokens)* );
+        let value_ts = $crate::_macro_support::quote::ToTokens::to_token_stream(&$value);
 
         let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(&value_ts, &ref_ts);
 
@@ -703,7 +699,8 @@ macro_rules! assert_token_snapshot {
             let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&value_ts);
 
             $crate::_macro_support::assert_snapshot(
-                ($crate::_macro_support::InlineValue(&ref_str), val_str.as_str()).into(),
+                // Use &val_str[..] instead of val_str.as_str() to avoid trait conflicts
+                ($crate::_macro_support::InlineValue(&ref_str), &val_str[..]).into(),
                 $crate::_get_workspace_root!().as_path(),
                 $crate::_function_name!(),
                 $crate::_macro_support::module_path!(),
