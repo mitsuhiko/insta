@@ -295,21 +295,24 @@ fn test_multiline() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Verify the multiline tokens were inserted with proper indentation:
-    // - Opening @{ stays on the original line
-    // - Content is indented (each line prefixed with proper whitespace)
-    // - Closing } is properly indented
-    let diff = test_project.diff("src/lib.rs");
-    assert!(
-        diff.contains("impl MyTrait for MyStruct"),
-        "Diff should contain the impl block: {}",
-        diff
-    );
-    assert!(
-        diff.contains("@{"),
-        "Diff should preserve @{{ format: {}",
-        diff
-    );
+    // Verify the multiline tokens were inserted with proper indentation
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -11,5 +11,11 @@
+                 }
+             }
+         };
+    -    insta::assert_token_snapshot!(tokens, @{});
+    +    insta::assert_token_snapshot!(tokens, @{
+    +        impl MyTrait for MyStruct {
+    +            fn method(&self) -> i32 {
+    +                42
+    +            }
+    +        }
+    +    });
+     }
+    ");
 }
 
 /// Test that single-line TokenStream uses compact format @{ content }.
