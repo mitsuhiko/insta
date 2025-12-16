@@ -65,6 +65,8 @@ pub struct ActualSettings {
     pub filters: Filters,
     #[cfg(feature = "glob")]
     pub allow_empty_glob: bool,
+    #[cfg(feature = "tokenstream")]
+    pub ignore_docs_for_tokens: bool,
 }
 
 impl Clone for ActualSettings {
@@ -85,6 +87,8 @@ impl Clone for ActualSettings {
             filters: self.filters.clone(),
             #[cfg(feature = "glob")]
             allow_empty_glob: self.allow_empty_glob,
+            #[cfg(feature = "tokenstream")]
+            ignore_docs_for_tokens: self.ignore_docs_for_tokens,
         }
     }
 }
@@ -210,6 +214,8 @@ impl Default for Settings {
                 filters: Filters::default(),
                 #[cfg(feature = "glob")]
                 allow_empty_glob: false,
+                #[cfg(feature = "tokenstream")]
+                ignore_docs_for_tokens: true,
             }),
         }
     }
@@ -286,6 +292,21 @@ impl Settings {
     #[cfg(feature = "glob")]
     pub fn allow_empty_glob(&self) -> bool {
         self.inner.allow_empty_glob
+    }
+
+    /// Sets whether doc attributes should be ignored when comparing TokenStreams.
+    ///
+    /// When enabled (the default), `#[doc = "..."]` attributes are stripped from
+    /// tokens before comparison, so documentation changes don't affect snapshots.
+    #[cfg(feature = "tokenstream")]
+    pub fn set_ignore_docs_for_tokens(&mut self, value: bool) {
+        self._private_inner_mut().ignore_docs_for_tokens = value;
+    }
+
+    /// Returns whether doc attributes are ignored when comparing TokenStreams.
+    #[cfg(feature = "tokenstream")]
+    pub fn ignore_docs_for_tokens(&self) -> bool {
+        self.inner.ignore_docs_for_tokens
     }
 
     /// Sets the snapshot suffix.

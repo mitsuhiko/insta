@@ -752,3 +752,149 @@ fn test_unclosed() {
     error: could not compile `test_tokenstream_unclosed` (lib) due to 1 previous error
     ");
 }
+
+/// Test that doc attributes are ignored when ignore_docs_for_tokens is enabled.
+/// Tokens with docs should match tokens without docs.
+#[test]
+fn test_tokenstream_ignores_docs_when_enabled() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_ignore_docs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_docs_ignored() {
+    // Tokens with doc attributes
+    let tokens: TokenStream = quote! {
+        /// This is documentation
+        struct Foo {
+            /// Field documentation
+            x: i32,
+        }
+    };
+    // Explicitly enable doc ignoring
+    let mut settings = insta::Settings::clone_current();
+    settings.set_ignore_docs_for_tokens(true);
+    settings.bind(|| {
+        // Snapshot without doc attributes - should match when docs are ignored
+        insta::assert_token_snapshot!(tokens, @{
+            struct Foo {
+                x: i32,
+            }
+        });
+    });
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Tokens with docs should match tokens without docs when ignore_docs_for_tokens is true: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // No changes should be made since tokens are semantically equal (docs ignored)
+    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
+}
+
+/// Test that when ignore_docs_for_tokens is disabled, doc differences cause mismatches.
+/// The snapshot should be updated to include the doc attributes.
+#[test]
+fn test_tokenstream_respects_docs_when_setting_disabled() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_docs_matter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_docs_not_ignored() {
+    // Tokens with doc attributes
+    let tokens: TokenStream = quote! {
+        /// This is documentation
+        struct Foo;
+    };
+    // Disable doc ignoring - docs should now matter
+    let mut settings = insta::Settings::clone_current();
+    settings.set_ignore_docs_for_tokens(false);
+    settings.bind(|| {
+        // Snapshot without doc attributes - should NOT match when setting disabled
+        insta::assert_token_snapshot!(tokens, @{ struct Foo; });
+    });
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run with --accept to update the snapshot
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // When docs are not ignored, the snapshot should be updated to include the doc attribute
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -14,6 +14,9 @@
+         settings.set_ignore_docs_for_tokens(false);
+         settings.bind(|| {
+             // Snapshot without doc attributes - should NOT match when setting disabled
+    -        insta::assert_token_snapshot!(tokens, @{ struct Foo; });
+    +        insta::assert_token_snapshot!(tokens, @{
+    +            /// This is documentation
+    +            struct Foo;
+    +        });
+         });
+     }
+    ");
+}
