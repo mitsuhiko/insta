@@ -663,53 +663,34 @@ macro_rules! assert_token_snapshot {
     // Inline mode: value, @{ tokens }
     ($value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
         let ref_ts = $crate::_macro_support::quote::quote!( $($ref_tokens)* );
-        let value_ts = $crate::_macro_support::quote::ToTokens::to_token_stream(&$value);
+        let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
 
-        let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(&value_ts, &ref_ts);
-
-        if !tokens_match {
-            // Tokens don't match - use the standard assertion infrastructure to show diff
-            // Use pretty_print_for_inline to ensure multiline content has leading newline
-            let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
-            let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&value_ts);
-
-            $crate::_macro_support::assert_snapshot(
-                ($crate::_macro_support::InlineValue(&ref_str), &val_str[..]).into(),
-                $crate::_get_workspace_root!().as_path(),
-                $crate::_function_name!(),
-                $crate::_macro_support::module_path!(),
-                $crate::_macro_support::file!(),
-                $crate::_macro_support::line!(),
-                stringify!($value),
-            )
-            .unwrap()
-        }
+        $crate::_assert_snapshot_base!(
+            transform = |v| {
+                $crate::_macro_support::tokenstream_pretty_print_for_inline(
+                    &$crate::_macro_support::quote::ToTokens::to_token_stream(v)
+                )
+            },
+            $crate::_macro_support::InlineValue(&ref_str),
+            $value
+        )
     }};
 
     // Named inline mode: name, value, @{ tokens }
+    // Note: The name is ignored for inline snapshots
     ($name:expr, $value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
         let ref_ts = $crate::_macro_support::quote::quote!( $($ref_tokens)* );
-        let value_ts = $crate::_macro_support::quote::ToTokens::to_token_stream(&$value);
+        let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
 
-        let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(&value_ts, &ref_ts);
-
-        if !tokens_match {
-            // Use pretty_print_for_inline to ensure multiline content has leading newline
-            let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
-            let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&value_ts);
-
-            $crate::_macro_support::assert_snapshot(
-                // Use &val_str[..] instead of val_str.as_str() to avoid trait conflicts
-                ($crate::_macro_support::InlineValue(&ref_str), &val_str[..]).into(),
-                $crate::_get_workspace_root!().as_path(),
-                $crate::_function_name!(),
-                $crate::_macro_support::module_path!(),
-                $crate::_macro_support::file!(),
-                $crate::_macro_support::line!(),
-                stringify!($value),
-            )
-            .unwrap()
-        }
+        $crate::_assert_snapshot_base!(
+            transform = |v| {
+                $crate::_macro_support::tokenstream_pretty_print_for_inline(
+                    &$crate::_macro_support::quote::ToTokens::to_token_stream(v)
+                )
+            },
+            $crate::_macro_support::InlineValue(&ref_str),
+            $value
+        )
     }};
 
     // File-based mode: delegate to _assert_snapshot_base with tokenstream transform
