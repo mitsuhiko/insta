@@ -676,23 +676,6 @@ macro_rules! assert_token_snapshot {
         )
     }};
 
-    // Named inline mode: name, value, @{ tokens }
-    // Note: The name is ignored for inline snapshots
-    ($name:expr, $value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
-        let ref_ts = $crate::_macro_support::quote::quote!( $($ref_tokens)* );
-        let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
-
-        $crate::_assert_snapshot_base!(
-            transform = |v| {
-                $crate::_macro_support::tokenstream_pretty_print_for_inline(
-                    &$crate::_macro_support::quote::ToTokens::to_token_stream(v)
-                )
-            },
-            $crate::_macro_support::InlineValue(&ref_str),
-            $value
-        )
-    }};
-
     // File-based mode: delegate to _assert_snapshot_base with tokenstream transform
     ($($arg:tt)*) => {
         $crate::_assert_snapshot_base!(

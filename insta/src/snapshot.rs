@@ -1265,7 +1265,7 @@ ab
     // Escaped format doesn't add a formatting newline (unlike block format).
     assert_eq!(
         TextSnapshotContents::new("\n\r foo  bar".to_string(), TextSnapshotKind::Inline)
-            .to_inline(""),
+            .to_inline("", InlineFormat::Text),
         r##""\n\r foo  bar""##
     );
 
@@ -1286,7 +1286,7 @@ ab
     // CRLF edge cases - CRLF normalizes to LF, but standalone CR is preserved
     assert_eq!(
         TextSnapshotContents::new("hello\r\nworld".to_string(), TextSnapshotKind::Inline)
-            .to_inline("    "),
+            .to_inline("    ", InlineFormat::Text),
         // CRLF becomes LF after normalization, so uses block format
         r##""
     hello
@@ -1295,7 +1295,8 @@ ab
     );
 
     assert_eq!(
-        TextSnapshotContents::new("\r\nhello".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("\r\nhello".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         // Leading CRLF normalizes to leading LF
         r##""
 
@@ -1304,7 +1305,8 @@ hello
     );
 
     assert_eq!(
-        TextSnapshotContents::new("hello\r\n".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("hello\r\n".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         // Trailing CRLF is trimmed (like all trailing whitespace)
         r##""hello""##
     );
@@ -1313,13 +1315,14 @@ hello
     // Escaped format doesn't add a formatting newline (unlike block format)
     assert_eq!(
         TextSnapshotContents::new("hello\n\rworld".to_string(), TextSnapshotKind::Inline)
-            .to_inline(""),
+            .to_inline("", InlineFormat::Text),
         r##""hello\n\rworld""##
     );
 
     // Mixed CR and CRLF
     assert_eq!(
-        TextSnapshotContents::new("a\rb\r\nc".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        TextSnapshotContents::new("a\rb\r\nc".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         // After CRLF normalization: "a\rb\nc" - has CR, uses escaped format
         r##""a\rb\nc""##
     );
