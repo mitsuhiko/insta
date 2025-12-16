@@ -6,7 +6,7 @@ use crate::{
 use once_cell::sync::Lazy;
 use std::env;
 use std::error::Error;
-use std::fmt;
+use std::fmt::{self, Write as _};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -334,7 +334,7 @@ pub enum InlineFormat {
     /// Standard string literal format: `@"..."`
     #[default]
     Text,
-    /// TokenStream brace format: `@{ ... }`
+    /// `TokenStream` brace format: `@{ ... }`
     Tokens,
 }
 
@@ -762,87 +762,96 @@ impl TextSnapshotContents {
     /// Rust source file.
     ///
     /// When `format` is `InlineFormat::Tokens`, outputs `{ ... }` brace format
-    /// for TokenStream snapshots instead of string literals.
+    /// for `TokenStream` snapshots instead of string literals.
     pub fn to_inline(&self, indentation: &str, format: InlineFormat) -> String {
         let contents = self.normalize();
 
         // For TokenStream format, output braces with the content
-        if matches!(format, InlineFormat::Tokens) {
-            let contents = contents.trim();
-            if contents.contains('\n') {
-                // Multiline: opening brace, indented content, closing brace
-                // `indentation` is the leading whitespace of the line where @{ appears
-                let indented_lines: String = contents
-                    .lines()
-                    .map(|line| {
-                        if line.is_empty() {
-                            String::new()
-                        } else {
-                            // Content is indented 4 spaces beyond @{
-                            format!("{}    {}", indentation, line)
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                // Closing brace aligns with @{
-                return format!("{{\n{}\n{}}}", indented_lines, indentation);
-            } else {
-                // Single-line: compact format
-                return format!("{{ {} }}", contents);
-            }
+        match format {
+            InlineFormat::Tokens => to_inline_tokens(indentation, contents),
+            InlineFormat::Text => to_inline_text(indentation, contents),
         }
-        let mut out = String::new();
-
-        let needs_escaping = Self::needs_escaped_format(&contents);
-
-        // We prefer raw strings for strings containing a quote or an escape
-        // character, as these would require escaping in regular strings.
-        // We can't use raw strings for control characters that need escaping.
-        // We don't use raw strings just for newlines, as they can appear
-        // literally in regular strings (avoids clippy::needless_raw_strings).
-        if !needs_escaping && contents.contains(['\\', '"']) {
-            out.push('r');
-        }
-
-        let delimiter = "#".repeat(required_hashes(&contents));
-
-        out.push_str(&delimiter);
-
-        // If escaping is needed, use Rust's Debug formatting for escape sequences.
-        // We don't attempt block mode for these (though not impossible to do so).
-        if needs_escaping {
-            out.push_str(format!("{contents:?}").as_str());
-        } else {
-            out.push('"');
-            // if we have more than one line we want to change into the block
-            // representation mode
-            if contents.contains('\n') {
-                out.extend(
-                    contents
-                        .lines()
-                        // Adds an additional newline at the start of multiline
-                        // string (not sure this is the clearest way of representing
-                        // it, but it works...)
-                        .map(|l| {
-                            format!(
-                                "\n{i}{l}",
-                                i = if l.is_empty() { "" } else { indentation },
-                                l = l
-                            )
-                        })
-                        // `lines` removes the final line ending — add back. Include
-                        // indentation so the closing delimited aligns with the full string.
-                        .chain(Some(format!("\n{indentation}"))),
-                );
-            } else {
-                out.push_str(contents.as_str());
-            }
-            out.push('"');
-        }
-
-        out.push_str(&delimiter);
-        out
     }
+}
+
+fn to_inline_text(indentation: &str, contents: String) -> String {
+    let mut out = String::new();
+
+    // Some characters can't be escaped in a raw string literal, so we need
+    // to escape the string if it contains them. We prefer escaping control
+    // characters except for newlines, tabs, and ESC.
+    let has_control_chars = contents
+        .chars()
+        .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c));
+
+    // We prefer raw strings for strings containing a quote or an escape
+    // character, and for strings containing newlines (which reduces diffs).
+    // We can't use raw strings for some control characters.
+    if !has_control_chars && contents.contains(['\\', '"', '\n']) {
+        out.push('r');
+    }
+
+    let delimiter = "#".repeat(required_hashes(&contents));
+
+    out.push_str(&delimiter);
+
+    // If there are control characters, then we have to just use a simple
+    // string with unicode escapes from the debug output. We don't attempt
+    // block mode (though not impossible to do so).
+    if has_control_chars {
+        out.push_str(format!("{contents:?}").as_str());
+    } else {
+        out.push('"');
+        // if we have more than one line we want to change into the block
+        // representation mode
+        if contents.contains('\n') {
+            out.extend(
+                contents
+                    .lines()
+                    // Adds an additional newline at the start of multiline
+                    // string (not sure this is the clearest way of representing
+                    // it, but it works...)
+                    .map(|l| {
+                        format!(
+                            "\n{i}{l}",
+                            i = if l.is_empty() { "" } else { indentation },
+                            l = l
+                        )
+                    })
+                    // `lines` removes the final line ending — add back. Include
+                    // indentation so the closing delimited aligns with the full string.
+                    .chain(Some(format!("\n{indentation}"))),
+            );
+        } else {
+            out.push_str(contents.as_str());
+        }
+        out.push('"');
+    }
+
+    out.push_str(&delimiter);
+    out
+}
+
+fn to_inline_tokens(indentation: &str, contents: String) -> String {
+    let contents = contents.trim();
+    if !contents.contains('\n') {
+        // Single-line: compact format
+        return format!("{{ {} }}", contents);
+    }
+    // Multiline: opening brace, indented content, closing brace
+    // `indentation` is the leading whitespace of the line where @{ appears
+    let mut out = "{\n".to_string();
+    for line in contents.lines() {
+        if line.is_empty() {
+            out.push('\n');
+        } else {
+            // Content is indented 4 spaces beyond @{
+            _ = writeln!(out, "{}    {}", indentation, line);
+        }
+    }
+    // Closing brace aligns with @{
+    _ = write!(out, "{indentation}}}");
+    out
 }
 
 impl fmt::Display for TextSnapshotContents {
@@ -1149,10 +1158,14 @@ fn test_snapshot_contents_to_inline() {
     use similar_asserts::assert_eq;
     let snapshot_contents =
         TextSnapshotContents::new("testing".to_string(), TextSnapshotKind::Inline);
-    assert_eq!(snapshot_contents.to_inline("", InlineFormat::Text), r#""testing""#);
+    assert_eq!(
+        snapshot_contents.to_inline("", InlineFormat::Text),
+        r#""testing""#
+    );
 
     assert_eq!(
-        TextSnapshotContents::new("\na\nb".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("\na\nb".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         r##"r"
 
 a
@@ -1161,7 +1174,8 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline).to_inline("    ", InlineFormat::Text),
+        TextSnapshotContents::new("a\nb".to_string(), TextSnapshotKind::Inline)
+            .to_inline("    ", InlineFormat::Text),
         r##"r"
     a
     b
@@ -1212,7 +1226,8 @@ b
     );
 
     assert_eq!(
-        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("\n    ab\n".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         r##"r"
 
 ab
@@ -1220,23 +1235,27 @@ ab
     );
 
     assert_eq!(
-        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         r#""ab""#
     );
 
     // Test control and special characters
     assert_eq!(
-        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("a\tb".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         r##""a	b""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("a\t\nb".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         "r\"\na\t\nb\n\""
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         r##""a\rb""##
     );
 
@@ -1249,13 +1268,15 @@ ab
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("a\0b".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         // Nul byte is printed as `\0` in Rust string literals
         r##""a\0b""##
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         // Replacement character is returned as the character in literals
         r##""a�b""##
     );
@@ -1333,12 +1354,14 @@ fn test_escaped_format_preserves_content() {
 #[test]
 fn test_snapshot_contents_hashes() {
     assert_eq!(
-        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("a###b".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         r#""a###b""#
     );
 
     assert_eq!(
-        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline).to_inline("", InlineFormat::Text),
+        TextSnapshotContents::new("a\n\\###b".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Text),
         r#####"r"
 a
 \###b

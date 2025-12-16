@@ -4,8 +4,8 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use insta::_cargo_insta_support::TextSnapshotContents;
 use insta::InlineFormat;
+use insta::_cargo_insta_support::TextSnapshotContents;
 use proc_macro2::{LineColumn, TokenTree};
 
 use syn::__private::ToTokens;
@@ -108,8 +108,12 @@ impl FilePatcher {
             .collect();
 
         // replace lines
-        let snapshot_line_contents =
-            [prefix, snapshot.to_inline(&inline.indentation, inline.format), suffix].join("");
+        let snapshot_line_contents = [
+            prefix,
+            snapshot.to_inline(&inline.indentation, inline.format),
+            suffix,
+        ]
+        .join("");
 
         self.lines.splice(
             inline.start.0..=inline.end.0,

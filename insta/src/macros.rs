@@ -617,12 +617,12 @@ macro_rules! allow_duplicates {
 ///
 /// **Feature:** `tokenstream` (disabled by default)
 ///
-/// This macro compares TokenStream values for snapshot testing. For file-based
+/// This macro compares `TokenStream` values for snapshot testing. For file-based
 /// snapshots, it formats the tokens using `prettier-please` for readable output,
 /// falling back to [`TokenStream::to_string()`] if formatting fails.
 ///
 /// For inline snapshots using the `@{...}` syntax, comparison is semantic -
-/// TokenStreams are compared structurally, ignoring whitespace differences.
+/// `TokenStream`s are compared structurally, ignoring whitespace differences.
 ///
 /// # Examples
 ///
