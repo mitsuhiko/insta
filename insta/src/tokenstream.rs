@@ -153,9 +153,7 @@ mod tests {
                 field: i32,
             }
         };
-        let mut settings = crate::Settings::clone_current();
-        settings.set_ignore_docs_for_tokens(true);
-        settings.bind(|| {
+        crate::with_settings!({ignore_docs_for_tokens => true}, {
             assert_snapshot!(pretty_print(&tokens), @r"
             struct MyStruct {
                 field: i32,
@@ -173,9 +171,7 @@ mod tests {
                 field: i32,
             }
         };
-        let mut settings = crate::Settings::clone_current();
-        settings.set_ignore_docs_for_tokens(false);
-        settings.bind(|| {
+        crate::with_settings!({ignore_docs_for_tokens => false}, {
             assert_snapshot!(pretty_print(&tokens), @r"
             /// This is a struct
             struct MyStruct {
@@ -249,9 +245,7 @@ mod tests {
                 x: i32,
             }
         };
-        let mut settings = crate::Settings::clone_current();
-        settings.set_ignore_docs_for_tokens(true);
-        settings.bind(|| {
+        crate::with_settings!({ignore_docs_for_tokens => true}, {
             assert!(tokens_equal(&with_docs, &without_docs));
         });
     }
@@ -265,10 +259,7 @@ mod tests {
         let without_docs = quote! {
             struct Foo;
         };
-
-        let mut settings = crate::Settings::clone_current();
-        settings.set_ignore_docs_for_tokens(false);
-        settings.bind(|| {
+        crate::with_settings!({ignore_docs_for_tokens => false}, {
             assert!(!tokens_equal(&with_docs, &without_docs));
         });
     }

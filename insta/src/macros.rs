@@ -662,17 +662,18 @@ macro_rules! allow_duplicates {
 macro_rules! assert_token_snapshot {
     // Inline mode: value, @{ tokens }
     ($value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
+        use $crate::_macro_support::quote::ToTokens as _;
         let ref_ts: $crate::_macro_support::proc_macro2::TokenStream =
             $crate::_macro_support::quote::quote!( $($ref_tokens)* );
-        let value_ts: &$crate::_macro_support::proc_macro2::TokenStream = &$value;
+        let value_ts = (&$value).to_token_stream();
 
-        let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(value_ts, &ref_ts);
+        let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(&value_ts, &ref_ts);
 
         if !tokens_match {
             // Tokens don't match - use the standard assertion infrastructure to show diff
             // Use pretty_print_for_inline to ensure multiline content has leading newline
             let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
-            let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(value_ts);
+            let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&value_ts);
 
             $crate::_macro_support::assert_snapshot(
                 ($crate::_macro_support::InlineValue(&ref_str), val_str.as_str()).into(),
@@ -689,16 +690,17 @@ macro_rules! assert_token_snapshot {
 
     // Named inline mode: name, value, @{ tokens }
     ($name:expr, $value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
+        use $crate::_macro_support::quote::ToTokens as _;
         let ref_ts: $crate::_macro_support::proc_macro2::TokenStream =
             $crate::_macro_support::quote::quote!( $($ref_tokens)* );
-        let value_ts: &$crate::_macro_support::proc_macro2::TokenStream = &$value;
+        let value_ts = (&$value).to_token_stream();
 
-        let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(value_ts, &ref_ts);
+        let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(&value_ts, &ref_ts);
 
         if !tokens_match {
             // Use pretty_print_for_inline to ensure multiline content has leading newline
             let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
-            let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(value_ts);
+            let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&value_ts);
 
             $crate::_macro_support::assert_snapshot(
                 ($crate::_macro_support::InlineValue(&ref_str), val_str.as_str()).into(),
@@ -716,8 +718,10 @@ macro_rules! assert_token_snapshot {
     // File-based mode: delegate to _assert_snapshot_base with tokenstream transform
     ($($arg:tt)*) => {
         $crate::_assert_snapshot_base!(
-            transform = |v: &$crate::_macro_support::proc_macro2::TokenStream| {
-                $crate::_macro_support::tokenstream_pretty_print(v)
+            transform = |v| {
+                $crate::_macro_support::tokenstream_pretty_print(
+                    &$crate::_macro_support::quote::ToTokens::to_token_stream(v)
+                )
             },
             $($arg)*
         )

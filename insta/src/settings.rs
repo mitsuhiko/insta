@@ -160,6 +160,11 @@ impl ActualSettings {
     pub fn allow_empty_glob(&mut self, value: bool) {
         self.allow_empty_glob = value;
     }
+
+    #[cfg(feature = "tokenstream")]
+    pub fn ignore_docs_for_tokens(&mut self, value: bool) {
+        self.ignore_docs_for_tokens = value;
+    }
 }
 
 /// Configures how insta operates at test time.

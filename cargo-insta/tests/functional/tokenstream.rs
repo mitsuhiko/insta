@@ -789,10 +789,8 @@ fn test_docs_ignored() {
             x: i32,
         }
     };
-    // Explicitly enable doc ignoring
-    let mut settings = insta::Settings::clone_current();
-    settings.set_ignore_docs_for_tokens(true);
-    settings.bind(|| {
+    // Explicitly enable doc ignoring using with_settings!
+    insta::with_settings!({ignore_docs_for_tokens => true}, {
         // Snapshot without doc attributes - should match when docs are ignored
         insta::assert_token_snapshot!(tokens, @{
             struct Foo {
@@ -855,10 +853,8 @@ fn test_docs_not_ignored() {
         /// This is documentation
         struct Foo;
     };
-    // Disable doc ignoring - docs should now matter
-    let mut settings = insta::Settings::clone_current();
-    settings.set_ignore_docs_for_tokens(false);
-    settings.bind(|| {
+    // Disable doc ignoring using with_settings! - docs should now matter
+    insta::with_settings!({ignore_docs_for_tokens => false}, {
         // Snapshot without doc attributes - should NOT match when setting disabled
         insta::assert_token_snapshot!(tokens, @{ struct Foo; });
     });
@@ -882,12 +878,13 @@ fn test_docs_not_ignored() {
     );
 
     // When docs are not ignored, the snapshot should be updated to include the doc attribute
+    // Use cargo insta to accept the expected diff
     assert_snapshot!(test_project.diff("src/lib.rs"), @r"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
-    @@ -14,6 +14,9 @@
-         settings.set_ignore_docs_for_tokens(false);
-         settings.bind(|| {
+    @@ -12,6 +12,9 @@
+         // Disable doc ignoring using with_settings! - docs should now matter
+         insta::with_settings!({ignore_docs_for_tokens => false}, {
              // Snapshot without doc attributes - should NOT match when setting disabled
     -        insta::assert_token_snapshot!(tokens, @{ struct Foo; });
     +        insta::assert_token_snapshot!(tokens, @{
@@ -895,6 +892,98 @@ fn test_docs_not_ignored() {
     +            struct Foo;
     +        });
          });
+     }
+    ");
+}
+
+/// Test that assert_token_snapshot! accepts any type implementing ToTokens,
+/// not just proc_macro2::TokenStream.
+#[test]
+fn test_tokenstream_accepts_to_tokens_types() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_to_tokens"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use quote::quote;
+
+#[test]
+fn test_syn_item_struct() {
+    // Parse a struct using syn - this returns syn::ItemStruct, not TokenStream
+    let item: syn::ItemStruct = syn::parse_quote! {
+        struct MyStruct {
+            field: i32,
+        }
+    };
+    
+    // assert_token_snapshot! should accept syn::ItemStruct directly
+    // since it implements ToTokens
+    insta::assert_token_snapshot!(item, @{});
+}
+
+#[test]
+fn test_syn_expr() {
+    // Parse an expression using syn
+    let expr: syn::Expr = syn::parse_quote! {
+        1 + 2 * 3
+    };
+    
+    insta::assert_token_snapshot!(expr, @{});
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Verify the snapshots were populated correctly
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -12,7 +12,11 @@
+         
+         // assert_token_snapshot! should accept syn::ItemStruct directly
+         // since it implements ToTokens
+    -    insta::assert_token_snapshot!(item, @{});
+    +    insta::assert_token_snapshot!(item, @{
+    +        struct MyStruct {
+    +            field: i32,
+    +        }
+    +    });
+     }
+     
+     #[test]
+    @@ -22,5 +26,5 @@
+             1 + 2 * 3
+         };
+         
+    -    insta::assert_token_snapshot!(expr, @{});
+    +    insta::assert_token_snapshot!(expr, @{ 1 + 2 * 3 });
      }
     ");
 }
