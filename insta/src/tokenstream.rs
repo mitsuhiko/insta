@@ -100,6 +100,12 @@ mod tests {
     }
 
     #[test]
+    fn test_pretty_print_non_expression() {
+        let tokens = quote! { Vec<u8> };
+        assert_snapshot!(pretty_print(&tokens), @"Vec < u8 >");
+    }
+
+    #[test]
     fn test_tokens_equal_identical() {
         let a = quote! { struct Foo; };
         let b = quote! { struct Foo; };
@@ -112,6 +118,13 @@ mod tests {
         let b = quote! { struct Foo{x:i32} };
         // After normalization via TokenStream, these should be equal
         // Note: quote! already normalizes, so this tests the round-trip
+        assert!(tokens_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_tokens_equal_whitepace_difference_non_expr() {
+        let a = quote! { Vec < u8 > };
+        let b = quote! { Vec<u8> };
         assert!(tokens_equal(&a, &b));
     }
 

@@ -518,3 +518,118 @@ fn test_separate() {
      }
     ");
 }
+
+/// Test TokenStream snapshot with non-expression tokens (fallback to TokenStream::to_string).
+/// Tokens like `Vec<u8>` are not valid expressions or items, so pretty-printing falls back.
+#[test]
+fn test_tokenstream_non_expression_fallback() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_non_expr"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_non_expr() {
+    // Vec<u8> is not a valid expression or item, falls back to TokenStream::to_string()
+    let tokens: TokenStream = quote! { Vec<u8> };
+    insta::assert_token_snapshot!(tokens, @{});
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // TokenStream::to_string() adds spaces around angle brackets
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -6,5 +6,5 @@
+     fn test_non_expr() {
+         // Vec<u8> is not a valid expression or item, falls back to TokenStream::to_string()
+         let tokens: TokenStream = quote! { Vec<u8> };
+    -    insta::assert_token_snapshot!(tokens, @{});
+    +    insta::assert_token_snapshot!(tokens, @{ Vec < u8 > });
+     }
+    "#);
+}
+
+/// Test that non-expression tokens compare semantically (whitespace ignored).
+#[test]
+fn test_tokenstream_non_expression_semantic_comparison() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_non_expr_semantic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_non_expr_semantic() {
+    // The snapshot has spaces but quote! normalizes them - should still match
+    let tokens: TokenStream = quote! { Vec<u8> };
+    insta::assert_token_snapshot!(tokens, @{ Vec < u8 > });
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Non-expression tokens should match semantically: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // No changes - tokens match semantically
+    assert_snapshot!(test_project.diff("src/lib.rs"), @"");
+}
