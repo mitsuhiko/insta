@@ -242,7 +242,7 @@ fn test_semantic() {
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
 }
 
-/// Test multiline TokenStream inline snapshot.
+/// Test multiline TokenStream inline snapshot with proper indentation.
 #[test]
 fn test_tokenstream_multiline_inline() {
     let test_project = TestFiles::new()
@@ -295,10 +295,223 @@ fn test_multiline() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Verify the multiline tokens were inserted
+    // Verify the multiline tokens were inserted with proper indentation:
+    // - Opening @{ stays on the original line
+    // - Content is indented (each line prefixed with proper whitespace)
+    // - Closing } is properly indented
     let diff = test_project.diff("src/lib.rs");
     assert!(
         diff.contains("impl MyTrait for MyStruct"),
-        "Diff should contain the impl block"
+        "Diff should contain the impl block: {}",
+        diff
     );
+    assert!(
+        diff.contains("@{"),
+        "Diff should preserve @{{ format: {}",
+        diff
+    );
+}
+
+/// Test that single-line TokenStream uses compact format @{ content }.
+#[test]
+fn test_tokenstream_single_line_compact_format() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_single_line"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_single() {
+    let tokens: TokenStream = quote! { struct Foo; };
+    insta::assert_token_snapshot!(tokens, @{});
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Verify single-line content stays compact on one line
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -5,5 +5,5 @@
+     #[test]
+     fn test_single() {
+         let tokens: TokenStream = quote! { struct Foo; };
+    -    insta::assert_token_snapshot!(tokens, @{});
+    +    insta::assert_token_snapshot!(tokens, @{ struct Foo; });
+     }
+    "#);
+}
+
+/// Test that multiline TokenStream content gets proper indentation formatting.
+#[test]
+fn test_tokenstream_multiline_indentation() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_multiline_indent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_multiline_indent() {
+    let tokens: TokenStream = quote! {
+        pub struct Foo;
+        pub struct Bar;
+    };
+    insta::assert_token_snapshot!(tokens, @{});
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Verify multiline content is properly indented:
+    // - Opening brace { on its own line after @
+    // - Each content line indented 4 spaces beyond @{ line's leading whitespace
+    // - Closing brace } aligns with @{ line's leading whitespace
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -8,5 +8,8 @@
+             pub struct Foo;
+             pub struct Bar;
+         };
+    -    insta::assert_token_snapshot!(tokens, @{});
+    +    insta::assert_token_snapshot!(tokens, @{
+    +        pub struct Foo;
+    +        pub struct Bar;
+    +    });
+     }
+    ");
+}
+
+/// Test that multiline TokenStream with @{ on separate line gets deeper indentation.
+#[test]
+fn test_tokenstream_multiline_separate_line() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_separate_line"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_separate() {
+    let tokens: TokenStream = quote! {
+        pub struct Foo;
+        pub struct Bar;
+    };
+    // Multi-line macro call with @{ on a separate, more indented line
+    insta::assert_token_snapshot!(
+        tokens,
+        @{}
+    );
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // When @{ is on a separate line (indented 8 spaces), content gets 12 spaces
+    // and closing brace gets 8 spaces (aligns with @{)
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -11,6 +11,9 @@
+         // Multi-line macro call with @{ on a separate, more indented line
+         insta::assert_token_snapshot!(
+             tokens,
+    -        @{}
+    +        @{
+    +            pub struct Foo;
+    +            pub struct Bar;
+    +        }
+         );
+     }
+    ");
 }

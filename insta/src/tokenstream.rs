@@ -5,6 +5,21 @@
 
 use proc_macro2::TokenStream;
 
+/// Pretty-print a `TokenStream` for use as an inline snapshot value.
+///
+/// This formats the tokens nicely and ensures the output follows insta's
+/// inline snapshot conventions: multiline content starts with a leading
+/// newline so it aligns properly in the source file.
+pub fn pretty_print_for_inline(tokens: &TokenStream) -> String {
+    let pretty = pretty_print(tokens);
+    // Multiline inline snapshots must start with a newline
+    if pretty.contains('\n') {
+        format!("\n{}\n", pretty.trim_end())
+    } else {
+        pretty
+    }
+}
+
 /// Pretty-print a `TokenStream` using `prettier-please`, falling back to
 /// [`TokenStream::to_string()`] if formatting fails.
 ///

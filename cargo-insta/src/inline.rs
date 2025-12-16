@@ -245,6 +245,17 @@ impl FilePatcher {
                     _ => return false,
                 };
 
+                // For TokenStream format, use the leading whitespace of the line where @{ appears
+                // This ensures proper indentation whether @{ is on the same line as the macro or not
+                let indentation = if format == InlineFormat::Tokens {
+                    self.2[start.0]
+                        .chars()
+                        .take_while(|c| c.is_whitespace())
+                        .collect()
+                } else {
+                    indentation
+                };
+
                 self.1.push((
                     macro_start,
                     macro_end,

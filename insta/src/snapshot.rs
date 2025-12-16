@@ -766,9 +766,30 @@ impl TextSnapshotContents {
     pub fn to_inline(&self, indentation: &str, format: InlineFormat) -> String {
         let contents = self.normalize();
 
-        // For TokenStream format, output braces with the raw content
+        // For TokenStream format, output braces with the content
         if matches!(format, InlineFormat::Tokens) {
-            return format!("{{ {} }}", contents);
+            let contents = contents.trim();
+            if contents.contains('\n') {
+                // Multiline: opening brace, indented content, closing brace
+                // `indentation` is the leading whitespace of the line where @{ appears
+                let indented_lines: String = contents
+                    .lines()
+                    .map(|line| {
+                        if line.is_empty() {
+                            String::new()
+                        } else {
+                            // Content is indented 4 spaces beyond @{
+                            format!("{}    {}", indentation, line)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                // Closing brace aligns with @{
+                return format!("{{\n{}\n{}}}", indented_lines, indentation);
+            } else {
+                // Single-line: compact format
+                return format!("{{ {} }}", contents);
+            }
         }
         let mut out = String::new();
 

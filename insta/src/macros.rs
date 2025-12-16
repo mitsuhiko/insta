@@ -670,8 +670,9 @@ macro_rules! assert_token_snapshot {
 
         if !tokens_match {
             // Tokens don't match - use the standard assertion infrastructure to show diff
-            let ref_str = $crate::_macro_support::tokenstream_pretty_print(&ref_ts);
-            let val_str = $crate::_macro_support::tokenstream_pretty_print(value_ts);
+            // Use pretty_print_for_inline to ensure multiline content has leading newline
+            let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
+            let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(value_ts);
 
             $crate::_macro_support::assert_snapshot(
                 ($crate::_macro_support::InlineValue(&ref_str), val_str.as_str()).into(),
@@ -695,8 +696,9 @@ macro_rules! assert_token_snapshot {
         let tokens_match = $crate::_macro_support::tokenstream_tokens_equal(value_ts, &ref_ts);
 
         if !tokens_match {
-            let ref_str = $crate::_macro_support::tokenstream_pretty_print(&ref_ts);
-            let val_str = $crate::_macro_support::tokenstream_pretty_print(value_ts);
+            // Use pretty_print_for_inline to ensure multiline content has leading newline
+            let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
+            let val_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(value_ts);
 
             $crate::_macro_support::assert_snapshot(
                 ($crate::_macro_support::InlineValue(&ref_str), val_str.as_str()).into(),
