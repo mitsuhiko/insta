@@ -633,3 +633,122 @@ fn test_non_expr_semantic() {
     // No changes - tokens match semantically
     assert_snapshot!(test_project.diff("src/lib.rs"), @"");
 }
+
+/// Test that untokenizable content inside @{} causes a compilation error.
+/// An unclosed string literal cannot be tokenized.
+#[test]
+fn test_tokenstream_unclosed_string_fails_to_compile() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_invalid"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r####"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_invalid() {
+    let tokens: TokenStream = quote! { struct Foo; };
+    // Unclosed string literal - should fail to compile
+    insta::assert_token_snapshot!(tokens, @{ "unclosed string });
+}
+"####
+                .to_string(),
+        )
+        .create_project();
+
+    // Run cargo build -q to capture only compilation errors
+    let output = std::process::Command::new("cargo")
+        .args(["build", "-q"])
+        .current_dir(&test_project.workspace_dir)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_snapshot!(stderr, @r#"
+    error[E0765]: unterminated double quote string
+      --> src/lib.rs:9:46
+       |
+     9 |       insta::assert_token_snapshot!(tokens, @{ "unclosed string });
+       |  ______________________________________________^
+    10 | | }
+       | |__^
+
+    For more information about this error, try `rustc --explain E0765`.
+    error: could not compile `test_tokenstream_invalid` (lib) due to 1 previous error
+    "#);
+}
+
+/// Test that unclosed delimiters inside @{} cause a compilation error.
+#[test]
+fn test_tokenstream_unclosed_delimiter_fails_to_compile() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_tokenstream_unclosed"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH', features = ["tokenstream"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+use proc_macro2::TokenStream;
+use quote::quote;
+
+#[test]
+fn test_unclosed() {
+    let tokens: TokenStream = quote! { struct Foo; };
+    // Unclosed paren should fail to compile
+    insta::assert_token_snapshot!(tokens, @{ fn foo( });
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Run cargo build -q to capture only compilation errors
+    let output = std::process::Command::new("cargo")
+        .args(["build", "-q"])
+        .current_dir(&test_project.workspace_dir)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_snapshot!(stderr, @r"
+    error: mismatched closing delimiter: `}`
+     --> src/lib.rs:9:52
+      |
+    9 |     insta::assert_token_snapshot!(tokens, @{ fn foo( });
+      |                                            -       ^ ^ mismatched closing delimiter
+      |                                            |       |
+      |                                            |       unclosed delimiter
+      |                                            closing delimiter possibly meant for this
+
+    error: could not compile `test_tokenstream_unclosed` (lib) due to 1 previous error
+    ");
+}
