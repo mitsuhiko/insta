@@ -79,16 +79,17 @@ mod tests {
                 field: i32,
             }
         };
-        let pretty = pretty_print(&tokens);
-        assert!(pretty.contains("struct MyStruct"));
-        assert!(pretty.contains("field: i32"));
+        assert_snapshot!(pretty_print(&tokens), @r"
+        struct MyStruct {
+            field: i32,
+        }
+        ");
     }
 
     #[test]
     fn test_pretty_print_expression() {
         let tokens = quote! { 1 + 2 };
-        let pretty = pretty_print(&tokens);
-        assert!(pretty.contains("1") && pretty.contains("2"));
+        assert_snapshot!(pretty_print(&tokens), @"1 + 2");
     }
 
     #[test]
