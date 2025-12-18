@@ -1005,6 +1005,24 @@ fn test_run(mut cmd: TestCommand, color: ColorWhen) -> Result<(), Box<dyn Error>
     }
 }
 
+/// Quick check if a file is likely an insta snapshot by checking for the
+/// `---\nsource:` prefix. This distinguishes insta snapshots from other
+/// snapshot formats (e.g., vitest, jest) that may use the same `.snap` extension.
+///
+/// Only reads 16 bytes for efficiency (longest pattern is 13 bytes for CRLF).
+fn is_likely_insta_snapshot(path: &Path) -> bool {
+    use io::Read;
+    let mut buf = [0u8; 16];
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
+    let Ok(n) = file.read(&mut buf) else {
+        return false;
+    };
+    let s = &buf[..n];
+    s.starts_with(b"---\nsource:") || s.starts_with(b"---\r\nsource:")
+}
+
 /// Scan for any snapshots that were not referenced by any test.
 fn handle_unreferenced_snapshots(
     snapshot_ref_path: &Path,
@@ -1072,7 +1090,9 @@ fn handle_unreferenced_snapshots(
             path.extension()
                 .map(|x| x != "new" && x != "pending-snap")
                 .unwrap_or(true)
-        });
+        })
+        // skip files that don't look like insta snapshots (e.g., vitest .snap files)
+        .filter(|path| is_likely_insta_snapshot(path));
 
         for path in unreferenced_snapshots {
             if !encountered_any {
