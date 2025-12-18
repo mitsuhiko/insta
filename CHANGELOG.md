@@ -2,6 +2,15 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.45.0
+
+- Add external diff tool support via `INSTA_DIFF_TOOL` environment variable. When set, insta uses the specified tool (e.g., `delta`, `difftastic`) to display snapshot diffs instead of the built-in diff. The tool is invoked as `<tool> <old_file> <new_file>`. #844
+- Add `test.disable_nextest_doctest` config option to `insta.yaml`, allowing users to silence the nextest doctest warning via config instead of passing `--dnd` every time. #842
+- Skip non-insta snapshot files in unreferenced detection. Projects using both insta and other snapshot tools (like vitest or jest) can now use `--unreferenced=reject` without false positives on `.snap` files from other tools. #846
+- Collect warnings from tests for display after run. Ensures deprecation warnings are visible even when nextest suppresses stdout/stderr from passing tests. #840
+- Update TOML serialization to be up-to-date and backwards-compatible. #834
+- Support `clippy::needless_raw_strings` lint by only using raw strings when content contains backslashes or quotes. #828
+
 ## 1.44.3
 
 - Fix a regression in 1.44.2 where merge conflict detection was too aggressive, incorrectly flagging snapshot content containing `======` or similar patterns as conflicts. #832
