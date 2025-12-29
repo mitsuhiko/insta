@@ -1,7 +1,7 @@
 //! Tests for TOML serialization in insta.
 //!
 //! These tests verify:
-//! - Backward compatibility (single-quoted strings via SingleQuoter)
+//! - Backward compatibility (single-quoted strings via Pretty)
 //! - Support for types that toml 0.5.x couldn't serialize (issue #439)
 //! - Proper handling of special characters, escapes, and edge cases
 
@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 // The old `toml` 0.5.x crate used single-quoted (literal) strings by default.
 // The new `toml_edit` crate uses double-quoted (basic) strings by default.
 //
-// To maintain backward compatibility with existing snapshots, the SingleQuoter
+// To maintain backward compatibility with existing snapshots, the Pretty
 // visitor converts strings back to single-quoted format where possible.
 //
 // This is CRITICAL because changing quote style would break every existing
@@ -65,10 +65,10 @@ fn test_toml_backward_compat_quote_fallback() {
         with_newline: "line1\nline2".into(),
     }, @r#"
     simple = 'hello world'
-    with_apostrophe = "it's here"
-    with_newline = """
+    with_apostrophe = '''it's here'''
+    with_newline = '''
     line1
-    line2"""
+    line2'''
     "#);
 }
 
@@ -90,7 +90,7 @@ fn test_toml_issue_439_unit_struct_variant() {
 
     // This would PANIC with toml 0.5.x: "UnsupportedType"
     // Now it works with toml_edit
-    assert_toml_snapshot!(Config { value: MyEnum::Variant1 {} }, @"value = { Variant1 = {} }");
+    assert_toml_snapshot!(Config { value: MyEnum::Variant1 {} }, @"[value.Variant1]");
 }
 
 // =============================================================================
@@ -161,7 +161,7 @@ fn test_toml_integer_boundaries() {
 }
 
 // =============================================================================
-// String Handling - SingleQuoter Backward Compatibility
+// String Handling - Pretty Backward Compatibility
 // =============================================================================
 
 #[test]
@@ -184,8 +184,8 @@ fn test_toml_string_quoting() {
     }, @r#"
     simple = 'hello'
     with_double_quotes = 'He said "Hello"'
-    with_single_quotes = "It's working"
-    with_both_quotes = """He said "It's done""""
+    with_single_quotes = '''It's working'''
+    with_both_quotes = '''He said "It's done"'''
     empty = ''
     "#);
 }
@@ -206,9 +206,9 @@ fn test_toml_string_escapes() {
         with_backslash: "path\\to\\file".into(),
         with_null: "hello\0world".into(),
     }, @r#"
-    with_newline = """
+    with_newline = '''
     line1
-    line2"""
+    line2'''
     with_tab = 'col1	col2'
     with_backslash = 'path\to\file'
     with_null = "hello\u0000world"
@@ -257,7 +257,9 @@ fn test_toml_nested_struct() {
         inner: Inner { value: 42 },
     }, @r"
     name = 'test'
-    inner = { value = 42 }
+
+    [inner]
+    value = 42
     ");
 }
 
@@ -271,7 +273,7 @@ fn test_toml_empty_struct() {
         empty: Empty,
     }
 
-    assert_toml_snapshot!(Container { empty: Empty {} }, @"empty = {}");
+    assert_toml_snapshot!(Container { empty: Empty {} }, @"[empty]");
 }
 
 /// Unit structs are NOT supported by TOML - this documents the limitation
@@ -324,10 +326,33 @@ fn test_toml_arrays() {
         nested: vec![vec![1, 2], vec![3, 4]],
     }, @r"
     empty = []
-    numbers = [1, 2, 3]
-    strings = ['a', 'b']
-    structs = [{ id = 1, name = 'first' }, { id = 2, name = 'second' }]
-    nested = [[1, 2], [3, 4]]
+    numbers = [
+        1,
+        2,
+        3,
+    ]
+    strings = [
+        'a',
+        'b',
+    ]
+    nested = [
+        [
+        1,
+        2,
+    ],
+        [
+        3,
+        4,
+    ],
+    ]
+
+    [[structs]]
+    id = 1
+    name = 'first'
+
+    [[structs]]
+    id = 2
+    name = 'second'
     ");
 }
 
@@ -340,7 +365,14 @@ fn test_toml_special_floats_in_array() {
 
     assert_toml_snapshot!(Data {
         floats: vec![1.5, f64::NAN, f64::INFINITY, f64::NEG_INFINITY],
-    }, @"floats = [1.5, nan, inf, -inf]");
+    }, @r"
+    floats = [
+        1.5,
+        nan,
+        inf,
+        -inf,
+    ]
+    ");
 }
 
 // =============================================================================
@@ -365,8 +397,11 @@ fn test_toml_maps() {
     }
 
     assert_toml_snapshot!(Data { simple, nested }, @r"
-    simple = { alpha = 1, beta = 2 }
-    nested = { coords = { x = 10 } }
+    [simple]
+    alpha = 1
+    beta = 2
+    [nested.coords]
+    x = 10
     ");
 }
 
@@ -381,7 +416,11 @@ fn test_toml_integer_keys() {
         items: BTreeMap<i32, &'static str>,
     }
 
-    assert_toml_snapshot!(Data { items: map }, @"items = { 1 = 'first', 10 = 'tenth' }");
+    assert_toml_snapshot!(Data { items: map }, @r"
+    [items]
+    1 = 'first'
+    10 = 'tenth'
+    ");
 }
 
 // =============================================================================
@@ -403,7 +442,15 @@ fn test_toml_special_keys() {
         items: BTreeMap<&'static str, &'static str>,
     }
 
-    assert_toml_snapshot!(Data { items: map }, @r#"items = { "" = 'empty key', "[section]" = 'brackets', "it's" = 'single quote', "key with spaces" = 'spaces', "key=value" = 'equals', "some.dotted.key" = 'dotted' }"#);
+    assert_toml_snapshot!(Data { items: map }, @r#"
+    [items]
+    "" = 'empty key'
+    "[section]" = 'brackets'
+    "it's" = 'single quote'
+    "key with spaces" = 'spaces'
+    "key=value" = 'equals'
+    "some.dotted.key" = 'dotted'
+    "#);
 }
 
 #[test]
@@ -418,7 +465,12 @@ fn test_toml_unicode_keys() {
         items: BTreeMap<&'static str, &'static str>,
     }
 
-    assert_toml_snapshot!(Data { items: map }, @r#"items = { "ключ" = 'Russian', "キー" = 'Japanese', "键" = 'Chinese' }"#);
+    assert_toml_snapshot!(Data { items: map }, @r#"
+    [items]
+    "ключ" = 'Russian'
+    "キー" = 'Japanese'
+    "键" = 'Chinese'
+    "#);
 }
 
 #[test]
@@ -536,7 +588,13 @@ fn test_toml_enum_externally_tagged() {
 
     assert_toml_snapshot!(Data {
         values: vec![Value::Text("hello".into()), Value::Number(42)],
-    }, @"values = [{ Text = 'hello' }, { Number = 42 }]");
+    }, @r"
+    [[values]]
+    Text = 'hello'
+
+    [[values]]
+    Number = 42
+    ");
 }
 
 #[test]
@@ -556,7 +614,11 @@ fn test_toml_enum_internally_tagged() {
 
     assert_toml_snapshot!(Data {
         event: Event::Login { user: "alice".into() },
-    }, @"event = { type = 'Login', user = 'alice' }");
+    }, @r"
+    [event]
+    type = 'Login'
+    user = 'alice'
+    ");
 }
 
 #[test]
@@ -576,7 +638,11 @@ fn test_toml_enum_adjacently_tagged() {
 
     assert_toml_snapshot!(Data {
         msg: Message::Text("hello".into()),
-    }, @"msg = { t = 'Text', c = 'hello' }");
+    }, @r"
+    [msg]
+    t = 'Text'
+    c = 'hello'
+    ");
 }
 
 #[test]
