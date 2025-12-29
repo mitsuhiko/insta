@@ -86,7 +86,9 @@ pub fn serialize_content(mut content: Content, format: SerializationFormat) -> S
         }
         #[cfg(feature = "toml")]
         SerializationFormat::Toml => {
-            struct Pretty { in_value: bool }
+            struct Pretty {
+                in_value: bool,
+            }
 
             impl VisitMut for Pretty {
                 fn visit_item_mut(&mut self, node: &mut Item) {
