@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.45.1
+
+- Fix backward compatibility with TOML format produced by insta < 1.45.0. #849 (@chitoku-k)
+
 ## 1.45.0
 
 - Add external diff tool support via `INSTA_DIFF_TOOL` environment variable. When set, insta uses the specified tool (e.g., `delta`, `difftastic`) to display snapshot diffs instead of the built-in diff. The tool is invoked as `<tool> <old_file> <new_file>`. #844
