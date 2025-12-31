@@ -596,36 +596,52 @@ pub fn get_pending_dir() -> Option<PathBuf> {
 ///
 /// On Windows, paths from different sources may have different formats:
 /// - Canonicalized paths may have `\\?\` extended-length prefix
-/// - Non-existent paths (new snapshots) can't be canonicalized
+/// - 8.3 short names (e.g., RUNNER~1) vs long names (e.g., runneradmin)
+/// - Non-existent paths (new snapshots) can't be directly canonicalized
 ///
-/// This function tries to canonicalize, falling back to the parent directory
-/// if the file doesn't exist, then strips the Windows extended-path prefix
-/// to ensure consistent comparison.
+/// This function walks up the path tree to find an existing ancestor,
+/// canonicalizes it, then appends the remaining components. Finally,
+/// it strips the Windows extended-path prefix for consistent comparison.
 fn normalize_path(path: &Path) -> PathBuf {
     // Try to canonicalize the full path first
-    let canonical = path.canonicalize().or_else(|_| {
-        // If that fails (file doesn't exist), try canonicalizing parent + filename
-        path.parent()
-            .and_then(|p| p.canonicalize().ok())
-            .map(|p| p.join(path.file_name().unwrap_or_default()))
-            .ok_or(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "no parent",
-            ))
-    });
+    if let Ok(canonical) = path.canonicalize() {
+        return strip_windows_prefix(canonical);
+    }
 
-    let result = canonical.unwrap_or_else(|_| path.to_path_buf());
+    // Walk up the path to find an existing ancestor to canonicalize
+    let mut components_to_append = Vec::new();
+    let mut current = path.to_path_buf();
 
-    // On Windows, strip the \\?\ extended-length path prefix for consistent comparison
+    while let Some(parent) = current.parent() {
+        if let Some(file_name) = current.file_name() {
+            components_to_append.push(file_name.to_owned());
+        }
+        if let Ok(canonical_parent) = parent.canonicalize() {
+            // Found an existing ancestor - build the result
+            let mut result = canonical_parent;
+            for component in components_to_append.into_iter().rev() {
+                result.push(component);
+            }
+            return strip_windows_prefix(result);
+        }
+        current = parent.to_path_buf();
+    }
+
+    // Nothing could be canonicalized, return original
+    path.to_path_buf()
+}
+
+/// Strips the Windows extended-length path prefix (\\?\) if present.
+#[allow(clippy::needless_return)]
+fn strip_windows_prefix(path: PathBuf) -> PathBuf {
     #[cfg(windows)]
     {
-        let s = result.to_string_lossy();
+        let s = path.to_string_lossy();
         if let Some(stripped) = s.strip_prefix(r"\\?\") {
             return PathBuf::from(stripped);
         }
     }
-
-    result
+    path
 }
 
 /// Computes the path for a pending snapshot file.

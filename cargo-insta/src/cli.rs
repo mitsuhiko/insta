@@ -557,9 +557,12 @@ fn handle_target_args<'a>(
 
 /// Normalizes a path for reliable prefix matching on Windows.
 ///
-/// On Windows, canonicalized paths may have `\\?\` extended-length prefix
-/// which breaks `strip_prefix` when comparing with non-canonicalized paths.
-/// This function canonicalizes and strips the prefix for consistent comparison.
+/// On Windows, paths may have different formats that break `strip_prefix`:
+/// - Extended-length prefix (\\?\) from canonicalization
+/// - 8.3 short names (e.g., RUNNER~1) vs long names
+///
+/// This function canonicalizes the path to resolve all these differences,
+/// then strips the Windows extended-length prefix for consistent comparison.
 fn normalize_path(path: &Path) -> PathBuf {
     let result = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
 
