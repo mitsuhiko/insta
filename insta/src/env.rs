@@ -594,14 +594,16 @@ pub fn get_pending_dir() -> Option<PathBuf> {
 
 /// Normalizes a path for reliable prefix matching.
 ///
-/// On Windows, paths from different sources may have different formats:
+/// This complexity is unfortunately required for Windows, where paths from
+/// different sources may have incompatible formats that break `strip_prefix`:
 /// - Canonicalized paths may have `\\?\` extended-length prefix
 /// - 8.3 short names (e.g., RUNNER~1) vs long names (e.g., runneradmin)
 /// - Non-existent paths (new snapshots) can't be directly canonicalized
 ///
-/// This function walks up the path tree to find an existing ancestor,
-/// canonicalizes it, then appends the remaining components. Finally,
-/// it strips the Windows extended-path prefix for consistent comparison.
+/// Without normalization, `strip_prefix` silently fails and snapshots get
+/// written to wrong locations. This function walks up the path tree to find
+/// an existing ancestor, canonicalizes it (resolving 8.3 names), appends the
+/// remaining components, then strips the Windows extended-path prefix.
 fn normalize_path(path: &Path) -> PathBuf {
     // Try to canonicalize the full path first
     if let Ok(canonical) = path.canonicalize() {

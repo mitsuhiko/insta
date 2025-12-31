@@ -555,14 +555,16 @@ fn handle_target_args<'a>(
     })
 }
 
-/// Normalizes a path for reliable prefix matching on Windows.
+/// Normalizes a path for reliable prefix matching.
 ///
-/// On Windows, paths may have different formats that break `strip_prefix`:
+/// This complexity is unfortunately required for Windows, where paths from
+/// different sources may have incompatible formats that break `strip_prefix`:
 /// - Extended-length prefix (\\?\) from canonicalization
 /// - 8.3 short names (e.g., RUNNER~1) vs long names
 ///
-/// This function canonicalizes the path to resolve all these differences,
-/// then strips the Windows extended-length prefix for consistent comparison.
+/// This function canonicalizes the path (resolving 8.3 names) and strips
+/// the Windows extended-path prefix. See `insta::env::normalize_path` for
+/// a more detailed version that handles non-existent files.
 fn normalize_path(path: &Path) -> PathBuf {
     let result = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
 
