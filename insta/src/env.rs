@@ -592,6 +592,42 @@ pub fn get_pending_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+/// Normalizes a path for reliable prefix matching.
+///
+/// On Windows, paths from different sources may have different formats:
+/// - Canonicalized paths may have `\\?\` extended-length prefix
+/// - Non-existent paths (new snapshots) can't be canonicalized
+///
+/// This function tries to canonicalize, falling back to the parent directory
+/// if the file doesn't exist, then strips the Windows extended-path prefix
+/// to ensure consistent comparison.
+fn normalize_path(path: &Path) -> PathBuf {
+    // Try to canonicalize the full path first
+    let canonical = path.canonicalize().or_else(|_| {
+        // If that fails (file doesn't exist), try canonicalizing parent + filename
+        path.parent()
+            .and_then(|p| p.canonicalize().ok())
+            .map(|p| p.join(path.file_name().unwrap_or_default()))
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "no parent",
+            ))
+    });
+
+    let result = canonical.unwrap_or_else(|_| path.to_path_buf());
+
+    // On Windows, strip the \\?\ extended-length path prefix for consistent comparison
+    #[cfg(windows)]
+    {
+        let s = result.to_string_lossy();
+        if let Some(stripped) = s.strip_prefix(r"\\?\") {
+            return PathBuf::from(stripped);
+        }
+    }
+
+    result
+}
+
 /// Computes the path for a pending snapshot file.
 ///
 /// If `INSTA_PENDING_DIR` is set, returns a path within that directory
@@ -607,15 +643,11 @@ pub fn pending_snapshot_path(workspace: &Path, original_path: &Path) -> PathBuf 
     match get_pending_dir() {
         Some(pending_dir) => {
             // Compute relative path from workspace to original_path.
-            // Use canonicalized paths for reliable prefix matching on Windows,
+            // Use normalized paths for reliable prefix matching on Windows,
             // where paths from different sources may have different formats.
-            let canonical_path = original_path
-                .canonicalize()
-                .unwrap_or_else(|_| original_path.to_path_buf());
-            let canonical_workspace = workspace
-                .canonicalize()
-                .unwrap_or_else(|_| workspace.to_path_buf());
-            match canonical_path.strip_prefix(&canonical_workspace) {
+            let normalized_path = normalize_path(original_path);
+            let normalized_workspace = normalize_path(workspace);
+            match normalized_path.strip_prefix(&normalized_workspace) {
                 Ok(relative) => {
                     // Check if the relative path contains ".." which would escape
                     // the pending directory. This happens with external test paths
