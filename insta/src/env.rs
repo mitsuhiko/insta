@@ -584,6 +584,63 @@ pub fn memoize_warning(message: &str) {
     }
 }
 
+/// Returns the pending directory if `INSTA_PENDING_DIR` is set and non-empty.
+pub fn get_pending_dir() -> Option<PathBuf> {
+    env::var("INSTA_PENDING_DIR")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+}
+
+/// Computes the path for a pending snapshot file.
+///
+/// If `INSTA_PENDING_DIR` is set, returns a path within that directory
+/// preserving the relative structure from the workspace. Otherwise returns
+/// the original path unchanged.
+///
+/// # Panics
+///
+/// Panics if `INSTA_PENDING_DIR` is set but the snapshot path is outside the
+/// workspace (e.g., external test paths like `../tests/lib.rs`). This is because
+/// such paths would escape the pending directory.
+pub fn pending_snapshot_path(workspace: &Path, original_path: &Path) -> PathBuf {
+    match get_pending_dir() {
+        Some(pending_dir) => {
+            // Compute relative path from workspace to original_path
+            match original_path.strip_prefix(workspace) {
+                Ok(relative) => {
+                    // Check if the relative path contains ".." which would escape
+                    // the pending directory. This happens with external test paths
+                    // like `path = "../tests/lib.rs"` in Cargo.toml.
+                    if relative
+                        .components()
+                        .any(|c| c == std::path::Component::ParentDir)
+                    {
+                        panic!(
+                            "INSTA_PENDING_DIR is set but snapshot path {:?} would escape \
+                             the pending directory (relative path contains \"..\"). \
+                             External test paths (e.g., path = \"../tests/lib.rs\" in Cargo.toml) \
+                             are not compatible with INSTA_PENDING_DIR.",
+                            original_path
+                        );
+                    }
+                    pending_dir.join(relative)
+                }
+                Err(_) => {
+                    panic!(
+                        "INSTA_PENDING_DIR is set but snapshot path {:?} is outside \
+                         workspace {:?}. External test paths (e.g., path = \"../tests/lib.rs\" \
+                         in Cargo.toml) are not compatible with INSTA_PENDING_DIR because \
+                         the relative path would escape the pending directory.",
+                        original_path, workspace
+                    );
+                }
+            }
+        }
+        None => original_path.to_path_buf(),
+    }
+}
+
 fn resolve<'a>(value: &'a Content, path: &[&str]) -> Option<&'a Content> {
     path.iter()
         .try_fold(value, |node, segment| match node.resolve_inner() {

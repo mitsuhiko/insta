@@ -7,7 +7,7 @@ use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
 use insta::_cargo_insta_support::{
-    get_cargo, is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
+    get_cargo, get_pending_dir, is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
     UnreferencedSnapshots,
 };
 use insta::{internals::SnapshotContents, Snapshot};
@@ -564,10 +564,33 @@ fn load_snapshot_containers<'a>(
 
     debug_assert!(!loc.packages.is_empty());
 
+    // Pending snapshots are stored with the same relative directory structure as the
+    // workspace. When INSTA_PENDING_DIR is set (e.g., for Bazel's hermetic builds),
+    // pending files go to that directory. Otherwise, they live next to their targets.
+    //
+    // The path mapping is: pending_root/relative/path → target_root/relative/path
+    // When pending_root == target_root, this is a no-op (just strip ".new").
+    let pending_dir = get_pending_dir();
+
     for package in &loc.packages {
         for root in find_snapshot_roots(package) {
-            roots.insert(root.clone());
-            for snapshot_container in find_pending_snapshots(&root, &loc.exts, loc.find_flags) {
+            let (search_root, target_root) = if let Some(ref pending) = pending_dir {
+                // Hermetic mode: map package root to pending_dir
+                match root.strip_prefix(&loc.workspace_root) {
+                    Ok(relative) => (pending.join(relative), root),
+                    // External test paths can't be mapped to pending_dir (they would
+                    // escape). We reject these at write time, so skip them here.
+                    Err(_) => continue,
+                }
+            } else {
+                // Default mode: search and target are the same
+                (root.clone(), root)
+            };
+
+            roots.insert(search_root.clone());
+            for snapshot_container in
+                find_pending_snapshots(&search_root, &target_root, &loc.exts, loc.find_flags)
+            {
                 snapshot_containers.push((snapshot_container?, package));
             }
         }
@@ -1240,6 +1263,11 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if !cmd.check {
         proc.env("INSTA_FORCE_PASS", "1");
+    }
+
+    // Pass INSTA_PENDING_DIR to the test subprocess if set
+    if let Some(pending_dir) = get_pending_dir() {
+        proc.env("INSTA_PENDING_DIR", pending_dir);
     }
 
     proc.env(
