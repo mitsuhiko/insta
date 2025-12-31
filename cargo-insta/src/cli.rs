@@ -555,29 +555,6 @@ fn handle_target_args<'a>(
     })
 }
 
-/// Normalizes a path for reliable prefix matching on Windows.
-///
-/// On Windows, paths may have different formats that break `strip_prefix`:
-/// - Extended-length prefix (\\?\) from canonicalization
-/// - 8.3 short names (e.g., RUNNER~1) vs long names
-///
-/// This function canonicalizes the path to resolve all these differences,
-/// then strips the Windows extended-length prefix for consistent comparison.
-fn normalize_path(path: &Path) -> PathBuf {
-    let result = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-
-    // On Windows, strip the \\?\ extended-length path prefix for consistent comparison
-    #[cfg(windows)]
-    {
-        let s = result.to_string_lossy();
-        if let Some(stripped) = s.strip_prefix(r"\\?\") {
-            return PathBuf::from(stripped);
-        }
-    }
-
-    result
-}
-
 #[allow(clippy::type_complexity)]
 fn load_snapshot_containers<'a>(
     loc: &'a LocationInfo,
@@ -599,11 +576,7 @@ fn load_snapshot_containers<'a>(
         for root in find_snapshot_roots(package) {
             let (search_root, target_root) = if let Some(ref pending) = pending_dir {
                 // Hermetic mode: map package root to pending_dir.
-                // Use normalized paths for reliable prefix matching on Windows,
-                // where paths from different sources may have different formats.
-                let normalized_root = normalize_path(&root);
-                let normalized_workspace = normalize_path(&loc.workspace_root);
-                match normalized_root.strip_prefix(&normalized_workspace) {
+                match root.strip_prefix(&loc.workspace_root) {
                     Ok(relative) => (pending.join(relative), root),
                     // External test paths can't be mapped to pending_dir (they would
                     // escape). We reject these at write time, so skip them here.
