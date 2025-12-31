@@ -575,8 +575,15 @@ fn load_snapshot_containers<'a>(
     for package in &loc.packages {
         for root in find_snapshot_roots(package) {
             let (search_root, target_root) = if let Some(ref pending) = pending_dir {
-                // Hermetic mode: map package root to pending_dir
-                match root.strip_prefix(&loc.workspace_root) {
+                // Hermetic mode: map package root to pending_dir.
+                // Use canonicalized paths for reliable prefix matching on Windows,
+                // where paths from different sources may have different formats.
+                let canonical_root = root.canonicalize().unwrap_or_else(|_| root.clone());
+                let canonical_workspace = loc
+                    .workspace_root
+                    .canonicalize()
+                    .unwrap_or_else(|_| loc.workspace_root.clone());
+                match canonical_root.strip_prefix(&canonical_workspace) {
                     Ok(relative) => (pending.join(relative), root),
                     // External test paths can't be mapped to pending_dir (they would
                     // escape). We reject these at write time, so skip them here.

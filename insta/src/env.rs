@@ -606,8 +606,16 @@ pub fn get_pending_dir() -> Option<PathBuf> {
 pub fn pending_snapshot_path(workspace: &Path, original_path: &Path) -> PathBuf {
     match get_pending_dir() {
         Some(pending_dir) => {
-            // Compute relative path from workspace to original_path
-            match original_path.strip_prefix(workspace) {
+            // Compute relative path from workspace to original_path.
+            // Use canonicalized paths for reliable prefix matching on Windows,
+            // where paths from different sources may have different formats.
+            let canonical_path = original_path
+                .canonicalize()
+                .unwrap_or_else(|_| original_path.to_path_buf());
+            let canonical_workspace = workspace
+                .canonicalize()
+                .unwrap_or_else(|_| workspace.to_path_buf());
+            match canonical_path.strip_prefix(&canonical_workspace) {
                 Ok(relative) => {
                     // Check if the relative path contains ".." which would escape
                     // the pending directory. This happens with external test paths
