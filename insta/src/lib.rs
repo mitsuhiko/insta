@@ -233,7 +233,7 @@
 //!   runner: "auto" | "cargo-test" | "nextest"
 //!   # whether to fallback to `cargo-test` if `nextest` is not available,
 //!   # also set by INSTA_TEST_RUNNER_FALLBACK, default false
-//!   test_runner_fallback: true/false
+//!   runner_fallback: true/false
 //!   # disable running doctests separately when using nextest
 //!   disable_nextest_doctest: true/false
 //!   # automatically assume --review was passed to cargo insta test

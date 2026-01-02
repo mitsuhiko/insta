@@ -296,7 +296,7 @@ impl ToolConfig {
                     .unwrap_or(false),
                 Ok("1") => true,
                 Ok("0") => false,
-                _ => return Err(Error::Env("INSTA_RUNNER_FALLBACK")),
+                _ => return Err(Error::Env("INSTA_TEST_RUNNER_FALLBACK")),
             },
             #[cfg(feature = "_cargo_insta_internal")]
             test_unreferenced: {
