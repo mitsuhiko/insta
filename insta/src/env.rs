@@ -592,60 +592,6 @@ pub fn get_pending_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-/// Normalizes a path for reliable prefix matching.
-///
-/// This complexity is unfortunately required for Windows, where paths from
-/// different sources may have incompatible formats that break `strip_prefix`:
-/// - Canonicalized paths may have `\\?\` extended-length prefix
-/// - 8.3 short names (e.g., RUNNER~1) vs long names (e.g., runneradmin)
-/// - Non-existent paths (new snapshots) can't be directly canonicalized
-///
-/// Without normalization, `strip_prefix` silently fails and snapshots get
-/// written to wrong locations. This function walks up the path tree to find
-/// an existing ancestor, canonicalizes it (resolving 8.3 names), appends the
-/// remaining components, then strips the Windows extended-path prefix.
-fn normalize_path(path: &Path) -> PathBuf {
-    // Try to canonicalize the full path first
-    if let Ok(canonical) = path.canonicalize() {
-        return strip_windows_prefix(canonical);
-    }
-
-    // Walk up the path to find an existing ancestor to canonicalize
-    let mut components_to_append = Vec::new();
-    let mut current = path.to_path_buf();
-
-    while let Some(parent) = current.parent() {
-        if let Some(file_name) = current.file_name() {
-            components_to_append.push(file_name.to_owned());
-        }
-        if let Ok(canonical_parent) = parent.canonicalize() {
-            // Found an existing ancestor - build the result
-            let mut result = canonical_parent;
-            for component in components_to_append.into_iter().rev() {
-                result.push(component);
-            }
-            return strip_windows_prefix(result);
-        }
-        current = parent.to_path_buf();
-    }
-
-    // Nothing could be canonicalized, return original
-    path.to_path_buf()
-}
-
-/// Strips the Windows extended-length path prefix (\\?\) if present.
-#[allow(clippy::needless_return)]
-fn strip_windows_prefix(path: PathBuf) -> PathBuf {
-    #[cfg(windows)]
-    {
-        let s = path.to_string_lossy();
-        if let Some(stripped) = s.strip_prefix(r"\\?\") {
-            return PathBuf::from(stripped);
-        }
-    }
-    path
-}
-
 /// Computes the path for a pending snapshot file.
 ///
 /// If `INSTA_PENDING_DIR` is set, returns a path within that directory
@@ -661,30 +607,9 @@ pub fn pending_snapshot_path(workspace: &Path, original_path: &Path) -> PathBuf 
     match get_pending_dir() {
         Some(pending_dir) => {
             // Compute relative path from workspace to original_path.
-            // Use normalized paths for reliable prefix matching on Windows,
-            // where paths from different sources may have different formats.
-            let normalized_path = normalize_path(original_path);
-            let normalized_workspace = normalize_path(workspace);
-            match normalized_path.strip_prefix(&normalized_workspace) {
-                Ok(relative) => {
-                    // Check if the relative path contains ".." which would escape
-                    // the pending directory. This happens with external test paths
-                    // like `path = "../tests/lib.rs"` in Cargo.toml.
-                    if relative
-                        .components()
-                        .any(|c| c == std::path::Component::ParentDir)
-                    {
-                        panic!(
-                            "INSTA_PENDING_DIR is set but snapshot path {:?} would escape \
-                             the pending directory (relative path contains \"..\"). \
-                             External test paths (e.g., path = \"../tests/lib.rs\" in Cargo.toml) \
-                             are not compatible with INSTA_PENDING_DIR.",
-                            original_path
-                        );
-                    }
-                    pending_dir.join(relative)
-                }
-                Err(_) => {
+            let relative = original_path
+                .strip_prefix(workspace)
+                .unwrap_or_else(|_| {
                     panic!(
                         "INSTA_PENDING_DIR is set but snapshot path {:?} is outside \
                          workspace {:?}. External test paths (e.g., path = \"../tests/lib.rs\" \
@@ -692,8 +617,25 @@ pub fn pending_snapshot_path(workspace: &Path, original_path: &Path) -> PathBuf 
                          the relative path would escape the pending directory.",
                         original_path, workspace
                     );
-                }
+                })
+                .to_path_buf();
+
+            // Check if the relative path contains ".." which would escape
+            // the pending directory. This happens with external test paths
+            // like `path = "../tests/lib.rs"` in Cargo.toml.
+            if relative
+                .components()
+                .any(|c| c == std::path::Component::ParentDir)
+            {
+                panic!(
+                    "INSTA_PENDING_DIR is set but snapshot path {:?} would escape \
+                     the pending directory (relative path contains \"..\"). \
+                     External test paths (e.g., path = \"../tests/lib.rs\" in Cargo.toml) \
+                     are not compatible with INSTA_PENDING_DIR.",
+                    original_path
+                );
             }
+            pending_dir.join(relative)
         }
         None => original_path.to_path_buf(),
     }
