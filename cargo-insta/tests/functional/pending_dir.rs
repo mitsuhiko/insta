@@ -1,8 +1,12 @@
 use std::fs;
-use std::process::Command;
 use std::process::Stdio;
 
-use crate::{target_dir, TestFiles, TestProject};
+use crate::TestFiles;
+
+#[cfg(unix)]
+use crate::{target_dir, TestProject};
+#[cfg(unix)]
+use std::process::Command;
 
 /// Test that INSTA_PENDING_DIR redirects pending snapshots to a separate directory
 #[test]
