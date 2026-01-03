@@ -584,6 +584,93 @@ pub fn memoize_warning(message: &str) {
     }
 }
 
+/// Returns the pending directory if `INSTA_PENDING_DIR` is set and non-empty.
+pub fn get_pending_dir() -> Option<PathBuf> {
+    env::var("INSTA_PENDING_DIR")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+}
+
+/// Tries to strip a prefix from a path, with optional normalization fallback.
+///
+/// First attempts direct `strip_prefix` (preserves symlinks, works for Bazel).
+/// If that fails, tries normalizing both paths with `canonicalize()` and
+/// retrying (handles Windows path format differences like `\\?\` prefix).
+fn strip_prefix_with_fallback<'a>(
+    path: &'a Path,
+    prefix: &Path,
+) -> Result<std::borrow::Cow<'a, Path>, std::path::StripPrefixError> {
+    // Try direct strip_prefix first. This preserves symlinks which is
+    // essential for Bazel's execroot setup where paths are symlinks.
+    if let Ok(relative) = path.strip_prefix(prefix) {
+        return Ok(std::borrow::Cow::Borrowed(relative));
+    }
+
+    // Fallback: normalize both paths with canonicalize() and try again.
+    // This handles Windows path format differences (e.g., `\\?\` prefix,
+    // 8.3 short names). On Unix, canonicalize() follows symlinks, so we
+    // only reach here if direct strip failed (likely not a symlink case).
+    if let (Ok(normalized_path), Ok(normalized_prefix)) =
+        (path.canonicalize(), prefix.canonicalize())
+    {
+        if let Ok(relative) = normalized_path.strip_prefix(&normalized_prefix) {
+            return Ok(std::borrow::Cow::Owned(relative.to_path_buf()));
+        }
+    }
+
+    // Return the original error
+    path.strip_prefix(prefix).map(std::borrow::Cow::Borrowed)
+}
+
+/// Computes the path for a pending snapshot file.
+///
+/// If `INSTA_PENDING_DIR` is set, returns a path within that directory
+/// preserving the relative structure from the workspace. Otherwise returns
+/// the original path unchanged.
+///
+/// # Panics
+///
+/// Panics if `INSTA_PENDING_DIR` is set but the snapshot path is outside the
+/// workspace (e.g., external test paths like `../tests/lib.rs`). This is because
+/// such paths would escape the pending directory.
+pub fn pending_snapshot_path(workspace: &Path, original_path: &Path) -> PathBuf {
+    match get_pending_dir() {
+        Some(pending_dir) => {
+            // Compute relative path from workspace to original_path.
+            // Try direct strip first (for Bazel), fall back to normalized (for Windows).
+            let relative =
+                strip_prefix_with_fallback(original_path, workspace).unwrap_or_else(|_| {
+                    panic!(
+                        "INSTA_PENDING_DIR is set but snapshot path {:?} is outside \
+                         workspace {:?}. External test paths (e.g., path = \"../tests/lib.rs\" \
+                         in Cargo.toml) are not compatible with INSTA_PENDING_DIR because \
+                         the relative path would escape the pending directory.",
+                        original_path, workspace
+                    );
+                });
+
+            // Check if the relative path contains ".." which would escape
+            // the pending directory. This happens with external test paths
+            // like `path = "../tests/lib.rs"` in Cargo.toml.
+            if relative
+                .components()
+                .any(|c| c == std::path::Component::ParentDir)
+            {
+                panic!(
+                    "INSTA_PENDING_DIR is set but snapshot path {:?} would escape \
+                     the pending directory (relative path contains \"..\"). \
+                     External test paths (e.g., path = \"../tests/lib.rs\" in Cargo.toml) \
+                     are not compatible with INSTA_PENDING_DIR.",
+                    original_path
+                );
+            }
+            pending_dir.join(relative)
+        }
+        None => original_path.to_path_buf(),
+    }
+}
+
 fn resolve<'a>(value: &'a Content, path: &[&str]) -> Option<&'a Content> {
     path.iter()
         .try_fold(value, |node, segment| match node.resolve_inner() {

@@ -5,3 +5,8 @@ target
 .env
 .idea
 *.rlib
+
+# Bazel artifacts
+BUILD.bazel
+WORKSPACE.bazel
+bazel-*

@@ -352,8 +352,8 @@ pub mod _cargo_insta_support {
     pub use crate::{
         content::Error as ContentError,
         env::{
-            Error as ToolConfigError, OutputBehavior, SnapshotUpdate, TestRunner, ToolConfig,
-            UnreferencedSnapshots,
+            get_pending_dir, Error as ToolConfigError, OutputBehavior, SnapshotUpdate, TestRunner,
+            ToolConfig, UnreferencedSnapshots,
         },
         output::SnapshotPrinter,
         snapshot::PendingInlineSnapshot,

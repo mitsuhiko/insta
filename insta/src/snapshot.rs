@@ -74,6 +74,10 @@ impl PendingInlineSnapshot {
     }
 
     pub fn save(&self, p: &Path) -> Result<(), Box<dyn Error>> {
+        // Create parent directories if they don't exist (needed for INSTA_PENDING_DIR)
+        if let Some(parent) = p.parent() {
+            fs::create_dir_all(parent)?;
+        }
         let mut f = fs::OpenOptions::new().create(true).append(true).open(p)?;
         let mut s = json::to_string(&self.as_content());
         s.push('\n');

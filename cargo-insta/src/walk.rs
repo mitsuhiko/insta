@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use ignore::overrides::OverrideBuilder;
 use ignore::{DirEntry, Walk, WalkBuilder};
@@ -21,32 +21,69 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-/// Finds all pending snapshots
+/// Finds all pending snapshots by searching `pending_root` and mapping paths to `target_root`.
+///
+/// # Path Structure
+///
+/// Pending snapshots maintain the same directory structure relative to their root.
+/// For example, with a deeply nested package:
+///
+/// ```text
+/// workspace/services/api/auth/src/snapshots/login__test.snap      <- accepted snapshot
+/// pending_root/services/api/auth/src/snapshots/login__test.snap.new  <- pending snapshot
+/// ```
+///
+/// The relative path (`services/api/auth/src/snapshots/login__test.snap`) is preserved.
+/// We just swap the root prefix when mapping pending → target.
+///
+/// # Default Behavior
+///
+/// When `INSTA_PENDING_DIR` is not set, `pending_root == target_root` (both are the same
+/// package-specific snapshot root). The path mapping becomes a no-op: the target is simply
+/// the pending path with `.new` stripped.
+///
+/// # Hermetic Builds (Bazel)
+///
+/// When `INSTA_PENDING_DIR` is set, pending snapshots are written to a separate directory
+/// (e.g., Bazel's output directory) while the source tree remains read-only. The structure
+/// is preserved, so we can map back: `pending_root/relative/path` → `target_root/relative/path`.
 pub(crate) fn find_pending_snapshots<'a>(
-    package_root: &Path,
+    pending_root: &'a Path,
+    target_root: &'a Path,
     extensions: &'a [&'a str],
     flags: FindFlags,
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
-    make_snapshot_walker(package_root, extensions, flags)
+    let pending_root_owned = pending_root.to_path_buf();
+    let target_root_owned = target_root.to_path_buf();
+    make_snapshot_walker(pending_root, extensions, flags)
         .filter_map(Result::ok)
-        .filter_map(|entry| {
+        .filter_map(move |entry| {
             let fname = entry.file_name().to_string_lossy();
-            let path = entry.clone().into_path();
+            let pending_path = entry.clone().into_path();
+
+            // Map from pending_root to target_root by preserving the relative path.
+            // When pending_root == target_root, this is equivalent to just stripping ".new".
+            let compute_target = |new_fname: &str| -> Option<PathBuf> {
+                let relative = pending_path.strip_prefix(&pending_root_owned).ok()?;
+                Some(target_root_owned.join(relative).with_file_name(new_fname))
+            };
 
             #[allow(clippy::manual_map)]
             if let Some(new_fname) = fname.strip_suffix(".new") {
+                let target_path = compute_target(new_fname)?;
                 Some(SnapshotContainer::load(
-                    path.clone(),
-                    path.with_file_name(new_fname),
+                    pending_path,
+                    target_path,
                     TextSnapshotKind::File,
                 ))
             } else if let Some(new_fname) = fname
                 .strip_prefix('.')
                 .and_then(|f| f.strip_suffix(".pending-snap"))
             {
+                let target_path = compute_target(new_fname)?;
                 Some(SnapshotContainer::load(
-                    path.clone(),
-                    path.with_file_name(new_fname),
+                    pending_path,
+                    target_path,
                     TextSnapshotKind::Inline,
                 ))
             } else {
@@ -55,24 +92,17 @@ pub(crate) fn find_pending_snapshots<'a>(
         })
 }
 
-/// Creates a walker for snapshots & pending snapshots within a package. The
+/// Creates a walker for snapshots & pending snapshots within a directory. The
 /// walker returns snapshots ending in any of the supplied extensions, any of
 /// the supplied extensions with a `.new` suffix, and `.pending-snap` files.
-pub(crate) fn make_snapshot_walker(
-    package_root: &Path,
-    extensions: &[&str],
-    flags: FindFlags,
-) -> Walk {
-    let mut builder = WalkBuilder::new(package_root);
+pub(crate) fn make_snapshot_walker(root: &Path, extensions: &[&str], flags: FindFlags) -> Walk {
+    let mut builder = WalkBuilder::new(root);
     builder.standard_filters(!flags.include_ignored);
-    if flags.include_hidden {
-        builder.hidden(false);
-    } else {
-        // We add a custom hidden filter; if we used the standard filter we'd skip over `.pending-snap` files
-        builder.filter_entry(|e| e.file_type().map_or(false, |x| x.is_file()) || !is_hidden(e));
-    }
+    // Disable the built-in hidden filter; we handle hidden files/dirs in our custom filter_entry
+    // to allow .pending-snap files while still skipping hidden directories.
+    builder.hidden(false);
 
-    let mut override_builder = OverrideBuilder::new(package_root);
+    let mut override_builder = OverrideBuilder::new(root);
 
     extensions
         .iter()
@@ -83,20 +113,26 @@ pub(crate) fn make_snapshot_walker(
         });
     builder.overrides(override_builder.build().unwrap());
 
-    let root_path = package_root.to_path_buf();
-    // Add a custom filter to skip interior crates; otherwise we get duplicate
-    // snapshots (https://github.com/mitsuhiko/insta/issues/396)
+    let root_path = root.to_path_buf();
+    let include_hidden = flags.include_hidden;
+
     builder.filter_entry(move |entry| {
+        // Always skip `target` directories
+        if entry.path().file_name() == Some(OsStr::new("target")) {
+            return false;
+        }
+        // Skip nested crates (directories with Cargo.toml that aren't the search root).
+        // This avoids duplicate snapshots when a package contains nested packages.
+        // Not needed when walking a pending_dir (no Cargo.toml files there).
         if entry.file_type().map_or(false, |ft| ft.is_dir())
             && entry.path().join("Cargo.toml").exists()
             && entry.path() != root_path
         {
-            // Skip this directory if it contains a Cargo.toml and is not the root
             return false;
         }
-        // We always want to skip `target` even if it was not excluded by
-        // ignore files.
-        if entry.path().file_name() == Some(OsStr::new("target")) {
+        // Skip hidden directories (unless include_hidden), but always allow files
+        if !include_hidden && !entry.file_type().map_or(false, |x| x.is_file()) && is_hidden(entry)
+        {
             return false;
         }
 

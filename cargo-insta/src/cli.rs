@@ -7,7 +7,7 @@ use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
 use insta::_cargo_insta_support::{
-    get_cargo, is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
+    get_cargo, get_pending_dir, is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
     UnreferencedSnapshots,
 };
 use insta::{internals::SnapshotContents, Snapshot};
@@ -555,6 +555,33 @@ fn handle_target_args<'a>(
     })
 }
 
+/// Tries to strip a prefix from a path, with optional normalization fallback.
+///
+/// First attempts direct `strip_prefix` (preserves symlinks, works for Bazel).
+/// If that fails, tries normalizing both paths with `canonicalize()` and
+/// retrying (handles Windows path format differences like `\\?\` prefix).
+fn strip_prefix_with_fallback(path: &Path, prefix: &Path) -> Option<PathBuf> {
+    // Try direct strip_prefix first. This preserves symlinks which is
+    // essential for Bazel's execroot setup where paths are symlinks.
+    if let Ok(relative) = path.strip_prefix(prefix) {
+        return Some(relative.to_path_buf());
+    }
+
+    // Fallback: normalize both paths with canonicalize() and try again.
+    // This handles Windows path format differences (e.g., `\\?\` prefix,
+    // 8.3 short names). On Unix, canonicalize() follows symlinks, so we
+    // only reach here if direct strip failed (likely not a symlink case).
+    if let (Ok(normalized_path), Ok(normalized_prefix)) =
+        (path.canonicalize(), prefix.canonicalize())
+    {
+        if let Ok(relative) = normalized_path.strip_prefix(&normalized_prefix) {
+            return Some(relative.to_path_buf());
+        }
+    }
+
+    None
+}
+
 #[allow(clippy::type_complexity)]
 fn load_snapshot_containers<'a>(
     loc: &'a LocationInfo,
@@ -564,10 +591,34 @@ fn load_snapshot_containers<'a>(
 
     debug_assert!(!loc.packages.is_empty());
 
+    // Pending snapshots are stored with the same relative directory structure as the
+    // workspace. When INSTA_PENDING_DIR is set (e.g., for Bazel's hermetic builds),
+    // pending files go to that directory. Otherwise, they live next to their targets.
+    //
+    // The path mapping is: pending_root/relative/path → target_root/relative/path
+    // When pending_root == target_root, this is a no-op (just strip ".new").
+    let pending_dir = get_pending_dir();
+
     for package in &loc.packages {
         for root in find_snapshot_roots(package) {
-            roots.insert(root.clone());
-            for snapshot_container in find_pending_snapshots(&root, &loc.exts, loc.find_flags) {
+            let (search_root, target_root) = if let Some(ref pending) = pending_dir {
+                // Hermetic mode: map package root to pending_dir.
+                // Try direct strip first (for Bazel), fall back to normalized (for Windows).
+                match strip_prefix_with_fallback(&root, &loc.workspace_root) {
+                    Some(relative) => (pending.join(relative), root),
+                    // External test paths can't be mapped to pending_dir (they would
+                    // escape). We reject these at write time, so skip them here.
+                    None => continue,
+                }
+            } else {
+                // Default mode: search and target are the same
+                (root.clone(), root)
+            };
+
+            roots.insert(search_root.clone());
+            for snapshot_container in
+                find_pending_snapshots(&search_root, &target_root, &loc.exts, loc.find_flags)
+            {
                 snapshot_containers.push((snapshot_container?, package));
             }
         }
@@ -1024,6 +1075,13 @@ fn is_likely_insta_snapshot(path: &Path) -> bool {
 }
 
 /// Scan for any snapshots that were not referenced by any test.
+///
+/// TODO: Support unreferenced snapshot cleanup in hermetic/Bazel workflows.
+/// Currently this only works when tests can directly access the source tree.
+/// In Bazel's sandbox, tests can't delete source files. A potential solution:
+/// write `.snap.unreferenced` marker files to `INSTA_PENDING_DIR` during tests,
+/// then process them during `cargo insta review` (which runs outside the sandbox).
+/// See: <https://github.com/mitsuhiko/insta/pull/852#issuecomment-2728955522>
 fn handle_unreferenced_snapshots(
     snapshot_ref_path: &Path,
     loc: &LocationInfo<'_>,
@@ -1240,6 +1298,11 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if !cmd.check {
         proc.env("INSTA_FORCE_PASS", "1");
+    }
+
+    // Pass INSTA_PENDING_DIR to the test subprocess if set
+    if let Some(pending_dir) = get_pending_dir() {
+        proc.env("INSTA_PENDING_DIR", pending_dir);
     }
 
     proc.env(
