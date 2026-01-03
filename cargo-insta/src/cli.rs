@@ -555,6 +555,33 @@ fn handle_target_args<'a>(
     })
 }
 
+/// Tries to strip a prefix from a path, with optional normalization fallback.
+///
+/// First attempts direct `strip_prefix` (preserves symlinks, works for Bazel).
+/// If that fails, tries normalizing both paths with `canonicalize()` and
+/// retrying (handles Windows path format differences like `\\?\` prefix).
+fn strip_prefix_with_fallback(path: &Path, prefix: &Path) -> Option<PathBuf> {
+    // Try direct strip_prefix first. This preserves symlinks which is
+    // essential for Bazel's execroot setup where paths are symlinks.
+    if let Ok(relative) = path.strip_prefix(prefix) {
+        return Some(relative.to_path_buf());
+    }
+
+    // Fallback: normalize both paths with canonicalize() and try again.
+    // This handles Windows path format differences (e.g., `\\?\` prefix,
+    // 8.3 short names). On Unix, canonicalize() follows symlinks, so we
+    // only reach here if direct strip failed (likely not a symlink case).
+    if let (Ok(normalized_path), Ok(normalized_prefix)) =
+        (path.canonicalize(), prefix.canonicalize())
+    {
+        if let Ok(relative) = normalized_path.strip_prefix(&normalized_prefix) {
+            return Some(relative.to_path_buf());
+        }
+    }
+
+    None
+}
+
 #[allow(clippy::type_complexity)]
 fn load_snapshot_containers<'a>(
     loc: &'a LocationInfo,
@@ -576,11 +603,12 @@ fn load_snapshot_containers<'a>(
         for root in find_snapshot_roots(package) {
             let (search_root, target_root) = if let Some(ref pending) = pending_dir {
                 // Hermetic mode: map package root to pending_dir.
-                match root.strip_prefix(&loc.workspace_root) {
-                    Ok(relative) => (pending.join(relative), root),
+                // Try direct strip first (for Bazel), fall back to normalized (for Windows).
+                match strip_prefix_with_fallback(&root, &loc.workspace_root) {
+                    Some(relative) => (pending.join(relative), root),
                     // External test paths can't be mapped to pending_dir (they would
                     // escape). We reject these at write time, so skip them here.
-                    Err(_) => continue,
+                    None => continue,
                 }
             } else {
                 // Default mode: search and target are the same
