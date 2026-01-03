@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.46.0
+
+- Add `INSTA_PENDING_DIR` environment variable for Bazel and other hermetic build systems. When set, pending snapshots are written to a separate directory while keeping the source tree read-only. We are very open to feedback on this feature. #852
+- Fix documentation for `test.runner_fallback` config key. #853
+
 ## 1.45.1
 
 - Fix backward compatibility with TOML format produced by insta < 1.45.0. #849 (@chitoku-k)
@@ -12,7 +17,7 @@ All notable changes to insta and cargo-insta are documented here.
 - Add `test.disable_nextest_doctest` config option to `insta.yaml`, allowing users to silence the nextest doctest warning via config instead of passing `--dnd` every time. #842
 - Skip non-insta snapshot files in unreferenced detection. Projects using both insta and other snapshot tools (like vitest or jest) can now use `--unreferenced=reject` without false positives on `.snap` files from other tools. #846
 - Collect warnings from tests for display after run. Ensures deprecation warnings are visible even when nextest suppresses stdout/stderr from passing tests. #840
-- Update TOML serialization to be up-to-date and backwards-compatible. #834
+- Update TOML serialization to be up-to-date and backwards-compatible. #834 (@spoutn1k)
 - Support `clippy::needless_raw_strings` lint by only using raw strings when content contains backslashes or quotes. #828
 
 ## 1.44.3
