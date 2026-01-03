@@ -639,8 +639,8 @@ pub fn pending_snapshot_path(workspace: &Path, original_path: &Path) -> PathBuf 
         Some(pending_dir) => {
             // Compute relative path from workspace to original_path.
             // Try direct strip first (for Bazel), fall back to normalized (for Windows).
-            let relative = strip_prefix_with_fallback(original_path, workspace)
-                .unwrap_or_else(|_| {
+            let relative =
+                strip_prefix_with_fallback(original_path, workspace).unwrap_or_else(|_| {
                     panic!(
                         "INSTA_PENDING_DIR is set but snapshot path {:?} is outside \
                          workspace {:?}. External test paths (e.g., path = \"../tests/lib.rs\" \
