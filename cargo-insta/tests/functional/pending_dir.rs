@@ -1,7 +1,8 @@
 use std::fs;
+use std::process::Command;
 use std::process::Stdio;
 
-use crate::TestFiles;
+use crate::{target_dir, TestFiles, TestProject};
 
 /// Test that INSTA_PENDING_DIR redirects pending snapshots to a separate directory
 #[test]
@@ -619,5 +620,110 @@ fn test_hello() {
     assert!(
         !source_tree_snap.exists(),
         "Pending snapshot should NOT be written to source tree"
+    );
+}
+
+/// Test INSTA_PENDING_DIR with symlinked workspace (simulates Bazel's execroot).
+///
+/// Bazel creates an "execroot" directory containing symlinks to the real source files.
+/// When tests run from execroot, the workspace path contains symlinks, but file paths
+/// may resolve differently. This test ensures `strip_prefix` works without following
+/// symlinks (which would break the path matching).
+///
+/// Structure:
+/// ```
+/// temp_dir/
+/// ├── real_src/           <- actual source files
+/// │   ├── Cargo.toml
+/// │   └── src/lib.rs
+/// ├── execroot/           <- symlink to real_src (like Bazel)
+/// └── pending/            <- where snapshots go
+/// ```
+#[test]
+#[cfg(unix)] // Symlinks work differently on Windows
+fn test_pending_dir_with_symlinks_like_bazel() {
+    // Create the real source directory with test project files
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_bazel_symlink")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("bazel_test", "Hello from Bazel-like setup!");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let real_src = &test_project.workspace_dir;
+
+    // Create a separate directory to hold our "execroot" symlink
+    let outer_dir = tempfile::tempdir().unwrap();
+    let execroot = outer_dir.path().join("execroot");
+
+    // Create symlink: execroot -> real_src (this is what Bazel does)
+    std::os::unix::fs::symlink(real_src, &execroot).unwrap();
+
+    // Create pending directory outside both
+    let pending_dir = outer_dir.path().join("pending");
+    fs::create_dir_all(&pending_dir).unwrap();
+
+    // Run cargo-insta from the execroot (symlinked directory)
+    // This simulates how Bazel runs tests
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_cargo-insta"));
+    TestProject::clean_env(&mut cmd);
+    cmd.current_dir(&execroot);
+    cmd.env("CARGO_TARGET_DIR", target_dir());
+    cmd.env("INSTA_PENDING_DIR", &pending_dir);
+    cmd.args(["test"]);
+    cmd.stderr(Stdio::piped());
+    cmd.stdout(Stdio::piped());
+
+    let output = cmd.output().unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // The test should run (may fail because snapshot doesn't exist, that's fine)
+    // The key is that it shouldn't panic with "snapshot path is outside workspace"
+    assert!(
+        !stderr.contains("outside workspace") && !stdout.contains("outside workspace"),
+        "Should not fail with 'outside workspace' error when using symlinks.\n\
+         This error would indicate strip_prefix is following symlinks.\n\
+         STDOUT: {}\nSTDERR: {}",
+        stdout,
+        stderr
+    );
+
+    // The pending snapshot should be created in the pending directory
+    let pending_snap = pending_dir.join("src/snapshots/test_bazel_symlink__bazel_test.snap.new");
+    assert!(
+        pending_snap.exists(),
+        "Pending snapshot should be created in pending directory.\n\
+         Expected: {:?}\n\
+         Pending dir contents: {:?}\n\
+         STDOUT: {}\nSTDERR: {}",
+        pending_snap,
+        fs::read_dir(&pending_dir)
+            .ok()
+            .map(|d| d.filter_map(|e| e.ok()).collect::<Vec<_>>()),
+        stdout,
+        stderr
+    );
+
+    // The snapshot should NOT be in the real source tree
+    let real_src_snap = real_src.join("src/snapshots/test_bazel_symlink__bazel_test.snap.new");
+    assert!(
+        !real_src_snap.exists(),
+        "Pending snapshot should NOT be in real source tree"
+    );
+
+    // The snapshot should NOT be in the execroot (symlinked) location
+    let execroot_snap = execroot.join("src/snapshots/test_bazel_symlink__bazel_test.snap.new");
+    assert!(
+        !execroot_snap.exists(),
+        "Pending snapshot should NOT be in execroot"
     );
 }
