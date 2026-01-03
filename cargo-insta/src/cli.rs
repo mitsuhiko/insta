@@ -1079,9 +1079,9 @@ fn is_likely_insta_snapshot(path: &Path) -> bool {
 /// TODO: Support unreferenced snapshot cleanup in hermetic/Bazel workflows.
 /// Currently this only works when tests can directly access the source tree.
 /// In Bazel's sandbox, tests can't delete source files. A potential solution:
-/// write `.snap.unreferenced` marker files to INSTA_PENDING_DIR during tests,
+/// write `.snap.unreferenced` marker files to `INSTA_PENDING_DIR` during tests,
 /// then process them during `cargo insta review` (which runs outside the sandbox).
-/// See: https://github.com/mitsuhiko/insta/pull/852#issuecomment-2728955522
+/// See: <https://github.com/mitsuhiko/insta/pull/852#issuecomment-2728955522>
 fn handle_unreferenced_snapshots(
     snapshot_ref_path: &Path,
     loc: &LocationInfo<'_>,
