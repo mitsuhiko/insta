@@ -2,6 +2,52 @@ use insta::assert_snapshot;
 
 use crate::TestFiles;
 
+/// Test case from https://github.com/mitsuhiko/insta/issues/827#issuecomment-3694405166
+/// When a snapshot contains only newlines (no quotes or backslashes), the output
+/// should use a regular string, not a raw string.
+#[test]
+fn test_multiline_no_special_chars_uses_regular_string() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_multiline_regular_string")
+        .add_file(
+            "src/lib.rs",
+            r#####"
+#[test]
+fn test() {
+    let result = "a\nb\n";
+    insta::assert_snapshot!(result.to_string(), @"");
+}
+"#####
+                .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // The snapshot should use a regular string (not raw) since the content
+    // only contains newlines, no quotes or backslashes
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -2,5 +2,8 @@
+     #[test]
+     fn test() {
+         let result = "a\nb\n";
+    -    insta::assert_snapshot!(result.to_string(), @"");
+    +    insta::assert_snapshot!(result.to_string(), @"
+    +    a
+    +    b
+    +    ");
+     }
+    "#);
+}
+
 /// Test that needless raw strings work as inputs and are converted to regular strings in outputs
 #[test]
 fn test_needless_raw_strings_conversion() {
