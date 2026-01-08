@@ -125,7 +125,8 @@ impl FilePatcher {
     }
 
     fn find_snapshot_macro(&self, line: usize) -> Option<InlineSnapshot> {
-        struct Visitor<'a>(usize, Option<InlineSnapshot>, &'a [String]);
+        // Stores (macro_start_line, macro_end_line, snapshot) for all found snapshots
+        struct Visitor<'a>(usize, Vec<(usize, usize, InlineSnapshot)>, &'a [String]);
 
         fn indentation(macro_start: LineColumn, code_lines: &[String]) -> String {
             // Only capture leading whitespace from the line, not arbitrary code
@@ -161,16 +162,24 @@ impl FilePatcher {
             fn scan_nested_macros(&mut self, tokens: &[TokenTree]) {
                 for idx in 0..tokens.len() {
                     // Look for the start of a macro (potential snapshot location)
-                    if let Some(TokenTree::Ident(_)) = tokens.get(idx) {
+                    if let Some(TokenTree::Ident(ident)) = tokens.get(idx) {
                         if let Some(TokenTree::Punct(ref punct)) = tokens.get(idx + 1) {
                             if punct.as_char() == '!' {
                                 if let Some(TokenTree::Group(ref group)) = tokens.get(idx + 2) {
                                     // Found a macro, determine its indentation
                                     let indentation = scan_for_path_start(tokens, idx, self.2);
+                                    // Get macro span for later filtering
+                                    let macro_start = ident.span().start().line;
+                                    let macro_end = group.span().end().line;
                                     // Extract tokens from the macro arguments
                                     let tokens: Vec<_> = group.stream().into_iter().collect();
                                     // Try to extract a snapshot, passing the calculated indentation
-                                    self.try_extract_snapshot(&tokens, indentation);
+                                    self.try_extract_snapshot(
+                                        &tokens,
+                                        indentation,
+                                        macro_start,
+                                        macro_end,
+                                    );
                                 }
                             }
                         }
@@ -185,7 +194,13 @@ impl FilePatcher {
                 }
             }
 
-            fn try_extract_snapshot(&mut self, tokens: &[TokenTree], indentation: String) -> bool {
+            fn try_extract_snapshot(
+                &mut self,
+                tokens: &[TokenTree],
+                indentation: String,
+                macro_start: usize,
+                macro_end: usize,
+            ) -> bool {
                 // ignore optional trailing comma
                 let tokens = match tokens.last() {
                     Some(TokenTree::Punct(ref punct)) if punct.as_char() == ',' => {
@@ -216,11 +231,15 @@ impl FilePatcher {
                     _ => return false,
                 };
 
-                self.1 = Some(InlineSnapshot {
-                    start,
-                    end,
-                    indentation,
-                });
+                self.1.push((
+                    macro_start,
+                    macro_end,
+                    InlineSnapshot {
+                        start,
+                        end,
+                        indentation,
+                    },
+                ));
                 true
             }
         }
@@ -272,7 +291,7 @@ impl FilePatcher {
                 }
 
                 let indentation = indentation(span_start, self.2);
-                if !self.try_extract_snapshot(&tokens, indentation) {
+                if !self.try_extract_snapshot(&tokens, indentation, start, end) {
                     // if we can't extract a snapshot here we want to scan for nested
                     // macros.  These are just represented as unparsed tokens in a
                     // token stream.
@@ -281,9 +300,15 @@ impl FilePatcher {
             }
         }
 
-        let mut visitor = Visitor(line, None, &self.lines);
+        let mut visitor = Visitor(line, Vec::new(), &self.lines);
         syn::visit::visit_file(&mut visitor, &self.source);
-        visitor.1
+
+        // Find the snapshot whose macro span contains the target line
+        visitor
+            .1
+            .into_iter()
+            .find(|(macro_start, macro_end, _)| line >= *macro_start && line <= *macro_end)
+            .map(|(_, _, snapshot)| snapshot)
     }
 }
 
@@ -663,5 +688,40 @@ fn test_function() {
         // Should only capture leading whitespace, not "    let output = "
         // even though scan_for_path_start finds "insta" as the path start
         assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_snapshot_macro_multiple_in_with_settings() {
+        // Regression test for issue #857: multiple snapshots inside with_settings!
+        // Each snapshot should be found at its own line, not the last one.
+        let content = r######"
+fn test_function() {
+    insta::with_settings!({filters => vec![]}, {
+        assert_snapshot!("a", @"a"); // line 4
+        assert_snapshot!("b", @"b"); // line 5
+        assert_snapshot!("c", @"c"); // line 6
+        assert_snapshot!("d", @"d"); // line 7
+    });
+}
+"######;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        // Each line should find its own snapshot, not the last one
+        let snapshot4 = file_patcher.find_snapshot_macro(4).unwrap();
+        let snapshot5 = file_patcher.find_snapshot_macro(5).unwrap();
+        let snapshot6 = file_patcher.find_snapshot_macro(6).unwrap();
+        let snapshot7 = file_patcher.find_snapshot_macro(7).unwrap();
+
+        // Verify each snapshot is at the correct line (0-indexed)
+        assert_eq!(snapshot4.start.0, 3); // line 4 -> index 3
+        assert_eq!(snapshot5.start.0, 4); // line 5 -> index 4
+        assert_eq!(snapshot6.start.0, 5); // line 6 -> index 5
+        assert_eq!(snapshot7.start.0, 6); // line 7 -> index 6
     }
 }
