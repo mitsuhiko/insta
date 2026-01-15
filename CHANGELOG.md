@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.46.1
+
+- Fix inline snapshot corruption when multiple snapshots appear inside `with_settings!` macro. #858
+
 ## 1.46.0
 
 - Add `INSTA_PENDING_DIR` environment variable for Bazel and other hermetic build systems. When set, pending snapshots are written to a separate directory while keeping the source tree read-only. We are very open to feedback on this feature. #852
