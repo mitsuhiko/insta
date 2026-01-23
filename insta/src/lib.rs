@@ -298,6 +298,7 @@
 
 #[macro_use]
 mod macros;
+mod comparator;
 mod content;
 mod env;
 #[doc(hidden)]
@@ -371,6 +372,7 @@ pub use crate::redaction::{dynamic_redaction, rounded_redaction, sorted_redactio
 // these are here to make the macros work
 #[doc(hidden)]
 pub mod _macro_support {
+    pub use crate::comparator::DEFAULT_COMPARATOR;
     pub use crate::content::Content;
     pub use crate::env::{get_cargo_workspace, Workspace};
     pub use crate::runtime::{

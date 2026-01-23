@@ -153,6 +153,37 @@ pub struct ToolConfig {
 }
 
 impl ToolConfig {
+    /// Provided so that unit tests can build a `ToolConfig`.
+    #[cfg(test)]
+    pub(crate) fn default() -> Self {
+        ToolConfig {
+            force_pass: false,
+            require_full_match: false,
+            output: OutputBehavior::Nothing,
+            snapshot_update: SnapshotUpdate::No,
+            #[cfg(feature = "glob")]
+            glob_fail_fast: false,
+            #[cfg(feature = "_cargo_insta_internal")]
+            test_runner_fallback: false,
+            #[cfg(feature = "_cargo_insta_internal")]
+            test_runner: TestRunner::Auto,
+            #[cfg(feature = "_cargo_insta_internal")]
+            test_unreferenced: UnreferencedSnapshots::Auto,
+            #[cfg(feature = "_cargo_insta_internal")]
+            auto_review: false,
+            #[cfg(feature = "_cargo_insta_internal")]
+            auto_accept_unseen: false,
+            #[cfg(feature = "_cargo_insta_internal")]
+            review_include_ignored: false,
+            #[cfg(feature = "_cargo_insta_internal")]
+            review_include_hidden: false,
+            #[cfg(feature = "_cargo_insta_internal")]
+            review_warn_undiscovered: false,
+            #[cfg(feature = "_cargo_insta_internal")]
+            disable_nextest_doctest: false,
+        }
+    }
+
     /// Loads the tool config from a cargo workspace.
     pub fn from_workspace(workspace_dir: &Path) -> Result<ToolConfig, Error> {
         let mut cfg = None;
@@ -353,6 +384,12 @@ impl ToolConfig {
     /// Returns the intended snapshot update behavior.
     pub fn snapshot_update(&self) -> SnapshotUpdate {
         self.snapshot_update
+    }
+
+    /// Provided so that unit tests can set this field.
+    #[cfg(test)]
+    pub fn set_require_full_match(&mut self, require_full_match: bool) {
+        self.require_full_match = require_full_match;
     }
 
     /// Returns whether the glob should fail fast, as snapshot failures within the glob macro will appear only at the end of execution unless `glob_fail_fast` is set.

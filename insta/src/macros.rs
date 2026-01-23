@@ -382,6 +382,7 @@ macro_rules! _assert_snapshot_base {
             $crate::_macro_support::file!(),
             $crate::_macro_support::line!(),
             $debug_expr,
+            $crate::_macro_support::DEFAULT_COMPARATOR,
         )
         .unwrap()
     };
@@ -425,6 +426,7 @@ macro_rules! assert_binary_snapshot {
             $crate::_macro_support::file!(),
             $crate::_macro_support::line!(),
             $debug_expr,
+            $crate::_macro_support::DEFAULT_COMPARATOR,
         )
         .unwrap()
     };

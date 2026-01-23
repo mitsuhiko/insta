@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::{borrow::Cow, env};
 
 use crate::settings::Settings;
+use crate::comparator::Comparator;
 use crate::snapshot::{
     MetaData, PendingInlineSnapshot, Snapshot, SnapshotContents, SnapshotKind, TextSnapshotContents,
 };
@@ -851,6 +852,7 @@ pub fn assert_snapshot(
     assertion_file: &str,
     assertion_line: u32,
     expr: &str,
+    comparator: &dyn Comparator,
 ) -> Result<(), Box<dyn Error>> {
     let ctx = SnapshotAssertionContext::prepare(
         &snapshot_value,
@@ -908,17 +910,15 @@ pub fn assert_snapshot(
         }
     });
 
-    let pass = ctx
+    let pass =
+        if let Some(x) = ctx
         .old_snapshot
         .as_ref()
-        .map(|x| {
-            if ctx.tool_config.require_full_match() {
-                x.matches_fully(&new_snapshot)
-            } else {
-                x.matches(&new_snapshot)
-            }
-        })
-        .unwrap_or(false);
+    {
+        comparator.matches(&ctx.tool_config, x, &new_snapshot)
+    } else {
+        false
+    };
 
     if pass {
         ctx.cleanup_passing()?;
