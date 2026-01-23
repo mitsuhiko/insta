@@ -4,6 +4,9 @@
 use crate::env::ToolConfig;
 use crate::snapshot::{Snapshot, SnapshotContents, TextSnapshotKind};
 
+#[cfg(feature = "png")]
+pub mod png;
+
 /// Allows specific behavior to be invoked when [`Snapshot`]s are compared.
 ///
 /// This is intended for use in macros that pass an implementation to
