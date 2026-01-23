@@ -298,6 +298,7 @@
 
 #[macro_use]
 mod macros;
+pub mod comparator;
 mod content;
 mod env;
 #[doc(hidden)]
@@ -333,11 +334,12 @@ pub use crate::snapshot::{MetaData, Snapshot, TextSnapshotKind};
 /// guaranteed to be compatible between minor versions.
 pub mod internals {
     pub use crate::content::Content;
+    pub use crate::env::ToolConfig;
     #[cfg(feature = "filters")]
     pub use crate::filters::Filters;
     pub use crate::runtime::AutoName;
     pub use crate::settings::SettingsBindDropGuard;
-    pub use crate::snapshot::{MetaData, SnapshotContents};
+    pub use crate::snapshot::{MetaData, SnapshotContents, TextSnapshotContents};
     #[cfg(feature = "redactions")]
     pub use crate::{
         redaction::{ContentPath, Redaction},

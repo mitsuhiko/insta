@@ -8,6 +8,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
 
+use crate::comparator::Comparator;
 use crate::content::Content;
 #[cfg(feature = "serde")]
 use crate::content::ContentSerializer;
@@ -47,7 +48,6 @@ impl Redactions {
     }
 }
 
-#[derive(Clone)]
 #[doc(hidden)]
 pub struct ActualSettings {
     pub sort_maps: bool,
@@ -58,12 +58,35 @@ pub struct ActualSettings {
     pub info: Option<Content>,
     pub omit_expression: bool,
     pub prepend_module_to_snapshot: bool,
+    pub comparator: Box<dyn Comparator>,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
     #[cfg(feature = "filters")]
     pub filters: Filters,
     #[cfg(feature = "glob")]
     pub allow_empty_glob: bool,
+}
+
+impl Clone for ActualSettings {
+    fn clone(&self) -> Self {
+        ActualSettings {
+            sort_maps: self.sort_maps,
+            snapshot_path: self.snapshot_path.clone(),
+            snapshot_suffix: self.snapshot_suffix.clone(),
+            input_file: self.input_file.clone(),
+            description: self.description.clone(),
+            info: self.info.clone(),
+            omit_expression: self.omit_expression,
+            prepend_module_to_snapshot: self.prepend_module_to_snapshot,
+            comparator: self.comparator.dyn_clone(),
+            #[cfg(feature = "redactions")]
+            redactions: self.redactions.clone(),
+            #[cfg(feature = "filters")]
+            filters: self.filters.clone(),
+            #[cfg(feature = "glob")]
+            allow_empty_glob: self.allow_empty_glob,
+        }
+    }
 }
 
 impl ActualSettings {
@@ -113,6 +136,10 @@ impl ActualSettings {
 
     pub fn prepend_module_to_snapshot(&mut self, value: bool) {
         self.prepend_module_to_snapshot = value;
+    }
+
+    pub fn comparator(&mut self, value: Box<dyn Comparator>) {
+        self.comparator = value;
     }
 
     #[cfg(feature = "redactions")]
@@ -176,6 +203,7 @@ impl Default for Settings {
                 info: None,
                 omit_expression: false,
                 prepend_module_to_snapshot: true,
+                comparator: Box::new(crate::comparator::DefaultComparator),
                 #[cfg(feature = "redactions")]
                 redactions: Redactions::default(),
                 #[cfg(feature = "filters")]
@@ -373,6 +401,16 @@ impl Settings {
     /// If set to true, does not retain the expression in the snapshot.
     pub fn set_omit_expression(&mut self, value: bool) {
         self._private_inner_mut().omit_expression(value);
+    }
+
+    /// Retrieves the [`Comparator`] that is currently active.
+    pub fn comparator(&self) -> &dyn Comparator {
+        self.inner.comparator.as_ref()
+    }
+
+    /// Sets the currently active [`Comparator`] to `value`.
+    pub fn set_comparator(&mut self, value: Box<dyn Comparator>) {
+        self._private_inner_mut().comparator = value;
     }
 
     /// Returns true if expressions are omitted from snapshots.
