@@ -1,0 +1,7 @@
+---
+source: insta/tests/test_png.rs
+assertion_line: 21
+expression: XEYES_ANGEL_PNG.to_vec()
+extension: png
+snapshot_kind: binary
+---

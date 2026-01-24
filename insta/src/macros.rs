@@ -389,6 +389,40 @@ macro_rules! _assert_snapshot_base {
 }
 
 /// (Experimental)
+/// Asserts a binary snapshot containing PNG image data, encoded as a [`Vec<u8>`].
+///
+/// When specifying a snapshot name, a `.png` file extension is automatically appended.
+///
+/// This delegates to [`assert_binary_snapshot`].
+#[cfg(feature = "png")]
+#[macro_export]
+macro_rules! assert_png_snapshot {
+    ($value:expr $(,)?) => {
+        $crate::assert_png_snapshot!("", $value, stringify!($value));
+    };
+    ($name:expr, $value:expr $(,)?) => {
+        $crate::assert_png_snapshot!($name, $value, stringify!($value));
+    };
+    ($name:expr, $value:expr, $debug_expr:expr $(,)?) => {
+        $crate::_macro_support::assert_snapshot(
+            $crate::_macro_support::BinarySnapshotValue {
+                name_and_extension: &format!("{}.png", $name),
+                content: $value,
+            }
+            .into(),
+            $crate::_get_workspace_root!().as_path(),
+            $crate::_function_name!(),
+            $crate::_macro_support::module_path!(),
+            $crate::_macro_support::file!(),
+            $crate::_macro_support::line!(),
+            $debug_expr,
+            $crate::_macro_support::PNG_COMPARATOR,
+        )
+        .unwrap()
+    };
+}
+
+/// (Experimental)
 /// Asserts a binary snapshot in the form of a [`Vec<u8>`].
 ///
 /// The contents get stored in a separate file next to the metadata file. The extension for this

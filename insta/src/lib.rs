@@ -392,4 +392,7 @@ pub mod _macro_support {
     pub use crate::{
         redaction::Redaction, redaction::Selector, serialization::serialize_value_redacted,
     };
+
+    #[cfg(feature = "png")]
+    pub use crate::comparator::png::COMPARATOR as PNG_COMPARATOR;
 }
