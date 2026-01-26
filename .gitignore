@@ -10,3 +10,6 @@ target
 BUILD.bazel
 WORKSPACE.bazel
 bazel-*
+
+# Emacs backups
+*~
