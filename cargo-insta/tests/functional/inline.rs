@@ -480,3 +480,67 @@ fn test_multiple_assertions_within_allow_duplicates() {
      }
     "#);
 }
+
+/// Regression test for https://github.com/mitsuhiko/insta/issues/865
+/// Carriage return at the start of a line should be preserved, not treated as indentation.
+#[test]
+fn test_carriage_return_preserved() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_carriage_return"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_cr_preserved() {
+    // Value with carriage return at start of second line
+    insta::assert_snapshot!("\n\r foo", @"");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    // Accept the snapshot
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // The snapshot should use escape sequences for the control characters
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -2,5 +2,5 @@
+     #[test]
+     fn test_cr_preserved() {
+         // Value with carriage return at start of second line
+    -    insta::assert_snapshot!("\n\r foo", @"");
+    +    insta::assert_snapshot!("\n\r foo", @"\n\r foo");
+     }
+    "##);
+
+    // Run again without --accept - should pass without needing to accept again
+    // (This is the bug from issue #865: after accepting, the test would still fail)
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test should pass after accepting snapshot (issue #865): {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
