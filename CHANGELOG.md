@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.46.2
+
+- Fix inline snapshot corruption with carriage returns. The `leading_space()` function incorrectly treated `\r` as indentation, causing carriage returns to be stripped from snapshot content. #866
+- Remove `< 0.4.17` upper bound on globset dependency. #864
+
 ## 1.46.1
 
 - Fix inline snapshot corruption when multiple snapshots appear inside `with_settings!` macro. #858
