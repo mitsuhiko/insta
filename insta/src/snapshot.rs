@@ -745,6 +745,11 @@ impl TextSnapshotContents {
         };
         // Then this we do for both kinds
         let out = kind_specific_normalization.trim_end();
+        // Normalize Windows CRLF to LF. We intentionally do NOT normalize
+        // standalone \r (old Mac Classic line endings) to \n here, as standalone
+        // \r in snapshot content is more likely to be data (terminal control
+        // codes, binary output) than a line ending. If this assumption proves
+        // wrong, we could add: .replace('\r', "\n")
         out.replace("\r\n", "\n")
     }
 
