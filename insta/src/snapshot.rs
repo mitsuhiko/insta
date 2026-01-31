@@ -745,6 +745,11 @@ impl TextSnapshotContents {
         };
         // Then this we do for both kinds
         let out = kind_specific_normalization.trim_end();
+        // Normalize Windows CRLF to LF. We intentionally do NOT normalize
+        // standalone \r (old Mac Classic line endings) to \n here, as standalone
+        // \r in snapshot content is more likely to be data (terminal control
+        // codes, binary output) than a line ending. If this assumption proves
+        // wrong, we could add: .replace('\r', "\n")
         out.replace("\r\n", "\n")
     }
 
@@ -876,7 +881,9 @@ fn test_required_hashes() {
 fn leading_space(value: &str) -> String {
     value
         .chars()
-        .take_while(|x| x.is_whitespace())
+        // Only consider horizontal whitespace (space and tab) as indentation.
+        // Other whitespace like \r should not be stripped as indentation.
+        .take_while(|x| *x == ' ' || *x == '\t')
         .collect::<String>()
 }
 
@@ -1206,6 +1213,14 @@ b
     assert_eq!(
         TextSnapshotContents::new("a\rb".to_string(), TextSnapshotKind::Inline).to_inline(""),
         r##""a\rb""##
+    );
+
+    // Issue #865: carriage return at start of line should be preserved, not
+    // treated as indentation
+    assert_eq!(
+        TextSnapshotContents::new("\n\r foo  bar".to_string(), TextSnapshotKind::Inline)
+            .to_inline(""),
+        r##""\n\r foo  bar""##
     );
 
     assert_eq!(
