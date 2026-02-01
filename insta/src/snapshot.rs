@@ -783,7 +783,14 @@ impl TextSnapshotContents {
         // string with unicode escapes from the debug output. We don't attempt
         // block mode (though not impossible to do so).
         if has_control_chars {
-            out.push_str(format!("{contents:?}").as_str());
+            if contents.contains('\n') {
+                // For multiline content, add a formatting newline at the start.
+                // This matches block format behavior and ensures from_inline_literal
+                // strips the formatting newline, not the content's leading newline.
+                out.push_str(format!("{:?}", format!("\n{contents}")).as_str());
+            } else {
+                out.push_str(format!("{contents:?}").as_str());
+            }
         } else {
             out.push('"');
             // if we have more than one line we want to change into the block
@@ -1216,11 +1223,12 @@ b
     );
 
     // Issue #865: carriage return at start of line should be preserved, not
-    // treated as indentation
+    // treated as indentation. Multiline escaped format adds a formatting newline
+    // at the start (like block format) so from_inline_literal strips correctly.
     assert_eq!(
         TextSnapshotContents::new("\n\r foo  bar".to_string(), TextSnapshotKind::Inline)
             .to_inline(""),
-        r##""\n\r foo  bar""##
+        r##""\n\n\r foo  bar""##
     );
 
     assert_eq!(
@@ -1234,6 +1242,173 @@ b
         // Replacement character is returned as the character in literals
         r##""a�b""##
     );
+
+    // CRLF edge cases - CRLF normalizes to LF, but standalone CR is preserved
+    assert_eq!(
+        TextSnapshotContents::new("hello\r\nworld".to_string(), TextSnapshotKind::Inline)
+            .to_inline("    "),
+        // CRLF becomes LF after normalization, so uses block format
+        r##""
+    hello
+    world
+    ""##
+    );
+
+    assert_eq!(
+        TextSnapshotContents::new("\r\nhello".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        // Leading CRLF normalizes to leading LF
+        r##""
+
+hello
+""##
+    );
+
+    assert_eq!(
+        TextSnapshotContents::new("hello\r\n".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        // Trailing CRLF is trimmed (like all trailing whitespace)
+        r##""hello""##
+    );
+
+    // LFCR (not CRLF) - the CR is standalone and triggers escaped format
+    // Multiline escaped format adds formatting newline at start
+    assert_eq!(
+        TextSnapshotContents::new("hello\n\rworld".to_string(), TextSnapshotKind::Inline)
+            .to_inline(""),
+        r##""\nhello\n\rworld""##
+    );
+
+    // Mixed CR and CRLF
+    assert_eq!(
+        TextSnapshotContents::new("a\rb\r\nc".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        // After CRLF normalization: "a\rb\nc" - has CR and newline, so adds formatting newline
+        r##""\na\rb\nc""##
+    );
+}
+
+/// Test that CRLF edge cases don't trigger unfixable legacy warnings.
+/// The bug condition is: matches_legacy() returns true but matches_latest() returns false,
+/// which would trigger a warning but --force-update-snapshots wouldn't fix it.
+#[test]
+fn test_crlf_no_unfixable_legacy_warning() {
+    fn extract_literal_content(inline: &str) -> String {
+        let s = inline.trim();
+        if s.starts_with("r#") {
+            let hash_count = s[1..].chars().take_while(|&c| c == '#').count();
+            let start = 2 + hash_count;
+            let end = s.len() - hash_count - 1;
+            s[start..end].to_string()
+        } else if s.starts_with("r\"") {
+            s[2..s.len() - 1].to_string()
+        } else if s.starts_with('"') {
+            let inner = &s[1..s.len() - 1];
+            let mut result = String::new();
+            let mut chars = inner.chars().peekable();
+            while let Some(c) = chars.next() {
+                if c == '\\' {
+                    match chars.next() {
+                        Some('n') => result.push('\n'),
+                        Some('r') => result.push('\r'),
+                        Some('t') => result.push('\t'),
+                        Some('0') => result.push('\0'),
+                        Some('\\') => result.push('\\'),
+                        Some('"') => result.push('"'),
+                        Some('u') => {
+                            if chars.next() == Some('{') {
+                                let mut hex = String::new();
+                                while let Some(&c) = chars.peek() {
+                                    if c == '}' {
+                                        chars.next();
+                                        break;
+                                    }
+                                    hex.push(c);
+                                    chars.next();
+                                }
+                                if let Ok(code) = u32::from_str_radix(&hex, 16) {
+                                    if let Some(c) = char::from_u32(code) {
+                                        result.push(c);
+                                    }
+                                }
+                            }
+                        }
+                        Some(c) => {
+                            result.push('\\');
+                            result.push(c);
+                        }
+                        None => result.push('\\'),
+                    }
+                } else {
+                    result.push(c);
+                }
+            }
+            result
+        } else {
+            panic!("Unknown format: {:?}", s);
+        }
+    }
+
+    fn check_no_unfixable_warning(label: &str, value: &str) {
+        // Simulate generating a snapshot from value
+        let generated = TextSnapshotContents::new(value.to_string(), TextSnapshotKind::Inline);
+
+        // Simulate storing and reading back
+        let inline = generated.to_inline("    ");
+        let parsed = extract_literal_content(&inline);
+        let stored = TextSnapshotContents::from_inline_literal(&parsed);
+
+        let matches_latest = generated.matches_latest(&stored);
+        let matches_legacy = generated.matches_legacy(&stored);
+
+        // If matches_legacy is true but matches_latest is false, that's an unfixable warning
+        assert!(
+            matches_latest || !matches_legacy,
+            "Unfixable legacy warning for {}: \
+            value={:?}, generated.to_string()={:?}, inline={:?}, \
+            stored.to_string()={:?}",
+            label,
+            value,
+            generated.to_string(),
+            inline,
+            stored.to_string()
+        );
+    }
+
+    // Pure CRLF cases (no standalone CR after normalization)
+    check_no_unfixable_warning("CRLF only", "\r\n");
+    check_no_unfixable_warning("CRLF multiple", "\r\n\r\n");
+    check_no_unfixable_warning("CRLF leading", "\r\nhello");
+    check_no_unfixable_warning("CRLF trailing", "hello\r\n");
+    check_no_unfixable_warning("CRLF simple", "hello\r\nworld");
+    check_no_unfixable_warning("CRLF multiline Windows", "line1\r\nline2\r\nline3");
+
+    // LFCR (not CRLF) - the \r is standalone
+    check_no_unfixable_warning("LFCR simple", "hello\n\rworld");
+    // This case was previously broken (leading \n lost) but is fixed now:
+    // to_inline() adds formatting newline for multiline escaped content
+    check_no_unfixable_warning("LFCR leading", "\n\rhello");
+    check_no_unfixable_warning("LFCR trailing", "hello\n\r");
+    check_no_unfixable_warning("LFCR only", "\n\r");
+
+    // CR-only content (no newlines)
+    check_no_unfixable_warning("CR only single", "\r");
+    check_no_unfixable_warning("CR only multiple", "\r\r\r\r");
+    check_no_unfixable_warning("CR in text no newline", "a\rb\rc");
+    check_no_unfixable_warning("CR at start no newline", "\rhello");
+    check_no_unfixable_warning("CR at end no newline", "hello\r");
+
+    // Mixed: CR + CRLF in same content
+    check_no_unfixable_warning("CR then CRLF", "\r\r\n");
+    check_no_unfixable_warning("CRLF then CR", "\r\n\r");
+    check_no_unfixable_warning("text CR CRLF", "a\r\r\n");
+    check_no_unfixable_warning("CRLF text CR", "\r\na\r");
+    check_no_unfixable_warning("interleaved CR and CRLF", "\r\r\n\r\r\n\r");
+    check_no_unfixable_warning("Windows with stray CR", "line1\r\nline2\rweird\r\nline3");
+    check_no_unfixable_warning("CR before CRLF", "a\rb\r\nc");
+    check_no_unfixable_warning("CR after CRLF", "a\r\nb\rc");
+
+    // Mixed line endings in realistic scenarios
+    check_no_unfixable_warning("Unix then Windows", "unix line\nnext\r\nwindows line");
+    check_no_unfixable_warning("Windows then Unix", "windows line\r\nnext\nunix line");
+    check_no_unfixable_warning("All three styles", "unix\nwindows\r\nold mac\rnext");
 }
 
 #[test]

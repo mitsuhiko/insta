@@ -521,7 +521,9 @@ fn test_cr_preserved() {
 
     assert!(&output.status.success());
 
-    // The snapshot should use escape sequences for the control characters
+    // The snapshot should use escape sequences for the control characters.
+    // Note: multiline escaped format adds a formatting newline at the start
+    // (like block format) so from_inline_literal can strip correctly.
     assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
@@ -530,7 +532,7 @@ fn test_cr_preserved() {
      fn test_cr_preserved() {
          // Value with carriage return at start of second line
     -    insta::assert_snapshot!("\n\r foo", @"");
-    +    insta::assert_snapshot!("\n\r foo", @"\n\r foo");
+    +    insta::assert_snapshot!("\n\r foo", @"\n\n\r foo");
      }
     "##);
 
@@ -542,5 +544,14 @@ fn test_cr_preserved() {
         output.status.success(),
         "Test should pass after accepting snapshot (issue #865): {}",
         String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Should NOT show legacy format warning (the unfixable warning bug)
+    let combined = String::from_utf8_lossy(&output.stdout).to_string()
+        + &String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !combined.contains("legacy format"),
+        "Should not show legacy format warning after fix: {}",
+        combined
     );
 }
