@@ -1293,7 +1293,7 @@ hello
     );
 }
 
-/// Test that escaped format content roundtrips correctly through from_inline_literal.
+/// Test that escaped format content roundtrips correctly through `from_inline_literal`.
 /// Issue #865: content with control chars like \r should not lose its leading newline.
 #[test]
 fn test_escaped_format_preserves_content() {
