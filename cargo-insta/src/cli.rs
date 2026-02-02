@@ -76,7 +76,7 @@ enum Command {
     Test(TestCommand),
     /// Print a summary of all pending snapshots.
     PendingSnapshots(PendingSnapshotsCommand),
-    /// Shows a specific snapshot
+    /// Shows a snapshot file or lists all snapshot files
     Show(ShowCommand),
 }
 
@@ -287,8 +287,8 @@ struct PendingSnapshotsCommand {
 struct ShowCommand {
     #[command(flatten)]
     target_args: TargetArgs,
-    /// The path to the snapshot file.
-    path: PathBuf,
+    /// The path to the snapshot file. If not provided, lists all snapshot files.
+    path: Option<PathBuf>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1412,12 +1412,38 @@ fn get_cargo_nextest_command() -> std::process::Command {
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &[])?;
-    let snapshot = Snapshot::from_file(&cmd.path)?;
-    let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
-    printer.set_snapshot_file(Some(&cmd.path));
-    printer.set_show_info(true);
-    printer.set_show_diff(false);
-    printer.print();
+
+    match cmd.path {
+        Some(path) => {
+            let snapshot = Snapshot::from_file(&path)?;
+            let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
+            printer.set_snapshot_file(Some(&path));
+            printer.set_show_info(true);
+            printer.set_show_diff(false);
+            printer.print();
+        }
+        None => {
+            for package in &loc.packages {
+                for root in find_snapshot_roots(package) {
+                    let walker = make_snapshot_walker(&root, &loc.exts, loc.find_flags);
+                    for entry in walker.filter_map(|e| e.ok()) {
+                        if entry.file_type().map(|ft| ft.is_file()).unwrap_or(false) {
+                            let path = entry.path();
+                            // Skip .new and .pending-snap files
+                            if let Some(ext) = path.extension() {
+                                if ext == "new" || ext == "pending-snap" {
+                                    continue;
+                                }
+                            }
+                            if let Ok(rel_path) = path.strip_prefix(&loc.workspace_root) {
+                                println!("{}", rel_path.display());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     Ok(())
 }
 
