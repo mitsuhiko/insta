@@ -481,6 +481,56 @@ fn test_multiple_assertions_within_allow_duplicates() {
     "#);
 }
 
+/// Regression test for https://github.com/mitsuhiko/insta/issues/865#issuecomment-2927572941
+/// Existing snapshots with escaped format should not trigger unfixable legacy warnings.
+#[test]
+fn test_existing_escaped_snapshot_no_legacy_warning() {
+    // This tests the exact case from the issue: an already-accepted snapshot
+    // that previously triggered a "legacy format" warning that couldn't be fixed.
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_existing_escaped"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_existing() {
+    // This snapshot was already accepted - it should just pass, no warnings
+    insta::assert_snapshot!("\n\r foo", @"\n\r foo");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
+
+    assert!(
+        output.status.success(),
+        "Test should pass: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let combined = String::from_utf8_lossy(&output.stdout).to_string()
+        + &String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !combined.contains("legacy format"),
+        "Should not show legacy format warning: {}",
+        combined
+    );
+}
+
 /// Regression test for https://github.com/mitsuhiko/insta/issues/865
 /// Carriage return at the start of a line should be preserved, not treated as indentation.
 #[test]
@@ -521,7 +571,8 @@ fn test_cr_preserved() {
 
     assert!(&output.status.success());
 
-    // The snapshot should use escape sequences for the control characters
+    // The snapshot should use escape sequences for the control characters.
+    // Escaped format doesn't add a formatting newline (unlike block format).
     assert_snapshot!(test_project.diff("src/lib.rs"), @r##"
     --- Original: src/lib.rs
     +++ Updated: src/lib.rs
@@ -542,5 +593,14 @@ fn test_cr_preserved() {
         output.status.success(),
         "Test should pass after accepting snapshot (issue #865): {}",
         String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Should NOT show legacy format warning (the unfixable warning bug)
+    let combined = String::from_utf8_lossy(&output.stdout).to_string()
+        + &String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !combined.contains("legacy format"),
+        "Should not show legacy format warning after fix: {}",
+        combined
     );
 }

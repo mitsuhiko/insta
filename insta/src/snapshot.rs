@@ -711,13 +711,35 @@ impl TextSnapshotContents {
     /// to `\n`. Otherwise, the value is retained unnormalized (generally we
     /// want to retain unnormalized values so we can run `matches_fully` on
     /// them)
+    /// Returns true if the string contains control characters that require
+    /// escaped format (using Rust's `{:?}` Debug formatting).
+    ///
+    /// We exclude `\n`, `\t`, and `\x1b` from triggering escaped format:
+    /// - `\n` (newline): Can appear literally in block format strings
+    /// - `\t` (tab): Can appear literally in strings without escaping
+    /// - `\x1b` (ESC): Used for ANSI terminal colors; users prefer seeing
+    ///   the actual escape sequences rather than double-escaped output
+    ///
+    /// All other control characters (like `\r`, `\0`) trigger escaped format.
+    fn needs_escaped_format(contents: &str) -> bool {
+        contents
+            .chars()
+            .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c))
+    }
+
     pub(crate) fn from_inline_literal(contents: &str) -> Self {
         // If it's a single line string, then we don't do anything.
         if contents.trim_end().lines().count() <= 1 {
             return Self::new(contents.trim_end().to_string(), TextSnapshotKind::Inline);
         }
 
-        // If it's multiline, we trim the first line, which should be empty.
+        // Escaped format doesn't use a formatting newline, so return as-is.
+        // Block format uses a formatting newline that we strip below.
+        if Self::needs_escaped_format(contents) {
+            return Self::new(contents.trim_end().to_string(), TextSnapshotKind::Inline);
+        }
+
+        // If it's multiline block format, we trim the first line, which should be empty.
         // (Possibly in the future we'll do the same for the final line too)
         let lines = contents.lines().collect::<Vec<&str>>();
         let (first, remainder) = lines.split_first().unwrap();
@@ -759,19 +781,14 @@ impl TextSnapshotContents {
         let contents = self.normalize();
         let mut out = String::new();
 
-        // Some characters can't be escaped in a raw string literal, so we need
-        // to escape the string if it contains them. We prefer escaping control
-        // characters except for newlines, tabs, and ESC.
-        let has_control_chars = contents
-            .chars()
-            .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c));
+        let needs_escaping = Self::needs_escaped_format(&contents);
 
         // We prefer raw strings for strings containing a quote or an escape
         // character, as these would require escaping in regular strings.
-        // We can't use raw strings for some control characters.
+        // We can't use raw strings for control characters that need escaping.
         // We don't use raw strings just for newlines, as they can appear
         // literally in regular strings (avoids clippy::needless_raw_strings).
-        if !has_control_chars && contents.contains(['\\', '"']) {
+        if !needs_escaping && contents.contains(['\\', '"']) {
             out.push('r');
         }
 
@@ -779,10 +796,9 @@ impl TextSnapshotContents {
 
         out.push_str(&delimiter);
 
-        // If there are control characters, then we have to just use a simple
-        // string with unicode escapes from the debug output. We don't attempt
-        // block mode (though not impossible to do so).
-        if has_control_chars {
+        // If escaping is needed, use Rust's Debug formatting for escape sequences.
+        // We don't attempt block mode for these (though not impossible to do so).
+        if needs_escaping {
             out.push_str(format!("{contents:?}").as_str());
         } else {
             out.push('"');
@@ -1215,8 +1231,8 @@ b
         r##""a\rb""##
     );
 
-    // Issue #865: carriage return at start of line should be preserved, not
-    // treated as indentation
+    // Issue #865: carriage return at start of line should be preserved.
+    // Escaped format doesn't add a formatting newline (unlike block format).
     assert_eq!(
         TextSnapshotContents::new("\n\r foo  bar".to_string(), TextSnapshotKind::Inline)
             .to_inline(""),
@@ -1233,6 +1249,75 @@ b
         TextSnapshotContents::new("a\u{FFFD}b".to_string(), TextSnapshotKind::Inline).to_inline(""),
         // Replacement character is returned as the character in literals
         r##""a�b""##
+    );
+
+    // CRLF edge cases - CRLF normalizes to LF, but standalone CR is preserved
+    assert_eq!(
+        TextSnapshotContents::new("hello\r\nworld".to_string(), TextSnapshotKind::Inline)
+            .to_inline("    "),
+        // CRLF becomes LF after normalization, so uses block format
+        r##""
+    hello
+    world
+    ""##
+    );
+
+    assert_eq!(
+        TextSnapshotContents::new("\r\nhello".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        // Leading CRLF normalizes to leading LF
+        r##""
+
+hello
+""##
+    );
+
+    assert_eq!(
+        TextSnapshotContents::new("hello\r\n".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        // Trailing CRLF is trimmed (like all trailing whitespace)
+        r##""hello""##
+    );
+
+    // LFCR (not CRLF) - the CR is standalone and triggers escaped format
+    // Escaped format doesn't add a formatting newline (unlike block format)
+    assert_eq!(
+        TextSnapshotContents::new("hello\n\rworld".to_string(), TextSnapshotKind::Inline)
+            .to_inline(""),
+        r##""hello\n\rworld""##
+    );
+
+    // Mixed CR and CRLF
+    assert_eq!(
+        TextSnapshotContents::new("a\rb\r\nc".to_string(), TextSnapshotKind::Inline).to_inline(""),
+        // After CRLF normalization: "a\rb\nc" - has CR, uses escaped format
+        r##""a\rb\nc""##
+    );
+}
+
+/// Test that escaped format content roundtrips correctly through `from_inline_literal`.
+/// Issue #865: content with control chars like \r should not lose its leading newline.
+#[test]
+fn test_escaped_format_preserves_content() {
+    // Escaped format: from_inline_literal receives the value as-is (no formatting newline)
+    // Block format: from_inline_literal receives the value with a leading formatting newline
+
+    // The bug was: "\n\r foo" would lose its leading \n because from_inline_literal
+    // stripped it, thinking it was a formatting newline from block format.
+
+    // Escaped format cases (has control chars like \r)
+    assert_eq!(
+        TextSnapshotContents::from_inline_literal("\n\r foo").contents,
+        "\n\r foo"
+    );
+    assert_eq!(
+        TextSnapshotContents::from_inline_literal("a\rb").contents,
+        "a\rb"
+    );
+
+    // Block format cases (no control chars) - leading newline IS a formatting newline
+    // (trailing newline is trimmed by from_inline_literal)
+    assert_eq!(
+        TextSnapshotContents::from_inline_literal("\nfoo\nbar\n").contents,
+        "foo\nbar"
     );
 }
 
