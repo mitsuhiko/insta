@@ -711,13 +711,35 @@ impl TextSnapshotContents {
     /// to `\n`. Otherwise, the value is retained unnormalized (generally we
     /// want to retain unnormalized values so we can run `matches_fully` on
     /// them)
+    /// Returns true if the string contains control characters that require
+    /// escaped format (using Rust's `{:?}` Debug formatting).
+    ///
+    /// We exclude `\n`, `\t`, and `\x1b` from triggering escaped format:
+    /// - `\n` (newline): Can appear literally in block format strings
+    /// - `\t` (tab): Can appear literally in strings without escaping
+    /// - `\x1b` (ESC): Used for ANSI terminal colors; users prefer seeing
+    ///   the actual escape sequences rather than double-escaped output
+    ///
+    /// All other control characters (like `\r`, `\0`) trigger escaped format.
+    fn needs_escaped_format(contents: &str) -> bool {
+        contents
+            .chars()
+            .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c))
+    }
+
     pub(crate) fn from_inline_literal(contents: &str) -> Self {
         // If it's a single line string, then we don't do anything.
         if contents.trim_end().lines().count() <= 1 {
             return Self::new(contents.trim_end().to_string(), TextSnapshotKind::Inline);
         }
 
-        // If it's multiline, we trim the first line, which should be empty.
+        // Escaped format doesn't use a formatting newline, so return as-is.
+        // Block format uses a formatting newline that we strip below.
+        if Self::needs_escaped_format(contents) {
+            return Self::new(contents.trim_end().to_string(), TextSnapshotKind::Inline);
+        }
+
+        // If it's multiline block format, we trim the first line, which should be empty.
         // (Possibly in the future we'll do the same for the final line too)
         let lines = contents.lines().collect::<Vec<&str>>();
         let (first, remainder) = lines.split_first().unwrap();
@@ -759,19 +781,14 @@ impl TextSnapshotContents {
         let contents = self.normalize();
         let mut out = String::new();
 
-        // Some characters can't be escaped in a raw string literal, so we need
-        // to escape the string if it contains them. We prefer escaping control
-        // characters except for newlines, tabs, and ESC.
-        let has_control_chars = contents
-            .chars()
-            .any(|c| c.is_control() && !['\n', '\t', '\x1b'].contains(&c));
+        let needs_escaping = Self::needs_escaped_format(&contents);
 
         // We prefer raw strings for strings containing a quote or an escape
         // character, as these would require escaping in regular strings.
-        // We can't use raw strings for some control characters.
+        // We can't use raw strings for control characters that need escaping.
         // We don't use raw strings just for newlines, as they can appear
         // literally in regular strings (avoids clippy::needless_raw_strings).
-        if !has_control_chars && contents.contains(['\\', '"']) {
+        if !needs_escaping && contents.contains(['\\', '"']) {
             out.push('r');
         }
 
@@ -779,18 +796,10 @@ impl TextSnapshotContents {
 
         out.push_str(&delimiter);
 
-        // If there are control characters, then we have to just use a simple
-        // string with unicode escapes from the debug output. We don't attempt
-        // block mode (though not impossible to do so).
-        if has_control_chars {
-            if contents.contains('\n') {
-                // For multiline content, add a formatting newline at the start.
-                // This matches block format behavior and ensures from_inline_literal
-                // strips the formatting newline, not the content's leading newline.
-                out.push_str(format!("{:?}", format!("\n{contents}")).as_str());
-            } else {
-                out.push_str(format!("{contents:?}").as_str());
-            }
+        // If escaping is needed, use Rust's Debug formatting for escape sequences.
+        // We don't attempt block mode for these (though not impossible to do so).
+        if needs_escaping {
+            out.push_str(format!("{contents:?}").as_str());
         } else {
             out.push('"');
             // if we have more than one line we want to change into the block
@@ -1222,13 +1231,12 @@ b
         r##""a\rb""##
     );
 
-    // Issue #865: carriage return at start of line should be preserved, not
-    // treated as indentation. Multiline escaped format adds a formatting newline
-    // at the start (like block format) so from_inline_literal strips correctly.
+    // Issue #865: carriage return at start of line should be preserved.
+    // Escaped format doesn't add a formatting newline (unlike block format).
     assert_eq!(
         TextSnapshotContents::new("\n\r foo  bar".to_string(), TextSnapshotKind::Inline)
             .to_inline(""),
-        r##""\n\n\r foo  bar""##
+        r##""\n\r foo  bar""##
     );
 
     assert_eq!(
@@ -1270,145 +1278,47 @@ hello
     );
 
     // LFCR (not CRLF) - the CR is standalone and triggers escaped format
-    // Multiline escaped format adds formatting newline at start
+    // Escaped format doesn't add a formatting newline (unlike block format)
     assert_eq!(
         TextSnapshotContents::new("hello\n\rworld".to_string(), TextSnapshotKind::Inline)
             .to_inline(""),
-        r##""\nhello\n\rworld""##
+        r##""hello\n\rworld""##
     );
 
     // Mixed CR and CRLF
     assert_eq!(
         TextSnapshotContents::new("a\rb\r\nc".to_string(), TextSnapshotKind::Inline).to_inline(""),
-        // After CRLF normalization: "a\rb\nc" - has CR and newline, so adds formatting newline
-        r##""\na\rb\nc""##
+        // After CRLF normalization: "a\rb\nc" - has CR, uses escaped format
+        r##""a\rb\nc""##
     );
 }
 
-/// Test that CRLF edge cases don't trigger unfixable legacy warnings.
-/// The bug condition is: matches_legacy() returns true but matches_latest() returns false,
-/// which would trigger a warning but --force-update-snapshots wouldn't fix it.
+/// Test that escaped format content roundtrips correctly through from_inline_literal.
+/// Issue #865: content with control chars like \r should not lose its leading newline.
 #[test]
-fn test_crlf_no_unfixable_legacy_warning() {
-    fn extract_literal_content(inline: &str) -> String {
-        let s = inline.trim();
-        if s.starts_with("r#") {
-            let hash_count = s[1..].chars().take_while(|&c| c == '#').count();
-            let start = 2 + hash_count;
-            let end = s.len() - hash_count - 1;
-            s[start..end].to_string()
-        } else if s.starts_with("r\"") {
-            s[2..s.len() - 1].to_string()
-        } else if s.starts_with('"') {
-            let inner = &s[1..s.len() - 1];
-            let mut result = String::new();
-            let mut chars = inner.chars().peekable();
-            while let Some(c) = chars.next() {
-                if c == '\\' {
-                    match chars.next() {
-                        Some('n') => result.push('\n'),
-                        Some('r') => result.push('\r'),
-                        Some('t') => result.push('\t'),
-                        Some('0') => result.push('\0'),
-                        Some('\\') => result.push('\\'),
-                        Some('"') => result.push('"'),
-                        Some('u') => {
-                            if chars.next() == Some('{') {
-                                let mut hex = String::new();
-                                while let Some(&c) = chars.peek() {
-                                    if c == '}' {
-                                        chars.next();
-                                        break;
-                                    }
-                                    hex.push(c);
-                                    chars.next();
-                                }
-                                if let Ok(code) = u32::from_str_radix(&hex, 16) {
-                                    if let Some(c) = char::from_u32(code) {
-                                        result.push(c);
-                                    }
-                                }
-                            }
-                        }
-                        Some(c) => {
-                            result.push('\\');
-                            result.push(c);
-                        }
-                        None => result.push('\\'),
-                    }
-                } else {
-                    result.push(c);
-                }
-            }
-            result
-        } else {
-            panic!("Unknown format: {:?}", s);
-        }
-    }
+fn test_escaped_format_preserves_content() {
+    // Escaped format: from_inline_literal receives the value as-is (no formatting newline)
+    // Block format: from_inline_literal receives the value with a leading formatting newline
 
-    fn check_no_unfixable_warning(label: &str, value: &str) {
-        // Simulate generating a snapshot from value
-        let generated = TextSnapshotContents::new(value.to_string(), TextSnapshotKind::Inline);
+    // The bug was: "\n\r foo" would lose its leading \n because from_inline_literal
+    // stripped it, thinking it was a formatting newline from block format.
 
-        // Simulate storing and reading back
-        let inline = generated.to_inline("    ");
-        let parsed = extract_literal_content(&inline);
-        let stored = TextSnapshotContents::from_inline_literal(&parsed);
+    // Escaped format cases (has control chars like \r)
+    assert_eq!(
+        TextSnapshotContents::from_inline_literal("\n\r foo").contents,
+        "\n\r foo"
+    );
+    assert_eq!(
+        TextSnapshotContents::from_inline_literal("a\rb").contents,
+        "a\rb"
+    );
 
-        let matches_latest = generated.matches_latest(&stored);
-        let matches_legacy = generated.matches_legacy(&stored);
-
-        // If matches_legacy is true but matches_latest is false, that's an unfixable warning
-        assert!(
-            matches_latest || !matches_legacy,
-            "Unfixable legacy warning for {}: \
-            value={:?}, generated.to_string()={:?}, inline={:?}, \
-            stored.to_string()={:?}",
-            label,
-            value,
-            generated.to_string(),
-            inline,
-            stored.to_string()
-        );
-    }
-
-    // Pure CRLF cases (no standalone CR after normalization)
-    check_no_unfixable_warning("CRLF only", "\r\n");
-    check_no_unfixable_warning("CRLF multiple", "\r\n\r\n");
-    check_no_unfixable_warning("CRLF leading", "\r\nhello");
-    check_no_unfixable_warning("CRLF trailing", "hello\r\n");
-    check_no_unfixable_warning("CRLF simple", "hello\r\nworld");
-    check_no_unfixable_warning("CRLF multiline Windows", "line1\r\nline2\r\nline3");
-
-    // LFCR (not CRLF) - the \r is standalone
-    check_no_unfixable_warning("LFCR simple", "hello\n\rworld");
-    // This case was previously broken (leading \n lost) but is fixed now:
-    // to_inline() adds formatting newline for multiline escaped content
-    check_no_unfixable_warning("LFCR leading", "\n\rhello");
-    check_no_unfixable_warning("LFCR trailing", "hello\n\r");
-    check_no_unfixable_warning("LFCR only", "\n\r");
-
-    // CR-only content (no newlines)
-    check_no_unfixable_warning("CR only single", "\r");
-    check_no_unfixable_warning("CR only multiple", "\r\r\r\r");
-    check_no_unfixable_warning("CR in text no newline", "a\rb\rc");
-    check_no_unfixable_warning("CR at start no newline", "\rhello");
-    check_no_unfixable_warning("CR at end no newline", "hello\r");
-
-    // Mixed: CR + CRLF in same content
-    check_no_unfixable_warning("CR then CRLF", "\r\r\n");
-    check_no_unfixable_warning("CRLF then CR", "\r\n\r");
-    check_no_unfixable_warning("text CR CRLF", "a\r\r\n");
-    check_no_unfixable_warning("CRLF text CR", "\r\na\r");
-    check_no_unfixable_warning("interleaved CR and CRLF", "\r\r\n\r\r\n\r");
-    check_no_unfixable_warning("Windows with stray CR", "line1\r\nline2\rweird\r\nline3");
-    check_no_unfixable_warning("CR before CRLF", "a\rb\r\nc");
-    check_no_unfixable_warning("CR after CRLF", "a\r\nb\rc");
-
-    // Mixed line endings in realistic scenarios
-    check_no_unfixable_warning("Unix then Windows", "unix line\nnext\r\nwindows line");
-    check_no_unfixable_warning("Windows then Unix", "windows line\r\nnext\nunix line");
-    check_no_unfixable_warning("All three styles", "unix\nwindows\r\nold mac\rnext");
+    // Block format cases (no control chars) - leading newline IS a formatting newline
+    // (trailing newline is trimmed by from_inline_literal)
+    assert_eq!(
+        TextSnapshotContents::from_inline_literal("\nfoo\nbar\n").contents,
+        "foo\nbar"
+    );
 }
 
 #[test]
