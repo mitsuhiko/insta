@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.46.3
+
+- Fix inline escaped snapshots incorrectly stripping leading newlines when content contains control characters like carriage returns. The escaped format (used for snapshots with control chars) now correctly preserves the original content without stripping a non-existent formatting newline. #865
+
 ## 1.46.2
 
 - Fix inline snapshot corruption with carriage returns. The `leading_space()` function incorrectly treated `\r` as indentation, causing carriage returns to be stripped from snapshot content. #866
