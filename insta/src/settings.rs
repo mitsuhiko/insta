@@ -1,4 +1,3 @@
-use once_cell::sync::Lazy;
 #[cfg(feature = "serde")]
 use serde::{de::value::Error as ValueError, Serialize};
 use std::cell::RefCell;
@@ -6,7 +5,7 @@ use std::future::Future;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::Arc;
+use std::rc::Rc;
 use std::task::{Context, Poll};
 
 use crate::content::Content;
@@ -17,32 +16,13 @@ use crate::filters::Filters;
 #[cfg(feature = "redactions")]
 use crate::redaction::{dynamic_redaction, sorted_redaction, ContentPath, Redaction, Selector};
 
-static DEFAULT_SETTINGS: Lazy<Arc<ActualSettings>> = Lazy::new(|| {
-    Arc::new(ActualSettings {
-        sort_maps: false,
-        snapshot_path: "snapshots".into(),
-        snapshot_suffix: "".into(),
-        input_file: None,
-        description: None,
-        info: None,
-        omit_expression: false,
-        prepend_module_to_snapshot: true,
-        #[cfg(feature = "redactions")]
-        redactions: Redactions::default(),
-        #[cfg(feature = "filters")]
-        filters: Filters::default(),
-        #[cfg(feature = "glob")]
-        allow_empty_glob: false,
-    })
-});
-
 thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings::new()));
 
 /// Represents stored redactions.
 #[cfg(feature = "redactions")]
 #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 #[derive(Clone, Default)]
-pub struct Redactions(Vec<(Selector<'static>, Arc<Redaction>)>);
+pub struct Redactions(Vec<(Selector<'static>, Rc<Redaction>)>);
 
 #[cfg(feature = "redactions")]
 impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
@@ -50,7 +30,7 @@ impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
         Redactions(
             value
                 .into_iter()
-                .map(|x| (Selector::parse(x.0).unwrap().make_static(), Arc::new(x.1)))
+                .map(|x| (Selector::parse(x.0).unwrap().make_static(), Rc::new(x.1)))
                 .collect(),
         )
     }
@@ -181,13 +161,28 @@ impl ActualSettings {
 /// ```
 #[derive(Clone)]
 pub struct Settings {
-    inner: Arc<ActualSettings>,
+    inner: Rc<ActualSettings>,
 }
 
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
-            inner: DEFAULT_SETTINGS.clone(),
+            inner: Rc::new(ActualSettings {
+                sort_maps: false,
+                snapshot_path: "snapshots".into(),
+                snapshot_suffix: "".into(),
+                input_file: None,
+                description: None,
+                info: None,
+                omit_expression: false,
+                prepend_module_to_snapshot: true,
+                #[cfg(feature = "redactions")]
+                redactions: Redactions::default(),
+                #[cfg(feature = "filters")]
+                filters: Filters::default(),
+                #[cfg(feature = "glob")]
+                allow_empty_glob: false,
+            }),
         }
     }
 }
@@ -209,7 +204,7 @@ impl Settings {
     /// Internal helper for macros
     #[doc(hidden)]
     pub fn _private_inner_mut(&mut self) -> &mut ActualSettings {
-        Arc::make_mut(&mut self.inner)
+        Rc::make_mut(&mut self.inner)
     }
 
     /// Enables forceful sorting of maps before serialization.
@@ -402,7 +397,7 @@ impl Settings {
     fn add_redaction_impl(&mut self, selector: &str, replacement: Redaction) {
         self._private_inner_mut().redactions.0.push((
             Selector::parse(selector).unwrap().make_static(),
-            Arc::new(replacement),
+            Rc::new(replacement),
         ));
     }
 
@@ -551,7 +546,7 @@ impl Settings {
     /// ```
     pub fn bind_async<F: Future<Output = T>, T>(&self, future: F) -> impl Future<Output = T> {
         struct BindingFuture<F> {
-            settings: Arc<ActualSettings>,
+            settings: Rc<ActualSettings>,
             future: F,
         }
 
@@ -627,7 +622,7 @@ impl Settings {
 /// This is to ensure tests under async runtimes like `tokio` don't show unexpected results
 #[must_use = "The guard is immediately dropped so binding has no effect. Use `let _guard = ...` to bind it."]
 pub struct SettingsBindDropGuard(
-    Option<Arc<ActualSettings>>,
+    Option<Rc<ActualSettings>>,
     /// A ZST that is not [`Send`] but is [`Sync`]
     ///
     /// This is necessary due to the lack of stable [negative impls](https://github.com/rust-lang/rust/issues/68318).
