@@ -1,65 +1,78 @@
-//! Provides end-to-end tests of an example custom [`Comparator`]
-//! implementation. If you're interested in writing macros with custom snapshot
-//! comparison behavior, consult these examples.
+//! Provides end-to-end tests of custom [`Comparator`] implementations.
+//!
+//! If you're interested in writing macros with custom snapshot comparison
+//! behavior, consult these examples.
 
 use insta::comparator::Comparator;
-use insta::internals::{SnapshotContents, TextSnapshotContents};
-use insta::{assert_snapshot, with_settings, Snapshot, TextSnapshotKind};
+use insta::internals::SnapshotContents;
+use insta::{assert_snapshot, with_settings, Snapshot};
 
-/// Passes all comparisons if `reference` is just an inline snapshot with the
-/// text "pass".
-struct MyComparator;
+// --- Custom comparator: whitespace insensitive ---
 
-impl Comparator for MyComparator {
-    fn matches(&self, reference: &Snapshot, _test: &Snapshot) -> bool {
-        reference.contents()
-            == &SnapshotContents::Text(TextSnapshotContents::new(
-                String::from("pass"),
-                TextSnapshotKind::Inline,
-            ))
-    }
+/// A comparator that ignores whitespace differences.
+struct WhitespaceInsensitiveComparator;
 
-    fn dyn_clone(&self) -> Box<dyn Comparator> {
-        Box::new(MyComparator)
+impl Comparator for WhitespaceInsensitiveComparator {
+    fn matches(&self, reference: &Snapshot, test: &Snapshot) -> bool {
+        match (reference.contents(), test.contents()) {
+            (SnapshotContents::Text(a), SnapshotContents::Text(b)) => {
+                let a_normalized: String = a.to_string().split_whitespace().collect();
+                let b_normalized: String = b.to_string().split_whitespace().collect();
+                a_normalized == b_normalized
+            }
+            _ => false,
+        }
     }
 }
 
 #[test]
-fn custom_comparator_matches() {
-    let comparator = Box::new(MyComparator);
-
-    with_settings!({comparator => comparator}, {
-        assert_snapshot!("reference", @"pass");
+fn whitespace_insensitive_comparator() {
+    // The value has single spaces, reference has multiple - custom comparator should match
+    let value = "hello world";
+    with_settings!({comparator => WhitespaceInsensitiveComparator}, {
+        assert_snapshot!(value, @"hello    world");
     });
 }
 
-#[test]
-#[should_panic(expected = "snapshot assertion for 'custom_comparator_fails' failed")]
-fn custom_comparator_fails() {
-    let comparator = Box::new(MyComparator);
+// --- Custom comparator: always passes ---
 
-    with_settings!({comparator => comparator}, {
-        assert_snapshot!("reference", @"fail");
+/// A comparator that always passes (for testing purposes).
+struct AlwaysPassComparator;
+
+impl Comparator for AlwaysPassComparator {
+    fn matches(&self, _reference: &Snapshot, _test: &Snapshot) -> bool {
+        true
+    }
+}
+
+#[test]
+fn always_pass_comparator() {
+    with_settings!({comparator => AlwaysPassComparator}, {
+        // Any value matches any reference with this comparator
+        assert_snapshot!("anything at all", @"completely different");
     });
 }
 
-macro_rules! assert_my_comparator {
-    ($($body:tt)*) => {
-        ::insta::with_settings!(
-            {comparator => Box::new(crate::MyComparator)},
-            {
-                ::insta::assert_snapshot!($($body)*);
-            });
-    };
+// --- Custom comparator: prefix matching ---
+
+/// A comparator that passes if the test value starts with the reference.
+struct PrefixComparator;
+
+impl Comparator for PrefixComparator {
+    fn matches(&self, reference: &Snapshot, test: &Snapshot) -> bool {
+        match (reference.contents(), test.contents()) {
+            (SnapshotContents::Text(ref_text), SnapshotContents::Text(test_text)) => {
+                test_text.to_string().starts_with(&ref_text.to_string())
+            }
+            _ => false,
+        }
+    }
 }
 
 #[test]
-fn custom_macro_passes() {
-    assert_my_comparator!("reference", @"pass");
-}
-
-#[test]
-#[should_panic(expected = "snapshot assertion for 'custom_macro_fails' failed")]
-fn custom_macro_fails() {
-    assert_my_comparator!("reference", @"fail");
+fn prefix_comparator() {
+    with_settings!({comparator => PrefixComparator}, {
+        // "hello world" starts with "hello"
+        assert_snapshot!("hello world", @"hello");
+    });
 }

@@ -322,6 +322,7 @@ mod glob;
 #[cfg(test)]
 mod test;
 
+pub use crate::comparator::{Comparator, DefaultComparator};
 pub use crate::settings::Settings;
 pub use crate::snapshot::{MetaData, Snapshot, TextSnapshotKind};
 

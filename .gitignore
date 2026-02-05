@@ -13,6 +13,3 @@ bazel-*
 
 # Emacs backups
 *~
-
-# Spurious file produced by intentionally failing integration test.
-**/.test_comparator.rs.pending-snap
