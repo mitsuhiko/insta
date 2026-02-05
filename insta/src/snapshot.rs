@@ -304,7 +304,7 @@ impl MetaData {
 
     /// Trims the metadata of fields that we don't save to `.snap` files (those
     /// we only use for display while reviewing)
-    fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
+    pub(crate) fn trim_for_persistence(&self) -> Cow<'_, MetaData> {
         // TODO: in order for `--require-full-match` to work on inline snapshots
         // without cargo-insta, we need to trim all fields if there's an inline
         // snapshot. But we don't know that from here (notably
@@ -333,7 +333,7 @@ pub enum TextSnapshotKind {
 pub struct Snapshot {
     module_name: String,
     snapshot_name: Option<String>,
-    metadata: MetaData,
+    pub(crate) metadata: MetaData,
     snapshot: SnapshotContents,
 }
 
@@ -512,44 +512,9 @@ impl Snapshot {
         &self.snapshot
     }
 
-    /// Snapshot contents match another snapshot's.
-    pub fn matches(&self, other: &Self) -> bool {
-        self.contents() == other.contents()
-            // For binary snapshots the extension also need to be the same:
-            && self.metadata.snapshot_kind == other.metadata.snapshot_kind
-    }
-
-    /// Both the exact snapshot contents and the persisted metadata match another snapshot's.
-    // (could rename to `matches_exact` for consistency, after some current
-    // pending merge requests are merged)
-    pub fn matches_fully(&self, other: &Self) -> bool {
-        match (self.contents(), other.contents()) {
-            (SnapshotContents::Text(self_contents), SnapshotContents::Text(other_contents)) => {
-                // Note that we previously would match the exact values of the
-                // unnormalized text. But that's too strict — it means we can
-                // never match a snapshot that has leading/trailing whitespace.
-                // So instead we check it matches on the latest format.
-                // Generally those should be the same — latest should be doing
-                // the minimum normalization; if they diverge we could update
-                // this to be stricter.
-                //
-                // (I think to do this perfectly, we'd want to match the
-                // _reference_ value unnormalized, but the _generated_ value
-                // normalized. That way, we can get the But at the moment we
-                // don't distinguish between which is which in our data
-                // structures.)
-                let contents_match_exact = self_contents.matches_latest(other_contents);
-                match self_contents.kind {
-                    TextSnapshotKind::File => {
-                        self.metadata.trim_for_persistence()
-                            == other.metadata.trim_for_persistence()
-                            && contents_match_exact
-                    }
-                    TextSnapshotKind::Inline => contents_match_exact,
-                }
-            }
-            _ => self.matches(other),
-        }
+    /// Returns the text contents if this is a text snapshot.
+    pub fn as_text(&self) -> Option<&TextSnapshotContents> {
+        self.snapshot.as_text()
     }
 
     fn serialize_snapshot(&self, md: &MetaData) -> String {
@@ -639,6 +604,14 @@ impl From<TextSnapshotContents> for SnapshotContents {
 impl SnapshotContents {
     pub fn is_binary(&self) -> bool {
         matches!(self, SnapshotContents::Binary(_))
+    }
+
+    /// Returns the text contents if this is a text snapshot.
+    pub fn as_text(&self) -> Option<&TextSnapshotContents> {
+        match self {
+            SnapshotContents::Text(t) => Some(t),
+            SnapshotContents::Binary(_) => None,
+        }
     }
 }
 
@@ -1335,6 +1308,19 @@ a
 \###b
 ""#####
     );
+}
+
+#[test]
+fn test_snapshot_contents_as_text() {
+    let text = SnapshotContents::Text(TextSnapshotContents::new(
+        "hello".to_string(),
+        TextSnapshotKind::Inline,
+    ));
+    assert!(text.as_text().is_some());
+    assert_eq!(text.as_text().unwrap().to_string(), "hello");
+
+    let binary = SnapshotContents::Binary(Rc::new(vec![1, 2, 3]));
+    assert!(binary.as_text().is_none());
 }
 
 #[test]

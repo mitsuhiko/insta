@@ -8,6 +8,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
 
+use crate::comparator::Comparator;
 use crate::content::Content;
 #[cfg(feature = "serde")]
 use crate::content::ContentSerializer;
@@ -58,6 +59,7 @@ pub struct ActualSettings {
     pub info: Option<Content>,
     pub omit_expression: bool,
     pub prepend_module_to_snapshot: bool,
+    pub comparator: Rc<dyn Comparator>,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
     #[cfg(feature = "filters")]
@@ -113,6 +115,10 @@ impl ActualSettings {
 
     pub fn prepend_module_to_snapshot(&mut self, value: bool) {
         self.prepend_module_to_snapshot = value;
+    }
+
+    pub fn comparator(&mut self, value: impl Comparator) {
+        self.comparator = Rc::new(value);
     }
 
     #[cfg(feature = "redactions")]
@@ -176,6 +182,7 @@ impl Default for Settings {
                 info: None,
                 omit_expression: false,
                 prepend_module_to_snapshot: true,
+                comparator: Rc::new(crate::comparator::DefaultComparator),
                 #[cfg(feature = "redactions")]
                 redactions: Redactions::default(),
                 #[cfg(feature = "filters")]
@@ -373,6 +380,16 @@ impl Settings {
     /// If set to true, does not retain the expression in the snapshot.
     pub fn set_omit_expression(&mut self, value: bool) {
         self._private_inner_mut().omit_expression(value);
+    }
+
+    /// Retrieves the [`Comparator`] that is currently active.
+    pub fn comparator(&self) -> &dyn Comparator {
+        self.inner.comparator.as_ref()
+    }
+
+    /// Sets the currently active [`Comparator`] to `value`.
+    pub fn set_comparator(&mut self, value: impl Comparator) {
+        self._private_inner_mut().comparator = Rc::new(value);
     }
 
     /// Returns true if expressions are omitted from snapshots.

@@ -298,6 +298,7 @@
 
 #[macro_use]
 mod macros;
+pub mod comparator;
 mod content;
 mod env;
 #[doc(hidden)]
@@ -321,6 +322,7 @@ mod glob;
 #[cfg(test)]
 mod test;
 
+pub use crate::comparator::{Comparator, DefaultComparator};
 pub use crate::settings::Settings;
 pub use crate::snapshot::{MetaData, Snapshot, TextSnapshotKind};
 
@@ -337,7 +339,7 @@ pub mod internals {
     pub use crate::filters::Filters;
     pub use crate::runtime::AutoName;
     pub use crate::settings::SettingsBindDropGuard;
-    pub use crate::snapshot::{MetaData, SnapshotContents};
+    pub use crate::snapshot::{MetaData, SnapshotContents, TextSnapshotContents};
     #[cfg(feature = "redactions")]
     pub use crate::{
         redaction::{ContentPath, Redaction},

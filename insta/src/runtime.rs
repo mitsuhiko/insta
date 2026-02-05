@@ -908,17 +908,18 @@ pub fn assert_snapshot(
         }
     });
 
-    let pass = ctx
-        .old_snapshot
-        .as_ref()
-        .map(|x| {
-            if ctx.tool_config.require_full_match() {
-                x.matches_fully(&new_snapshot)
-            } else {
-                x.matches(&new_snapshot)
-            }
-        })
-        .unwrap_or(false);
+    let pass = Settings::with(|settings| {
+        ctx.old_snapshot
+            .as_ref()
+            .map(|x| {
+                if ctx.tool_config.require_full_match() {
+                    settings.comparator().matches_fully(x, &new_snapshot)
+                } else {
+                    settings.comparator().matches(x, &new_snapshot)
+                }
+            })
+            .unwrap_or(false)
+    });
 
     if pass {
         ctx.cleanup_passing()?;
