@@ -912,9 +912,11 @@ pub fn assert_snapshot(
         ctx.old_snapshot
             .as_ref()
             .map(|x| {
-                settings
-                    .comparator()
-                    .matches(&ctx.tool_config, x, &new_snapshot)
+                if ctx.tool_config.require_full_match() {
+                    settings.comparator().matches_fully(x, &new_snapshot)
+                } else {
+                    settings.comparator().matches(x, &new_snapshot)
+                }
             })
             .unwrap_or(false)
     });

@@ -334,7 +334,6 @@ pub use crate::snapshot::{MetaData, Snapshot, TextSnapshotKind};
 /// guaranteed to be compatible between minor versions.
 pub mod internals {
     pub use crate::content::Content;
-    pub use crate::env::ToolConfig;
     #[cfg(feature = "filters")]
     pub use crate::filters::Filters;
     pub use crate::runtime::AutoName;

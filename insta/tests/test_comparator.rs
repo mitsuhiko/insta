@@ -3,16 +3,15 @@
 //! comparison behavior, consult these examples.
 
 use insta::comparator::Comparator;
-use insta::internals::{SnapshotContents, TextSnapshotContents, ToolConfig};
+use insta::internals::{SnapshotContents, TextSnapshotContents};
 use insta::{assert_snapshot, with_settings, Snapshot, TextSnapshotKind};
 
 /// Passes all comparisons if `reference` is just an inline snapshot with the
 /// text "pass".
 struct MyComparator;
-unsafe impl Send for MyComparator {}
-unsafe impl Sync for MyComparator {}
+
 impl Comparator for MyComparator {
-    fn matches(&self, _config: &ToolConfig, reference: &Snapshot, _test: &Snapshot) -> bool {
+    fn matches(&self, reference: &Snapshot, _test: &Snapshot) -> bool {
         reference.contents()
             == &SnapshotContents::Text(TextSnapshotContents::new(
                 String::from("pass"),
