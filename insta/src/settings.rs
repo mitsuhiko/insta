@@ -413,7 +413,7 @@ impl Settings {
     pub fn add_dynamic_redaction<I, F>(&mut self, selector: &str, func: F)
     where
         I: Into<Content>,
-        F: Fn(Content, ContentPath<'_>) -> I + Send + Sync + 'static,
+        F: Fn(Content, ContentPath<'_>) -> I + 'static,
     {
         self.add_redaction(selector, dynamic_redaction(func));
     }
