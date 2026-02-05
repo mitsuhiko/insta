@@ -512,6 +512,11 @@ impl Snapshot {
         &self.snapshot
     }
 
+    /// Returns the text contents if this is a text snapshot.
+    pub fn as_text(&self) -> Option<&TextSnapshotContents> {
+        self.snapshot.as_text()
+    }
+
     fn serialize_snapshot(&self, md: &MetaData) -> String {
         let mut buf = yaml::to_string(&md.as_content());
         buf.push_str("---\n");
@@ -599,6 +604,14 @@ impl From<TextSnapshotContents> for SnapshotContents {
 impl SnapshotContents {
     pub fn is_binary(&self) -> bool {
         matches!(self, SnapshotContents::Binary(_))
+    }
+
+    /// Returns the text contents if this is a text snapshot.
+    pub fn as_text(&self) -> Option<&TextSnapshotContents> {
+        match self {
+            SnapshotContents::Text(t) => Some(t),
+            SnapshotContents::Binary(_) => None,
+        }
     }
 }
 
@@ -1295,6 +1308,19 @@ a
 \###b
 ""#####
     );
+}
+
+#[test]
+fn test_snapshot_contents_as_text() {
+    let text = SnapshotContents::Text(TextSnapshotContents::new(
+        "hello".to_string(),
+        TextSnapshotKind::Inline,
+    ));
+    assert!(text.as_text().is_some());
+    assert_eq!(text.as_text().unwrap().to_string(), "hello");
+
+    let binary = SnapshotContents::Binary(Rc::new(vec![1, 2, 3]));
+    assert!(binary.as_text().is_none());
 }
 
 #[test]

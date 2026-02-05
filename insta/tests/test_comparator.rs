@@ -3,9 +3,7 @@
 //! If you're interested in writing macros with custom snapshot comparison
 //! behavior, consult these examples.
 
-use insta::comparator::Comparator;
-use insta::internals::SnapshotContents;
-use insta::{assert_snapshot, with_settings, Snapshot};
+use insta::{assert_snapshot, with_settings, Comparator, Snapshot};
 
 // --- Custom comparator: whitespace insensitive ---
 
@@ -14,8 +12,8 @@ struct WhitespaceInsensitiveComparator;
 
 impl Comparator for WhitespaceInsensitiveComparator {
     fn matches(&self, reference: &Snapshot, test: &Snapshot) -> bool {
-        match (reference.contents(), test.contents()) {
-            (SnapshotContents::Text(a), SnapshotContents::Text(b)) => {
+        match (reference.as_text(), test.as_text()) {
+            (Some(a), Some(b)) => {
                 let a_normalized: String = a.to_string().split_whitespace().collect();
                 let b_normalized: String = b.to_string().split_whitespace().collect();
                 a_normalized == b_normalized
@@ -60,8 +58,8 @@ struct PrefixComparator;
 
 impl Comparator for PrefixComparator {
     fn matches(&self, reference: &Snapshot, test: &Snapshot) -> bool {
-        match (reference.contents(), test.contents()) {
-            (SnapshotContents::Text(ref_text), SnapshotContents::Text(test_text)) => {
+        match (reference.as_text(), test.as_text()) {
+            (Some(ref_text), Some(test_text)) => {
                 test_text.to_string().starts_with(&ref_text.to_string())
             }
             _ => false,
