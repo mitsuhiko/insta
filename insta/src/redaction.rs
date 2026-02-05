@@ -54,7 +54,7 @@ pub enum Redaction {
     /// Static redaction with new content.
     Static(Content),
     /// Redaction with new content.
-    Dynamic(Box<dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send>),
+    Dynamic(Box<dyn Fn(Content, ContentPath<'_>) -> Content>),
 }
 
 macro_rules! impl_from {
@@ -127,7 +127,7 @@ impl<'a> From<&'a [u8]> for Redaction {
 pub fn dynamic_redaction<I, F>(func: F) -> Redaction
 where
     I: Into<Content>,
-    F: Fn(Content, ContentPath<'_>) -> I + Send + Sync + 'static,
+    F: Fn(Content, ContentPath<'_>) -> I + 'static,
 {
     Redaction::Dynamic(Box::new(move |c, p| func(c, p).into()))
 }
