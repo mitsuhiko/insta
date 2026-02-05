@@ -430,6 +430,95 @@ macro_rules! assert_binary_snapshot {
     };
 }
 
+/// (Experimental) Reads a text snapshot's contents.
+///
+/// This macro reads the contents of a previously saved snapshot file and returns it as a
+/// `Result<String, Box<dyn std::error::Error>>`. The path is resolved using the same logic
+/// as [`assert_snapshot!`](crate::assert_snapshot!), respecting settings like `snapshot_path`,
+/// `snapshot_suffix`, and `prepend_module_to_snapshot`.
+///
+/// This is useful when you need to use a snapshot's value programmatically rather than
+/// just asserting against it.
+///
+/// This feature is considered experimental: we may make incompatible changes for the next
+/// couple of versions.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Read a named snapshot
+/// let content = insta::read_snapshot!("my_snapshot").unwrap();
+///
+/// // Read with auto-generated name (based on function name)
+/// let content = insta::read_snapshot!().unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The snapshot file does not exist
+/// - The snapshot file cannot be parsed
+/// - The snapshot contains binary content
+#[macro_export]
+macro_rules! read_snapshot {
+    ($name:expr $(,)?) => {{
+        $crate::_macro_support::read_snapshot_content(
+            Some($name),
+            $crate::_get_workspace_root!().as_path(),
+            $crate::_function_name!(),
+            $crate::_macro_support::module_path!(),
+            $crate::_macro_support::file!(),
+        )
+    }};
+    () => {{
+        $crate::_macro_support::read_snapshot_content(
+            None,
+            $crate::_get_workspace_root!().as_path(),
+            $crate::_function_name!(),
+            $crate::_macro_support::module_path!(),
+            $crate::_macro_support::file!(),
+        )
+    }};
+}
+
+/// (Experimental) Reads a binary snapshot's contents.
+///
+/// This macro reads the contents of a previously saved binary snapshot file and returns it as a
+/// `Result<Vec<u8>, Box<dyn std::error::Error>>`. The path is resolved using the same logic
+/// as [`assert_binary_snapshot!`](crate::assert_binary_snapshot!).
+///
+/// This feature is considered experimental: we may make incompatible changes for the next
+/// couple of versions.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Read a binary snapshot (name must include extension)
+/// let bytes = insta::read_binary_snapshot!("my_image.png").unwrap();
+///
+/// // Read with auto-generated name (extension only)
+/// let bytes = insta::read_binary_snapshot!(".bin").unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The snapshot file does not exist
+/// - The snapshot file cannot be parsed
+/// - The snapshot contains text content
+#[macro_export]
+macro_rules! read_binary_snapshot {
+    ($name_and_extension:expr $(,)?) => {{
+        $crate::_macro_support::read_binary_snapshot_content(
+            $name_and_extension,
+            $crate::_get_workspace_root!().as_path(),
+            $crate::_function_name!(),
+            $crate::_macro_support::module_path!(),
+            $crate::_macro_support::file!(),
+        )
+    }};
+}
+
 /// Asserts a [`Display`](std::fmt::Display) snapshot.
 ///
 /// This is now deprecated, replaced by the more generic [`assert_snapshot!`](crate::assert_snapshot!)
