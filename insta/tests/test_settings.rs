@@ -1,3 +1,5 @@
+#[cfg(feature = "json")]
+use insta::assert_json_snapshot;
 #[cfg(feature = "yaml")]
 use insta::assert_yaml_snapshot;
 use similar_asserts::assert_eq;
@@ -125,6 +127,33 @@ fn test_snapshot_with_description_and_info() {
     };
     with_settings!({description => "The snapshot is four integers", info => &info}, {
         assert_debug_snapshot!(vec![1, 2, 3, 4])
+    });
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn test_sort_maps_sorts_hashset() {
+    with_settings!({sort_maps => true}, {
+        assert_json_snapshot!(
+            (
+                std::collections::HashSet::from([2, 1, 3]),
+                std::collections::HashMap::from([("one", 1), ("two", 2), ("three", 3)]),
+            ),
+            @r###"
+        [
+          [
+            1,
+            2,
+            3
+          ],
+          {
+            "one": 1,
+            "three": 3,
+            "two": 2
+          }
+        ]
+        "###
+        );
     });
 }
 

@@ -94,18 +94,23 @@ impl Content {
         }
     }
 
+    fn cmp_as_key(&self, other: &Content) -> Ordering {
+        match (self.as_key(), other.as_key()) {
+            (Key::Other, _) | (_, Key::Other) => self.partial_cmp(other).unwrap_or(Ordering::Equal),
+            (ref a, ref b) => a.cmp(b),
+        }
+    }
+
     pub(crate) fn sort_maps(&mut self) {
         self.walk(&mut |content| {
-            if let Content::Map(ref mut items) = content {
-                // try to compare by key first, if that fails compare by the
-                // object value.  That way some values normalize, and if we
-                // can't normalize we still have a stable order.
-                items.sort_by(|a, b| match (a.0.as_key(), b.0.as_key()) {
-                    (Key::Other, _) | (_, Key::Other) => {
-                        a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal)
-                    }
-                    (ref a, ref b) => a.cmp(b),
-                })
+            match content {
+                Content::Map(ref mut items) => {
+                    items.sort_by(|a, b| a.0.cmp_as_key(&b.0));
+                }
+                Content::Seq(ref mut items) => {
+                    items.sort_by(|a, b| a.cmp_as_key(b));
+                }
+                _ => {}
             }
             true
         })
