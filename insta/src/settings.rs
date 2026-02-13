@@ -48,7 +48,6 @@ impl Redactions {
     }
 }
 
-#[derive(Clone)]
 #[doc(hidden)]
 pub struct ActualSettings {
     pub sort_maps: bool,
@@ -59,13 +58,35 @@ pub struct ActualSettings {
     pub info: Option<Content>,
     pub omit_expression: bool,
     pub prepend_module_to_snapshot: bool,
-    pub comparator: Rc<dyn Comparator>,
+    pub comparator: Box<dyn Comparator>,
     #[cfg(feature = "redactions")]
     pub redactions: Redactions,
     #[cfg(feature = "filters")]
     pub filters: Filters,
     #[cfg(feature = "glob")]
     pub allow_empty_glob: bool,
+}
+
+impl Clone for ActualSettings {
+    fn clone(&self) -> Self {
+        ActualSettings {
+            sort_maps: self.sort_maps,
+            snapshot_path: self.snapshot_path.clone(),
+            snapshot_suffix: self.snapshot_suffix.clone(),
+            input_file: self.input_file.clone(),
+            description: self.description.clone(),
+            info: self.info.clone(),
+            omit_expression: self.omit_expression,
+            prepend_module_to_snapshot: self.prepend_module_to_snapshot,
+            comparator: self.comparator.dyn_clone(),
+            #[cfg(feature = "redactions")]
+            redactions: self.redactions.clone(),
+            #[cfg(feature = "filters")]
+            filters: self.filters.clone(),
+            #[cfg(feature = "glob")]
+            allow_empty_glob: self.allow_empty_glob,
+        }
+    }
 }
 
 impl ActualSettings {
@@ -117,8 +138,8 @@ impl ActualSettings {
         self.prepend_module_to_snapshot = value;
     }
 
-    pub fn comparator(&mut self, value: impl Comparator) {
-        self.comparator = Rc::new(value);
+    pub fn comparator(&mut self, value: Box<dyn Comparator>) {
+        self.comparator = value;
     }
 
     #[cfg(feature = "redactions")]
@@ -182,7 +203,7 @@ impl Default for Settings {
                 info: None,
                 omit_expression: false,
                 prepend_module_to_snapshot: true,
-                comparator: Rc::new(crate::comparator::DefaultComparator),
+                comparator: Box::new(crate::comparator::DefaultComparator),
                 #[cfg(feature = "redactions")]
                 redactions: Redactions::default(),
                 #[cfg(feature = "filters")]
@@ -388,8 +409,8 @@ impl Settings {
     }
 
     /// Sets the currently active [`Comparator`] to `value`.
-    pub fn set_comparator(&mut self, value: impl Comparator) {
-        self._private_inner_mut().comparator = Rc::new(value);
+    pub fn set_comparator(&mut self, value: Box<dyn Comparator>) {
+        self._private_inner_mut().comparator = value;
     }
 
     /// Returns true if expressions are omitted from snapshots.

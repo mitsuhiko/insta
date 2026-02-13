@@ -30,6 +30,13 @@ pub trait Comparator: 'static {
     fn matches_fully(&self, reference: &Snapshot, test: &Snapshot) -> bool {
         self.matches(reference, test)
     }
+
+    /// Returns a type-erased clone of `self`.
+    ///
+    /// This is needed so that [`crate::settings::Settings`] (which provides the
+    /// usual mechanism for setting a custom `Comparator`) can implement
+    /// [`Clone`].
+    fn dyn_clone(&self) -> Box<dyn Comparator>;
 }
 
 /// Provides default comparison semantics for [`Snapshot`]s. Binary snapshots
@@ -67,6 +74,10 @@ impl Comparator for DefaultComparator {
             }
             _ => self.matches(reference, test),
         }
+    }
+
+    fn dyn_clone(&self) -> Box<dyn Comparator> {
+        Box::new(self.clone())
     }
 }
 

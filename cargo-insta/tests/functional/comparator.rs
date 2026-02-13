@@ -40,13 +40,17 @@ mod tests {
                 _ => false,
             }
         }
+
+        fn dyn_clone(&self) -> Box<dyn Comparator> {
+            Box::new(WhitespaceInsensitiveComparator)
+        }
     }
 
     #[test]
     fn test_whitespace_insensitive() {
         // The value has single spaces, reference has multiple - custom comparator should match
         let value = "hello world";
-        with_settings!({comparator => WhitespaceInsensitiveComparator}, {
+        with_settings!({comparator => Box::new(WhitespaceInsensitiveComparator)}, {
             assert_snapshot!(value, @"hello    world");
         });
     }
@@ -117,13 +121,17 @@ mod tests {
                 _ => false,
             }
         }
+
+        fn dyn_clone(&self) -> Box<dyn Comparator> {
+            Box::new(WhitespaceInsensitiveComparator)
+        }
     }
 
     #[test]
     fn test_file_snapshot() {
         // The value has single spaces, stored snapshot has multiple - should match
         let value = "hello world";
-        with_settings!({comparator => WhitespaceInsensitiveComparator}, {
+        with_settings!({comparator => Box::new(WhitespaceInsensitiveComparator)}, {
             assert_snapshot!("file_snapshot", value);
         });
     }
@@ -143,6 +151,67 @@ mod tests {
         output.status.success(),
         "Test failed: {}",
         String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// Test that a custom comparator that rejects a match causes a test failure.
+#[test]
+fn test_custom_comparator_failure() {
+    let test_project = TestFiles::new()
+        .add_file(
+            "Cargo.toml",
+            r#"
+[package]
+name = "test_custom_comparator_failure"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+insta = { path = '$PROJECT_PATH' }
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[cfg(test)]
+mod tests {
+    use insta::{Comparator, Snapshot, with_settings, assert_snapshot};
+
+    /// A comparator that always rejects.
+    struct AlwaysFailComparator;
+
+    impl Comparator for AlwaysFailComparator {
+        fn matches(&self, _reference: &Snapshot, _test: &Snapshot) -> bool {
+            false
+        }
+
+        fn dyn_clone(&self) -> Box<dyn Comparator> {
+            Box::new(AlwaysFailComparator)
+        }
+    }
+
+    #[test]
+    fn test_comparator_rejects() {
+        with_settings!({comparator => Box::new(AlwaysFailComparator)}, {
+            assert_snapshot!("value", @"value");
+        });
+    }
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--", "--nocapture"])
+        .output()
+        .unwrap();
+
+    assert!(
+        !output.status.success(),
+        "Test should have failed but passed"
     );
 }
 
@@ -184,11 +253,15 @@ mod tests {
             MATCHES_FULLY_CALLED.store(true, Ordering::SeqCst);
             true
         }
+
+        fn dyn_clone(&self) -> Box<dyn Comparator> {
+            Box::new(TrackingComparator)
+        }
     }
 
     #[test]
     fn test_tracking() {
-        with_settings!({comparator => TrackingComparator}, {
+        with_settings!({comparator => Box::new(TrackingComparator)}, {
             assert_snapshot!("value", @"value");
         });
 
@@ -246,11 +319,15 @@ mod tests {
         fn matches(&self, _reference: &Snapshot, _test: &Snapshot) -> bool {
             true
         }
+
+        fn dyn_clone(&self) -> Box<dyn Comparator> {
+            Box::new(AlwaysPassComparator)
+        }
     }
 
     #[test]
     fn test_nested_settings() {
-        with_settings!({comparator => AlwaysPassComparator}, {
+        with_settings!({comparator => Box::new(AlwaysPassComparator)}, {
             // Outer block has custom comparator
             assert_snapshot!("outer", @"anything");
 
