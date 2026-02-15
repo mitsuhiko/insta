@@ -78,6 +78,7 @@ mod inline_snapshot_trimming;
 mod nextest_doctest;
 mod pending_dir;
 mod raw_strings;
+mod read_snapshot;
 mod test_runner_fallback;
 mod test_workspace_source_path;
 mod unreferenced;
@@ -174,7 +175,7 @@ fn target_dir() -> PathBuf {
 
 struct TestProject {
     /// Temporary directory where the project is created
-    workspace_dir: PathBuf,
+    pub(crate) workspace_dir: PathBuf,
     /// Original files when the project is created.
     files: HashMap<PathBuf, String>,
     /// File tree when the test is created.
