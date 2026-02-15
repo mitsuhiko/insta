@@ -70,6 +70,7 @@ use tempfile::TempDir;
 
 mod back_compat;
 mod binary;
+mod comparator;
 mod delete_pending;
 mod glob_filter;
 mod inline;
