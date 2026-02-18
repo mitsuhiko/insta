@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "injectionSelector": "L:source -string -comment",
+  "fileTypes": [
+    "rust"
+  ],
+  "patterns": [
+    {
+      "begin": "(@)(r###)(\")",
+      "contentName": "meta.embedded.inline-insta-snapshot",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.operator.subpattern.rust"
+        },
+        "2": {
+          "name": "punctuation.definition.string.raw.rust"
+        },
+        "3": {
+          "name": "punctuation.definition.string.rust"
+        }
+      },
+      "end": "(\")(###)",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.string.rust"
+        },
+        "2": {
+          "name": "punctuation.definition.string.raw.rust"
+        }
+      },
+      "patterns": [
+        {
+          "include": "source.insta-snapshots#snapshot"
+        }
+      ]
+    }
+  ],
+  "scopeName": "source.inline-insta-snapshots"
+}
