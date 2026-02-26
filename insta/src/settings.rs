@@ -220,7 +220,7 @@ impl Default for Settings {
                 #[cfg(feature = "glob")]
                 allow_empty_glob: false,
                 #[cfg(feature = "tokenstream")]
-                ignore_docs_for_tokens: true,
+                ignore_docs_for_tokens: false,
             }),
         }
     }

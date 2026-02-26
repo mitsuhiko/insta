@@ -218,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tokens_equal_whitepace_difference_non_expr() {
+    fn test_tokens_equal_whitespace_difference_non_expr() {
         let a = quote! { Vec < u8 > };
         let b = quote! { Vec<u8> };
         assert!(tokens_equal(&a, &b));

@@ -405,7 +405,6 @@ pub mod _macro_support {
     pub use crate::tokenstream::{
         pretty_print as tokenstream_pretty_print,
         pretty_print_for_inline as tokenstream_pretty_print_for_inline,
-        tokens_equal as tokenstream_tokens_equal,
     };
 
     #[cfg(feature = "tokenstream")]
