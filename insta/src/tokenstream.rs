@@ -5,7 +5,6 @@
 
 use crate::Settings;
 use proc_macro2::TokenStream;
-use syn::visit_mut::VisitMut;
 
 /// Pretty-print a `TokenStream` for use as an inline snapshot value.
 ///
@@ -29,8 +28,7 @@ pub fn pretty_print_for_inline(tokens: &TokenStream) -> String {
 /// them nicely. If parsing fails (e.g., for partial code fragments), it
 /// returns the raw string representation.
 pub fn pretty_print(tokens: &TokenStream) -> String {
-    let (format, ignore_docs) =
-        Settings::with(|s| (s.format_tokens(), s.ignore_docs_for_tokens()));
+    let format = Settings::with(|s| s.format_tokens());
 
     if !format {
         return tokens.to_string();
@@ -38,13 +36,11 @@ pub fn pretty_print(tokens: &TokenStream) -> String {
 
     // Try direct parsing as a file (for complete items like structs, functions, etc.)
     if let Ok(file) = syn::parse2(tokens.clone()) {
-        let file = remove_docs_if(file, ignore_docs);
         return prettier_please::unparse(&file);
     }
 
     // Try parsing as an expression (for code fragments)
     if let Ok(expr) = syn::parse2::<syn::Expr>(tokens.clone()) {
-        let expr = remove_docs_if(expr, ignore_docs);
         return prettier_please::unparse_expr(&expr);
     }
 
@@ -57,19 +53,12 @@ pub fn pretty_print(tokens: &TokenStream) -> String {
 /// `TokenStream`s are considered equal if they produce equivalent token sequences
 /// after normalization (parsing and re-printing). This means whitespace and
 /// formatting differences are ignored.
-///
-/// By default, doc attributes (`#[doc = "..."]`) are stripped before comparison.
-/// This behavior can be disabled via [`Settings::set_ignore_docs_for_tokens`].
 pub fn tokens_equal(a: &TokenStream, b: &TokenStream) -> bool {
-    // Check if we should ignore docs (default: true)
-    let ignore_docs = Settings::with(|s| s.ignore_docs_for_tokens());
-
     // First, try to parse both as files
     if let (Ok(a_file), Ok(b_file)) = (
         syn::parse2::<syn::File>(a.clone()),
         syn::parse2::<syn::File>(b.clone()),
     ) {
-        let (a_file, b_file) = remove_docs_if((a_file, b_file), ignore_docs);
         return a_file == b_file;
     }
 
@@ -78,56 +67,11 @@ pub fn tokens_equal(a: &TokenStream, b: &TokenStream) -> bool {
         syn::parse2::<syn::Expr>(a.clone()),
         syn::parse2::<syn::Expr>(b.clone()),
     ) {
-        let (a_expr, b_expr) = remove_docs_if((a_expr, b_expr), ignore_docs);
         return a_expr == b_expr;
     }
 
     // Fallback: compare the raw token streams directly
     a.to_string() == b.to_string()
-}
-
-/// Visitor that removes all `#[doc = "..."]` attributes.
-struct DocRemover;
-
-impl VisitMut for DocRemover {
-    fn visit_attributes_mut(&mut self, attrs: &mut Vec<syn::Attribute>) {
-        attrs.retain(|attr| !attr.path().is_ident("doc"));
-    }
-}
-
-trait RemovableDocs {
-    fn remove_docs(self) -> Self;
-}
-
-impl RemovableDocs for syn::Expr {
-    fn remove_docs(mut self) -> Self {
-        DocRemover.visit_expr_mut(&mut self);
-        self
-    }
-}
-
-impl RemovableDocs for syn::File {
-    fn remove_docs(mut self) -> Self {
-        DocRemover.visit_file_mut(&mut self);
-        self
-    }
-}
-
-impl<T: RemovableDocs> RemovableDocs for (T, T) {
-    fn remove_docs(self) -> Self {
-        (self.0.remove_docs(), self.1.remove_docs())
-    }
-}
-
-fn remove_docs_if<T>(tokens: T, should_remove: bool) -> T
-where
-    T: RemovableDocs,
-{
-    if should_remove {
-        tokens.remove_docs()
-    } else {
-        tokens
-    }
 }
 
 #[cfg(test)]
@@ -147,44 +91,6 @@ mod tests {
             field: i32,
         }
         ");
-    }
-
-    #[test]
-    fn test_pretty_print_struct_with_docs_when_ignore_docs_enabled() {
-        let tokens = quote! {
-            /// This is a struct
-            struct MyStruct {
-                /// This is a field
-                field: i32,
-            }
-        };
-        crate::with_settings!({ignore_docs_for_tokens => true}, {
-            assert_snapshot!(pretty_print(&tokens), @r"
-            struct MyStruct {
-                field: i32,
-            }
-            ");
-        });
-    }
-
-    #[test]
-    fn test_pretty_print_struct_with_docs_when_ignore_docs_disabled() {
-        let tokens = quote! {
-            /// This is a struct
-            struct MyStruct {
-                /// This is a field
-                field: i32,
-            }
-        };
-        crate::with_settings!({ignore_docs_for_tokens => false}, {
-            assert_snapshot!(pretty_print(&tokens), @r"
-            /// This is a struct
-            struct MyStruct {
-                /// This is a field
-                field: i32,
-            }
-            ");
-        });
     }
 
     #[test]
@@ -234,39 +140,6 @@ mod tests {
         let a = quote! { struct Foo; };
         let b = quote! { struct Bar; };
         assert!(!tokens_equal(&a, &b));
-    }
-
-    #[test]
-    fn test_tokens_equal_ignores_docs_when_enabled() {
-        let with_docs = quote! {
-            /// Documentation here
-            struct Foo {
-                /// Field doc
-                x: i32,
-            }
-        };
-        let without_docs = quote! {
-            struct Foo {
-                x: i32,
-            }
-        };
-        crate::with_settings!({ignore_docs_for_tokens => true}, {
-            assert!(tokens_equal(&with_docs, &without_docs));
-        });
-    }
-
-    #[test]
-    fn test_tokens_equal_respects_docs_when_disabled() {
-        let with_docs = quote! {
-            /// Documentation here
-            struct Foo;
-        };
-        let without_docs = quote! {
-            struct Foo;
-        };
-        crate::with_settings!({ignore_docs_for_tokens => false}, {
-            assert!(!tokens_equal(&with_docs, &without_docs));
-        });
     }
 
     #[test]
