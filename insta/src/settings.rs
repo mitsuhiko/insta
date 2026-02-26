@@ -299,11 +299,12 @@ impl Settings {
         self.inner.allow_empty_glob
     }
 
-    /// Sets whether TokenStream snapshots are formatted with `prettier-please`.
+    /// Enables or disables pretty-printing of TokenStream snapshots.
     ///
-    /// When enabled (the default), token streams are parsed and pretty-printed
-    /// into nicely formatted Rust code. When disabled, the raw
-    /// `TokenStream::to_string()` output is used instead.
+    /// When disabled, the raw `TokenStream::to_string()` output is used
+    /// instead of formatting with `prettier-please`.
+    ///
+    /// The default value is `true`.
     #[cfg(feature = "tokenstream")]
     pub fn set_format_tokens(&mut self, value: bool) {
         self._private_inner_mut().format_tokens = value;

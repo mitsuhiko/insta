@@ -617,45 +617,19 @@ macro_rules! allow_duplicates {
 ///
 /// **Feature:** `tokenstream` (disabled by default)
 ///
-/// This macro compares `TokenStream` values for snapshot testing. For file-based
-/// snapshots, it formats the tokens using `prettier-please` for readable output,
-/// falling back to [`TokenStream::to_string()`] if formatting fails.
+/// The value needs to implement the [`quote::ToTokens`] trait.  The tokens
+/// are formatted into readable Rust code using
+/// [`prettier-please`](https://crates.io/crates/prettier-please).
 ///
-/// For inline snapshots using the `@{...}` syntax, comparison is semantic -
-/// `TokenStream`s are compared structurally, ignoring whitespace differences.
-///
-/// # Examples
-///
-/// File-based snapshot (auto-named):
+/// For inline snapshots, use `@{...}` instead of `@"..."`:
 ///
 /// ```no_run
-/// # use proc_macro2::TokenStream;
 /// # use quote::quote;
-/// let tokens: TokenStream = quote! {
-///     struct MyStruct {
-///         field: i32,
-///     }
-/// };
-/// insta::assert_token_snapshot!(tokens);
-/// ```
-///
-/// Named snapshot:
-///
-/// ```no_run
-/// # use proc_macro2::TokenStream;
-/// # use quote::quote;
-/// let tokens: TokenStream = quote! { fn foo() {} };
-/// insta::assert_token_snapshot!("my_function", tokens);
-/// ```
-///
-/// Inline snapshot with semantic comparison:
-///
-/// ```no_run
-/// # use proc_macro2::TokenStream;
-/// # use quote::quote;
-/// let tokens: TokenStream = quote! { struct Foo; };
+/// let tokens = quote! { struct Foo; };
 /// insta::assert_token_snapshot!(tokens, @{ struct Foo; });
 /// ```
+///
+/// The snapshot name is optional but can be provided as first argument.
 #[cfg(feature = "tokenstream")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokenstream")))]
 #[macro_export]
