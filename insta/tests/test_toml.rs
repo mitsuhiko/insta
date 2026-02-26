@@ -276,9 +276,19 @@ fn test_toml_empty_struct() {
     assert_toml_snapshot!(Container { empty: Empty {} }, @"[empty]");
 }
 
+/// Top-level sequences are NOT supported by TOML (issue #879)
+#[test]
+#[should_panic(expected = "TOML requires the top-level value to be a struct or map")]
+fn test_toml_top_level_sequence_unsupported() {
+    insta::_macro_support::serialize_value(
+        &vec![1, 2, 3],
+        insta::_macro_support::SerializationFormat::Toml,
+    );
+}
+
 /// Unit structs are NOT supported by TOML - this documents the limitation
 #[test]
-#[should_panic(expected = "UnsupportedType")]
+#[should_panic(expected = "unsupported Marker type")]
 fn test_toml_unit_struct_unsupported() {
     #[derive(Serialize)]
     struct Marker;

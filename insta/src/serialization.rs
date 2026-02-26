@@ -171,7 +171,13 @@ pub fn serialize_content(mut content: Content, format: SerializationFormat) -> S
                 }
             }
 
-            let mut dm = toml_edit::ser::to_document(&content).unwrap();
+            let mut dm = toml_edit::ser::to_document(&content).unwrap_or_else(|e| {
+                panic!(
+                    "TOML serialization failed: {e}. \
+                     Note: TOML requires the top-level value to be a struct or map. \
+                     Use assert_json_snapshot! or assert_yaml_snapshot! for other types.",
+                )
+            });
             let mut visitor = Pretty { in_value: false };
             visitor.visit_document_mut(&mut dm);
 
