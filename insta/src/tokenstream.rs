@@ -29,7 +29,12 @@ pub fn pretty_print_for_inline(tokens: &TokenStream) -> String {
 /// them nicely. If parsing fails (e.g., for partial code fragments), it
 /// returns the raw string representation.
 pub fn pretty_print(tokens: &TokenStream) -> String {
-    let ignore_docs = Settings::with(|s| s.ignore_docs_for_tokens());
+    let (format, ignore_docs) =
+        Settings::with(|s| (s.format_tokens(), s.ignore_docs_for_tokens()));
+
+    if !format {
+        return tokens.to_string();
+    }
 
     // Try direct parsing as a file (for complete items like structs, functions, etc.)
     if let Ok(file) = syn::parse2(tokens.clone()) {
@@ -261,6 +266,40 @@ mod tests {
         };
         crate::with_settings!({ignore_docs_for_tokens => false}, {
             assert!(!tokens_equal(&with_docs, &without_docs));
+        });
+    }
+
+    #[test]
+    fn test_pretty_print_raw_when_format_disabled() {
+        let tokens = quote! {
+            struct MyStruct {
+                field: i32,
+            }
+        };
+        crate::with_settings!({format_tokens => false}, {
+            // Raw TokenStream::to_string() output — no prettier-please formatting
+            assert_snapshot!(pretty_print(&tokens), @"struct MyStruct { field : i32 , }");
+        });
+    }
+
+    #[test]
+    fn test_pretty_print_expression_raw_when_format_disabled() {
+        let tokens = quote! { 1 + 2 };
+        crate::with_settings!({format_tokens => false}, {
+            assert_snapshot!(pretty_print(&tokens), @"1 + 2");
+        });
+    }
+
+    #[test]
+    fn test_pretty_print_for_inline_raw_when_format_disabled() {
+        let tokens = quote! {
+            fn foo() {
+                let x = 1;
+            }
+        };
+        crate::with_settings!({format_tokens => false}, {
+            // Single-line raw output, no newline wrapping
+            assert_snapshot!(pretty_print_for_inline(&tokens), @"fn foo () { let x = 1 ; }");
         });
     }
 }
