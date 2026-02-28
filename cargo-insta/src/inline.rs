@@ -758,11 +758,11 @@ fn test_function() {
     #[test]
     fn test_find_tokenstream_snapshot_empty() {
         // Test finding an empty @{} TokenStream snapshot
-        let content = r#"
+        let content = "
 fn test_function() {
     insta::assert_token_snapshot!(tokens, @{});
 }
-"#;
+";
 
         let file_patcher = FilePatcher {
             filename: PathBuf::new(),
@@ -783,11 +783,11 @@ fn test_function() {
     #[test]
     fn test_find_tokenstream_snapshot_with_content() {
         // Test finding @{ content } TokenStream snapshot
-        let content = r#"
+        let content = "
 fn test_function() {
     insta::assert_token_snapshot!(tokens, @{ struct Foo; });
 }
-"#;
+";
 
         let file_patcher = FilePatcher {
             filename: PathBuf::new(),
@@ -805,7 +805,7 @@ fn test_function() {
     #[test]
     fn test_find_tokenstream_snapshot_multiline() {
         // Test finding multiline @{} on separate line
-        let content = r#"
+        let content = "
 fn test_function() {
     insta::assert_token_snapshot!(
         tokens,
@@ -814,7 +814,7 @@ fn test_function() {
         }
     );
 }
-"#;
+";
 
         let file_patcher = FilePatcher {
             filename: PathBuf::new(),

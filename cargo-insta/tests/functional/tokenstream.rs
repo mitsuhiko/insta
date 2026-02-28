@@ -7,8 +7,7 @@ use insta::assert_snapshot;
 use crate::TestFiles;
 
 /// Test that inline TokenStream snapshots with empty `@{}` get updated correctly.
-/// Note: When cargo-insta updates inline snapshots, it converts to string format `@"..."`
-/// since that's the standard inline snapshot format.
+/// When cargo-insta updates inline snapshots, it preserves brace format `@{ ... }`.
 #[test]
 fn test_tokenstream_inline_empty_to_populated() {
     let test_project = TestFiles::new()

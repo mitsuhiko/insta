@@ -48,32 +48,6 @@ pub fn pretty_print(tokens: &TokenStream) -> String {
     tokens.to_string()
 }
 
-/// Compare two `TokenStream`s semantically.
-///
-/// `TokenStream`s are considered equal if they produce equivalent token sequences
-/// after normalization (parsing and re-printing). This means whitespace and
-/// formatting differences are ignored.
-pub fn tokens_equal(a: &TokenStream, b: &TokenStream) -> bool {
-    // First, try to parse both as files
-    if let (Ok(a_file), Ok(b_file)) = (
-        syn::parse2::<syn::File>(a.clone()),
-        syn::parse2::<syn::File>(b.clone()),
-    ) {
-        return a_file == b_file;
-    }
-
-    // Next, try to parse both as expressions
-    if let (Ok(a_expr), Ok(b_expr)) = (
-        syn::parse2::<syn::Expr>(a.clone()),
-        syn::parse2::<syn::Expr>(b.clone()),
-    ) {
-        return a_expr == b_expr;
-    }
-
-    // Fallback: compare the raw token streams directly
-    a.to_string() == b.to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -110,36 +84,6 @@ mod tests {
     fn test_pretty_print_non_expression() {
         let tokens = quote! { Vec<u8> };
         assert_snapshot!(pretty_print(&tokens), @"Vec < u8 >");
-    }
-
-    #[test]
-    fn test_tokens_equal_identical() {
-        let a = quote! { struct Foo; };
-        let b = quote! { struct Foo; };
-        assert!(tokens_equal(&a, &b));
-    }
-
-    #[test]
-    fn test_tokens_equal_whitespace_difference() {
-        let a = quote! { struct Foo { x: i32 } };
-        let b = quote! { struct Foo{x:i32} };
-        // After normalization via TokenStream, these should be equal
-        // Note: quote! already normalizes, so this tests the round-trip
-        assert!(tokens_equal(&a, &b));
-    }
-
-    #[test]
-    fn test_tokens_equal_whitespace_difference_non_expr() {
-        let a = quote! { Vec < u8 > };
-        let b = quote! { Vec<u8> };
-        assert!(tokens_equal(&a, &b));
-    }
-
-    #[test]
-    fn test_tokens_not_equal() {
-        let a = quote! { struct Foo; };
-        let b = quote! { struct Bar; };
-        assert!(!tokens_equal(&a, &b));
     }
 
     #[test]

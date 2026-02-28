@@ -325,7 +325,7 @@ mod filters;
 mod glob;
 
 #[cfg(feature = "tokenstream")]
-pub mod tokenstream;
+pub(crate) mod tokenstream;
 
 #[cfg(test)]
 mod test;
