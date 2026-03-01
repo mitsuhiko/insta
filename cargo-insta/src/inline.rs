@@ -4,8 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use insta::InlineFormat;
-use insta::_cargo_insta_support::TextSnapshotContents;
+use insta::_cargo_insta_support::{InlineFormat, TextSnapshotContents};
 use proc_macro2::{LineColumn, TokenTree};
 
 use syn::__private::ToTokens;

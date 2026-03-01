@@ -22,7 +22,7 @@ pub fn pretty_print_for_inline(tokens: &TokenStream) -> String {
 }
 
 /// Pretty-print a `TokenStream` using `prettier-please`, falling back to
-/// [`TokenStream::to_string()`] if formatting fails.
+/// the raw `TokenStream::to_string()` output if formatting fails.
 ///
 /// The function attempts to parse the tokens as valid Rust code and format
 /// them nicely. If parsing fails (e.g., for partial code fragments), it
@@ -35,8 +35,10 @@ pub fn pretty_print(tokens: &TokenStream) -> String {
     }
 
     // Try direct parsing as a file (for complete items like structs, functions, etc.)
+    // unparse always appends a trailing newline; trim it so single-item output
+    // doesn't trigger the multiline path in pretty_print_for_inline
     if let Ok(file) = syn::parse2(tokens.clone()) {
-        return prettier_please::unparse(&file);
+        return prettier_please::unparse(&file).trim_end().to_string();
     }
 
     // Try parsing as an expression (for code fragments)

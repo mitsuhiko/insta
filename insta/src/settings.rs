@@ -299,7 +299,7 @@ impl Settings {
         self.inner.allow_empty_glob
     }
 
-    /// Enables or disables pretty-printing of TokenStream snapshots.
+    /// Enables or disables pretty-printing of `TokenStream` snapshots.
     ///
     /// When disabled, the raw `TokenStream::to_string()` output is used
     /// instead of formatting with `prettier-please`.
@@ -310,7 +310,7 @@ impl Settings {
         self._private_inner_mut().format_tokens = value;
     }
 
-    /// Returns whether TokenStream snapshots are formatted.
+    /// Returns whether `TokenStream` snapshots are formatted.
     #[cfg(feature = "tokenstream")]
     pub fn format_tokens(&self) -> bool {
         self.inner.format_tokens
