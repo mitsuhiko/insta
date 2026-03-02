@@ -1328,6 +1328,59 @@ hello
     );
 }
 
+#[test]
+fn test_snapshot_contents_to_inline_tokens() {
+    use similar_asserts::assert_eq;
+
+    // Single-line: compact brace format
+    assert_eq!(
+        TextSnapshotContents::new("struct Foo;".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Tokens),
+        "{ struct Foo; }"
+    );
+
+    // Single-line with indentation (indentation only affects multiline)
+    assert_eq!(
+        TextSnapshotContents::new("struct Foo;".to_string(), TextSnapshotKind::Inline)
+            .to_inline("    ", InlineFormat::Tokens),
+        "{ struct Foo; }"
+    );
+
+    // Multiline: opening brace, indented content, closing brace
+    assert_eq!(
+        TextSnapshotContents::new(
+            "struct Foo {\n    x: u32,\n}".to_string(),
+            TextSnapshotKind::Inline
+        )
+        .to_inline("    ", InlineFormat::Tokens),
+        "{\n        struct Foo {\n            x: u32,\n        }\n    }"
+    );
+
+    // Multiline with empty lines preserved
+    assert_eq!(
+        TextSnapshotContents::new(
+            "fn a() {}\n\nfn b() {}".to_string(),
+            TextSnapshotKind::Inline
+        )
+        .to_inline("    ", InlineFormat::Tokens),
+        "{\n        fn a() {}\n\n        fn b() {}\n    }"
+    );
+
+    // Empty content
+    assert_eq!(
+        TextSnapshotContents::new("".to_string(), TextSnapshotKind::Inline)
+            .to_inline("    ", InlineFormat::Tokens),
+        "{  }"
+    );
+
+    // Content that is only whitespace (trims to empty)
+    assert_eq!(
+        TextSnapshotContents::new("   \n  ".to_string(), TextSnapshotKind::Inline)
+            .to_inline("", InlineFormat::Tokens),
+        "{  }"
+    );
+}
+
 /// Test that escaped format content roundtrips correctly through `from_inline_literal`.
 /// Issue #865: content with control chars like \r should not lose its leading newline.
 #[test]
