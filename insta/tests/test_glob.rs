@@ -1,4 +1,4 @@
-#![cfg(feature = "glob")]
+#![cfg(all(feature = "glob", feature = "json"))]
 
 mod glob_submodule;
 
