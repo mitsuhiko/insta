@@ -49,6 +49,9 @@ pub fn to_string(content: &Content) -> String {
 
     let mut buf = String::new();
     let mut emitter = crate::content::yaml::vendored::emitter::YamlEmitter::new(&mut buf);
+    if std::env::var("INSTA_YAML_BLOCK_STYLE").as_deref() == Ok("1") {
+        emitter.use_literal_blocks(true);
+    }
     emitter.dump(&yaml_blob).unwrap();
 
     if !buf.ends_with('\n') {
