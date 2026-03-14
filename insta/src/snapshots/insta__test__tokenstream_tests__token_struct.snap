@@ -1,0 +1,7 @@
+---
+source: insta/src/test.rs
+expression: tokens
+---
+struct MyStruct {
+    field: i32,
+}

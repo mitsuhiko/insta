@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Add `tokenstream` feature with `assert_token_snapshot!` macro for snapshot testing `proc_macro2::TokenStream` and any type implementing `quote::ToTokens`. Tokens are formatted via `prettier-please`. Inline snapshots use a new `@{ ... }` brace syntax. A `format_tokens` setting controls whether pretty-printing is applied.
+
 ## 1.46.3
 
 - Fix inline escaped snapshots incorrectly stripping leading newlines when content contains control characters like carriage returns. The escaped format (used for snapshots with control chars) now correctly preserves the original content without stripping a non-existent formatting newline. #865

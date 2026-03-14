@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use insta::_cargo_insta_support::TextSnapshotContents;
+use insta::_cargo_insta_support::{InlineFormat, TextSnapshotContents};
 use proc_macro2::{LineColumn, TokenTree};
 
 use syn::__private::ToTokens;
@@ -15,6 +15,7 @@ struct InlineSnapshot {
     start: (usize, usize),
     end: (usize, usize),
     indentation: String,
+    format: InlineFormat,
 }
 
 #[derive(Clone)]
@@ -106,8 +107,12 @@ impl FilePatcher {
             .collect();
 
         // replace lines
-        let snapshot_line_contents =
-            [prefix, snapshot.to_inline(&inline.indentation), suffix].join("");
+        let snapshot_line_contents = [
+            prefix,
+            snapshot.to_inline(&inline.indentation, inline.format),
+            suffix,
+        ]
+        .join("");
 
         self.lines.splice(
             inline.start.0..=inline.end.0,
@@ -220,15 +225,38 @@ impl FilePatcher {
                     }
                 }
 
-                let (start, end) = match &tokens[tokens.len() - 1] {
+                let (start, end, format) = match &tokens[tokens.len() - 1] {
                     TokenTree::Literal(lit) => {
                         let span = lit.span();
                         (
                             (span.start().line - 1, span.start().column),
                             (span.end().line - 1, span.end().column),
+                            InlineFormat::Text,
+                        )
+                    }
+                    // Support for @{ ... } TokenStream inline snapshots
+                    TokenTree::Group(group)
+                        if matches!(group.delimiter(), proc_macro2::Delimiter::Brace) =>
+                    {
+                        let span = group.span();
+                        (
+                            (span.start().line - 1, span.start().column),
+                            (span.end().line - 1, span.end().column),
+                            InlineFormat::Tokens,
                         )
                     }
                     _ => return false,
+                };
+
+                // For TokenStream format, use the leading whitespace of the line where @{ appears
+                // This ensures proper indentation whether @{ is on the same line as the macro or not
+                let indentation = if format == InlineFormat::Tokens {
+                    self.2[start.0]
+                        .chars()
+                        .take_while(|c| c.is_whitespace())
+                        .collect()
+                } else {
+                    indentation
                 };
 
                 self.1.push((
@@ -238,6 +266,7 @@ impl FilePatcher {
                         start,
                         end,
                         indentation,
+                        format,
                     },
                 ));
                 true
@@ -723,5 +752,103 @@ fn test_function() {
         assert_eq!(snapshot5.start.0, 4); // line 5 -> index 4
         assert_eq!(snapshot6.start.0, 5); // line 6 -> index 5
         assert_eq!(snapshot7.start.0, 6); // line 7 -> index 6
+    }
+
+    #[test]
+    fn test_find_tokenstream_snapshot_empty() {
+        // Test finding an empty @{} TokenStream snapshot
+        let content = "
+fn test_function() {
+    insta::assert_token_snapshot!(tokens, @{});
+}
+";
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(3).unwrap();
+
+        // Should detect TokenStream format
+        assert_debug_snapshot!(snapshot.format, @"Tokens");
+
+        // Indentation should be from the line where @{} appears
+        assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_tokenstream_snapshot_with_content() {
+        // Test finding @{ content } TokenStream snapshot
+        let content = "
+fn test_function() {
+    insta::assert_token_snapshot!(tokens, @{ struct Foo; });
+}
+";
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(3).unwrap();
+
+        assert_debug_snapshot!(snapshot.format, @"Tokens");
+        assert_debug_snapshot!(snapshot.indentation, @r#""    ""#);
+    }
+
+    #[test]
+    fn test_find_tokenstream_snapshot_multiline() {
+        // Test finding multiline @{} on separate line
+        let content = "
+fn test_function() {
+    insta::assert_token_snapshot!(
+        tokens,
+        @{
+            struct Foo;
+        }
+    );
+}
+";
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        // The @{ is on line 5 (1-based)
+        let snapshot = file_patcher.find_snapshot_macro(5).unwrap();
+
+        assert_debug_snapshot!(snapshot.format, @"Tokens");
+        // Indentation should be from the @{ line (8 spaces)
+        assert_debug_snapshot!(snapshot.indentation, @r#""        ""#);
+    }
+
+    #[test]
+    fn test_find_tokenstream_vs_text_snapshot() {
+        // Verify that @"" is detected as Text format, not Tokens
+        let content = r#"
+fn test_function() {
+    insta::assert_snapshot!(value, @"text");
+}
+"#;
+
+        let file_patcher = FilePatcher {
+            filename: PathBuf::new(),
+            lines: content.lines().map(String::from).collect(),
+            source: syn::parse_file(content).unwrap(),
+            inline_snapshots: vec![],
+        };
+
+        let snapshot = file_patcher.find_snapshot_macro(3).unwrap();
+
+        // Should be Text format, not Tokens
+        assert_debug_snapshot!(snapshot.format, @"Text");
     }
 }

@@ -612,3 +612,53 @@ macro_rules! allow_duplicates {
         })
     }
 }
+
+/// Asserts a [`proc_macro2::TokenStream`] snapshot.
+///
+/// **Feature:** `tokenstream` (disabled by default)
+///
+/// The value needs to implement the [`quote::ToTokens`] trait.  The tokens
+/// are formatted into readable Rust code using
+/// [`prettier-please`](https://crates.io/crates/prettier-please).
+///
+/// For inline snapshots, use `@{...}` instead of `@"..."`:
+///
+/// ```no_run
+/// # use quote::quote;
+/// let tokens = quote! { struct Foo; };
+/// insta::assert_token_snapshot!(tokens, @{ struct Foo; });
+/// ```
+///
+/// The snapshot name is optional but can be provided as first argument.
+#[cfg(feature = "tokenstream")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokenstream")))]
+#[macro_export]
+macro_rules! assert_token_snapshot {
+    // Inline mode: value, @{ tokens }
+    ($value:expr, @{ $($ref_tokens:tt)* } $(,)?) => {{
+        let ref_ts = $crate::_macro_support::quote::quote!( $($ref_tokens)* );
+        let ref_str = $crate::_macro_support::tokenstream_pretty_print_for_inline(&ref_ts);
+
+        $crate::_assert_snapshot_base!(
+            transform = |v| {
+                $crate::_macro_support::tokenstream_pretty_print_for_inline(
+                    &$crate::_macro_support::quote::ToTokens::to_token_stream(v)
+                )
+            },
+            $crate::_macro_support::InlineValue(&ref_str),
+            $value
+        )
+    }};
+
+    // File-based mode: delegate to _assert_snapshot_base with tokenstream transform
+    ($($arg:tt)*) => {
+        $crate::_assert_snapshot_base!(
+            transform = |v| {
+                $crate::_macro_support::tokenstream_pretty_print(
+                    &$crate::_macro_support::quote::ToTokens::to_token_stream(v)
+                )
+            },
+            $($arg)*
+        )
+    };
+}

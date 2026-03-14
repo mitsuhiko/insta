@@ -80,6 +80,7 @@ mod pending_dir;
 mod raw_strings;
 mod test_runner_fallback;
 mod test_workspace_source_path;
+mod tokenstream;
 mod unreferenced;
 mod workspace;
 
