@@ -1,0 +1,7 @@
+---
+source: insta/src/test.rs
+expression: tokens
+---
+fn hello_world() {
+    println!("Hello, world!");
+}

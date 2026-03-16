@@ -80,6 +80,7 @@ mod pending_dir;
 mod raw_strings;
 mod test_runner_fallback;
 mod test_workspace_source_path;
+mod tokenstream;
 mod unreferenced;
 mod workspace;
 
@@ -220,6 +221,7 @@ impl TestProject {
         cmd.env_remove("CARGO_TERM_COLOR");
         cmd.env_remove("CLICOLOR_FORCE");
         cmd.env_remove("RUSTDOCFLAGS");
+        cmd.env_remove("RUSTFLAGS");
         // Remove NEXTEST_RUN_ID so that each cargo insta test invocation gets
         // its own unique run_id, rather than all sharing the outer nextest's ID
         cmd.env_remove("NEXTEST_RUN_ID");

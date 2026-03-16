@@ -112,6 +112,10 @@
     feature = "json",
     doc = "- [`assert_compact_json_snapshot!`] for comparing JSON serialized output while preferring single-line formatting. (requires the `json` feature)"
 )]
+#![cfg_attr(
+    feature = "tokenstream",
+    doc = "- [`assert_token_snapshot!`] for comparing [`proc_macro2::TokenStream`] values. (requires the `tokenstream` feature)"
+)]
 //!
 //! For macros that work with [`serde`] this crate also permits redacting of
 //! partial values.  See [redactions in the
@@ -181,6 +185,7 @@
 //! * `ron`: enables RON support (via [`serde`])
 //! * `toml`: enables TOML support (via [`serde`])
 //! * `yaml`: enables YAML support (via [`serde`])
+//! * `tokenstream`: enables assertion for `proc-macro2::TokenStream`s
 //! * `redactions`: enables support for redactions
 //! * `filters`: enables support for filters
 //! * `glob`: enables support for globbing ([`glob!`])
@@ -319,6 +324,9 @@ mod filters;
 #[cfg(feature = "glob")]
 mod glob;
 
+#[cfg(feature = "tokenstream")]
+pub(crate) mod tokenstream;
+
 #[cfg(test)]
 mod test;
 
@@ -358,6 +366,7 @@ pub mod _cargo_insta_support {
             ToolConfig, UnreferencedSnapshots,
         },
         output::SnapshotPrinter,
+        snapshot::InlineFormat,
         snapshot::PendingInlineSnapshot,
         snapshot::SnapshotContents,
         snapshot::TextSnapshotContents,
@@ -392,4 +401,16 @@ pub mod _macro_support {
     pub use crate::{
         redaction::Redaction, redaction::Selector, serialization::serialize_value_redacted,
     };
+
+    #[cfg(feature = "tokenstream")]
+    pub use crate::tokenstream::{
+        pretty_print as tokenstream_pretty_print,
+        pretty_print_for_inline as tokenstream_pretty_print_for_inline,
+    };
+
+    #[cfg(feature = "tokenstream")]
+    pub use proc_macro2;
+
+    #[cfg(feature = "tokenstream")]
+    pub use quote;
 }

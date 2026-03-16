@@ -65,6 +65,8 @@ pub struct ActualSettings {
     pub filters: Filters,
     #[cfg(feature = "glob")]
     pub allow_empty_glob: bool,
+    #[cfg(feature = "tokenstream")]
+    pub format_tokens: bool,
 }
 
 impl Clone for ActualSettings {
@@ -85,6 +87,8 @@ impl Clone for ActualSettings {
             filters: self.filters.clone(),
             #[cfg(feature = "glob")]
             allow_empty_glob: self.allow_empty_glob,
+            #[cfg(feature = "tokenstream")]
+            format_tokens: self.format_tokens,
         }
     }
 }
@@ -156,6 +160,11 @@ impl ActualSettings {
     pub fn allow_empty_glob(&mut self, value: bool) {
         self.allow_empty_glob = value;
     }
+
+    #[cfg(feature = "tokenstream")]
+    pub fn format_tokens(&mut self, value: bool) {
+        self.format_tokens = value;
+    }
 }
 
 /// Configures how insta operates at test time.
@@ -210,6 +219,8 @@ impl Default for Settings {
                 filters: Filters::default(),
                 #[cfg(feature = "glob")]
                 allow_empty_glob: false,
+                #[cfg(feature = "tokenstream")]
+                format_tokens: true,
             }),
         }
     }
@@ -286,6 +297,23 @@ impl Settings {
     #[cfg(feature = "glob")]
     pub fn allow_empty_glob(&self) -> bool {
         self.inner.allow_empty_glob
+    }
+
+    /// Enables or disables pretty-printing of `TokenStream` snapshots.
+    ///
+    /// When disabled, the raw `TokenStream::to_string()` output is used
+    /// instead of formatting with `prettier-please`.
+    ///
+    /// The default value is `true`.
+    #[cfg(feature = "tokenstream")]
+    pub fn set_format_tokens(&mut self, value: bool) {
+        self._private_inner_mut().format_tokens = value;
+    }
+
+    /// Returns whether `TokenStream` snapshots are formatted.
+    #[cfg(feature = "tokenstream")]
+    pub fn format_tokens(&self) -> bool {
+        self.inner.format_tokens
     }
 
     /// Sets the snapshot suffix.
