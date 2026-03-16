@@ -152,7 +152,7 @@ mod tests {
                 field: i32,
             }
         };
-        assert_snapshot!(pretty_print(&tokens), @r"
+        assert_snapshot!(pretty_print(&tokens), @"
         struct MyStruct {
             field: i32,
         }

@@ -671,11 +671,14 @@ fn test_invalid() {
         .create_project();
 
     // Run cargo build -q to capture only compilation errors
-    let output = std::process::Command::new("cargo")
-        .args(["build", "-q"])
-        .current_dir(&test_project.workspace_dir)
-        .output()
-        .unwrap();
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.args(["build", "-q", "--color=never"]);
+    cmd.current_dir(&test_project.workspace_dir);
+    // Clean env to prevent CI variables from affecting output
+    cmd.env_remove("RUSTFLAGS");
+    cmd.env_remove("CARGO_TERM_COLOR");
+    cmd.env_remove("CLICOLOR_FORCE");
+    let output = cmd.output().unwrap();
 
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -730,11 +733,14 @@ fn test_unclosed() {
         .create_project();
 
     // Run cargo build -q to capture only compilation errors
-    let output = std::process::Command::new("cargo")
-        .args(["build", "-q"])
-        .current_dir(&test_project.workspace_dir)
-        .output()
-        .unwrap();
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.args(["build", "-q", "--color=never"]);
+    cmd.current_dir(&test_project.workspace_dir);
+    // Clean env to prevent CI variables from affecting output
+    cmd.env_remove("RUSTFLAGS");
+    cmd.env_remove("CARGO_TERM_COLOR");
+    cmd.env_remove("CLICOLOR_FORCE");
+    let output = cmd.output().unwrap();
 
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
