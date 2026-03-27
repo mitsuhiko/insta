@@ -2,6 +2,16 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.47.0
+
+- Add `Comparator` trait for customizing how snapshot values are compared. #872 (@dstu)
+- Sort sequences in `sort_maps` to fix non-deterministic `HashSet` snapshots. #876
+- Improve TOML serialization error message for unsupported types, suggesting `assert_json_snapshot!` or `assert_yaml_snapshot!` as alternatives. #880
+- Remove unnecessary `Send + Sync` bounds from `Redaction`, allowing non-`Send` closures in dynamic redactions. #874
+- Don't use `Arc` in `Settings` unnecessarily. #873 (@dstu)
+- Upgrade `console` to 0.16 and MSRV to 1.66. #885
+- Upgrade `toml-edit` to 0.25. #882 (@alexanderkjall)
+
 ## 1.46.3
 
 - Fix inline escaped snapshots incorrectly stripping leading newlines when content contains control characters like carriage returns. The escaped format (used for snapshots with control chars) now correctly preserves the original content without stripping a non-existent formatting newline. #865
