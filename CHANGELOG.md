@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.47.1
+
+- Revert sorting of sequences in `sort_maps`. The change in 1.47.0 sorted all
+  `Seq` values (including `Vec`), not just non-deterministic collections like
+  `HashSet`, which was a breaking change. #876
+
 ## 1.47.0
 
 - Add `Comparator` trait for customizing how snapshot values are compared. #872 (@dstu)
