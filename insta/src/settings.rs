@@ -235,11 +235,7 @@ impl Settings {
         Rc::make_mut(&mut self.inner)
     }
 
-    /// Enables forceful sorting of maps and sequences before serialization.
-    ///
-    /// This is particularly useful for ensuring deterministic snapshots of
-    /// non-ordered collections like [`HashMap`](std::collections::HashMap) and
-    /// [`HashSet`](std::collections::HashSet).
+    /// Enables forceful sorting of maps before serialization.
     ///
     /// Note that this only applies to snapshots that undergo serialization
     /// (eg: does not work for [`assert_debug_snapshot!`](crate::assert_debug_snapshot!)).
@@ -249,7 +245,7 @@ impl Settings {
         self._private_inner_mut().sort_maps = value;
     }
 
-    /// Returns the current value for map and sequence sorting.
+    /// Returns the current value for map sorting.
     pub fn sort_maps(&self) -> bool {
         self.inner.sort_maps
     }
