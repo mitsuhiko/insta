@@ -128,6 +128,24 @@ fn test_snapshot_with_description_and_info() {
     });
 }
 
+#[cfg(feature = "yaml")]
+#[test]
+fn test_sort_maps_does_not_sort_vecs() {
+    // Regression test: sort_maps must only sort maps, not sequences.
+    // A Vec has meaningful order that must be preserved.
+    let mut map = std::collections::HashMap::new();
+    map.insert("names", vec!["Charlie", "Alice", "Bob"]);
+
+    with_settings!({sort_maps => true}, {
+        assert_yaml_snapshot!(&map, @r"
+        names:
+          - Charlie
+          - Alice
+          - Bob
+        ");
+    });
+}
+
 #[test]
 fn test_with_settings_inherit() {
     with_settings!({sort_maps => true}, {
