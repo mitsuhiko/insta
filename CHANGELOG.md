@@ -2,6 +2,15 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## 1.47.2
+
+- Restore `Send + Sync` on `Settings`, `Redactions`, and `Redaction` by
+  reverting the `Arc` to `Rc` change from 1.47.0, which was semver-breaking.
+  #873 #874
+- Add `Send + Sync` bounds to `Comparator` trait for consistency with
+  `Arc`-based storage. #872
+- Add compile-time assertion to prevent future auto-trait regressions.
+
 ## 1.47.1
 
 - Revert sorting of sequences in `sort_maps`. The change in 1.47.0 sorted all
