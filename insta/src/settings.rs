@@ -5,7 +5,7 @@ use std::future::Future;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::comparator::Comparator;
@@ -23,7 +23,7 @@ thread_local!(static CURRENT_SETTINGS: RefCell<Settings> = RefCell::new(Settings
 #[cfg(feature = "redactions")]
 #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 #[derive(Clone, Default)]
-pub struct Redactions(Vec<(Selector<'static>, Rc<Redaction>)>);
+pub struct Redactions(Vec<(Selector<'static>, Arc<Redaction>)>);
 
 #[cfg(feature = "redactions")]
 impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
@@ -31,7 +31,7 @@ impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
         Redactions(
             value
                 .into_iter()
-                .map(|x| (Selector::parse(x.0).unwrap().make_static(), Rc::new(x.1)))
+                .map(|x| (Selector::parse(x.0).unwrap().make_static(), Arc::new(x.1)))
                 .collect(),
         )
     }
@@ -188,13 +188,17 @@ impl ActualSettings {
 /// ```
 #[derive(Clone)]
 pub struct Settings {
-    inner: Rc<ActualSettings>,
+    // TODO: consider switching to `Rc` in the next breaking change — `Settings`
+    // are stored in thread-local storage and never cross thread boundaries, so
+    // `Arc` is unnecessary. Removing it would also let us drop the `Send + Sync`
+    // bounds on `Redaction` and `Comparator`.
+    inner: Arc<ActualSettings>,
 }
 
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
-            inner: Rc::new(ActualSettings {
+            inner: Arc::new(ActualSettings {
                 sort_maps: false,
                 snapshot_path: "snapshots".into(),
                 snapshot_suffix: "".into(),
@@ -232,7 +236,7 @@ impl Settings {
     /// Internal helper for macros
     #[doc(hidden)]
     pub fn _private_inner_mut(&mut self) -> &mut ActualSettings {
-        Rc::make_mut(&mut self.inner)
+        Arc::make_mut(&mut self.inner)
     }
 
     /// Enables forceful sorting of maps before serialization.
@@ -435,7 +439,7 @@ impl Settings {
     fn add_redaction_impl(&mut self, selector: &str, replacement: Redaction) {
         self._private_inner_mut().redactions.0.push((
             Selector::parse(selector).unwrap().make_static(),
-            Rc::new(replacement),
+            Arc::new(replacement),
         ));
     }
 
@@ -451,7 +455,7 @@ impl Settings {
     pub fn add_dynamic_redaction<I, F>(&mut self, selector: &str, func: F)
     where
         I: Into<Content>,
-        F: Fn(Content, ContentPath<'_>) -> I + 'static,
+        F: Fn(Content, ContentPath<'_>) -> I + Send + Sync + 'static,
     {
         self.add_redaction(selector, dynamic_redaction(func));
     }
@@ -584,7 +588,7 @@ impl Settings {
     /// ```
     pub fn bind_async<F: Future<Output = T>, T>(&self, future: F) -> impl Future<Output = T> {
         struct BindingFuture<F> {
-            settings: Rc<ActualSettings>,
+            settings: Arc<ActualSettings>,
             future: F,
         }
 
@@ -660,7 +664,7 @@ impl Settings {
 /// This is to ensure tests under async runtimes like `tokio` don't show unexpected results
 #[must_use = "The guard is immediately dropped so binding has no effect. Use `let _guard = ...` to bind it."]
 pub struct SettingsBindDropGuard(
-    Option<Rc<ActualSettings>>,
+    Option<Arc<ActualSettings>>,
     /// A ZST that is not [`Send`] but is [`Sync`]
     ///
     /// This is necessary due to the lack of stable [negative impls](https://github.com/rust-lang/rust/issues/68318).
@@ -677,3 +681,13 @@ impl Drop for SettingsBindDropGuard {
         })
     }
 }
+
+// Prevent accidental removal of Send/Sync (which is a semver-breaking change).
+const _: () = {
+    fn _assert_send_sync<T: Send + Sync>() {}
+    fn _assert() {
+        _assert_send_sync::<Settings>();
+        #[cfg(feature = "redactions")]
+        _assert_send_sync::<Redactions>();
+    }
+};

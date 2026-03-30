@@ -17,7 +17,10 @@ use crate::snapshot::{Snapshot, SnapshotContents, TextSnapshotKind};
 ///
 /// This trait requires `'static` so that implementing structs can be stored in
 /// [`crate::settings::Settings`].
-pub trait Comparator: 'static {
+// TODO: `Send + Sync` is required because `Settings` currently uses `Arc`
+// internally. Consider removing these bounds if `Settings` switches to `Rc`
+// in the next breaking change.
+pub trait Comparator: Send + Sync + 'static {
     /// Returns `true` if the contents of `reference` and `test` match.
     ///
     /// This is the standard comparison used by [`assert_snapshot!`].
