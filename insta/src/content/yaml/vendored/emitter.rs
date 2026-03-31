@@ -32,6 +32,7 @@ pub struct YamlEmitter<'a> {
     writer: &'a mut dyn fmt::Write,
     best_indent: usize,
     compact: bool,
+    use_literal_blocks: bool,
 
     level: isize,
 }
@@ -108,7 +109,12 @@ impl<'a> YamlEmitter<'a> {
             best_indent: 2,
             compact: true,
             level: -1,
+            use_literal_blocks: false,
         }
+    }
+
+    pub fn use_literal_blocks(&mut self, value: bool) {
+        self.use_literal_blocks = value;
     }
 
     pub fn dump(&mut self, doc: &Yaml) -> EmitResult {
@@ -240,12 +246,81 @@ impl<'a> YamlEmitter<'a> {
                 }
                 self.emit_hash(h)
             }
+            Yaml::String(ref s) => {
+                if let Some(indicator) = literal_block_style(s, self.use_literal_blocks) {
+                    self.emit_literal_block(s, indicator)
+                } else {
+                    write!(self.writer, " ")?;
+                    self.emit_node(val)
+                }
+            }
             _ => {
                 write!(self.writer, " ")?;
                 self.emit_node(val)
             }
         }
     }
+
+    /// Emits a string as a YAML literal block scalar.
+    ///
+    /// Example:
+    /// ```yaml
+    /// key: |
+    ///   first line
+    ///   second line
+    /// ```
+    fn emit_literal_block(&mut self, s: &str, indicator: ChompingIndicator) -> EmitResult {
+        match indicator {
+            ChompingIndicator::Strip => writeln!(self.writer, " |-")?,
+            ChompingIndicator::Clip => writeln!(self.writer, " |")?,
+            ChompingIndicator::Keep => writeln!(self.writer, " |+")?,
+        }
+
+        let content_indent =
+            ((self.level + 1) * self.best_indent as isize).max(self.best_indent as isize) as usize;
+
+        let trailing_newlines = s.len() - s.trim_end_matches('\n').len();
+
+        let content = s.trim_end_matches('\n');
+
+        for line in content.split('\n') {
+            for _ in 0..content_indent {
+                write!(self.writer, " ")?;
+            }
+            writeln!(self.writer, "{}", line)?;
+        }
+
+        if matches!(indicator, ChompingIndicator::Keep) && trailing_newlines > 1 {
+            for _ in 1..trailing_newlines {
+                writeln!(self.writer)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// [Block chomping indicator](https://yaml.org/spec/1.2.2/#8112-block-chomping-indicator) for YAML literal block.
+#[derive(Clone, Copy)]
+enum ChompingIndicator {
+    Strip,
+    Clip,
+    Keep,
+}
+
+/// Determines whether a string can use literal block style or not.
+fn literal_block_style(s: &str, use_literal_blocks: bool) -> Option<ChompingIndicator> {
+    if !use_literal_blocks || !s.contains('\n') {
+        return None;
+    }
+
+    let trailing_newlines = s.len() - s.trim_end_matches('\n').len();
+
+    Some(match trailing_newlines {
+        0 => ChompingIndicator::Strip,
+        1 => ChompingIndicator::Clip,
+        _ => ChompingIndicator::Keep,
+    })
 }
 
 #[allow(clippy::doc_markdown)] // \` is recognised as unbalanced backticks
@@ -584,5 +659,85 @@ a:
         println!("emitted:\n{writer}");
 
         assert_eq!(s, writer);
+    }
+
+    #[test]
+    // Multiline string without trailing newline should use `|-`
+    fn test_literal_block_multiline_no_trailing_newline() {
+        let h = vec![(
+            Yaml::String("description".into()),
+            Yaml::String("Line 1\nLine 2\nLine 3".into()),
+        )];
+        let doc = Yaml::Hash(h);
+
+        let mut writer = String::new();
+        {
+            let mut emitter = YamlEmitter::new(&mut writer);
+            emitter.use_literal_blocks(true);
+            emitter.dump(&doc).unwrap();
+        }
+
+        let expected = "---\ndescription: |-\n  Line 1\n  Line 2\n  Line 3\n";
+        assert_eq!(expected, writer, "actual:\n{writer}");
+    }
+
+    #[test]
+    // Multiline string with single trailing newline should use `|`
+    fn test_literal_block_with_single_trailing_newline() {
+        let h = vec![(
+            Yaml::String("content".into()),
+            Yaml::String("Line 1\nLine 2\n".into()),
+        )];
+        let doc = Yaml::Hash(h);
+
+        let mut writer = String::new();
+        {
+            let mut emitter = YamlEmitter::new(&mut writer);
+            emitter.use_literal_blocks(true);
+            emitter.dump(&doc).unwrap();
+        }
+
+        let expected = "---\ncontent: |\n  Line 1\n  Line 2\n";
+        assert_eq!(expected, writer, "actual:\n{writer}");
+    }
+
+    #[test]
+    // Multiline string with multiple trailing newlines should use `|+`
+    fn test_literal_block_with_multiple_trailing_newlines() {
+        let h = vec![(
+            Yaml::String("content".into()),
+            Yaml::String("Line 1\n\n\n".into()),
+        )];
+        let doc = Yaml::Hash(h);
+
+        let mut writer = String::new();
+        {
+            let mut emitter = YamlEmitter::new(&mut writer);
+            emitter.use_literal_blocks(true);
+            emitter.dump(&doc).unwrap();
+        }
+
+        // With |+, trailing newlines are preserved
+        assert!(writer.contains("|+"), "should use |+ chomping: {writer}");
+    }
+
+    #[test]
+    // Single-line string should not use literal block
+    fn test_no_literal_block_for_single_line() {
+        let h = vec![(
+            Yaml::String("content".into()),
+            Yaml::String("Just a single line".into()),
+        )];
+        let doc = Yaml::Hash(h);
+
+        let mut writer = String::new();
+        {
+            let mut emitter = YamlEmitter::new(&mut writer);
+            emitter.use_literal_blocks(true);
+            emitter.dump(&doc).unwrap();
+        }
+
+        let expected = "---\ncontent: Just a single line";
+        assert_eq!(expected, writer, "actual:\n{writer}");
     }
 }
