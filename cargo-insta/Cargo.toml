@@ -33,9 +33,15 @@ uuid = { version = "1.0.0", features = ["v4"] }
 tempfile = "3.5.0"
 # Needs pinning in Cargo.lock because of MSRV
 semver = { version = "1.0.7", features = ["serde"] }
+shadow-rs = { version = "1.7.1", default-features = false }
 clap = { workspace = true }
 open = "5.3.0"
 itertools = "0.10.0"
+
+[build-dependencies]
+shadow-rs = { version = "1.2.1", default-features = false, features = [
+    "build",
+] }
 
 [dev-dependencies]
 walkdir = "2.3.1"
