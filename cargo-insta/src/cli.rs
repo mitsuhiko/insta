@@ -14,6 +14,7 @@ use insta::{internals::SnapshotContents, Snapshot};
 use itertools::Itertools;
 use semver::Version;
 use serde::Serialize;
+use shadow_rs::shadow;
 use uuid::Uuid;
 
 use crate::cargo::{find_snapshot_roots, Package};
@@ -23,6 +24,8 @@ use crate::utils::{err_msg, QuietExit};
 use crate::walk::{find_pending_snapshots, make_snapshot_walker, FindFlags};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
+
+shadow!(build);
 
 /// A helper utility to work with insta snapshots.
 #[derive(Parser, Debug)]
@@ -60,6 +63,7 @@ impl fmt::Display for ColorWhen {
 #[derive(Subcommand, Debug)]
 #[command(
     version,
+    long_version = build::CLAP_LONG_VERSION,
     after_help = "For the online documentation of the latest version, see https://insta.rs/docs/cli/."
 )]
 #[allow(clippy::large_enum_variant)]
