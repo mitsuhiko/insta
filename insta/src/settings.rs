@@ -63,6 +63,8 @@ pub struct ActualSettings {
     pub redactions: Redactions,
     #[cfg(feature = "filters")]
     pub filters: Filters,
+    #[cfg(feature = "filters")]
+    pub strip_ansi_escape_codes: bool,
     #[cfg(feature = "glob")]
     pub allow_empty_glob: bool,
 }
@@ -83,6 +85,8 @@ impl Clone for ActualSettings {
             redactions: self.redactions.clone(),
             #[cfg(feature = "filters")]
             filters: self.filters.clone(),
+            #[cfg(feature = "filters")]
+            strip_ansi_escape_codes: self.strip_ansi_escape_codes,
             #[cfg(feature = "glob")]
             allow_empty_glob: self.allow_empty_glob,
         }
@@ -152,6 +156,11 @@ impl ActualSettings {
         self.filters = f.into();
     }
 
+    #[cfg(feature = "filters")]
+    pub fn strip_ansi_escape_codes(&mut self, value: bool) {
+        self.strip_ansi_escape_codes = value;
+    }
+
     #[cfg(feature = "glob")]
     pub fn allow_empty_glob(&mut self, value: bool) {
         self.allow_empty_glob = value;
@@ -212,6 +221,8 @@ impl Default for Settings {
                 redactions: Redactions::default(),
                 #[cfg(feature = "filters")]
                 filters: Filters::default(),
+                #[cfg(feature = "filters")]
+                strip_ansi_escape_codes: false,
                 #[cfg(feature = "glob")]
                 allow_empty_glob: false,
             }),
@@ -538,6 +549,39 @@ impl Settings {
     #[cfg_attr(docsrs, doc(cfg(feature = "filters")))]
     pub(crate) fn filters(&self) -> &Filters {
         &self.inner.filters
+    }
+
+    /// Enables or disables stripping of ANSI escape codes from snapshots.
+    ///
+    /// When enabled, ANSI escape sequences (such as color codes, cursor movement,
+    /// etc.) are automatically removed from snapshot content before comparison.
+    /// This is useful when snapshotting output from tools that produce colored
+    /// terminal output.
+    ///
+    /// The stripping is applied before any user-defined filters.
+    ///
+    /// The default value is `false`.
+    ///
+    /// ```rust
+    /// # use insta::Settings;
+    /// let mut settings = Settings::clone_current();
+    /// settings.set_strip_ansi_escape_codes(true);
+    /// settings.bind(|| {
+    ///     // ANSI codes are stripped before snapshot comparison
+    ///     insta::assert_snapshot!("\x1b[31mhello\x1b[0m", @"hello");
+    /// });
+    /// ```
+    #[cfg(feature = "filters")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filters")))]
+    pub fn set_strip_ansi_escape_codes(&mut self, value: bool) {
+        self._private_inner_mut().strip_ansi_escape_codes(value);
+    }
+
+    /// Returns the current value for ANSI escape code stripping.
+    #[cfg(feature = "filters")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filters")))]
+    pub fn strip_ansi_escape_codes(&self) -> bool {
+        self.inner.strip_ansi_escape_codes
     }
 
     /// Sets the snapshot path.

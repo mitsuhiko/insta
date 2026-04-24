@@ -11,6 +11,44 @@ fn test_basic_filter() {
     })
 }
 
+#[cfg(feature = "filters")]
+#[test]
+fn test_strip_ansi_escape_codes_setting() {
+    use insta::{assert_snapshot, with_settings};
+    with_settings!({strip_ansi_escape_codes => true}, {
+        assert_snapshot!("\x1b[31mhello\x1b[0m world", @"hello world");
+    })
+}
+
+#[cfg(feature = "filters")]
+#[test]
+fn test_strip_ansi_escape_codes_with_filters() {
+    use insta::{assert_snapshot, with_settings};
+    // ANSI stripping should happen before user-defined filters
+    with_settings!({
+        strip_ansi_escape_codes => true,
+        filters => vec![
+            (r"\bhello\b", "[GREETING]")
+        ]
+    }, {
+        assert_snapshot!("\x1b[32mhello\x1b[0m world", @"[GREETING] world");
+    })
+}
+
+#[cfg(feature = "filters")]
+#[test]
+fn test_strip_ansi_escape_codes_programmatic() {
+    use insta::assert_snapshot;
+    let mut settings = insta::Settings::clone_current();
+    settings.set_strip_ansi_escape_codes(true);
+    settings.bind(|| {
+        assert_snapshot!(
+            "\x1b[1m\x1b[31mERROR\x1b[0m: something \x1b[32mfailed\x1b[0m",
+            @"ERROR: something failed"
+        );
+    });
+}
+
 #[cfg(feature = "json")]
 #[test]
 fn test_basic_suffixes() {

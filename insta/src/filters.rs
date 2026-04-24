@@ -2,7 +2,24 @@ use std::borrow::Cow;
 use std::iter::FromIterator;
 use std::iter::IntoIterator;
 
+use once_cell::sync::Lazy;
 use regex::Regex;
+
+/// Regex matching ANSI escape sequences (CSI, OSC, and single-character escapes).
+static ANSI_ESCAPE_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?x)
+        \x1b\[[0-9;]*[A-Za-z]    # CSI sequences: ESC [ ... final byte
+        |
+        \x1b\][^\x07\x1b]*(?:\x07|\x1b\\)  # OSC sequences: ESC ] ... (BEL or ST)
+        |
+        \x1b[()][A-Za-z0-9]      # Character set selection
+        |
+        \x1b[A-Za-z]             # Two-character escape sequences
+        ",
+    )
+    .unwrap()
+});
 
 /// Represents stored filters.
 #[derive(Debug, Default, Clone)]
@@ -59,6 +76,11 @@ impl Filters {
     }
 }
 
+/// Strips all ANSI escape sequences from the given string.
+pub(crate) fn strip_ansi_escape_codes(s: &str) -> Cow<'_, str> {
+    ANSI_ESCAPE_RE.replace_all(s, "")
+}
+
 #[test]
 fn test_filters() {
     let mut filters = Filters::default();
@@ -80,4 +102,45 @@ fn test_static_str_array_conversion() {
 fn test_vec_str_conversion() {
     let vec: Vec<(&str, &str)> = Vec::from([("a1", "b1"), ("a2", "b2")]);
     let _ = Filters::from(vec);
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_basic() {
+    assert_eq!(
+        strip_ansi_escape_codes("\x1b[31mhello\x1b[0m"),
+        "hello"
+    );
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_no_codes() {
+    let plain = "hello world";
+    let result = strip_ansi_escape_codes(plain);
+    assert_eq!(result, "hello world");
+    // When there are no escape codes, the result should borrow (not allocate)
+    assert!(matches!(result, Cow::Borrowed(_)));
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_multiple() {
+    assert_eq!(
+        strip_ansi_escape_codes("\x1b[1m\x1b[31mERROR\x1b[0m: something \x1b[32mfailed\x1b[0m"),
+        "ERROR: something failed"
+    );
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_256_color() {
+    assert_eq!(
+        strip_ansi_escape_codes("\x1b[38;5;196mred\x1b[0m"),
+        "red"
+    );
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_rgb() {
+    assert_eq!(
+        strip_ansi_escape_codes("\x1b[38;2;255;0;0mred\x1b[0m"),
+        "red"
+    );
 }

@@ -865,9 +865,19 @@ pub fn assert_snapshot(
 
     let content = match snapshot_value {
         SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
+            // strip ANSI escape codes if enabled
+            #[cfg(feature = "filters")]
+            let content = Settings::with(|settings| {
+                if settings.strip_ansi_escape_codes() {
+                    crate::filters::strip_ansi_escape_codes(content)
+                } else {
+                    std::borrow::Cow::Borrowed(content)
+                }
+            });
+
             // apply filters if they are available
             #[cfg(feature = "filters")]
-            let content = Settings::with(|settings| settings.filters().apply_to(content));
+            let content = Settings::with(|settings| settings.filters().apply_to(&content));
 
             let kind = match ctx.snapshot_file {
                 Some(_) => TextSnapshotKind::File,
