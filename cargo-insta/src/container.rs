@@ -2,8 +2,8 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub(crate) use insta::TextSnapshotKind;
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
+pub(crate) use insta::TextSnapshotKind;
 use insta::{internals::SnapshotContents, Snapshot};
 
 use crate::inline::FilePatcher;

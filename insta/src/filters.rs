@@ -106,10 +106,7 @@ fn test_vec_str_conversion() {
 
 #[test]
 fn test_strip_ansi_escape_codes_basic() {
-    assert_eq!(
-        strip_ansi_escape_codes("\x1b[31mhello\x1b[0m"),
-        "hello"
-    );
+    assert_eq!(strip_ansi_escape_codes("\x1b[31mhello\x1b[0m"), "hello");
 }
 
 #[test]
@@ -131,10 +128,7 @@ fn test_strip_ansi_escape_codes_multiple() {
 
 #[test]
 fn test_strip_ansi_escape_codes_256_color() {
-    assert_eq!(
-        strip_ansi_escape_codes("\x1b[38;5;196mred\x1b[0m"),
-        "red"
-    );
+    assert_eq!(strip_ansi_escape_codes("\x1b[38;5;196mred\x1b[0m"), "red");
 }
 
 #[test]
