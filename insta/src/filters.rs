@@ -2,24 +2,7 @@ use std::borrow::Cow;
 use std::iter::FromIterator;
 use std::iter::IntoIterator;
 
-use once_cell::sync::Lazy;
 use regex::Regex;
-
-/// Regex matching ANSI escape sequences (CSI, OSC, and single-character escapes).
-static ANSI_ESCAPE_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(
-        r"(?x)
-        \x1b\[[0-9;]*[A-Za-z]    # CSI sequences: ESC [ ... final byte
-        |
-        \x1b\][^\x07\x1b]*(?:\x07|\x1b\\)  # OSC sequences: ESC ] ... (BEL or ST)
-        |
-        \x1b[()][A-Za-z0-9]      # Character set selection
-        |
-        \x1b[A-Za-z]             # Two-character escape sequences
-        ",
-    )
-    .unwrap()
-});
 
 /// Represents stored filters.
 #[derive(Debug, Default, Clone)]
@@ -78,7 +61,11 @@ impl Filters {
 
 /// Strips all ANSI escape sequences from the given string.
 pub(crate) fn strip_ansi_escape_codes(s: &str) -> Cow<'_, str> {
-    ANSI_ESCAPE_RE.replace_all(s, "")
+    if s.contains('\x1b') {
+        Cow::Owned(strip_ansi_escapes::strip_str(s))
+    } else {
+        Cow::Borrowed(s)
+    }
 }
 
 #[test]
