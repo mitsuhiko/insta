@@ -156,3 +156,30 @@ fn test_with_settings_inherit() {
         });
     });
 }
+
+#[cfg(feature = "filters")]
+#[test]
+fn test_strip_ansi_escape_codes_default() {
+    let settings = Settings::clone_current();
+    assert!(!settings.strip_ansi_escape_codes());
+}
+
+#[cfg(feature = "filters")]
+#[test]
+fn test_strip_ansi_escape_codes_set_and_get() {
+    let mut settings = Settings::clone_current();
+    settings.set_strip_ansi_escape_codes(true);
+    assert!(settings.strip_ansi_escape_codes());
+}
+
+#[cfg(feature = "filters")]
+#[test]
+fn test_strip_ansi_escape_codes_inherit() {
+    with_settings!({strip_ansi_escape_codes => true}, {
+        with_settings!({description => "inner"}, {
+            let settings = Settings::clone_current();
+            assert!(settings.strip_ansi_escape_codes());
+            assert_eq!(settings.description(), Some("inner"));
+        });
+    });
+}

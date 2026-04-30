@@ -59,6 +59,15 @@ impl Filters {
     }
 }
 
+/// Strips all ANSI escape sequences from the given string.
+pub(crate) fn strip_ansi_escape_codes(s: &str) -> Cow<'_, str> {
+    if s.contains('\x1b') {
+        Cow::Owned(strip_ansi_escapes::strip_str(s))
+    } else {
+        Cow::Borrowed(s)
+    }
+}
+
 #[test]
 fn test_filters() {
     let mut filters = Filters::default();
@@ -80,4 +89,39 @@ fn test_static_str_array_conversion() {
 fn test_vec_str_conversion() {
     let vec: Vec<(&str, &str)> = Vec::from([("a1", "b1"), ("a2", "b2")]);
     let _ = Filters::from(vec);
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_basic() {
+    assert_eq!(strip_ansi_escape_codes("\x1b[31mhello\x1b[0m"), "hello");
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_no_codes() {
+    let plain = "hello world";
+    let result = strip_ansi_escape_codes(plain);
+    assert_eq!(result, "hello world");
+    // When there are no escape codes, the result should borrow (not allocate)
+    assert!(matches!(result, Cow::Borrowed(_)));
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_multiple() {
+    assert_eq!(
+        strip_ansi_escape_codes("\x1b[1m\x1b[31mERROR\x1b[0m: something \x1b[32mfailed\x1b[0m"),
+        "ERROR: something failed"
+    );
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_256_color() {
+    assert_eq!(strip_ansi_escape_codes("\x1b[38;5;196mred\x1b[0m"), "red");
+}
+
+#[test]
+fn test_strip_ansi_escape_codes_rgb() {
+    assert_eq!(
+        strip_ansi_escape_codes("\x1b[38;2;255;0;0mred\x1b[0m"),
+        "red"
+    );
 }
