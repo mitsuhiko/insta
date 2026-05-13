@@ -363,6 +363,7 @@ pub mod _cargo_insta_support {
         snapshot::TextSnapshotContents,
         utils::get_cargo,
         utils::is_ci,
+        utils::path_to_storage,
     };
 }
 

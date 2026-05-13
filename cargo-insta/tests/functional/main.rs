@@ -78,6 +78,7 @@ mod inline_snapshot_trimming;
 mod nextest_doctest;
 mod pending_dir;
 mod raw_strings;
+mod snapshot_filter;
 mod test_runner_fallback;
 mod test_workspace_source_path;
 mod unreferenced;
