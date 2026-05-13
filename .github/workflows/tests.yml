@@ -104,7 +104,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          # Pinned: newer nightlies reject the `rustc_*` attributes used in
+          # `rustix v0.36.4`, which `cargo minimal-versions` resolves to.
+          # Bump once a newer nightly is known-good.
+          toolchain: nightly-2026-04-25
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-hack
       - uses: taiki-e/install-action@cargo-minimal-versions
