@@ -123,6 +123,11 @@ struct ProcessCommand {
 struct ReviewCommand {
     #[command(flatten)]
     process: ProcessCommand,
+    /// Accept all matching snapshots without interactive review.
+    ///
+    /// This is equivalent to `cargo insta accept` with the same filters.
+    #[arg(long)]
+    accept: bool,
     /// External diff tool to use (e.g., "delta --side-by-side").
     #[arg(long, env = "INSTA_DIFF_TOOL")]
     diff_tool: Option<String>,
@@ -1599,7 +1604,11 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
                 cmd.process.quiet,
                 cmd.process.snapshot_filter.as_deref(),
                 &handle_target_args(&cmd.process.target_args, &[])?,
-                None,
+                if cmd.accept {
+                    Some(Operation::Accept)
+                } else {
+                    None
+                },
             )
         }
         Command::Accept(ref cmd) | Command::Reject(ref cmd) => review_snapshots(
