@@ -317,7 +317,8 @@ fn query_snapshot(
         return Err(err_msg(
             "Interactive review requires a terminal. For non-interactive snapshot management:\n\
             - Use `cargo insta pending-snapshots` to list pending snapshots\n\
-            - Use `cargo insta review --snapshot <path>` to view a specific snapshot diff\n\
+            - Use `cargo insta diff --snapshot <path>` to view a specific snapshot diff\n\
+            - Use `cargo insta review --snapshot <path>` to review a specific snapshot\n\
             - Use `cargo insta reject --snapshot <path>` to view and reject a specific snapshot\n\
             - Use `cargo insta accept` or `cargo insta reject` to accept/reject all snapshots\n\
             - Use `cargo insta accept --snapshot <path>` to accept a specific snapshot\n\
