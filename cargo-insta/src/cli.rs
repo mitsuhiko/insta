@@ -1575,6 +1575,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                 snapshot_keys[0]
             );
             println!();
+            println!("To show all diffs: cargo insta diff");
             println!("To review all interactively: cargo insta review");
             println!("To accept all: cargo insta accept");
             println!("To reject all: cargo insta reject");
