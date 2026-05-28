@@ -10,11 +10,11 @@ test: cargotest
 
 cargotest:
 	@echo "CARGO TESTS"
-	@cargo test -p insta
-	@cargo test -p insta --all-features
-	@cargo test -p insta --no-default-features
-	@cargo test -p insta --features redactions -- --test-threads 1
-	@cargo test -p cargo-insta
+	@cargo test -p insta --locked
+	@cargo test -p insta --all-features --locked
+	@cargo test -p insta --no-default-features --locked
+	@cargo test -p insta --features redactions --locked -- --test-threads 1
+	@cargo test -p cargo-insta --locked
 
 check-minver:
 	@echo "MINVER CHECK"
