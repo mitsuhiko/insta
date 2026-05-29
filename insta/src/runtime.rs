@@ -898,7 +898,7 @@ pub fn assert_snapshot(
                 "file extensions starting with 'new.' are not allowed",
             );
 
-            SnapshotContents::Binary(Rc::new(content))
+            SnapshotContents::Binary(Some(Rc::new(content)))
         }
     };
 

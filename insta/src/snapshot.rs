@@ -8,7 +8,7 @@ use std::env;
 use std::error::Error;
 use std::fmt;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -406,9 +406,14 @@ impl Snapshot {
             }
             SnapshotKind::Binary { ref extension } => {
                 let path = build_binary_path(extension, p);
-                let contents = fs::read(path)?;
-
-                SnapshotContents::Binary(Rc::new(contents))
+                // A missing sidecar data file is a valid state (see
+                // `SnapshotContents::Binary`); we represent it as `None` rather than
+                // erroring. A present-but-unreadable file is still a real error.
+                match fs::read(path) {
+                    Ok(contents) => SnapshotContents::Binary(Some(Rc::new(contents))),
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => SnapshotContents::Binary(None),
+                    Err(e) => return Err(e.into()),
+                }
             }
         };
 
@@ -542,6 +547,12 @@ impl Snapshot {
             .map_err(|e| content::Error::FileIo(e, path.to_path_buf()))?;
 
         if let SnapshotContents::Binary(ref contents) = self.snapshot {
+            // Only snapshots we just produced are ever saved, and those always carry
+            // their data. An absent payload (loaded from disk with a missing sidecar)
+            // has nothing to write.
+            let contents = contents
+                .as_ref()
+                .expect("cannot save a binary snapshot with an absent data file");
             fs::write(self.build_binary_path(path).unwrap(), &**contents)
                 .map_err(|e| content::Error::FileIo(e, path.to_path_buf()))?;
         }
@@ -581,11 +592,17 @@ impl Snapshot {
 pub enum SnapshotContents {
     Text(TextSnapshotContents),
 
+    // `None` represents an absent payload: the `.snap` metadata exists but the
+    // sidecar data file does not. A gitignored data file is never committed, so
+    // it is absent on a fresh checkout even though the metadata is tracked. This
+    // is a valid state for an old snapshot loaded from disk; new snapshots always
+    // carry their data as `Some`.
+    //
     // This is in an `Rc` because we need to be able to clone this struct cheaply and the contents
     // of the `Vec` could be rather large. The reason it's not an `Rc<[u8]>` is because creating one
     // of those would require re-allocating because of the additional size needed for the reference
     // count.
-    Binary(Rc<Vec<u8>>),
+    Binary(Option<Rc<Vec<u8>>>),
 }
 
 // Could be Cow, but I think limited savings
@@ -828,6 +845,10 @@ impl PartialEq for SnapshotContents {
                     false
                 }
             }
+            // Two present payloads compare by bytes. A present payload never equals an
+            // absent one, so an old `None` (missing data file) vs a new `Some(..)` is
+            // unequal — i.e. treated as changed, which is what we want. Two absent
+            // payloads compare equal (there's nothing to distinguish them).
             (SnapshotContents::Binary(this), SnapshotContents::Binary(other)) => this == other,
             _ => false,
         }
@@ -1319,7 +1340,7 @@ fn test_snapshot_contents_as_text() {
     assert!(text.as_text().is_some());
     assert_eq!(text.as_text().unwrap().to_string(), "hello");
 
-    let binary = SnapshotContents::Binary(Rc::new(vec![1, 2, 3]));
+    let binary = SnapshotContents::Binary(Some(Rc::new(vec![1, 2, 3])));
     assert!(binary.as_text().is_none());
 }
 
