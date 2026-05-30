@@ -2,6 +2,13 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Fix `cargo insta test --profile` being forwarded to nextest as the nextest
+  profile instead of the cargo build profile; it now translates to
+  `--cargo-profile` for the nextest runner. Add `--nextest-profile` to select
+  the nextest profile. #910
+
 ## 1.47.2
 
 - Restore `Send + Sync` on `Settings`, `Redactions`, and `Redaction` by
