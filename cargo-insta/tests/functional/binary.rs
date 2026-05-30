@@ -1,3 +1,6 @@
+use std::fs;
+use std::process::Command;
+
 use insta::assert_snapshot;
 
 use crate::TestFiles;
@@ -340,6 +343,85 @@ fn test() {
     +    src/snapshots
     +      src/snapshots/test_change_binary_to_text__some_name.snap
     ");
+}
+
+/// Regression test for https://github.com/mitsuhiko/insta/issues/911
+///
+/// A binary snapshot's data file can be `.gitignore`d by extension while its
+/// `.snap` metadata file stays tracked. On a fresh checkout the metadata is
+/// present but the data file is absent. Accepting a new value then used to fail
+/// with a nonspecific `No such file or directory (os error 2)` (even with
+/// `--include-ignored`), because loading the snapshot read the *old* target's
+/// missing data file and aborted the whole accept. The old data is not needed
+/// to accept the new snapshot, so a missing one is now tolerated.
+#[test]
+fn test_binary_accept_missing_old_binary() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_binary_accept_missing_old_binary")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!(".txt", b"test".to_vec());
+}
+"#
+            .to_string(),
+        )
+        // The binary data files (`*.txt`) are ignored by extension; their `.snap`
+        // metadata files are tracked.
+        .add_file(".gitignore", "*.txt\n".to_string())
+        .create_project();
+
+    // Initialize a git repository so `.gitignore` is honored.
+    Command::new("git")
+        .current_dir(&test_project.workspace_dir)
+        .args(["init"])
+        .output()
+        .unwrap();
+
+    let snapshot = test_project
+        .workspace_dir
+        .join("src/snapshots/test_binary_accept_missing_old_binary__binary_snapshot.snap");
+    let data_file = snapshot.with_extension("snap.txt");
+
+    // Accept once to create the tracked metadata file and its (ignored) data file.
+    assert!(&test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap()
+        .status
+        .success());
+    assert!(snapshot.exists());
+    assert!(data_file.exists());
+
+    // Simulate a fresh checkout: the ignored data file was never committed, so
+    // only the metadata file is present.
+    fs::remove_file(&data_file).unwrap();
+
+    // Change the value and accept the new snapshot. The missing old data file
+    // must not abort the accept.
+    test_project.update_file(
+        "src/lib.rs",
+        r#"
+#[test]
+fn test_binary_snapshot() {
+    insta::assert_binary_snapshot!(".txt", b"changed".to_vec());
+}
+"#
+        .to_string(),
+    );
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    // The new value is written to the data file.
+    assert_eq!(fs::read(&data_file).unwrap(), b"changed");
 }
 
 #[test]
