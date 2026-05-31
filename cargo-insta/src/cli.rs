@@ -78,6 +78,8 @@ enum Command {
     PendingSnapshots(PendingSnapshotsCommand),
     /// Shows a specific snapshot
     Show(ShowCommand),
+    /// Show diffs for pending snapshots without interactive review
+    Diff(ProcessCommand),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -123,6 +125,11 @@ struct ProcessCommand {
 struct ReviewCommand {
     #[command(flatten)]
     process: ProcessCommand,
+    /// Accept all matching snapshots without interactive review.
+    ///
+    /// This is equivalent to `cargo insta accept` with the same filters.
+    #[arg(long)]
+    accept: bool,
     /// External diff tool to use (e.g., "delta --side-by-side").
     #[arg(long, env = "INSTA_DIFF_TOOL")]
     diff_tool: Option<String>,
@@ -310,7 +317,8 @@ fn query_snapshot(
         return Err(err_msg(
             "Interactive review requires a terminal. For non-interactive snapshot management:\n\
             - Use `cargo insta pending-snapshots` to list pending snapshots\n\
-            - Use `cargo insta review --snapshot <path>` to view a specific snapshot diff\n\
+            - Use `cargo insta diff --snapshot <path>` to view a specific snapshot diff\n\
+            - Use `cargo insta review --snapshot <path>` to review a specific snapshot\n\
             - Use `cargo insta reject --snapshot <path>` to view and reject a specific snapshot\n\
             - Use `cargo insta accept` or `cargo insta reject` to accept/reject all snapshots\n\
             - Use `cargo insta accept --snapshot <path>` to accept a specific snapshot\n\
@@ -643,6 +651,85 @@ fn format_snapshot_key(workspace_root: &Path, target_file: &Path, line: Option<u
     }
 }
 
+fn print_snapshot_diff(
+    workspace_root: &Path,
+    package: &Package,
+    snapshot_ref: &crate::container::PendingSnapshot,
+    snapshot_file: Option<&Path>,
+) {
+    println!(
+        "{}{}:",
+        style("Snapshot: ").bold(),
+        style(&snapshot_ref.summary()).yellow()
+    );
+    println!("  Package: {}@{}", package.name.as_str(), &package.version);
+    println!();
+
+    let mut printer = SnapshotPrinter::new(
+        workspace_root,
+        snapshot_ref.old.as_ref(),
+        &snapshot_ref.new,
+    );
+    printer.set_snapshot_file(snapshot_file);
+    printer.set_line(snapshot_ref.line);
+    printer.set_show_info(true);
+    printer.set_show_diff(true);
+    printer.print();
+
+    println!();
+}
+
+/// Show pending snapshot diffs without interactive review.
+fn show_pending_diffs(
+    quiet: bool,
+    snapshot_filter: Option<&[String]>,
+    loc: &LocationInfo<'_>,
+) -> Result<(), Box<dyn Error>> {
+    let (mut snapshot_containers, _) = load_snapshot_containers(loc)?;
+
+    let mut shown = 0usize;
+    for (snapshot_container, package) in snapshot_containers.iter_mut() {
+        let target_file = snapshot_container.target_file().to_path_buf();
+        let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
+        for snapshot_ref in snapshot_container.iter_snapshots() {
+            if let Some(filter) = snapshot_filter {
+                let key = format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
+                if !filter.contains(&key) {
+                    continue;
+                }
+            }
+
+            print_snapshot_diff(
+                &loc.workspace_root,
+                package,
+                snapshot_ref,
+                snapshot_file.as_deref(),
+            );
+            shown += 1;
+        }
+    }
+
+    if shown == 0 {
+        if !quiet {
+            if snapshot_filter.is_some() {
+                println!(
+                    "{}: no pending snapshots matched the filter",
+                    style("done").bold()
+                );
+            } else {
+                println!("{}: no snapshots to show", style("done").bold());
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn diff_cmd(cmd: ProcessCommand) -> Result<(), Box<dyn Error>> {
+    let loc = handle_target_args(&cmd.target_args, &[])?;
+    show_pending_diffs(cmd.quiet, cmd.snapshot_filter.as_deref(), &loc)
+}
+
 /// Processes snapshot files for reviewing, accepting, or rejecting.
 fn review_snapshots(
     quiet: bool,
@@ -705,26 +792,12 @@ fn review_snapshots(
 
             // In non-interactive display mode, show the snapshot diff
             if non_interactive_display {
-                println!(
-                    "{}{}:",
-                    style("Snapshot: ").bold(),
-                    style(&snapshot_ref.summary()).yellow()
-                );
-                println!("  Package: {}@{}", package.name.as_str(), &package.version);
-                println!();
-
-                let mut printer = SnapshotPrinter::new(
+                print_snapshot_diff(
                     &loc.workspace_root,
-                    snapshot_ref.old.as_ref(),
-                    &snapshot_ref.new,
+                    package,
+                    snapshot_ref,
+                    snapshot_file.as_deref(),
                 );
-                printer.set_snapshot_file(snapshot_file.as_deref());
-                printer.set_line(snapshot_ref.line);
-                printer.set_show_info(true);
-                printer.set_show_diff(true);
-                printer.print();
-
-                println!();
 
                 // If we're in review mode (no op), just show instructions and skip
                 if op.is_none() {
@@ -1486,6 +1559,10 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
             }
             println!();
             println!(
+                "To show a diff: cargo insta diff --snapshot '{}'",
+                snapshot_keys[0]
+            );
+            println!(
                 "To review a snapshot: cargo insta review --snapshot '{}'",
                 snapshot_keys[0]
             );
@@ -1498,6 +1575,7 @@ fn pending_snapshots_cmd(cmd: PendingSnapshotsCommand) -> Result<(), Box<dyn Err
                 snapshot_keys[0]
             );
             println!();
+            println!("To show all diffs: cargo insta diff");
             println!("To review all interactively: cargo insta review");
             println!("To accept all: cargo insta accept");
             println!("To reject all: cargo insta reject");
@@ -1599,7 +1677,11 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
                 cmd.process.quiet,
                 cmd.process.snapshot_filter.as_deref(),
                 &handle_target_args(&cmd.process.target_args, &[])?,
-                None,
+                if cmd.accept {
+                    Some(Operation::Accept)
+                } else {
+                    None
+                },
             )
         }
         Command::Accept(ref cmd) | Command::Reject(ref cmd) => review_snapshots(
@@ -1614,6 +1696,7 @@ pub(crate) fn run() -> Result<(), Box<dyn Error>> {
         ),
         Command::Test(cmd) => test_run(cmd, opts.color.unwrap_or(ColorWhen::Auto)),
         Command::Show(cmd) => show_cmd(cmd),
+        Command::Diff(cmd) => diff_cmd(cmd),
         Command::PendingSnapshots(cmd) => pending_snapshots_cmd(cmd),
     }
 }
