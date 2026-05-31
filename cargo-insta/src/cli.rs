@@ -7,8 +7,8 @@ use std::{io, process};
 
 use console::{set_colors_enabled, style, Key, Term};
 use insta::_cargo_insta_support::{
-    get_cargo, get_pending_dir, is_ci, SnapshotPrinter, SnapshotUpdate, TestRunner, ToolConfig,
-    UnreferencedSnapshots,
+    get_cargo, get_pending_dir, is_ci, path_to_storage, SnapshotPrinter, SnapshotUpdate,
+    TestRunner, ToolConfig, UnreferencedSnapshots,
 };
 use insta::{internals::SnapshotContents, Snapshot};
 use itertools::Itertools;
@@ -112,6 +112,11 @@ struct ProcessCommand {
     #[command(flatten)]
     target_args: TargetArgs,
     /// Limits the operation to one or more snapshots.
+    ///
+    /// A value matches a snapshot whose path (as shown by `cargo insta
+    /// pending-snapshots`) it equals or is a trailing path-component suffix
+    /// of, so a bare file name like `my_test.snap` is usually enough. For
+    /// inline snapshots a `:line` suffix may be appended to disambiguate.
     #[arg(long = "snapshot")]
     snapshot_filter: Option<Vec<String>>,
     /// Do not print to stdout.
@@ -628,19 +633,51 @@ fn load_snapshot_containers<'a>(
     Ok((snapshot_containers, roots))
 }
 
-/// Formats a snapshot key for use in filters and display.
-/// Returns "path" for file snapshots or "path:line" for inline snapshots.
-/// Converts absolute paths to workspace-relative paths.
+/// Formats a snapshot key for display and as the canonical form printed by
+/// `pending-snapshots`.
+///
+/// Returns `"path"` for file snapshots or `"path:line"` for inline snapshots.
+/// The path is workspace-relative (falling back to the absolute path if it
+/// lies outside the workspace) and uses `/` separators on every platform —
+/// the same representation `insta` uses for stored `source:` paths.
 fn format_snapshot_key(workspace_root: &Path, target_file: &Path, line: Option<u32>) -> String {
-    let relative_path = target_file
+    let relative = target_file
         .strip_prefix(workspace_root)
         .unwrap_or(target_file);
-
-    if let Some(line) = line {
-        format!("{}:{}", relative_path.display(), line)
-    } else {
-        format!("{}", relative_path.display())
+    let path = path_to_storage(relative);
+    match line {
+        Some(line) => format!("{path}:{line}"),
+        None => path,
     }
+}
+
+/// Returns whether a `--snapshot` filter entry refers to this snapshot.
+///
+/// A filter matches when its path part is a trailing path-component suffix of
+/// `target_file`, so a bare `name.snap` is enough. For inline snapshots the
+/// filter may carry a `:line` suffix to disambiguate; without it, every inline
+/// snapshot in the file matches. `Path::ends_with` already treats `/` and `\`
+/// as equivalent on Windows, so users can spell separators either way.
+fn snapshot_matches_filter(target_file: &Path, line: Option<u32>, filter: &str) -> bool {
+    // Pull off an optional trailing `:<line>`. We require it to parse as a
+    // line number; otherwise (e.g. a Windows drive letter, a colon in a file
+    // name) it's part of the path.
+    let (path_part, line_part) = match filter.rsplit_once(':') {
+        Some((path, suffix)) => match suffix.parse::<u32>() {
+            Ok(n) => (path, Some(n)),
+            Err(_) => (filter, None),
+        },
+        None => (filter, None),
+    };
+    if path_part.is_empty() && line_part.is_none() {
+        return false;
+    }
+    if let Some(n) = line_part {
+        if line != Some(n) {
+            return false;
+        }
+    }
+    target_file.ends_with(path_part)
 }
 
 /// Processes snapshot files for reviewing, accepting, or rejecting.
@@ -694,8 +731,10 @@ fn review_snapshots(
         for snapshot_ref in snapshot_container.iter_snapshots() {
             // if a filter is provided, check if the snapshot reference is included
             if let Some(filter) = snapshot_filter {
-                let key = format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
-                if !filter.contains(&key) {
+                if !filter
+                    .iter()
+                    .any(|f| snapshot_matches_filter(&target_file, snapshot_ref.line, f))
+                {
                     skipped.push(snapshot_ref.summary());
                     continue;
                 }
@@ -1642,5 +1681,87 @@ mod tests {
             .collect();
         assert_eq!(args, vec!["nextest"]);
         env::remove_var("CARGO");
+    }
+
+    #[test]
+    fn test_format_snapshot_key() {
+        let workspace = Path::new("/work/space");
+
+        assert_eq!(
+            format_snapshot_key(workspace, Path::new("/work/space/tests/foo.rs"), Some(42)),
+            "tests/foo.rs:42"
+        );
+        assert_eq!(
+            format_snapshot_key(
+                workspace,
+                Path::new("/work/space/tests/snapshots/foo__bar.snap"),
+                None
+            ),
+            "tests/snapshots/foo__bar.snap"
+        );
+        // Paths outside the workspace fall back to the absolute path.
+        assert_eq!(
+            format_snapshot_key(workspace, Path::new("/elsewhere/foo.snap"), None),
+            "/elsewhere/foo.snap"
+        );
+        // Windows-style separators are normalized to `/`.
+        #[cfg(windows)]
+        assert_eq!(
+            format_snapshot_key(
+                Path::new(r"C:\work\space"),
+                Path::new(r"C:\work\space\tests\snapshots\foo.snap"),
+                None
+            ),
+            "tests/snapshots/foo.snap"
+        );
+    }
+
+    #[test]
+    fn test_snapshot_matches_filter_file() {
+        let target = Path::new("/work/space/crates/foo/tests/snapshots/foo__bar.snap");
+
+        // a bare file name, partial path, or full workspace-relative key all work
+        assert!(snapshot_matches_filter(target, None, "foo__bar.snap"));
+        assert!(snapshot_matches_filter(
+            target,
+            None,
+            "snapshots/foo__bar.snap"
+        ));
+        assert!(snapshot_matches_filter(
+            target,
+            None,
+            "crates/foo/tests/snapshots/foo__bar.snap"
+        ));
+        // partial components must align on a `/` boundary
+        assert!(!snapshot_matches_filter(target, None, "bar.snap"));
+        assert!(!snapshot_matches_filter(target, None, "o__bar.snap"));
+        assert!(!snapshot_matches_filter(target, None, "other.snap"));
+        // empty filter matches nothing
+        assert!(!snapshot_matches_filter(target, None, ""));
+    }
+
+    #[test]
+    fn test_snapshot_matches_filter_inline() {
+        let target = Path::new("/work/space/crates/foo/tests/lib.rs");
+
+        // inline snapshots accept `path:line`
+        assert!(snapshot_matches_filter(target, Some(17), "lib.rs:17"));
+        assert!(snapshot_matches_filter(target, Some(17), "tests/lib.rs:17"));
+        // wrong line is rejected
+        assert!(!snapshot_matches_filter(target, Some(17), "lib.rs:18"));
+        // omitting the line matches every inline snapshot in the file
+        assert!(snapshot_matches_filter(target, Some(17), "lib.rs"));
+        // and a non-numeric "suffix" is treated as part of the file name
+        assert!(!snapshot_matches_filter(target, Some(17), "lib.rs:foo"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_snapshot_matches_filter_windows_separators() {
+        // `Path::ends_with` treats `/` and `\` as equivalent on Windows, so a
+        // user can spell separators either way without us doing string surgery.
+        let target = Path::new(r"C:\work\space\tests\snapshots\foo.snap");
+        assert!(snapshot_matches_filter(target, None, r"snapshots\foo.snap"));
+        assert!(snapshot_matches_filter(target, None, "snapshots/foo.snap"));
     }
 }
