@@ -135,3 +135,22 @@ fn test_trailing_crlf_inline() {
     baz
     ");
 }
+
+// Tests for experimental read_snapshot! macro
+
+#[test]
+fn test_read_snapshot_named() {
+    // Read the "debug_vector" snapshot that was created by test_debug_vector
+    let content = insta::read_snapshot!("debug_vector").unwrap();
+    assert!(content.contains("["));
+    assert!(content.contains("1"));
+    assert!(content.contains("2"));
+    assert!(content.contains("3"));
+}
+
+#[test]
+fn test_read_snapshot_nonexistent() {
+    // Reading a nonexistent snapshot should return an error
+    let result = insta::read_snapshot!("this_snapshot_does_not_exist");
+    assert!(result.is_err());
+}
