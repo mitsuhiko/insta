@@ -40,9 +40,19 @@ impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
 #[cfg(feature = "redactions")]
 impl Redactions {
     /// Applies all redactions to the given content.
+    ///
+    /// Sort redactions run after all others so `sorted_redaction()` order in the
+    /// settings map does not affect snapshot stability.
     pub(crate) fn apply_to_content(&self, mut content: Content) -> Content {
-        for (selector, redaction) in self.0.iter() {
-            content = selector.redact(content, redaction);
+        for (selector, redaction) in &self.0 {
+            if !redaction.is_sort() {
+                content = selector.redact(content, redaction);
+            }
+        }
+        for (selector, redaction) in &self.0 {
+            if redaction.is_sort() {
+                content = selector.redact(content, redaction);
+            }
         }
         content
     }
@@ -723,6 +733,43 @@ impl Drop for SettingsBindDropGuard {
         CURRENT_SETTINGS.with(|x| {
             x.borrow_mut().inner = self.0.take().unwrap();
         })
+    }
+}
+
+#[cfg(all(test, feature = "redactions"))]
+mod redaction_order_tests {
+    use super::*;
+    use crate::content::Content;
+    use crate::redaction::sorted_redaction;
+
+    #[test]
+    fn sort_redaction_order_is_independent() {
+        let content = Content::Seq(vec![
+            Content::Struct(
+                "Row",
+                vec![("a", Content::from(true)), ("z", Content::from(2))],
+            ),
+            Content::Struct(
+                "Row",
+                vec![("a", Content::from(false)), ("z", Content::from(1))],
+            ),
+        ]);
+
+        let sort_first: Redactions = vec![
+            (".", sorted_redaction()),
+            ("[].a", Redaction::from("[redacted]")),
+        ]
+        .into();
+        let sort_last: Redactions = vec![
+            ("[].a", Redaction::from("[redacted]")),
+            (".", sorted_redaction()),
+        ]
+        .into();
+
+        assert_eq!(
+            sort_first.apply_to_content(content.clone()),
+            sort_last.apply_to_content(content)
+        );
     }
 }
 
