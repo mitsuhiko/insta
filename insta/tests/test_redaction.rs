@@ -397,6 +397,60 @@ fn test_redact_recursive() {
     "#);
 }
 
+#[cfg(feature = "json")]
+#[test]
+fn test_redact_recursive_array() {
+    // A deep wildcard recurses through arrays, not just nested structs: `.**.data`
+    // matches every `data` field at any depth inside the `nodes` vectors. A bare
+    // `.**` would instead match each `nodes` array itself and stop descending, so
+    // only the root would be redacted. See https://github.com/mitsuhiko/insta/issues/687.
+    #[derive(Serialize)]
+    pub struct Node {
+        data: f64,
+        nodes: Vec<Node>,
+    }
+
+    let root = Node {
+        data: 1.111_111,
+        nodes: vec![
+            Node {
+                data: 2.222_222,
+                nodes: vec![Node {
+                    data: 3.333_333,
+                    nodes: vec![],
+                }],
+            },
+            Node {
+                data: 4.444_444,
+                nodes: vec![],
+            },
+        ],
+    };
+
+    assert_json_snapshot!(root, {
+        ".**.data" => insta::rounded_redaction(2),
+    }, @r#"
+    {
+      "data": 1.11,
+      "nodes": [
+        {
+          "data": 2.22,
+          "nodes": [
+            {
+              "data": 3.33,
+              "nodes": []
+            }
+          ]
+        },
+        {
+          "data": 4.44,
+          "nodes": []
+        }
+      ]
+    }
+    "#);
+}
+
 #[cfg(feature = "yaml")]
 #[test]
 fn test_struct_array_redaction() {
