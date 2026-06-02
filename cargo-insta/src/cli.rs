@@ -714,6 +714,10 @@ fn review_snapshots(
     let mut accepted = vec![];
     let mut rejected = vec![];
     let mut skipped = vec![];
+    // Track which `--snapshot` filter entries matched something, so we can warn
+    // about entries that hit nothing. The leftover `skipped` keys then double as
+    // the list of still-pending snapshots to suggest instead.
+    let mut matched_filters = vec![false; snapshot_filter.map_or(0, |f| f.len())];
     let mut num = 0;
     let mut show_info = true;
     let mut show_diff = true;
@@ -729,13 +733,22 @@ fn review_snapshots(
         let target_file = snapshot_container.target_file().to_path_buf();
         let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
         for snapshot_ref in snapshot_container.iter_snapshots() {
+            // The canonical key is what `pending-snapshots` prints and what
+            // `--snapshot` accepts. Show it wherever a snapshot is listed — the
+            // bare snapshot name shown in the diff header is not a usable filter.
+            let key = format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
+
             // if a filter is provided, check if the snapshot reference is included
             if let Some(filter) = snapshot_filter {
-                if !filter
-                    .iter()
-                    .any(|f| snapshot_matches_filter(&target_file, snapshot_ref.line, f))
-                {
-                    skipped.push(snapshot_ref.summary());
+                let mut matched = false;
+                for (i, f) in filter.iter().enumerate() {
+                    if snapshot_matches_filter(&target_file, snapshot_ref.line, f) {
+                        matched_filters[i] = true;
+                        matched = true;
+                    }
+                }
+                if !matched {
+                    skipped.push(key);
                     continue;
                 }
             }
@@ -767,13 +780,11 @@ fn review_snapshots(
 
                 // If we're in review mode (no op), just show instructions and skip
                 if op.is_none() {
-                    let key =
-                        format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
                     println!("To accept: cargo insta accept --snapshot '{}'", key);
                     println!("To reject: cargo insta reject --snapshot '{}'", key);
                     println!();
 
-                    skipped.push(snapshot_ref.summary());
+                    skipped.push(key);
                     continue;
                 }
                 // Otherwise fall through to apply the operation (reject)
@@ -821,14 +832,14 @@ fn review_snapshots(
             match op {
                 Operation::Accept | Operation::AcceptAll => {
                     snapshot_ref.op = Operation::Accept;
-                    accepted.push(snapshot_ref.summary());
+                    accepted.push(key);
                 }
                 Operation::Reject | Operation::RejectAll => {
                     snapshot_ref.op = Operation::Reject;
-                    rejected.push(snapshot_ref.summary());
+                    rejected.push(key);
                 }
                 Operation::Skip | Operation::SkipAll => {
-                    skipped.push(snapshot_ref.summary());
+                    skipped.push(key);
                 }
             }
         }
@@ -855,8 +866,35 @@ fn review_snapshots(
         }
         if !skipped.is_empty() {
             println!("{}:", style("skipped").yellow());
-            for item in skipped {
+            for item in &skipped {
                 println!("  {item}");
+            }
+        }
+    }
+
+    // Warn about any `--snapshot` entry that matched nothing rather than
+    // silently leaving everything skipped, and suggest the keys that would
+    // work — the snapshots left in `skipped` are exactly the ones still pending.
+    if let Some(filters) = snapshot_filter {
+        let unmatched = filters
+            .iter()
+            .zip(&matched_filters)
+            .filter(|(_, matched)| !**matched)
+            .map(|(filter, _)| filter)
+            .collect_vec();
+        if !unmatched.is_empty() {
+            for filter in unmatched {
+                eprintln!(
+                    "{} --snapshot '{}' didn't match any pending snapshot",
+                    style("warning:").bold().yellow(),
+                    filter
+                );
+            }
+            if !skipped.is_empty() {
+                eprintln!("pending snapshots (pass any of these to --snapshot):");
+                for key in &skipped {
+                    eprintln!("  {key}");
+                }
             }
         }
     }
