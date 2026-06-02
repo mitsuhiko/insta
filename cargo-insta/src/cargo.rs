@@ -1,7 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(crate) use cargo_metadata::Package;
-use itertools::Itertools;
 
 /// Find snapshot roots within a package
 // We need this because paths are not always conventional — for example cargo
@@ -35,24 +34,33 @@ pub(crate) fn find_snapshot_roots(package: &Package) -> Vec<PathBuf> {
     // TODO: I think this root reduction is duplicative over the logic in
     // `make_snapshot_walker`; could try removing.
 
-    // reduce roots to avoid traversing into paths twice.  If we have both
-    // /foo and /foo/bar as roots we would only walk into /foo.  Otherwise
-    // we would encounter paths twice.  If we don't skip them here we run
-    // into issues where the existence of a build script causes a snapshot
-    // to be picked up twice since the same path is determined.  (GH-15)
-    let canonical_roots: Vec<_> = roots
-        .iter()
-        .filter_map(|x| x.canonicalize().ok())
-        .sorted_by_key(|x| x.as_os_str().len())
-        .collect();
-
-    canonical_roots
-        .clone()
+    // Reduce roots to avoid traversing into paths twice.  If we have both
+    // `/foo` and `/foo/bar` as roots we only keep `/foo`.  Otherwise we
+    // would encounter the same snapshot twice — e.g. the existence of a
+    // build script can cause the same path to be determined twice.  (GH-15)
+    //
+    // The comparison is done on canonicalized paths so that symlinks and
+    // Windows path quirks (8.3 short names, etc.) don't defeat it, but we
+    // return the *original* paths.  Canonicalized paths on Windows carry a
+    // `\\?\` verbatim prefix that would otherwise leak into snapshot keys
+    // and other user-facing output.  (GH-902)
+    fn canonical(path: &Path) -> PathBuf {
+        path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+    }
+    let roots: Vec<(PathBuf, PathBuf)> = roots
         .into_iter()
-        .filter(|root| {
-            !canonical_roots
-                .iter()
-                .any(|x| root.starts_with(x) && root != x)
+        .map(|root| {
+            let canonical = canonical(&root);
+            (root, canonical)
         })
+        .collect();
+    roots
+        .iter()
+        .filter(|(_, canonical)| {
+            !roots
+                .iter()
+                .any(|(_, other)| canonical != other && canonical.starts_with(other))
+        })
+        .map(|(root, _)| root.clone())
         .collect()
 }
