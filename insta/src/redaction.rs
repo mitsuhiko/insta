@@ -388,7 +388,24 @@ impl<'a> Selector<'a> {
             let forward_sel = &selector[..idx];
             let backward_sel = &selector[idx + 1..];
 
-            if path.len() <= idx {
+            // `**` matches zero or more path segments between the forward part
+            // (the segments before `**`) and the backward part (those after
+            // it). The backward part is matched against the *tail* of the path
+            // by zipping both in reverse, so the path must be long enough to
+            // hold the forward and backward parts without them overlapping.
+            // The old check (`path.len() <= idx`) only accounted for the
+            // forward part: when the backward part had two or more segments, a
+            // too-short path slipped through and the reverse `zip` silently
+            // truncated to the shorter side, matching only the final
+            // segment(s). For example `.**.a.b` would match a one-segment path
+            // like a top-level `b` (comparing `b` against the trailing `.b`
+            // alone) and redact it. Requiring room for both ends fixes that.
+            //
+            // With no backward part, `**` must still consume at least one
+            // segment (hence `.max(1)`), so `.**` never matches the root and
+            // `.foo.**` never matches `foo` itself — preserving the previous
+            // behavior for those common cases.
+            if path.len() < forward_sel.len() + backward_sel.len().max(1) {
                 return false;
             }
 
