@@ -172,9 +172,19 @@ struct TestRunnerOptions {
     /// Build artifacts in release mode, with optimizations
     #[arg(short = 'r', long)]
     release: bool,
-    /// Build artifacts with the specified profile
+    /// Build artifacts with the specified cargo profile
     #[arg(long)]
     profile: Option<String>,
+    // Exposing a nextest-specific flag on `insta` isn't ideal: runner-specific
+    // options would ideally pass through to the runner rather than be modeled
+    // here. But insta's passthrough (`cargo insta test -- ...`) is emitted after
+    // the synthesized `--`, landing in nextest's emulated-libtest slot, which
+    // can't reach the front-end where the nextest profile (`-P`/`--profile`)
+    // lives. Lacking a front-end passthrough, a dedicated flag is the only way
+    // to expose it. See https://github.com/mitsuhiko/insta/issues/910
+    /// nextest profile to use (only with `--test-runner nextest`)
+    #[arg(long)]
+    nextest_profile: Option<String>,
     /// Test all targets (does not include doctests)
     #[arg(long)]
     all_targets: bool,
@@ -1390,8 +1400,25 @@ fn prepare_test_runner<'snapshot_ref>(
         proc.arg("--release");
     }
     if let Some(ref profile) = cmd.test_runner_options.profile {
-        proc.arg("--profile");
+        // `--profile` selects the cargo build profile. `cargo test` spells this
+        // `--profile`, but `cargo nextest run` spells it `--cargo-profile` (its
+        // own `--profile`/`-P` selects the *nextest* profile, exposed as
+        // `--nextest-profile`). See https://github.com/mitsuhiko/insta/issues/910
+        proc.arg(match test_runner {
+            TestRunner::Nextest => "--cargo-profile",
+            TestRunner::CargoTest | TestRunner::Auto => "--profile",
+        });
         proc.arg(profile);
+    }
+    if let Some(ref nextest_profile) = cmd.test_runner_options.nextest_profile {
+        if !matches!(test_runner, TestRunner::Nextest) {
+            return Err(err_msg(
+                "--nextest-profile requires `--test-runner nextest`",
+            ));
+        }
+        // For nextest, `--profile`/`-P` is the nextest profile.
+        proc.arg("--profile");
+        proc.arg(nextest_profile);
     }
     if cmd.test_runner_options.all_targets {
         proc.arg("--all-targets");
