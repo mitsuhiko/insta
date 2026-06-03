@@ -488,6 +488,24 @@ impl<'a> Selector<'a> {
         redaction: &Redaction,
         path: &mut Vec<PathItem>,
     ) -> Content {
+        // On a match we redact and stop descending. For a deep wildcard this
+        // means `.**` only redacts the shallowest match on each branch:
+        // `.** => rounded_redaction(n)` rounds the top-level value but not
+        // numbers nested inside arrays, because the array matches `**` first and
+        // descent stops here.
+        //
+        // From scratch this is arguably the wrong default. JSONPath `..` and jq
+        // `..` recurse into every descendant, and the cleaner model is to redact
+        // on a match and then keep descending into the result (which also lets
+        // overlapping selectors like `.a` and `.a.b` compose instead of the
+        // first swallowing the second). We keep stop-on-match purely for
+        // backwards compatibility: existing `.** => sorted_redaction()` /
+        // `dynamic_redaction(...)` snapshots depend on it, and recursing would
+        // resort / re-redact nested collections and silently change their
+        // output. To reach every leaf through arrays and maps, give the wildcard
+        // a trailing segment instead — `.**.<field>` (see
+        // `test_redact_recursive_array`).
+        // Background: https://github.com/mitsuhiko/insta/issues/687
         if self.is_match(path) {
             redaction.redact(value, path)
         } else {
