@@ -104,6 +104,14 @@ impl Serializer {
         self.end_container('}', fields.is_empty());
     }
 
+    fn write_map_key(&mut self, key: &Content) {
+        if let Some(key) = map_key_to_json_string(key) {
+            self.write_escaped_str(&key);
+        } else {
+            panic!("cannot serialize maps without string keys to JSON");
+        }
+    }
+
     pub fn serialize(&mut self, value: &Content) {
         match value {
             Content::Bool(true) => self.write_str("true"),
@@ -157,16 +165,7 @@ impl Serializer {
                 self.start_container('{');
                 for (idx, (key, value)) in map.iter().enumerate() {
                     self.write_comma(idx == 0);
-                    let real_key = key.resolve_inner();
-                    if let Content::String(ref s) = real_key {
-                        self.write_escaped_str(s);
-                    } else if let Some(num) = real_key.as_i64() {
-                        self.write_escaped_str(&num.to_string());
-                    } else if let Some(num) = real_key.as_i128() {
-                        self.write_escaped_str(&num.to_string());
-                    } else {
-                        panic!("cannot serialize maps without string keys to JSON");
-                    }
+                    self.write_map_key(key);
                     self.write_colon();
                     self.serialize(value);
                 }
@@ -283,6 +282,20 @@ static ESCAPE: [u8; 256] = [
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, // F
 ];
 
+fn map_key_to_json_string(key: &Content) -> Option<String> {
+    match key.resolve_inner() {
+        Content::String(s) => Some(s.clone()),
+        Content::UnitVariant(_, _, variant) => Some(variant.to_string()),
+        Content::Char(c) => Some(c.to_string()),
+        Content::Bool(b) => Some(b.to_string()),
+        k => k
+            .as_i64()
+            .map(|num| num.to_string())
+            .or_else(|| k.as_i128().map(|num| num.to_string()))
+            .or_else(|| k.as_u64().map(|num| num.to_string())),
+    }
+}
+
 /// Serializes a value to JSON.
 pub fn to_string(value: &Content) -> String {
     let mut ser = Serializer::new();
@@ -368,6 +381,32 @@ fn test_to_string_num_keys() {
     {
       "42": true,
       "-23": false
+    }
+    "#);
+}
+
+#[test]
+fn test_to_string_unit_variant_keys() {
+    let content = Content::Map(vec![
+        (
+            Content::UnitVariant("MyEnum", 0, "A"),
+            Content::from(true),
+        ),
+        (
+            Content::UnitVariant("MyEnum", 1, "B"),
+            Content::from(false),
+        ),
+        (
+            Content::UnitVariant("MyEnum", 2, "C"),
+            Content::from(true),
+        ),
+    ]);
+    let json = to_string_pretty(&content);
+    crate::assert_snapshot!(&json, @r#"
+    {
+      "A": true,
+      "B": false,
+      "C": true
     }
     "#);
 }

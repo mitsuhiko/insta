@@ -135,3 +135,25 @@ fn test_trailing_crlf_inline() {
     baz
     ");
 }
+
+#[test]
+fn test_btreemap_enum_keys_json() {
+    use serde::Serialize;
+    use std::collections::BTreeMap;
+
+    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+    enum MyEnum {
+        A,
+        B,
+        C,
+    }
+
+    let map = BTreeMap::from([(MyEnum::A, true), (MyEnum::B, false), (MyEnum::C, true)]);
+    insta::assert_json_snapshot!(map, @r#"
+    {
+      "A": true,
+      "B": false,
+      "C": true
+    }
+    "#);
+}
