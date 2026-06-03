@@ -134,13 +134,11 @@ fn test_greeting() {
     skipped:
       src/snapshots/snapshot_filter_no_match__greeting.snap
     ");
-    // ...and stderr warns the filter hit nothing, then suggests the real key.
+    // ...and stderr warns that the filter hit nothing. The key to use instead
+    // is the one already shown under `skipped:` on stdout, so the warning
+    // doesn't repeat it.
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    assert_snapshot!(stderr, @"
-    warning: --snapshot 'greeting.snap' didn't match any pending snapshot
-    pending snapshots (pass any of these to --snapshot):
-      src/snapshots/snapshot_filter_no_match__greeting.snap
-    ");
+    assert_snapshot!(stderr, @"warning: --snapshot 'greeting.snap' didn't match any pending snapshot");
 
     // Nothing was accepted: the snapshot is still pending.
     assert_snapshot!(test_project.file_tree_diff(), @r"

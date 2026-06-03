@@ -715,8 +715,7 @@ fn review_snapshots(
     let mut rejected = vec![];
     let mut skipped = vec![];
     // Track which `--snapshot` filter entries matched something, so we can warn
-    // about entries that hit nothing. The leftover `skipped` keys then double as
-    // the list of still-pending snapshots to suggest instead.
+    // about entries that hit nothing.
     let mut matched_filters = vec![false; snapshot_filter.map_or(0, |f| f.len())];
     let mut num = 0;
     let mut show_info = true;
@@ -866,35 +865,23 @@ fn review_snapshots(
         }
         if !skipped.is_empty() {
             println!("{}:", style("skipped").yellow());
-            for item in &skipped {
+            for item in skipped {
                 println!("  {item}");
             }
         }
     }
 
     // Warn about any `--snapshot` entry that matched nothing rather than
-    // silently leaving everything skipped, and suggest the keys that would
-    // work — the snapshots left in `skipped` are exactly the ones still pending.
+    // silently leaving everything skipped. The pending keys to use instead are
+    // already shown in the `skipped:` list above, so we don't repeat them here.
     if let Some(filters) = snapshot_filter {
-        let unmatched = filters
-            .iter()
-            .zip(&matched_filters)
-            .filter(|(_, matched)| !**matched)
-            .map(|(filter, _)| filter)
-            .collect_vec();
-        if !unmatched.is_empty() {
-            for filter in unmatched {
+        for (filter, matched) in filters.iter().zip(&matched_filters) {
+            if !*matched {
                 eprintln!(
                     "{} --snapshot '{}' didn't match any pending snapshot",
                     style("warning:").bold().yellow(),
                     filter
                 );
-            }
-            if !skipped.is_empty() {
-                eprintln!("pending snapshots (pass any of these to --snapshot):");
-                for key in &skipped {
-                    eprintln!("  {key}");
-                }
             }
         }
     }
