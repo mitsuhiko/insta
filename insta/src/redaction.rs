@@ -55,6 +55,8 @@ pub enum Redaction {
     Static(Content),
     /// Redaction with new content.
     Dynamic(Box<dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send>),
+    /// Sorts sequences or maps. Applied after other redactions so ordering is stable.
+    Sort(Box<dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send>),
 }
 
 macro_rules! impl_from {
@@ -140,6 +142,9 @@ where
 /// (which need to retain order) and sets (which should be given a stable order)
 /// look the same.
 ///
+/// Sort redactions are always applied after other redactions, so their position
+/// in the redaction map does not affect the result.
+///
 /// ```rust
 /// # use insta::{Settings, sorted_redaction};
 /// # let mut settings = Settings::new();
@@ -163,7 +168,7 @@ pub fn sorted_redaction() -> Redaction {
         }
         value
     }
-    dynamic_redaction(sort)
+    Redaction::Sort(Box::new(sort))
 }
 
 /// Creates a redaction that rounds floating point numbers to a given
@@ -188,11 +193,17 @@ pub fn rounded_redaction(decimals: usize) -> Redaction {
 }
 
 impl Redaction {
+    pub(crate) fn is_sort(&self) -> bool {
+        matches!(self, Redaction::Sort(_))
+    }
+
     /// Performs the redaction of the value at the given path.
     fn redact(&self, value: Content, path: &[PathItem]) -> Content {
-        match *self {
-            Redaction::Static(ref new_val) => new_val.clone(),
-            Redaction::Dynamic(ref callback) => callback(value, ContentPath(path)),
+        match self {
+            Redaction::Static(new_val) => new_val.clone(),
+            Redaction::Dynamic(callback) | Redaction::Sort(callback) => {
+                callback(value, ContentPath(path))
+            }
         }
     }
 }
