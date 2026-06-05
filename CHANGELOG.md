@@ -2,6 +2,19 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Deep wildcard (`**`) redactions now recurse into arrays. A `**` selector that
+  matches a collection (such as a bare `.**`) applies the redaction to every
+  descendant instead of stopping at the first matched collection, so
+  `.** => rounded_redaction(n)` rounds every float in a recursive tree. As a
+  result, `.**` combined with `sorted_redaction()` or a `dynamic_redaction` now
+  runs on more nodes (nested collections, array elements, and map keys), which
+  may change existing snapshots. #687
+- Fix `**` redaction selectors with two or more segments after the wildcard
+  (e.g. `.**.a.b` or `.**[].*`) spuriously matching paths too short to contain
+  those trailing segments. #687
+
 ## 1.47.2
 
 - Restore `Send + Sync` on `Settings`, `Redactions`, and `Redaction` by

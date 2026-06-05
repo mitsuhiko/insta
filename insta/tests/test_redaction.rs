@@ -401,9 +401,8 @@ fn test_redact_recursive() {
 #[test]
 fn test_redact_recursive_array() {
     // A deep wildcard recurses through arrays, not just nested structs: `.**.data`
-    // matches every `data` field at any depth inside the `nodes` vectors. A bare
-    // `.**` would instead match each `nodes` array itself and stop descending, so
-    // only the root would be redacted. See https://github.com/mitsuhiko/insta/issues/687.
+    // matches every `data` field at any depth inside the `nodes` vectors.
+    // See https://github.com/mitsuhiko/insta/issues/687.
     #[derive(Serialize)]
     pub struct Node {
         data: f64,
@@ -447,6 +446,89 @@ fn test_redact_recursive_array() {
           "nodes": []
         }
       ]
+    }
+    "#);
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn test_redact_deep_wildcard_into_arrays() {
+    // A bare `.**` applies the redaction to every node at every depth, recursing
+    // through arrays. The redaction is a no-op on the `nodes` arrays and structs
+    // but rounds every `data` leaf, without needing to name the field.
+    // See https://github.com/mitsuhiko/insta/issues/687.
+    #[derive(Serialize)]
+    pub struct Node {
+        data: f64,
+        nodes: Vec<Node>,
+    }
+
+    let root = Node {
+        data: 1.111_111,
+        nodes: vec![
+            Node {
+                data: 2.222_222,
+                nodes: vec![Node {
+                    data: 3.333_333,
+                    nodes: vec![],
+                }],
+            },
+            Node {
+                data: 4.444_444,
+                nodes: vec![],
+            },
+        ],
+    };
+
+    assert_json_snapshot!(root, {
+        ".**" => insta::rounded_redaction(2),
+    }, @r#"
+    {
+      "data": 1.11,
+      "nodes": [
+        {
+          "data": 2.22,
+          "nodes": [
+            {
+              "data": 3.33,
+              "nodes": []
+            }
+          ]
+        },
+        {
+          "data": 4.44,
+          "nodes": []
+        }
+      ]
+    }
+    "#);
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn test_redact_deep_wildcard_suffix_length() {
+    // The segments after `**` are matched against the end of the path, so a
+    // path must be at least as long as that suffix to match. `.**.a.b` must
+    // therefore only match a value reached via `.a.b`, never a top-level `b`.
+    #[derive(Serialize)]
+    struct Inner {
+        b: u32,
+    }
+
+    #[derive(Serialize)]
+    struct Root {
+        b: u32,
+        a: Inner,
+    }
+
+    assert_json_snapshot!(Root { b: 1, a: Inner { b: 2 } }, {
+        ".**.a.b" => "[redacted]",
+    }, @r#"
+    {
+      "b": 1,
+      "a": {
+        "b": "[redacted]"
+      }
     }
     "#);
 }

@@ -388,7 +388,12 @@ impl<'a> Selector<'a> {
             let forward_sel = &selector[..idx];
             let backward_sel = &selector[idx + 1..];
 
-            if path.len() <= idx {
+            // `**` matches zero or more segments between the forward and
+            // backward parts, but the path must still be long enough to hold
+            // both ends without them overlapping. With no backward part `**`
+            // must consume at least one segment, so `.**` never matches the
+            // root and `.foo.**` never matches `foo` itself.
+            if path.len() < forward_sel.len() + backward_sel.len().max(1) {
                 return false;
             }
 
@@ -419,12 +424,29 @@ impl<'a> Selector<'a> {
     }
 
     pub fn is_match(&self, path: &[PathItem]) -> bool {
+        let (deep, shallow) = self.match_kind(path);
+        deep || shallow
+    }
+
+    /// Returns `(deep, shallow)`: whether `path` is matched by a selector that
+    /// contains a deep wildcard (`**`) and/or by an exact (non-deep) selector.
+    ///
+    /// The distinction drives recursion: an exact selector consumes the node it
+    /// matches, while a deep wildcard means "this node and everything below it",
+    /// so redaction keeps descending into the matched value.
+    fn match_kind(&self, path: &[PathItem]) -> (bool, bool) {
+        let mut deep = false;
+        let mut shallow = false;
         for selector in &self.selectors {
             if self.selector_is_match(selector, path) {
-                return true;
+                if selector.contains(&Segment::DeepWildcard) {
+                    deep = true;
+                } else {
+                    shallow = true;
+                }
             }
         }
-        false
+        (deep, shallow)
     }
 
     pub fn redact(&self, value: Content, redaction: &Redaction) -> Content {
@@ -471,64 +493,73 @@ impl<'a> Selector<'a> {
         redaction: &Redaction,
         path: &mut Vec<PathItem>,
     ) -> Content {
-        if self.is_match(path) {
+        let (deep_match, shallow_match) = self.match_kind(path);
+        let value = if deep_match || shallow_match {
             redaction.redact(value, path)
         } else {
-            match value {
-                Content::Map(map) => Content::Map(
-                    map.into_iter()
-                        .map(|(key, value)| {
-                            path.push(PathItem::Field("$key"));
-                            let new_key = self.redact_impl(key.clone(), redaction, path);
-                            path.pop();
+            value
+        };
 
-                            path.push(PathItem::Content(key));
-                            let new_value = self.redact_impl(value, redaction, path);
-                            path.pop();
+        // An exact selector consumes the node it matches: redact and stop. A
+        // deep wildcard means "this node and everything below it", so keep
+        // descending into the redacted value to reach nested matches,
+        // including through arrays, which a bare `.**` would otherwise stop at.
+        // A structure-preserving redaction (e.g. rounding) then visits the real
+        // descendants; one that replaces a container with a scalar simply finds
+        // nothing left to recurse into.
+        if shallow_match && !deep_match {
+            return value;
+        }
 
-                            (new_key, new_value)
-                        })
-                        .collect(),
-                ),
-                Content::Seq(seq) => Content::Seq(self.redact_seq(seq, redaction, path)),
-                Content::Tuple(seq) => Content::Tuple(self.redact_seq(seq, redaction, path)),
-                Content::TupleStruct(name, seq) => {
-                    Content::TupleStruct(name, self.redact_seq(seq, redaction, path))
-                }
-                Content::TupleVariant(name, variant_index, variant, seq) => Content::TupleVariant(
-                    name,
-                    variant_index,
-                    variant,
-                    self.redact_seq(seq, redaction, path),
-                ),
-                Content::Struct(name, seq) => {
-                    Content::Struct(name, self.redact_struct(seq, redaction, path))
-                }
-                Content::StructVariant(name, variant_index, variant, seq) => {
-                    Content::StructVariant(
-                        name,
-                        variant_index,
-                        variant,
-                        self.redact_struct(seq, redaction, path),
-                    )
-                }
-                Content::NewtypeStruct(name, inner) => Content::NewtypeStruct(
-                    name,
-                    Box::new(self.redact_impl(*inner, redaction, path)),
-                ),
-                Content::NewtypeVariant(name, index, variant_name, inner) => {
-                    Content::NewtypeVariant(
-                        name,
-                        index,
-                        variant_name,
-                        Box::new(self.redact_impl(*inner, redaction, path)),
-                    )
-                }
-                Content::Some(contents) => {
-                    Content::Some(Box::new(self.redact_impl(*contents, redaction, path)))
-                }
-                other => other,
+        match value {
+            Content::Map(map) => Content::Map(
+                map.into_iter()
+                    .map(|(key, value)| {
+                        path.push(PathItem::Field("$key"));
+                        let new_key = self.redact_impl(key.clone(), redaction, path);
+                        path.pop();
+
+                        path.push(PathItem::Content(key));
+                        let new_value = self.redact_impl(value, redaction, path);
+                        path.pop();
+
+                        (new_key, new_value)
+                    })
+                    .collect(),
+            ),
+            Content::Seq(seq) => Content::Seq(self.redact_seq(seq, redaction, path)),
+            Content::Tuple(seq) => Content::Tuple(self.redact_seq(seq, redaction, path)),
+            Content::TupleStruct(name, seq) => {
+                Content::TupleStruct(name, self.redact_seq(seq, redaction, path))
             }
+            Content::TupleVariant(name, variant_index, variant, seq) => Content::TupleVariant(
+                name,
+                variant_index,
+                variant,
+                self.redact_seq(seq, redaction, path),
+            ),
+            Content::Struct(name, seq) => {
+                Content::Struct(name, self.redact_struct(seq, redaction, path))
+            }
+            Content::StructVariant(name, variant_index, variant, seq) => Content::StructVariant(
+                name,
+                variant_index,
+                variant,
+                self.redact_struct(seq, redaction, path),
+            ),
+            Content::NewtypeStruct(name, inner) => {
+                Content::NewtypeStruct(name, Box::new(self.redact_impl(*inner, redaction, path)))
+            }
+            Content::NewtypeVariant(name, index, variant_name, inner) => Content::NewtypeVariant(
+                name,
+                index,
+                variant_name,
+                Box::new(self.redact_impl(*inner, redaction, path)),
+            ),
+            Content::Some(contents) => {
+                Content::Some(Box::new(self.redact_impl(*contents, redaction, path)))
+            }
+            other => other,
         }
     }
 }
