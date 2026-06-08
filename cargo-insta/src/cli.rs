@@ -665,11 +665,8 @@ fn print_snapshot_diff(
     println!("  Package: {}@{}", package.name.as_str(), &package.version);
     println!();
 
-    let mut printer = SnapshotPrinter::new(
-        workspace_root,
-        snapshot_ref.old.as_ref(),
-        &snapshot_ref.new,
-    );
+    let mut printer =
+        SnapshotPrinter::new(workspace_root, snapshot_ref.old.as_ref(), &snapshot_ref.new);
     printer.set_snapshot_file(snapshot_file);
     printer.set_line(snapshot_ref.line);
     printer.set_show_info(true);
@@ -709,16 +706,14 @@ fn show_pending_diffs(
         }
     }
 
-    if shown == 0 {
-        if !quiet {
-            if snapshot_filter.is_some() {
-                println!(
-                    "{}: no pending snapshots matched the filter",
-                    style("done").bold()
-                );
-            } else {
-                println!("{}: no snapshots to show", style("done").bold());
-            }
+    if shown == 0 && !quiet {
+        if snapshot_filter.is_some() {
+            println!(
+                "{}: no pending snapshots matched the filter",
+                style("done").bold()
+            );
+        } else {
+            println!("{}: no snapshots to show", style("done").bold());
         }
     }
 
