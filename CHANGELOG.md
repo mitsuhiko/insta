@@ -4,6 +4,10 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Setting `CI=true` normally makes `cargo insta test` behave as though `--check`
+  was passed. Explicit snapshot handling options such as `--accept` now take
+  precedence over this environment variable, allowing users to override this
+  behavior if they want to.
 - Fix `cargo insta test --profile` being forwarded to nextest as the nextest
   profile instead of the cargo build profile; it now translates to
   `--cargo-profile` for the nextest runner. Add `--nextest-profile` to select
