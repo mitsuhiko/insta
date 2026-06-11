@@ -312,6 +312,107 @@ impl TestProject {
 }
 
 #[test]
+fn test_accept_overrides_ci_check_mode() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("accept-overrides-ci-check-mode")
+        .add_file(
+            "src/lib.rs",
+            r#"#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("new value", @"old value");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .env("CI", "true")
+        .args(["test", "--accept"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "cargo insta test --accept failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,4 +1,4 @@
+     #[test]
+     fn test_snapshot() {
+    -    insta::assert_snapshot!("new value", @"old value");
+    +    insta::assert_snapshot!("new value", @"new value");
+     }
+    "#);
+}
+
+#[test]
+fn test_snapshot_handling_options_override_ci_check_mode() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("snapshot-handling-options-override-ci-check-mode")
+        .add_file(
+            "src/lib.rs",
+            r#"#[test]
+fn test_snapshot_update_environment() {
+    assert_eq!(
+        std::env::var("INSTA_UPDATE").unwrap(),
+        std::env::var("EXPECTED_INSTA_UPDATE").unwrap(),
+    );
+    assert_eq!(
+        std::env::var("INSTA_FORCE_PASS").unwrap_or_default(),
+        std::env::var("EXPECTED_INSTA_FORCE_PASS").unwrap(),
+    );
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    for (name, args, expected_update, expected_force_pass) in [
+        ("CI default", &["test"][..], "no", ""),
+        ("--accept", &["test", "--accept"][..], "new", "1"),
+        (
+            "--accept-unseen",
+            &["test", "--accept-unseen"][..],
+            "unseen",
+            "1",
+        ),
+        ("--review", &["test", "--review"][..], "new", "1"),
+        (
+            "--force-update-snapshots",
+            &["test", "--force-update-snapshots"][..],
+            "force",
+            "1",
+        ),
+    ] {
+        let output = test_project
+            .insta_cmd()
+            .env("CI", "true")
+            .env("EXPECTED_INSTA_UPDATE", expected_update)
+            .env("EXPECTED_INSTA_FORCE_PASS", expected_force_pass)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .unwrap();
+
+        assert!(
+            output.status.success(),
+            "{name} failed\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+    }
+}
+
+#[test]
 fn test_force_update_snapshots() {
     fn create_test_force_update_project(name: &str, insta_dependency: &str) -> TestProject {
         TestFiles::new()
