@@ -2,16 +2,28 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
-## Unreleased
+## 1.48.0
 
+- Add `strip_ansi_escape_codes` setting which removes ANSI escape sequences
+  (color codes, cursor movement, etc.) from snapshot content before comparison.
+  Requires the `filters` feature. #899 (@pierluigilenoci)
+- Add opt-in support for YAML literal blocks for multiline strings in snapshot
+  metadata fields such as `description` and `expression`. Set
+  `INSTA_YAML_BLOCK_STYLE=1` to enable. #851 (@ivov)
 - Setting `CI=true` normally makes `cargo insta test` behave as though `--check`
   was passed. Explicit snapshot handling options such as `--accept` now take
   precedence over this environment variable, allowing users to override this
-  behavior if they want to.
+  behavior if they want to. #924
 - Fix `cargo insta test --profile` being forwarded to nextest as the nextest
   profile instead of the cargo build profile; it now translates to
   `--cargo-profile` for the nextest runner. Add `--nextest-profile` to select
   the nextest profile. #910
+- Fix `cargo insta pending-snapshots` printing unusable `\\?\`-prefixed paths
+  on Windows. The `--snapshot` filter now also accepts partial paths: any
+  trailing path suffix of the snapshot file matches, so a bare
+  `--snapshot my_test.snap` works. #904
+- Accepting a binary snapshot no longer fails with `os error 2` when its data
+  file is missing (e.g. gitignored and not committed). #914
 
 ## 1.47.2
 
