@@ -12,6 +12,11 @@ All notable changes to insta and cargo-insta are documented here.
   profile instead of the cargo build profile; it now translates to
   `--cargo-profile` for the nextest runner. Add `--nextest-profile` to select
   the nextest profile. #910
+- Fix `**` redaction selectors with two or more segments after the wildcard
+  (e.g. `.**.a.b` or `.**[].*`) spuriously matching paths too short to contain
+  those trailing segments. The segments after `**` are matched against the end
+  of the path, so a path shorter than that suffix is no longer treated as a
+  match. #687
 
 ## 1.47.2
 
