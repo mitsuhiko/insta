@@ -9,7 +9,7 @@ impl Error for QuietExit {}
 
 impl fmt::Display for QuietExit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", &self.0)
+        write!(f, "{}", self.0)
     }
 }
 
@@ -20,7 +20,7 @@ impl Error for ErrMsg {}
 
 impl fmt::Display for ErrMsg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", &self.0)
+        write!(f, "{}", self.0)
     }
 }
 

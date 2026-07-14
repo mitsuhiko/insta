@@ -7,6 +7,10 @@ env:
   CLICOLOR_FORCE: 1
   RUSTDOCFLAGS: "-Dwarnings"
   RUSTFLAGS: "-D warnings"
+  # Pin the toolchain used for clippy and rustfmt. `stable` floats to whatever
+  # the latest release is, so each new Rust version adds lints or reformats code
+  # and breaks CI on unrelated PRs. Bump this deliberately to adopt new lints.
+  RUST_LINT_TOOLCHAIN: "1.97"
 
 jobs:
   test-latest:
@@ -89,7 +93,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_LINT_TOOLCHAIN }}
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Run clippy
@@ -120,7 +124,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_LINT_TOOLCHAIN }}
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Run rustfmt

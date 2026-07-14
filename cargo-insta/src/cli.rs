@@ -342,7 +342,7 @@ fn query_snapshot(
             style(format!("{i}/{n}")).yellow().bold(),
             style("]").bold(),
             pkg.name.as_str(),
-            &pkg.version,
+            pkg.version,
         );
 
         let mut printer = SnapshotPrinter::new(workspace_root, old, new);
@@ -759,7 +759,7 @@ fn review_snapshots(
                     style("Snapshot: ").bold(),
                     style(&snapshot_ref.summary()).yellow()
                 );
-                println!("  Package: {}@{}", package.name.as_str(), &package.version);
+                println!("  Package: {}@{}", package.name.as_str(), package.version);
                 println!();
 
                 let mut printer = SnapshotPrinter::new(
@@ -1234,7 +1234,7 @@ fn handle_unreferenced_snapshots(
                     let snapshot = match Snapshot::from_file(&path) {
                         Ok(snapshot) => snapshot,
                         Err(e) => {
-                            eprintln!("Error loading snapshot at {:?}: {}", &path, e);
+                            eprintln!("Error loading snapshot at {:?}: {}", path, e);
                             continue;
                         }
                     };
