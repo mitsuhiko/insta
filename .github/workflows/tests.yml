@@ -7,10 +7,12 @@ env:
   CLICOLOR_FORCE: 1
   RUSTDOCFLAGS: "-Dwarnings"
   RUSTFLAGS: "-D warnings"
-  # Pin the toolchain used for clippy and rustfmt. `stable` floats to whatever
-  # the latest release is, so each new Rust version adds lints or reformats code
-  # and breaks CI on unrelated PRs. Bump this deliberately to adopt new lints.
-  RUST_LINT_TOOLCHAIN: "1.97"
+  # Toolchain for clippy and rustfmt. `stable` floats to the newest release, so
+  # each new Rust version can add lints or reformat code and break CI on
+  # unrelated PRs. Pin it ~2 releases behind the latest stable: the lint set
+  # stays put, and contributors don't need the newest Rust to reproduce CI
+  # locally. PRs bumping this forward (keeping the ~2-release lag) are welcome.
+  RUST_LINT_TOOLCHAIN: "1.95"
 
 jobs:
   test-latest:
