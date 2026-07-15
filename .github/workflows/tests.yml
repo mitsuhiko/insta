@@ -7,12 +7,6 @@ env:
   CLICOLOR_FORCE: 1
   RUSTDOCFLAGS: "-Dwarnings"
   RUSTFLAGS: "-D warnings"
-  # Toolchain for clippy and rustfmt. `stable` floats to the newest release, so
-  # each new Rust version can add lints or reformat code and break CI on
-  # unrelated PRs. Pin it ~2 releases behind the latest stable: the lint set
-  # stays put, and contributors don't need the newest Rust to reproduce CI
-  # locally. PRs bumping this forward (keeping the ~2-release lag) are welcome.
-  RUST_LINT_TOOLCHAIN: "1.95"
 
 jobs:
   test-latest:
@@ -24,11 +18,16 @@ jobs:
           - ubuntu-latest
           - macos-latest
           - windows-latest
+    # `rust-toolchain.toml` pins the toolchain for local dev and the lint jobs.
+    # Setting `RUSTUP_TOOLCHAIN` overrides that file so this job runs on the
+    # latest stable instead; `dtolnay/rust-toolchain` reads the same value.
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - name: Test
@@ -37,12 +36,13 @@ jobs:
   test-current-cargo-insta:
     name: Run the in-tree version of cargo-insta on ourselves
     runs-on: ubuntu-latest
-
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - name: Test
@@ -51,6 +51,8 @@ jobs:
   build-on-msrv:
     name: Check on MSRV
     runs-on: ubuntu-latest
+    # No `RUSTUP_TOOLCHAIN` override: `cargo msrv` installs and checks the
+    # `rust-version` from Cargo.toml itself, independent of `rust-toolchain.toml`.
     steps:
       - uses: actions/checkout@v4
       - uses: baptiste0928/cargo-install@v3
@@ -66,11 +68,13 @@ jobs:
     # would increase our maintenance burden — we'd need to be constantly pinning
     # sub-dependencies
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - run: cargo update
@@ -80,23 +84,23 @@ jobs:
   build-docs:
     name: Build docs
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
       - uses: Swatinem/rust-cache@v2
       - name: doc
         run: cargo doc --all-features
 
   clippy:
+    # No toolchain setup: clippy runs on the version pinned in
+    # `rust-toolchain.toml`, which also declares the `clippy` component.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_LINT_TOOLCHAIN }}
-          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Run clippy
         run: make lint
@@ -105,15 +109,17 @@ jobs:
     name: Test with minimal version resolution
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      # Pinned: newer nightlies reject the `rustc_*` attributes used in
+      # `rustix v0.36.4`, which `cargo minimal-versions` resolves to. Bump once
+      # a newer nightly is known-good. Overrides `rust-toolchain.toml`.
+      RUSTUP_TOOLCHAIN: nightly-2026-04-25
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          # Pinned: newer nightlies reject the `rustc_*` attributes used in
-          # `rustix v0.36.4`, which `cargo minimal-versions` resolves to.
-          # Bump once a newer nightly is known-good.
-          toolchain: nightly-2026-04-25
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-hack
       - uses: taiki-e/install-action@cargo-minimal-versions
@@ -121,13 +127,11 @@ jobs:
         run: make check-minver
 
   rustfmt:
+    # No toolchain setup: rustfmt runs on the version pinned in
+    # `rust-toolchain.toml`, which also declares the `rustfmt` component.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_LINT_TOOLCHAIN }}
-          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Run rustfmt
         run: make format-check
