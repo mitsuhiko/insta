@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -129,6 +130,24 @@ impl<'a> From<(String, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (String, &'a str)) -> Self {
         SnapshotValue::FileText {
             name: Some(Cow::Owned(name)),
+            content,
+        }
+    }
+}
+
+impl<'a> From<(Option<&'a OsStr>, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (Option<&'a OsStr>, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: name.map(OsStr::to_string_lossy),
+            content,
+        }
+    }
+}
+
+impl<'a> From<(&'a OsStr, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (&'a OsStr, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: Some(name.to_string_lossy()),
             content,
         }
     }
