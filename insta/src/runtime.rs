@@ -144,15 +144,6 @@ impl<'a> From<(Option<&'a OsStr>, &'a str)> for SnapshotValue<'a> {
     }
 }
 
-impl<'a> From<(&'a OsStr, &'a str)> for SnapshotValue<'a> {
-    fn from((name, content): (&'a OsStr, &'a str)) -> Self {
-        SnapshotValue::FileText {
-            name: Some(name.to_string_lossy()),
-            content,
-        }
-    }
-}
-
 impl<'a> From<(Option<&'a str>, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (Option<&'a str>, &'a str)) -> Self {
         SnapshotValue::FileText {
