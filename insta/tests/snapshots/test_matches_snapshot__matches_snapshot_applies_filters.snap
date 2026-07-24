@@ -1,0 +1,6 @@
+---
+source: insta/tests/test_matches_snapshot.rs
+assertion_line: 51
+expression: "\"pid=PID-12345\""
+---
+pid=PID-<masked>

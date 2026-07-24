@@ -377,8 +377,8 @@ pub mod _macro_support {
     pub use crate::content::Content;
     pub use crate::env::{get_cargo_workspace, Workspace};
     pub use crate::runtime::{
-        assert_snapshot, with_allow_duplicates, AutoName, BinarySnapshotValue, InlineValue,
-        SnapshotValue,
+        assert_snapshot, matches_snapshot, with_allow_duplicates, AutoName, BinarySnapshotValue,
+        InlineValue, SnapshotValue,
     };
     pub use core::{file, line, module_path};
     pub use std::{any, env, format, option_env, path, vec};

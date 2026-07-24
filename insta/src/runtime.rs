@@ -331,6 +331,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         module_path: &'a str,
         assertion_file: &'a str,
         assertion_line: u32,
+        asserting: bool,
     ) -> Result<SnapshotAssertionContext<'a>, Box<dyn Error>> {
         let tool_config = get_tool_config(workspace);
         let snapshot_name;
@@ -370,15 +371,20 @@ impl<'a> SnapshotAssertionContext<'a> {
                         }
                         Err(err) => {
                             // If we can't parse the snapshot (e.g., invalid YAML,
-                            // merge conflicts, truncated file), log a warning and
-                            // proceed. The test will generate a new pending snapshot.
-                            elog!(
-                                "{}: Failed to parse snapshot file; \
-                                 a new snapshot will be generated: {}\n  Error: {}",
-                                style("warning").yellow().bold(),
-                                file.display(),
-                                err
-                            );
+                            // merge conflicts, truncated file), proceed as if no
+                            // reference existed. The asserting path logs a warning
+                            // here because it will generate a new pending snapshot to
+                            // repair the file; the non-asserting path does not write
+                            // anything, so it stays silent.
+                            if asserting {
+                                elog!(
+                                    "{}: Failed to parse snapshot file; \
+                                     a new snapshot will be generated: {}\n  Error: {}",
+                                    style("warning").yellow().bold(),
+                                    file.display(),
+                                    err
+                                );
+                            }
                         }
                     }
                 }
@@ -393,7 +399,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     duplication_key = Some(format!(
                         "inline:{function_name}|{assertion_file}|{assertion_line}"
                     ));
-                } else {
+                } else if asserting {
                     prevent_inline_duplicate(function_name, assertion_file, assertion_line);
                 }
                 snapshot_name = detect_snapshot_name(function_name, module_path)
@@ -852,7 +858,10 @@ where
 }
 
 /// Build the [`SnapshotContents`] for a text snapshot value, applying the
-/// current bound [`Settings`] (ANSI stripping + filters).
+/// current bound [`Settings`] (ANSI stripping + filters). Shared between
+/// [`assert_snapshot`] (which then writes the pending snapshot / panics) and
+/// [`matches_snapshot`] (which only compares), so both paths apply identical
+/// processing to the value.
 fn build_text_contents(content: &str, is_file: bool) -> SnapshotContents {
     // strip ANSI escape codes if enabled
     #[cfg(feature = "filters")]
@@ -879,8 +888,8 @@ fn build_text_contents(content: &str, is_file: bool) -> SnapshotContents {
 
 /// Turn a [`SnapshotValue`] into the [`SnapshotContents`] that will be stored,
 /// applying the current bound [`Settings`] (ANSI stripping + filters) to text
-/// values and validating binary extensions. Extracted from [`assert_snapshot`]
-/// as a self-contained step so it can be shared.
+/// values and validating binary extensions. Shared by [`assert_snapshot`] and
+/// [`matches_snapshot`] so both process the value identically.
 fn build_snapshot_contents(
     snapshot_value: SnapshotValue,
     is_file: bool,
@@ -944,6 +953,7 @@ pub fn assert_snapshot(
         module_path,
         assertion_file,
         assertion_line,
+        true,
     )?;
 
     ctx.cleanup_previous_pending_binary_snapshots()?;
@@ -985,6 +995,54 @@ pub fn assert_snapshot(
     }
 
     Ok(())
+}
+
+/// Non-asserting counterpart of [`assert_snapshot`]: resolves the snapshot
+/// name/file, loads the reference, applies the bound [`Settings`] (filters,
+/// redactions) to the value, and compares — exactly as [`assert_snapshot`]
+/// would — but never writes a `.snap.new` file or panics.
+///
+/// Like [`assert_snapshot`], it registers file snapshots as referenced (so
+/// `cargo insta test --unreferenced` won't flag a snapshot that is only ever
+/// checked, never asserted), but it writes no pending snapshot otherwise.
+///
+/// Returns `Ok(true)` on a match, `Ok(false)` on a mismatch or when no
+/// reference exists yet. A reference that exists but fails to parse is
+/// treated the same as a missing one — silently, since this path writes
+/// nothing and has nothing to regenerate — and `Err` only for an invalid
+/// binary extension.
+///
+/// The inline-duplicate detection (`allow_duplicates!`) is skipped here, so it
+/// is safe to call in a loop with any calling form.
+#[allow(clippy::too_many_arguments)]
+pub fn matches_snapshot(
+    snapshot_value: SnapshotValue<'_>,
+    workspace: &Path,
+    function_name: &str,
+    module_path: &str,
+    assertion_file: &str,
+    assertion_line: u32,
+    expr: &str,
+) -> Result<bool, Box<dyn Error>> {
+    let ctx = SnapshotAssertionContext::prepare(
+        &snapshot_value,
+        workspace,
+        function_name,
+        module_path,
+        assertion_file,
+        assertion_line,
+        false,
+    )?;
+
+    let content = build_snapshot_contents(snapshot_value, ctx.snapshot_file.is_some())?;
+    let new_snapshot = ctx.new_snapshot(content, expr);
+
+    // memoize the snapshot file if requested, as part of potentially removing unreferenced snapshots
+    if let Some(ref snapshot_file) = ctx.snapshot_file {
+        memoize_snapshot_file(snapshot_file);
+    }
+
+    Ok(snapshot_matches(&ctx, &new_snapshot))
 }
 
 #[allow(rustdoc::private_doc_tests)]
