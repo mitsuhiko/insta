@@ -344,11 +344,11 @@ macro_rules! assert_compact_debug_snapshot {
 // This macro handles optional trailing commas.
 #[doc(hidden)]
 #[macro_export]
-macro_rules! _assert_snapshot_base {
+macro_rules! _snapshot_base {
     // If there's an inline literal value, wrap the literal in a
     // `ReferenceValue::Inline`, call self.
     (transform=$transform:expr, $($arg:expr),*, @$snapshot:literal $(,)?) => {
-        $crate::_assert_snapshot_base!(
+        $crate::_snapshot_base!(
             transform = $transform,
             #[allow(clippy::needless_raw_string_hashes)]
             $crate::_macro_support::InlineValue($snapshot),
@@ -357,18 +357,22 @@ macro_rules! _assert_snapshot_base {
     };
     // If there's no debug_expr, use the stringified value, call self.
     (transform=$transform:expr, $name:expr, $value:expr $(,)?) => {
-        $crate::_assert_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
+        $crate::_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
     };
     // If there's no name (and necessarily no debug expr), auto generate the
     // name, call self.
     (transform=$transform:expr, $value:expr $(,)?) => {
-        $crate::_assert_snapshot_base!(
+        $crate::_snapshot_base!(
             transform = $transform,
             $crate::_macro_support::AutoName,
             $value
         )
     };
     // The main macro body — every call to this macro should end up here.
+    //
+    // Returns the `Result` from the runtime function without `.unwrap()`ing,
+    // so the asserting variant can panic on it while a non-asserting variant
+    // can inspect it.
     (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
         $crate::_macro_support::assert_snapshot(
             (
@@ -383,7 +387,19 @@ macro_rules! _assert_snapshot_base {
             $crate::_macro_support::line!(),
             $debug_expr,
         )
-        .unwrap()
+    };
+}
+
+// The asserting flavor of [`_snapshot_base!`]: run the snapshot operation and
+// `.unwrap()` the result, panicking on mismatch (the pre-existing behavior of
+// every `assert_*_snapshot!` macro). Kept as a named wrapper so the asserting
+// call sites read exactly as before.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _assert_snapshot_base {
+    ($($arg:tt)*) => {
+        $crate::_snapshot_base!($($arg)*)
+            .unwrap()
     };
 }
 

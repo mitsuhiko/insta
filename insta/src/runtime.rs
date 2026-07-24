@@ -851,6 +851,76 @@ where
     }
 }
 
+/// Build the [`SnapshotContents`] for a text snapshot value, applying the
+/// current bound [`Settings`] (ANSI stripping + filters).
+fn build_text_contents(content: &str, is_file: bool) -> SnapshotContents {
+    // strip ANSI escape codes if enabled
+    #[cfg(feature = "filters")]
+    let content = Settings::with(|settings| {
+        if settings.strip_ansi_escape_codes() {
+            crate::filters::strip_ansi_escape_codes(content)
+        } else {
+            std::borrow::Cow::Borrowed(content)
+        }
+    });
+
+    // apply filters if they are available
+    #[cfg(feature = "filters")]
+    let content = Settings::with(|settings| settings.filters().apply_to(&content));
+
+    let kind = if is_file {
+        TextSnapshotKind::File
+    } else {
+        TextSnapshotKind::Inline
+    };
+
+    TextSnapshotContents::new(content.into(), kind).into()
+}
+
+/// Turn a [`SnapshotValue`] into the [`SnapshotContents`] that will be stored,
+/// applying the current bound [`Settings`] (ANSI stripping + filters) to text
+/// values and validating binary extensions. Extracted from [`assert_snapshot`]
+/// as a self-contained step so it can be shared.
+fn build_snapshot_contents(
+    snapshot_value: SnapshotValue,
+    is_file: bool,
+) -> Result<SnapshotContents, Box<dyn Error>> {
+    Ok(match snapshot_value {
+        SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
+            build_text_contents(content, is_file)
+        }
+        SnapshotValue::Binary {
+            content, extension, ..
+        } => {
+            if extension == "new" {
+                return Err("'.new' is not allowed as a file extension".into());
+            }
+            if extension.starts_with("new.") {
+                return Err("file extensions starting with 'new.' are not allowed".into());
+            }
+            SnapshotContents::Binary(Some(Rc::new(content)))
+        }
+    })
+}
+
+/// Compare `new_snapshot` against the stored reference (`ctx.old_snapshot`)
+/// using the current bound [`Settings`], honoring `require_full_match`. Returns
+/// `false` when no reference snapshot exists yet.
+fn snapshot_matches(ctx: &SnapshotAssertionContext<'_>, new_snapshot: &Snapshot) -> bool {
+    Settings::with(|settings| {
+        ctx.old_snapshot
+            .as_ref()
+            .map(|x| {
+                if ctx.tool_config.require_full_match() {
+                    settings.comparator().matches_fully(x, new_snapshot)
+                } else {
+                    settings.comparator().matches(x, new_snapshot)
+                }
+            })
+            .unwrap_or(false)
+    })
+}
+
 /// This function is invoked from the macros to run the main assertion logic.
 ///
 /// This will create the assertion context, run the main logic to assert
@@ -878,44 +948,7 @@ pub fn assert_snapshot(
 
     ctx.cleanup_previous_pending_binary_snapshots()?;
 
-    let content = match snapshot_value {
-        SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
-            // strip ANSI escape codes if enabled
-            #[cfg(feature = "filters")]
-            let content = Settings::with(|settings| {
-                if settings.strip_ansi_escape_codes() {
-                    crate::filters::strip_ansi_escape_codes(content)
-                } else {
-                    std::borrow::Cow::Borrowed(content)
-                }
-            });
-
-            // apply filters if they are available
-            #[cfg(feature = "filters")]
-            let content = Settings::with(|settings| settings.filters().apply_to(&content));
-
-            let kind = match ctx.snapshot_file {
-                Some(_) => TextSnapshotKind::File,
-                None => TextSnapshotKind::Inline,
-            };
-
-            TextSnapshotContents::new(content.into(), kind).into()
-        }
-        SnapshotValue::Binary {
-            content, extension, ..
-        } => {
-            assert!(
-                extension != "new",
-                "'.new' is not allowed as a file extension"
-            );
-            assert!(
-                !extension.starts_with("new."),
-                "file extensions starting with 'new.' are not allowed",
-            );
-
-            SnapshotContents::Binary(Some(Rc::new(content)))
-        }
-    };
+    let content = build_snapshot_contents(snapshot_value, ctx.snapshot_file.is_some())?;
 
     let new_snapshot = ctx.new_snapshot(content, expr);
 
@@ -933,18 +966,7 @@ pub fn assert_snapshot(
         }
     });
 
-    let pass = Settings::with(|settings| {
-        ctx.old_snapshot
-            .as_ref()
-            .map(|x| {
-                if ctx.tool_config.require_full_match() {
-                    settings.comparator().matches_fully(x, &new_snapshot)
-                } else {
-                    settings.comparator().matches(x, &new_snapshot)
-                }
-            })
-            .unwrap_or(false)
-    });
+    let pass = snapshot_matches(&ctx, &new_snapshot);
 
     if pass {
         ctx.cleanup_passing()?;
