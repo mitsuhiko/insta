@@ -96,6 +96,15 @@ pub enum SnapshotValue<'a> {
         content: &'a str,
     },
 
+    /// A text snapshot stored as a plain external file.
+    ExternalText {
+        /// The requested external file path.
+        path: PathBuf,
+
+        /// The new generated value to compare against any previously approved content.
+        content: &'a str,
+    },
+
     /// A binary snapshot that gets stored as a separate file next to the metadata file.
     Binary {
         name: SnapshotName<'a>,
@@ -106,6 +115,16 @@ pub enum SnapshotValue<'a> {
         /// The extension of the separate file.
         extension: &'a str,
     },
+}
+
+impl<'a> SnapshotValue<'a> {
+    #[doc(hidden)]
+    pub fn external_file(path: impl AsRef<Path>, content: &'a str) -> Self {
+        SnapshotValue::ExternalText {
+            path: path.as_ref().to_path_buf(),
+            content,
+        }
+    }
 }
 
 impl<'a> From<(AutoName, &'a str)> for SnapshotValue<'a> {
@@ -304,10 +323,104 @@ fn get_snapshot_filename(
     })
 }
 
+fn snapshot_source(workspace: &Path, assertion_file: &str) -> String {
+    let source_path = Path::new(assertion_file);
+    // Canonicalize existing paths so workspace layouts and symlinks still
+    // produce a workspace-relative source path.
+    let canonicalized_base = workspace.canonicalize().ok();
+    let canonicalized_path = source_path.canonicalize().ok();
+
+    let relative = if let (Some(base), Some(path)) = (canonicalized_base, canonicalized_path) {
+        path_relative_from(&path, &base).unwrap_or_else(|| source_path.to_path_buf())
+    } else {
+        path_relative_from(source_path, workspace).unwrap_or_else(|| source_path.to_path_buf())
+    };
+    path_to_storage(&relative)
+}
+
+fn normalize_path_lexically(path: &Path) -> PathBuf {
+    use std::path::Component;
+
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => match normalized.components().next_back() {
+                Some(Component::Normal(_)) => {
+                    normalized.pop();
+                }
+                Some(Component::ParentDir) | None if !path.has_root() => {
+                    normalized.push(component.as_os_str());
+                }
+                _ => {}
+            },
+            _ => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
+}
+
+fn external_snapshot_name(target_path: &Path, stored_path: &str) -> String {
+    const MAX_BASENAME_BYTES: usize = 64;
+
+    let basename = target_path
+        .file_name()
+        .and_then(OsStr::to_str)
+        .unwrap_or("external-file");
+    let mut sanitized = String::new();
+    for ch in basename.chars() {
+        let ch = if ch.is_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+            ch
+        } else {
+            '_'
+        };
+        if sanitized.len() + ch.len_utf8() > MAX_BASENAME_BYTES {
+            break;
+        }
+        sanitized.push(ch);
+    }
+    if sanitized.is_empty() {
+        sanitized.push_str("external-file");
+    }
+
+    let hash = stable_external_snapshot_hash(stored_path);
+    format!("{sanitized}@{hash:016x}")
+}
+
+/// Derives the pending snapshot name from its target.
+///
+/// The input deliberately excludes the assertion source and line so the hashed
+/// name component survives edits around the assertion. Changing the input or
+/// algorithm orphans every pending file users already have on disk.
+fn stable_external_snapshot_hash(stored_path: &str) -> u64 {
+    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+
+    let mut hash = FNV_OFFSET_BASIS;
+    for byte in (stored_path.len() as u64)
+        .to_le_bytes()
+        .iter()
+        .chain(stored_path.as_bytes())
+    {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash
+}
+
 #[derive(Debug)]
 enum SnapshotDestination {
-    ManagedFile { snapshot_file: PathBuf },
-    Inline { pending_snapshots_file: PathBuf },
+    ManagedFile {
+        snapshot_file: PathBuf,
+    },
+    ExternalFile {
+        target_path: PathBuf,
+        pending_snapshot_file: PathBuf,
+        stored_path: String,
+    },
+    Inline {
+        pending_snapshots_file: PathBuf,
+    },
 }
 
 impl SnapshotDestination {
@@ -321,11 +434,32 @@ impl SnapshotDestination {
         }
     }
 
+    /// The file an accepted snapshot lands in, unless it is an inline one.
+    fn target_file(&self) -> Option<&Path> {
+        match self {
+            SnapshotDestination::ManagedFile { snapshot_file } => Some(snapshot_file),
+            SnapshotDestination::ExternalFile { target_path, .. } => Some(target_path),
+            SnapshotDestination::Inline { .. } => None,
+        }
+    }
+
     /// The `.snap` file insta itself manages, if there is one.
+    ///
+    /// External targets are excluded on purpose. They are user owned files, so
+    /// they take part in neither binary sidecar cleanup nor unreferenced
+    /// snapshot tracking.
     fn snapshot_file(&self) -> Option<&Path> {
         match self {
             SnapshotDestination::ManagedFile { snapshot_file } => Some(snapshot_file),
-            SnapshotDestination::Inline { .. } => None,
+            SnapshotDestination::ExternalFile { .. } | SnapshotDestination::Inline { .. } => None,
+        }
+    }
+
+    /// The workspace relative target recorded in the snapshot metadata.
+    fn stored_path(&self) -> Option<&str> {
+        match self {
+            SnapshotDestination::ExternalFile { stored_path, .. } => Some(stored_path),
+            SnapshotDestination::ManagedFile { .. } | SnapshotDestination::Inline { .. } => None,
         }
     }
 
@@ -421,6 +555,67 @@ impl<'a> SnapshotAssertionContext<'a> {
                 snapshot_name = Some(name);
                 destination = SnapshotDestination::managed_file(file);
             }
+            SnapshotValue::ExternalText { path, .. } => {
+                let source_path = workspace.join(assertion_file);
+                let target_path = if path.is_absolute() {
+                    path.clone()
+                } else {
+                    source_path.parent().unwrap().join(path)
+                };
+                let target_path = normalize_path_lexically(&target_path);
+                if target_path.to_str().is_none() {
+                    return Err(format!(
+                        "external snapshot path is not valid UTF-8: {}",
+                        target_path.display()
+                    )
+                    .into());
+                }
+
+                let relative_path = path_relative_from(&target_path, workspace)
+                    .unwrap_or_else(|| target_path.clone());
+                let stored_path = path_to_storage(&relative_path);
+                if allow_duplicates() {
+                    duplication_key = Some(format!("external:{stored_path}"));
+                }
+                let name = external_snapshot_name(&target_path, &stored_path);
+                let pending_snapshot_file = get_snapshot_filename(
+                    module_path,
+                    assertion_file,
+                    &name,
+                    workspace,
+                    is_doctest,
+                );
+
+                old_snapshot = match fs::read_to_string(&target_path) {
+                    Ok(contents) => Some(Snapshot::from_components(
+                        module_path.replace("::", "__"),
+                        Some(name.clone()),
+                        MetaData::default(),
+                        TextSnapshotContents::new(contents, TextSnapshotKind::File).into(),
+                    )),
+                    Err(error) if error.kind() == ErrorKind::NotFound => None,
+                    Err(error) if error.kind() == ErrorKind::InvalidData => {
+                        return Err(format!(
+                            "external text snapshot is not valid UTF-8: {}",
+                            target_path.display()
+                        )
+                        .into());
+                    }
+                    Err(error) => {
+                        return Err(format!(
+                            "failed to read external snapshot {}: {error}",
+                            target_path.display()
+                        )
+                        .into());
+                    }
+                };
+                snapshot_name = Some(Cow::Owned(name));
+                destination = SnapshotDestination::ExternalFile {
+                    target_path,
+                    pending_snapshot_file,
+                    stored_path,
+                };
+            }
             SnapshotValue::InlineText {
                 reference_content: contents,
                 ..
@@ -455,7 +650,9 @@ impl<'a> SnapshotAssertionContext<'a> {
         };
 
         let snapshot_type = match new_snapshot_value {
-            SnapshotValue::FileText { .. } | SnapshotValue::InlineText { .. } => SnapshotKind::Text,
+            SnapshotValue::FileText { .. }
+            | SnapshotValue::InlineText { .. }
+            | SnapshotValue::ExternalText { .. } => SnapshotKind::Text,
             &SnapshotValue::Binary { extension, .. } => SnapshotKind::Binary {
                 extension: extension.to_string(),
             },
@@ -490,46 +687,28 @@ impl<'a> SnapshotAssertionContext<'a> {
             matches!(self.snapshot_kind, SnapshotKind::Binary { .. })
         );
 
+        let metadata = Settings::with(|settings| MetaData {
+            source: Some(snapshot_source(self.workspace, self.assertion_file)),
+            assertion_line: Some(self.assertion_line),
+            description: settings.description().map(Into::into),
+            expression: if settings.omit_expression() {
+                None
+            } else {
+                Some(expr.to_string())
+            },
+            info: settings.info().map(ToOwned::to_owned),
+            input_file: settings
+                .input_file()
+                .and_then(|x| self.localize_path(x))
+                .map(|x| path_to_storage(&x)),
+            path: self.destination.stored_path().map(ToOwned::to_owned),
+            snapshot_kind: self.snapshot_kind.clone(),
+        });
+
         Snapshot::from_components(
             self.module_path.replace("::", "__"),
             self.snapshot_name.as_ref().map(|x| x.to_string()),
-            Settings::with(|settings| MetaData {
-                source: {
-                    let source_path = Path::new(self.assertion_file);
-                    // We need to compute a relative path from the workspace to the source file.
-                    // This is necessary for workspace setups where the project is not a direct
-                    // child of the workspace root (e.g., when workspace and project are siblings).
-                    // We canonicalize paths first to properly handle symlinks.
-                    let canonicalized_base = self.workspace.canonicalize().ok();
-                    let canonicalized_path = source_path.canonicalize().ok();
-
-                    let relative = if let (Some(base), Some(path)) =
-                        (canonicalized_base, canonicalized_path)
-                    {
-                        path_relative_from(&path, &base)
-                            .unwrap_or_else(|| source_path.to_path_buf())
-                    } else {
-                        // If canonicalization fails, try with original paths
-                        path_relative_from(source_path, self.workspace)
-                            .unwrap_or_else(|| source_path.to_path_buf())
-                    };
-                    Some(path_to_storage(&relative))
-                },
-                assertion_line: Some(self.assertion_line),
-                description: settings.description().map(Into::into),
-                expression: if settings.omit_expression() {
-                    None
-                } else {
-                    Some(expr.to_string())
-                },
-                info: settings.info().map(ToOwned::to_owned),
-                input_file: settings
-                    .input_file()
-                    .and_then(|x| self.localize_path(x))
-                    .map(|x| path_to_storage(&x)),
-                path: None,
-                snapshot_kind: self.snapshot_kind.clone(),
-            }),
+            metadata,
             contents,
         )
     }
@@ -543,6 +722,13 @@ impl<'a> SnapshotAssertionContext<'a> {
                 let target_path = pending_snapshot_path(self.workspace, snapshot_file);
                 let new_file = target_path.with_extension("snap.new");
                 fs::remove_file(new_file).ok();
+            }
+            SnapshotDestination::ExternalFile {
+                pending_snapshot_file,
+                ..
+            } => {
+                let target_path = pending_snapshot_path(self.workspace, pending_snapshot_file);
+                fs::remove_file(target_path.with_extension("snap.new")).ok();
             }
             SnapshotDestination::Inline {
                 pending_snapshots_file,
@@ -610,7 +796,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         // existing snapshot file; which seems wrong??
         let unseen = self
             .destination
-            .snapshot_file()
+            .target_file()
             .map_or(false, |x| fs::metadata(x).is_ok());
         let should_print = self.tool_config.output_behavior() != OutputBehavior::Nothing;
         let snapshot_update = snapshot_update_behavior(&self.tool_config, unseen);
@@ -637,6 +823,36 @@ impl<'a> SnapshotAssertionContext<'a> {
                         );
                     }
                 }
+                SnapshotDestination::ExternalFile { target_path, .. } => {
+                    if let Some(parent) = target_path.parent() {
+                        fs::create_dir_all(parent).map_err(|error| {
+                            format!(
+                                "failed to create external snapshot directory {}: {error}",
+                                parent.display()
+                            )
+                        })?;
+                    }
+                    fs::write(
+                        target_path,
+                        new_snapshot
+                            .as_text()
+                            .expect("external text snapshot")
+                            .to_string(),
+                    )
+                    .map_err(|error| {
+                        format!(
+                            "failed to write external snapshot {}: {error}",
+                            target_path.display()
+                        )
+                    })?;
+                    if should_print {
+                        elog!(
+                            "{} {}",
+                            style("updated snapshot").green(),
+                            style(target_path.display()).cyan().underlined(),
+                        );
+                    }
+                }
                 // `is_inline()` above rewrote `InPlace` to `NewFile`.
                 SnapshotDestination::Inline { .. } => unreachable!(),
             },
@@ -644,6 +860,20 @@ impl<'a> SnapshotAssertionContext<'a> {
                 SnapshotDestination::ManagedFile { snapshot_file } => {
                     // File snapshot - use pending directory if set
                     let target_path = pending_snapshot_path(self.workspace, snapshot_file);
+                    let new_path = new_snapshot.save_new(&target_path)?;
+                    if should_print {
+                        elog!(
+                            "{} {}",
+                            style("stored new snapshot").green(),
+                            style(new_path.display()).cyan().underlined(),
+                        );
+                    }
+                }
+                SnapshotDestination::ExternalFile {
+                    pending_snapshot_file,
+                    ..
+                } => {
+                    let target_path = pending_snapshot_path(self.workspace, pending_snapshot_file);
                     let new_path = new_snapshot.save_new(&target_path)?;
                     if should_print {
                         elog!(
@@ -687,7 +917,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         let mut printer =
             SnapshotPrinter::new(self.workspace, self.old_snapshot.as_ref(), new_snapshot);
         printer.set_line(Some(self.assertion_line));
-        printer.set_snapshot_file(self.destination.snapshot_file());
+        printer.set_snapshot_file(self.destination.target_file());
         printer.set_title(Some("Snapshot Summary"));
         printer.set_show_info(true);
         match self.tool_config.output_behavior() {
@@ -854,7 +1084,7 @@ fn record_snapshot_duplicate(
             println!("Snapshots in allow-duplicates block do not match.");
             let mut printer = SnapshotPrinter::new(ctx.workspace, Some(prev_snapshot), snapshot);
             printer.set_line(Some(ctx.assertion_line));
-            printer.set_snapshot_file(ctx.destination.snapshot_file());
+            printer.set_snapshot_file(ctx.destination.target_file());
             printer.set_title(Some("Differences in Block"));
             printer.set_snapshot_hints("previous assertion", "current assertion");
             if ctx.tool_config.output_behavior() == OutputBehavior::Diff {
@@ -908,7 +1138,7 @@ pub fn assert_snapshot(
     assertion_line: u32,
     expr: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let ctx = SnapshotAssertionContext::prepare(
+    let mut ctx = SnapshotAssertionContext::prepare(
         &snapshot_value,
         workspace,
         function_name,
@@ -920,7 +1150,9 @@ pub fn assert_snapshot(
     ctx.cleanup_previous_pending_binary_snapshots()?;
 
     let content = match snapshot_value {
-        SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
+        SnapshotValue::FileText { content, .. }
+        | SnapshotValue::InlineText { content, .. }
+        | SnapshotValue::ExternalText { content, .. } => {
             // strip ANSI escape codes if enabled
             #[cfg(feature = "filters")]
             let content = Settings::with(|settings| {
@@ -956,6 +1188,12 @@ pub fn assert_snapshot(
     };
 
     let new_snapshot = ctx.new_snapshot(content, expr);
+
+    if matches!(ctx.destination, SnapshotDestination::ExternalFile { .. }) {
+        if let Some(old_snapshot) = ctx.old_snapshot.as_mut() {
+            old_snapshot.metadata = new_snapshot.metadata().clone();
+        }
+    }
 
     // memoize the snapshot file if requested, as part of potentially removing unreferenced snapshots
     if let Some(snapshot_file) = ctx.destination.snapshot_file() {
@@ -1029,3 +1267,27 @@ pub fn assert_snapshot(
 /// insta::assert_snapshot!(some_string, @"Coucou je suis un joli bug");
 /// ```
 const _DOCTEST1: bool = false;
+
+#[cfg(test)]
+mod external_snapshot_tests {
+    use super::*;
+
+    #[test]
+    fn external_snapshot_name_is_stable_and_sanitized() {
+        let name =
+            external_snapshot_name(Path::new("generated/output.txt"), "generated/output.txt");
+        assert_eq!(name, "output.txt@c37e249283e88658");
+
+        let name = external_snapshot_name(
+            Path::new("generated/file name?.txt"),
+            "generated/file name?.txt",
+        );
+        assert!(name.starts_with("file_name_.txt@"), "{name}");
+    }
+
+    #[test]
+    fn external_snapshot_names_distinguish_targets() {
+        let name = |stored: &str| external_snapshot_name(Path::new(stored), stored);
+        assert_ne!(name("generated/a.txt"), name("generated/b.txt"));
+    }
+}
