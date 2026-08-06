@@ -167,6 +167,8 @@ pub struct MetaData {
     pub(crate) info: Option<Content>,
     /// Reference to the input file.
     pub(crate) input_file: Option<String>,
+    /// The accepted external snapshot path (relative to workspace root).
+    pub(crate) path: Option<String>,
     /// The type of the snapshot (string or binary).
     pub(crate) snapshot_kind: SnapshotKind,
 }
@@ -214,6 +216,12 @@ impl MetaData {
         self.input_file.as_deref()
     }
 
+    /// Returns the accepted external snapshot path.
+    #[doc(hidden)]
+    pub fn path(&self) -> Option<&str> {
+        self.path.as_deref()
+    }
+
     fn from_content(content: Content) -> Result<MetaData, Box<dyn Error>> {
         if let Content::Map(map) = content {
             let mut source = None;
@@ -222,6 +230,7 @@ impl MetaData {
             let mut expression = None;
             let mut info = None;
             let mut input_file = None;
+            let mut path = None;
             let mut snapshot_type = TmpSnapshotKind::Text;
             let mut extension = None;
 
@@ -238,6 +247,7 @@ impl MetaData {
                     Some("expression") => expression = value.as_str().map(Into::into),
                     Some("info") if !value.is_nil() => info = Some(value),
                     Some("input_file") => input_file = value.as_str().map(Into::into),
+                    Some("path") => path = value.as_str().map(Into::into),
                     Some("snapshot_kind") => {
                         snapshot_type = match value.as_str() {
                             Some("binary") => TmpSnapshotKind::Binary,
@@ -258,6 +268,7 @@ impl MetaData {
                 expression,
                 info,
                 input_file,
+                path,
                 snapshot_kind: match snapshot_type {
                     TmpSnapshotKind::Text => SnapshotKind::Text,
                     TmpSnapshotKind::Binary => SnapshotKind::Binary {
@@ -289,6 +300,9 @@ impl MetaData {
         }
         if let Some(input_file) = self.input_file.as_deref() {
             fields.push(("input_file", Content::from(input_file)));
+        }
+        if let Some(path) = self.path.as_deref() {
+            fields.push(("path", Content::from(path)));
         }
 
         match self.snapshot_kind {
@@ -439,6 +453,19 @@ impl Snapshot {
             metadata,
             snapshot,
         }
+    }
+
+    /// Constructs an in-memory snapshot from a plain external text file.
+    #[doc(hidden)]
+    #[cfg(feature = "_cargo_insta_internal")]
+    pub fn from_external_text(p: &Path, metadata: MetaData, contents: String) -> Snapshot {
+        let (snapshot_name, module_name) = names_of_path(p);
+        Snapshot::from_components(
+            module_name,
+            Some(snapshot_name),
+            metadata,
+            TextSnapshotContents::new(contents, TextSnapshotKind::File).into(),
+        )
     }
 
     #[cfg(feature = "_cargo_insta_internal")]
@@ -1537,6 +1564,28 @@ fn test_parse_yaml_error() {
     let error = format!("{}", Snapshot::from_file(temp.as_path()).unwrap_err());
     assert!(error.contains("Failed parsing the YAML from"));
     assert!(error.contains("bad.yaml"));
+}
+
+#[test]
+fn test_snapshot_metadata_path_roundtrip() {
+    let tempdir = tempfile::tempdir().unwrap();
+    let pending_path = tempdir.path().join("snapshot.snap.new");
+    fs::write(
+        &pending_path,
+        "---\nsource: src/lib.rs\npath: ../golden/output.txt\n---\nnew content\n",
+    )
+    .unwrap();
+
+    let snapshot = Snapshot::from_file(&pending_path).unwrap();
+    assert_eq!(snapshot.metadata().path(), Some("../golden/output.txt"));
+
+    let saved_path = tempdir.path().join("saved.snap");
+    snapshot.save(&saved_path).unwrap();
+    let saved_snapshot = Snapshot::from_file(&saved_path).unwrap();
+    assert_eq!(
+        saved_snapshot.metadata().path(),
+        Some("../golden/output.txt")
+    );
 }
 
 /// Check that snapshots don't take ownership of the value

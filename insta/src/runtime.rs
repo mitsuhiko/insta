@@ -527,6 +527,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     .input_file()
                     .and_then(|x| self.localize_path(x))
                     .map(|x| path_to_storage(&x)),
+                path: None,
                 snapshot_kind: self.snapshot_kind.clone(),
             }),
             contents,

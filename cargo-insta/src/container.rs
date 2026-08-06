@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
 pub(crate) use insta::TextSnapshotKind;
-use insta::{internals::SnapshotContents, Snapshot};
+use insta::{internals::SnapshotContents, MetaData, Snapshot};
 
 use crate::inline::FilePatcher;
 
@@ -31,6 +31,12 @@ pub(crate) struct PendingSnapshot {
 impl PendingSnapshot {
     pub(crate) fn summary(&self) -> String {
         use std::fmt::Write;
+        // External snapshots are written to the target recorded in their
+        // metadata. Naming the assertion source and the internal snapshot name
+        // instead would point at files the operation never touched.
+        if let Some(path) = self.new.metadata().path() {
+            return path.to_string();
+        }
         let mut rv = String::new();
         if let Some(source) = self.new.metadata().source() {
             write!(&mut rv, "{source}").unwrap();
@@ -53,6 +59,12 @@ enum SnapshotContainerDestination {
         // Path of the target snapshot file (generally a `.snap` file)
         target_path: PathBuf,
     },
+    ExternalFile {
+        // Path of the pending snapshot file (a `.snap.new` file)
+        pending_path: PathBuf,
+        // Path of the accepted external snapshot file
+        target_path: PathBuf,
+    },
     Inline {
         // Path of the pending snapshot file (a `.pending-snap` file)
         pending_path: PathBuf,
@@ -73,6 +85,7 @@ pub(crate) struct SnapshotContainer {
 
 impl SnapshotContainer {
     pub(crate) fn load(
+        workspace_root: &Path,
         pending_path: PathBuf,
         target_path: PathBuf,
         kind: TextSnapshotKind,
@@ -80,12 +93,41 @@ impl SnapshotContainer {
         let mut snapshots = Vec::new();
         let destination = match kind {
             TextSnapshotKind::File => {
-                let old = if fs::metadata(&target_path).is_err() {
-                    None
-                } else {
-                    Some(Snapshot::from_file(&target_path)?)
-                };
                 let new = Snapshot::from_file(&pending_path)?;
+                let (old, destination) = if let Some(path) = new.metadata().path() {
+                    if new.as_text().is_none() {
+                        return Err(format!(
+                            "external text snapshot proposal contains binary data: {}",
+                            pending_path.display()
+                        )
+                        .into());
+                    }
+
+                    let target_path = workspace_root.join(path);
+                    let old = load_external_text_snapshot(&target_path, new.metadata()).map_err(
+                        |error| format!("{error} (proposed by {})", pending_path.display()),
+                    )?;
+                    (
+                        old,
+                        SnapshotContainerDestination::ExternalFile {
+                            pending_path,
+                            target_path,
+                        },
+                    )
+                } else {
+                    let old = if fs::metadata(&target_path).is_err() {
+                        None
+                    } else {
+                        Some(Snapshot::from_file(&target_path)?)
+                    };
+                    (
+                        old,
+                        SnapshotContainerDestination::ManagedFile {
+                            pending_path,
+                            target_path,
+                        },
+                    )
+                };
                 snapshots.push(PendingSnapshot {
                     id: 0,
                     old,
@@ -93,10 +135,7 @@ impl SnapshotContainer {
                     op: Operation::Skip,
                     line: None,
                 });
-                SnapshotContainerDestination::ManagedFile {
-                    pending_path,
-                    target_path,
-                }
+                destination
             }
             TextSnapshotKind::Inline => {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&pending_path)?;
@@ -152,13 +191,15 @@ impl SnapshotContainer {
     pub(crate) fn target_file(&self) -> &Path {
         match &self.destination {
             SnapshotContainerDestination::ManagedFile { target_path, .. }
+            | SnapshotContainerDestination::ExternalFile { target_path, .. }
             | SnapshotContainerDestination::Inline { target_path, .. } => target_path,
         }
     }
 
     pub(crate) fn snapshot_file(&self) -> Option<&Path> {
         match &self.destination {
-            SnapshotContainerDestination::ManagedFile { target_path, .. } => Some(target_path),
+            SnapshotContainerDestination::ManagedFile { target_path, .. }
+            | SnapshotContainerDestination::ExternalFile { target_path, .. } => Some(target_path),
             SnapshotContainerDestination::Inline { .. } => None,
         }
     }
@@ -166,6 +207,7 @@ impl SnapshotContainer {
     pub(crate) fn snapshot_sort_key(&self) -> impl Ord + '_ {
         let pending_path = match &self.destination {
             SnapshotContainerDestination::ManagedFile { pending_path, .. }
+            | SnapshotContainerDestination::ExternalFile { pending_path, .. }
             | SnapshotContainerDestination::Inline { pending_path, .. } => pending_path,
         };
         let path = pending_path
@@ -243,6 +285,35 @@ impl SnapshotContainer {
                     try_removing_snapshot(pending_path);
                 }
             }
+            SnapshotContainerDestination::ExternalFile {
+                pending_path,
+                target_path,
+            } => {
+                debug_assert!(self.snapshots.len() == 1);
+                for snapshot in self.snapshots.iter() {
+                    match snapshot.op {
+                        Operation::Accept | Operation::AcceptAll => {
+                            if let Some(parent) = target_path.parent() {
+                                fs::create_dir_all(parent)?;
+                            }
+                            fs::write(
+                                &target_path,
+                                snapshot
+                                    .new
+                                    .as_text()
+                                    .expect("external text snapshot")
+                                    .to_string(),
+                            )
+                            .map_err(|e| ContentError::FileIo(e, target_path.to_path_buf()))?;
+                            try_removing_snapshot(pending_path);
+                        }
+                        Operation::Reject | Operation::RejectAll => {
+                            try_removing_snapshot(pending_path);
+                        }
+                        Operation::Skip | Operation::SkipAll => {}
+                    }
+                }
+            }
             SnapshotContainerDestination::ManagedFile {
                 pending_path,
                 target_path,
@@ -290,5 +361,20 @@ impl SnapshotContainer {
             }
         }
         Ok(())
+    }
+}
+
+fn load_external_text_snapshot(
+    path: &Path,
+    metadata: &MetaData,
+) -> Result<Option<Snapshot>, Box<dyn Error>> {
+    match fs::read_to_string(path) {
+        Ok(contents) => Ok(Some(Snapshot::from_external_text(
+            path,
+            metadata.clone(),
+            contents,
+        ))),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(ContentError::FileIo(error, path.to_path_buf()).into()),
     }
 }
