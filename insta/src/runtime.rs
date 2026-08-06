@@ -304,6 +304,44 @@ fn get_snapshot_filename(
     })
 }
 
+#[derive(Debug)]
+enum SnapshotDestination {
+    ManagedFile { snapshot_file: PathBuf },
+    Inline { pending_snapshots_file: PathBuf },
+}
+
+impl SnapshotDestination {
+    fn managed_file(snapshot_file: PathBuf) -> Self {
+        Self::ManagedFile { snapshot_file }
+    }
+
+    fn inline(pending_snapshots_file: PathBuf) -> Self {
+        Self::Inline {
+            pending_snapshots_file,
+        }
+    }
+
+    /// The `.snap` file insta itself manages, if there is one.
+    fn snapshot_file(&self) -> Option<&Path> {
+        match self {
+            SnapshotDestination::ManagedFile { snapshot_file } => Some(snapshot_file),
+            SnapshotDestination::Inline { .. } => None,
+        }
+    }
+
+    fn is_inline(&self) -> bool {
+        matches!(self, SnapshotDestination::Inline { .. })
+    }
+
+    fn text_kind(&self) -> TextSnapshotKind {
+        if self.is_inline() {
+            TextSnapshotKind::Inline
+        } else {
+            TextSnapshotKind::File
+        }
+    }
+}
+
 /// The context around a snapshot, such as the reference value, location, etc.
 /// (but not including the generated value). Responsible for saving the
 /// snapshot.
@@ -313,10 +351,9 @@ struct SnapshotAssertionContext<'a> {
     workspace: &'a Path,
     module_path: &'a str,
     snapshot_name: Option<Cow<'a, str>>,
-    snapshot_file: Option<PathBuf>,
+    destination: SnapshotDestination,
     duplication_key: Option<String>,
     old_snapshot: Option<Snapshot>,
-    pending_snapshots_path: Option<PathBuf>,
     assertion_file: &'a str,
     assertion_line: u32,
     is_doctest: bool,
@@ -335,9 +372,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         let tool_config = get_tool_config(workspace);
         let snapshot_name;
         let mut duplication_key = None;
-        let mut snapshot_file = None;
         let mut old_snapshot = None;
-        let mut pending_snapshots_path = None;
+        let destination;
         let is_doctest = is_doctest(function_name);
 
         match new_snapshot_value {
@@ -383,7 +419,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     }
                 }
                 snapshot_name = Some(name);
-                snapshot_file = Some(file);
+                destination = SnapshotDestination::managed_file(file);
             }
             SnapshotValue::InlineText {
                 reference_content: contents,
@@ -408,7 +444,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                         .to_str()
                         .expect("non unicode filename")
                 ));
-                pending_snapshots_path = Some(pending_file);
+                destination = SnapshotDestination::inline(pending_file);
                 old_snapshot = Some(Snapshot::from_components(
                     module_path.replace("::", "__"),
                     None,
@@ -430,9 +466,8 @@ impl<'a> SnapshotAssertionContext<'a> {
             workspace,
             module_path,
             snapshot_name,
-            snapshot_file,
+            destination,
             old_snapshot,
-            pending_snapshots_path,
             assertion_file,
             assertion_line,
             duplication_key,
@@ -502,17 +537,21 @@ impl<'a> SnapshotAssertionContext<'a> {
     pub fn cleanup_passing(&self) -> Result<(), Box<dyn Error>> {
         // let's just make sure there are no more pending files lingering
         // around.
-        if let Some(ref snapshot_file) = self.snapshot_file {
-            let target_path = pending_snapshot_path(self.workspace, snapshot_file);
-            let new_file = target_path.with_extension("snap.new");
-            fs::remove_file(new_file).ok();
-        }
-
-        // and add a null pending snapshot to a pending snapshot file if needed
-        if let Some(ref pending_snapshots) = self.pending_snapshots_path {
-            let target_path = pending_snapshot_path(self.workspace, pending_snapshots);
-            if fs::metadata(&target_path).is_ok() {
-                PendingInlineSnapshot::new(None, None, self.assertion_line).save(&target_path)?;
+        match &self.destination {
+            SnapshotDestination::ManagedFile { snapshot_file } => {
+                let target_path = pending_snapshot_path(self.workspace, snapshot_file);
+                let new_file = target_path.with_extension("snap.new");
+                fs::remove_file(new_file).ok();
+            }
+            SnapshotDestination::Inline {
+                pending_snapshots_file,
+            } => {
+                // Add a null pending snapshot to a pending snapshot file if needed.
+                let target_path = pending_snapshot_path(self.workspace, pending_snapshots_file);
+                if fs::metadata(&target_path).is_ok() {
+                    PendingInlineSnapshot::new(None, None, self.assertion_line)
+                        .save(&target_path)?;
+                }
             }
         }
         Ok(())
@@ -522,7 +561,7 @@ impl<'a> SnapshotAssertionContext<'a> {
     /// only ever remove maximum one file because we do this every time before we create a new
     /// pending snapshot.
     pub fn cleanup_previous_pending_binary_snapshots(&self) -> Result<(), Box<dyn Error>> {
-        if let Some(ref path) = self.snapshot_file {
+        if let Some(path) = self.destination.snapshot_file() {
             // Use pending directory if set
             let target_path = pending_snapshot_path(self.workspace, path);
 
@@ -569,8 +608,8 @@ impl<'a> SnapshotAssertionContext<'a> {
         // TODO: this seems to be making `unseen` be true when there is an
         // existing snapshot file; which seems wrong??
         let unseen = self
-            .snapshot_file
-            .as_ref()
+            .destination
+            .snapshot_file()
             .map_or(false, |x| fs::metadata(x).is_ok());
         let should_print = self.tool_config.output_behavior() != OutputBehavior::Nothing;
         let snapshot_update = snapshot_update_behavior(&self.tool_config, unseen);
@@ -579,16 +618,15 @@ impl<'a> SnapshotAssertionContext<'a> {
         // use `NewFile`, since we can't use `InPlace` for inline. `cargo-insta`
         // then accepts all snapshots at the end of the test.
         let snapshot_update =
-            // TODO: could match on the snapshot kind instead of whether snapshot_file is None
-            if snapshot_update == SnapshotUpdateBehavior::InPlace && self.snapshot_file.is_none() {
+            if snapshot_update == SnapshotUpdateBehavior::InPlace && self.destination.is_inline() {
                 SnapshotUpdateBehavior::NewFile
             } else {
                 snapshot_update
             };
 
         match snapshot_update {
-            SnapshotUpdateBehavior::InPlace => {
-                if let Some(ref snapshot_file) = self.snapshot_file {
+            SnapshotUpdateBehavior::InPlace => match &self.destination {
+                SnapshotDestination::ManagedFile { snapshot_file } => {
                     new_snapshot.save(snapshot_file)?;
                     if should_print {
                         elog!(
@@ -597,13 +635,12 @@ impl<'a> SnapshotAssertionContext<'a> {
                             style(snapshot_file.display()).cyan().underlined(),
                         );
                     }
-                } else {
-                    // Checked self.snapshot_file.is_none() above
-                    unreachable!()
                 }
-            }
-            SnapshotUpdateBehavior::NewFile => {
-                if let Some(ref snapshot_file) = self.snapshot_file {
+                // `is_inline()` above rewrote `InPlace` to `NewFile`.
+                SnapshotDestination::Inline { .. } => unreachable!(),
+            },
+            SnapshotUpdateBehavior::NewFile => match &self.destination {
+                SnapshotDestination::ManagedFile { snapshot_file } => {
                     // File snapshot - use pending directory if set
                     let target_path = pending_snapshot_path(self.workspace, snapshot_file);
                     let new_path = new_snapshot.save_new(&target_path)?;
@@ -614,7 +651,8 @@ impl<'a> SnapshotAssertionContext<'a> {
                             style(new_path.display()).cyan().underlined(),
                         );
                     }
-                } else if self.is_doctest {
+                }
+                SnapshotDestination::Inline { .. } if self.is_doctest => {
                     if should_print {
                         elog!(
                             "{}",
@@ -623,10 +661,12 @@ impl<'a> SnapshotAssertionContext<'a> {
                                 .bold(),
                         );
                     }
-                } else {
+                }
+                SnapshotDestination::Inline {
+                    pending_snapshots_file,
+                } => {
                     // Inline snapshot - use pending directory if set
-                    let pending_path = self.pending_snapshots_path.as_ref().unwrap();
-                    let target_path = pending_snapshot_path(self.workspace, pending_path);
+                    let target_path = pending_snapshot_path(self.workspace, pending_snapshots_file);
                     PendingInlineSnapshot::new(
                         Some(new_snapshot),
                         self.old_snapshot.clone(),
@@ -634,7 +674,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     )
                     .save(&target_path)?;
                 }
-            }
+            },
             SnapshotUpdateBehavior::NoUpdate => {}
         }
 
@@ -646,7 +686,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         let mut printer =
             SnapshotPrinter::new(self.workspace, self.old_snapshot.as_ref(), new_snapshot);
         printer.set_line(Some(self.assertion_line));
-        printer.set_snapshot_file(self.snapshot_file.as_deref());
+        printer.set_snapshot_file(self.destination.snapshot_file());
         printer.set_title(Some("Snapshot Summary"));
         printer.set_show_info(true);
         match self.tool_config.output_behavior() {
@@ -688,10 +728,10 @@ impl<'a> SnapshotAssertionContext<'a> {
         {
             // `INSTA_UPDATE=always` only bypasses review for file snapshots;
             // inline snapshots always go through a pending file.
-            let hint = if self.snapshot_file.is_some() {
-                "To update snapshots run `cargo insta review` or set `INSTA_UPDATE=always`"
-            } else {
+            let hint = if self.destination.is_inline() {
                 "To update snapshots run `cargo insta review`"
+            } else {
+                "To update snapshots run `cargo insta review` or set `INSTA_UPDATE=always`"
             };
             println!("{hint}", hint = style(hint).dim());
         }
@@ -716,7 +756,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     glob_collector.failed += 1;
                     if update_result == SnapshotUpdateBehavior::NewFile
                         && self.tool_config.output_behavior() != OutputBehavior::Nothing
-                        && self.snapshot_file.is_some()
+                        && !self.destination.is_inline()
                     {
                         glob_collector.show_insta_hint = true;
                     }
@@ -813,7 +853,7 @@ fn record_snapshot_duplicate(
             println!("Snapshots in allow-duplicates block do not match.");
             let mut printer = SnapshotPrinter::new(ctx.workspace, Some(prev_snapshot), snapshot);
             printer.set_line(Some(ctx.assertion_line));
-            printer.set_snapshot_file(ctx.snapshot_file.as_deref());
+            printer.set_snapshot_file(ctx.destination.snapshot_file());
             printer.set_title(Some("Differences in Block"));
             printer.set_snapshot_hints("previous assertion", "current assertion");
             if ctx.tool_config.output_behavior() == OutputBehavior::Diff {
@@ -894,10 +934,7 @@ pub fn assert_snapshot(
             #[cfg(feature = "filters")]
             let content = Settings::with(|settings| settings.filters().apply_to(&content));
 
-            let kind = match ctx.snapshot_file {
-                Some(_) => TextSnapshotKind::File,
-                None => TextSnapshotKind::Inline,
-            };
+            let kind = ctx.destination.text_kind();
 
             TextSnapshotContents::new(content.into(), kind).into()
         }
@@ -920,7 +957,7 @@ pub fn assert_snapshot(
     let new_snapshot = ctx.new_snapshot(content, expr);
 
     // memoize the snapshot file if requested, as part of potentially removing unreferenced snapshots
-    if let Some(ref snapshot_file) = ctx.snapshot_file {
+    if let Some(snapshot_file) = ctx.destination.snapshot_file() {
         memoize_snapshot_file(snapshot_file);
     }
 
