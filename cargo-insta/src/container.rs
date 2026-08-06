@@ -45,18 +45,30 @@ impl PendingSnapshot {
     }
 }
 
+#[derive(Debug, Clone)]
+enum SnapshotContainerDestination {
+    ManagedFile {
+        // Path of the pending snapshot file (generally a `.snap.new` file)
+        pending_path: PathBuf,
+        // Path of the target snapshot file (generally a `.snap` file)
+        target_path: PathBuf,
+    },
+    Inline {
+        // Path of the pending snapshot file (a `.pending-snap` file)
+        pending_path: PathBuf,
+        // Path of the target Rust source file
+        target_path: PathBuf,
+        patcher: Option<FilePatcher>,
+    },
+}
+
 /// A snapshot and its immediate context, which loads & saves the snapshot. It
 /// holds either a single file snapshot, or all the inline snapshots from a
 /// single rust file.
 #[derive(Debug, Clone)]
 pub(crate) struct SnapshotContainer {
-    // Path of the pending snapshot file (generally a `.snap.new` or `.pending-snap` file)
-    pending_path: PathBuf,
-    // Path of the target snapshot file (generally a `.snap` file)
-    target_path: PathBuf,
-    kind: TextSnapshotKind,
+    destination: SnapshotContainerDestination,
     snapshots: Vec<PendingSnapshot>,
-    patcher: Option<FilePatcher>,
 }
 
 impl SnapshotContainer {
@@ -66,7 +78,7 @@ impl SnapshotContainer {
         kind: TextSnapshotKind,
     ) -> Result<SnapshotContainer, Box<dyn Error>> {
         let mut snapshots = Vec::new();
-        let patcher = match kind {
+        let destination = match kind {
             TextSnapshotKind::File => {
                 let old = if fs::metadata(&target_path).is_err() {
                     None
@@ -81,13 +93,16 @@ impl SnapshotContainer {
                     op: Operation::Skip,
                     line: None,
                 });
-                None
+                SnapshotContainerDestination::ManagedFile {
+                    pending_path,
+                    target_path,
+                }
             }
             TextSnapshotKind::Inline => {
                 let mut pending_vec = PendingInlineSnapshot::load_batch(&pending_path)?;
                 let mut have_new = false;
 
-                let rv = if fs::metadata(&target_path).is_ok() {
+                let patcher = if fs::metadata(&target_path).is_ok() {
                     let mut patcher = FilePatcher::open(&target_path)?;
                     pending_vec.sort_by_key(|pending| pending.line);
                     for (id, pending) in pending_vec.into_iter().enumerate() {
@@ -120,33 +135,40 @@ impl SnapshotContainer {
                         .map_err(|e| ContentError::FileIo(e, pending_path.to_path_buf()))?;
                 }
 
-                rv
+                SnapshotContainerDestination::Inline {
+                    pending_path,
+                    target_path,
+                    patcher,
+                }
             }
         };
 
         Ok(SnapshotContainer {
-            pending_path,
-            target_path,
-            kind,
+            destination,
             snapshots,
-            patcher,
         })
     }
 
     pub(crate) fn target_file(&self) -> &Path {
-        &self.target_path
+        match &self.destination {
+            SnapshotContainerDestination::ManagedFile { target_path, .. }
+            | SnapshotContainerDestination::Inline { target_path, .. } => target_path,
+        }
     }
 
     pub(crate) fn snapshot_file(&self) -> Option<&Path> {
-        match self.kind {
-            TextSnapshotKind::File => Some(&self.target_path),
-            TextSnapshotKind::Inline => None,
+        match &self.destination {
+            SnapshotContainerDestination::ManagedFile { target_path, .. } => Some(target_path),
+            SnapshotContainerDestination::Inline { .. } => None,
         }
     }
 
     pub(crate) fn snapshot_sort_key(&self) -> impl Ord + '_ {
-        let path = self
-            .pending_path
+        let pending_path = match &self.destination {
+            SnapshotContainerDestination::ManagedFile { pending_path, .. }
+            | SnapshotContainerDestination::Inline { pending_path, .. } => pending_path,
+        };
+        let path = pending_path
             .file_name()
             .and_then(|x| x.to_str())
             .unwrap_or_default();
@@ -178,73 +200,92 @@ impl SnapshotContainer {
                 });
         };
 
-        if let Some(ref mut patcher) = self.patcher {
-            let mut new_pending = vec![];
-            let mut did_accept = false;
-            let mut did_skip = false;
+        match &mut self.destination {
+            SnapshotContainerDestination::Inline {
+                pending_path,
+                patcher: Some(patcher),
+                ..
+            } => {
+                let mut new_pending = vec![];
+                let mut did_accept = false;
+                let mut did_skip = false;
 
-            for (idx, snapshot) in self.snapshots.iter().enumerate() {
-                match snapshot.op {
-                    Operation::Accept | Operation::AcceptAll => {
-                        patcher.set_new_content(
-                            idx,
-                            match snapshot.new.contents() {
-                                SnapshotContents::Text(c) => c,
-                                _ => unreachable!(),
-                            },
-                        );
-                        did_accept = true;
-                    }
-                    Operation::Reject | Operation::RejectAll => {}
-                    Operation::Skip | Operation::SkipAll => {
-                        new_pending.push(PendingInlineSnapshot::new(
-                            Some(snapshot.new.clone()),
-                            snapshot.old.clone(),
-                            patcher.get_new_line(idx) as u32,
-                        ));
-                        did_skip = true;
+                for (idx, snapshot) in self.snapshots.iter().enumerate() {
+                    match snapshot.op {
+                        Operation::Accept | Operation::AcceptAll => {
+                            patcher.set_new_content(
+                                idx,
+                                match snapshot.new.contents() {
+                                    SnapshotContents::Text(c) => c,
+                                    _ => unreachable!(),
+                                },
+                            );
+                            did_accept = true;
+                        }
+                        Operation::Reject | Operation::RejectAll => {}
+                        Operation::Skip | Operation::SkipAll => {
+                            new_pending.push(PendingInlineSnapshot::new(
+                                Some(snapshot.new.clone()),
+                                snapshot.old.clone(),
+                                patcher.get_new_line(idx) as u32,
+                            ));
+                            did_skip = true;
+                        }
                     }
                 }
-            }
 
-            if did_accept {
-                patcher.save()?;
+                if did_accept {
+                    patcher.save()?;
+                }
+                if did_skip {
+                    PendingInlineSnapshot::save_batch(pending_path, &new_pending)?;
+                } else {
+                    try_removing_snapshot(pending_path);
+                }
             }
-            if did_skip {
-                PendingInlineSnapshot::save_batch(&self.pending_path, &new_pending)?;
-            } else {
-                try_removing_snapshot(&self.pending_path);
+            SnapshotContainerDestination::ManagedFile {
+                pending_path,
+                target_path,
             }
-        } else {
-            // should only be one or this is weird
-            debug_assert!(self.snapshots.len() == 1);
-            for snapshot in self.snapshots.iter() {
-                match snapshot.op {
-                    Operation::Accept | Operation::AcceptAll => {
-                        try_removing_snapshot(&self.pending_path);
+            | SnapshotContainerDestination::Inline {
+                pending_path,
+                target_path,
+                patcher: None,
+            } => {
+                // should only be one or this is weird
+                debug_assert!(self.snapshots.len() == 1);
+                for snapshot in self.snapshots.iter() {
+                    match snapshot.op {
+                        Operation::Accept | Operation::AcceptAll => {
+                            try_removing_snapshot(pending_path);
 
-                        if let Some(ref old) = snapshot.old {
-                            if let Some(path) = old.build_binary_path(&self.target_path) {
+                            if let Some(ref old) = snapshot.old {
+                                if let Some(path) = old.build_binary_path(target_path.as_path()) {
+                                    try_removing_snapshot(&path);
+                                }
+                            }
+
+                            if let Some(path) =
+                                snapshot.new.build_binary_path(pending_path.as_path())
+                            {
+                                try_removing_snapshot(&path);
+                            }
+
+                            // We save at the end because we might write a binary file into the same
+                            // path again.
+                            snapshot.new.save(target_path)?;
+                        }
+                        Operation::Reject | Operation::RejectAll => {
+                            try_removing_snapshot(pending_path);
+
+                            if let Some(path) =
+                                snapshot.new.build_binary_path(pending_path.as_path())
+                            {
                                 try_removing_snapshot(&path);
                             }
                         }
-
-                        if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
-                            try_removing_snapshot(&path);
-                        }
-
-                        // We save at the end because we might write a binary file into the same
-                        // path again.
-                        snapshot.new.save(&self.target_path)?;
+                        Operation::Skip | Operation::SkipAll => {}
                     }
-                    Operation::Reject | Operation::RejectAll => {
-                        try_removing_snapshot(&self.pending_path);
-
-                        if let Some(path) = snapshot.new.build_binary_path(&self.pending_path) {
-                            try_removing_snapshot(&path);
-                        }
-                    }
-                    Operation::Skip | Operation::SkipAll => {}
                 }
             }
         }
