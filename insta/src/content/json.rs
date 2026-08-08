@@ -160,6 +160,8 @@ impl Serializer {
                     let real_key = key.resolve_inner();
                     if let Content::String(ref s) = real_key {
                         self.write_escaped_str(s);
+                    } else if let Content::UnitVariant(_, _, variant) = real_key {
+                        self.write_escaped_str(variant);
                     } else if let Some(num) = real_key.as_i64() {
                         self.write_escaped_str(&num.to_string());
                     } else if let Some(num) = real_key.as_i128() {
@@ -368,6 +370,21 @@ fn test_to_string_num_keys() {
     {
       "42": true,
       "-23": false
+    }
+    "#);
+}
+
+#[test]
+fn test_to_string_unit_variant_keys() {
+    let content = Content::Map(vec![
+        (Content::UnitVariant("MyEnum", 0, "A"), Content::from(true)),
+        (Content::UnitVariant("MyEnum", 1, "B"), Content::from(false)),
+    ]);
+    let json = to_string_pretty(&content);
+    crate::assert_snapshot!(&json, @r#"
+    {
+      "A": true,
+      "B": false
     }
     "#);
 }

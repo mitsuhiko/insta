@@ -102,6 +102,30 @@ fn test_u128_json() {
     assert_json_snapshot!(&x, @"36893488147419103230");
 }
 
+#[cfg(feature = "json")]
+#[test]
+fn test_enum_keyed_map_json() {
+    use serde::Serialize;
+    use std::collections::BTreeMap;
+
+    #[derive(Serialize, PartialEq, Eq, PartialOrd, Ord)]
+    #[serde(rename_all = "snake_case")]
+    enum MyEnum {
+        VariantA,
+        VariantB,
+    }
+
+    let mut map = BTreeMap::new();
+    map.insert(MyEnum::VariantA, true);
+    map.insert(MyEnum::VariantB, false);
+    assert_json_snapshot!(map, @r#"
+    {
+      "variant_a": true,
+      "variant_b": false
+    }
+    "#);
+}
+
 #[cfg(feature = "yaml")]
 #[test]
 fn insta_sort_order() {
