@@ -213,9 +213,11 @@ macro_rules! assert_json_snapshot {
 ///
 /// **Feature:** `json`
 ///
-/// This works exactly like [`assert_json_snapshot!`](crate::assert_json_snapshot!) but serializes into a single
-/// line for as long as the output is less than 120 characters.  This can be useful
-/// in cases where you are working with small result outputs but comes at the cost
+/// This works exactly like [`assert_json_snapshot!`](crate::assert_json_snapshot!) but keeps every
+/// array and object that fits within 120 characters on a single line.  Larger
+/// ones are expanded one element per line and the same rule is applied to their
+/// elements, so small nested values stay on one line.  This can be useful in
+/// cases where the fully expanded output is hard to read but comes at the cost
 /// of slightly worse diffing behavior.
 ///
 /// Example:

@@ -2,8 +2,8 @@ use std::fmt::{Display, Write};
 
 use crate::content::Content;
 
-/// The maximum number of characters to print in a single line
-/// when [`to_string_pretty`] is used.
+/// The maximum number of characters a line may have before a container is
+/// broken up when [`to_string_compact`] is used.
 const COMPACT_MAX_CHARS: usize = 120;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -11,6 +11,10 @@ pub enum Format {
     Condensed,
     SingleLine,
     Pretty,
+    /// Like [`Format::Pretty`], but any container that fits on the current
+    /// line within [`COMPACT_MAX_CHARS`] is written in [`Format::SingleLine`]
+    /// style instead of being expanded.
+    PrettyCompact,
 }
 
 /// Serializes a serializable to JSON.
@@ -35,7 +39,7 @@ impl Serializer {
     }
 
     fn write_indentation(&mut self) {
-        if self.format == Format::Pretty {
+        if self.is_pretty() {
             write!(self.out, "{: ^1$}", "", self.indentation * 2).unwrap();
         }
     }
@@ -47,7 +51,7 @@ impl Serializer {
 
     fn end_container(&mut self, c: char, empty: bool) {
         self.indentation -= 1;
-        if self.format == Format::Pretty && !empty {
+        if self.is_pretty() && !empty {
             self.write_char('\n');
             self.write_indentation();
         }
@@ -56,7 +60,7 @@ impl Serializer {
 
     fn write_comma(&mut self, first: bool) {
         match self.format {
-            Format::Pretty => {
+            Format::Pretty | Format::PrettyCompact => {
                 if first {
                     self.write_char('\n');
                 } else {
@@ -79,7 +83,7 @@ impl Serializer {
 
     fn write_colon(&mut self) {
         match self.format {
-            Format::Pretty | Format::SingleLine => self.write_str(": "),
+            Format::Pretty | Format::PrettyCompact | Format::SingleLine => self.write_str(": "),
             Format::Condensed => self.write_char(':'),
         }
     }
@@ -88,7 +92,7 @@ impl Serializer {
         self.start_container('[');
         for (idx, item) in items.iter().enumerate() {
             self.write_comma(idx == 0);
-            self.serialize(item);
+            self.serialize_reserved(item, trailing_comma(idx, items.len()));
         }
         self.end_container(']', items.is_empty());
     }
@@ -99,12 +103,25 @@ impl Serializer {
             self.write_comma(idx == 0);
             self.write_escaped_str(key);
             self.write_colon();
-            self.serialize(value);
+            self.serialize_reserved(value, trailing_comma(idx, fields.len()));
         }
         self.end_container('}', fields.is_empty());
     }
 
     pub fn serialize(&mut self, value: &Content) {
+        self.serialize_reserved(value, 0);
+    }
+
+    /// Serializes `value`, where `reserved` is the number of characters that
+    /// will follow it on the same line (the trailing comma of an expanded
+    /// container).  This only matters for [`Format::PrettyCompact`].
+    fn serialize_reserved(&mut self, value: &Content, reserved: usize) {
+        if self.format == Format::PrettyCompact && is_container(value) {
+            if let Some(line) = self.try_single_line(value, reserved) {
+                self.write_str(&line);
+                return;
+            }
+        }
         match value {
             Content::Bool(true) => self.write_str("true"),
             Content::Bool(false) => self.write_str("false"),
@@ -131,9 +148,9 @@ impl Serializer {
                 self.end_container(']', bytes.is_empty());
             }
             Content::None | Content::Unit | Content::UnitStruct(_) => self.write_str("null"),
-            Content::Some(content) => self.serialize(content),
+            Content::Some(content) => self.serialize_reserved(content, reserved),
             Content::UnitVariant(_, _, variant) => self.write_escaped_str(variant),
-            Content::NewtypeStruct(_, content) => self.serialize(content),
+            Content::NewtypeStruct(_, content) => self.serialize_reserved(content, reserved),
             Content::NewtypeVariant(_, _, variant, content) => {
                 self.start_container('{');
                 self.write_comma(true);
@@ -170,7 +187,7 @@ impl Serializer {
                         panic!("cannot serialize maps without string keys to JSON");
                     }
                     self.write_colon();
-                    self.serialize(value);
+                    self.serialize_reserved(value, trailing_comma(idx, map.len()));
                 }
                 self.end_container('}', map.is_empty());
             }
@@ -198,6 +215,32 @@ impl Serializer {
             }
         } else {
             self.write_str("null");
+        }
+    }
+
+    /// Returns true if the output is laid out over multiple indented lines.
+    fn is_pretty(&self) -> bool {
+        matches!(self.format, Format::Pretty | Format::PrettyCompact)
+    }
+
+    /// The number of characters already written to the current line.
+    fn current_column(&self) -> usize {
+        let line_start = self.out.rfind('\n').map_or(0, |idx| idx + 1);
+        self.out[line_start..].chars().count()
+    }
+
+    /// Renders `value` in [`Format::SingleLine`] style and returns it if that
+    /// fits on the current line within [`COMPACT_MAX_CHARS`], counting the
+    /// `reserved` characters that follow it.
+    fn try_single_line(&self, value: &Content, reserved: usize) -> Option<String> {
+        let mut ser = Serializer::new();
+        ser.format = Format::SingleLine;
+        ser.serialize(value);
+        let line = ser.into_result();
+        if self.current_column() + line.chars().count() + reserved <= COMPACT_MAX_CHARS {
+            Some(line)
+        } else {
+            None
         }
     }
 
@@ -253,6 +296,33 @@ impl Serializer {
     }
 }
 
+/// The number of characters a trailing comma takes up after the item at
+/// `idx` in a container of `len` items.
+fn trailing_comma(idx: usize, len: usize) -> usize {
+    if idx + 1 < len {
+        1
+    } else {
+        0
+    }
+}
+
+/// Returns true if `value` serializes to a JSON array or object.  `Some` and
+/// newtype structs are transparent and left to their inner value.
+fn is_container(value: &Content) -> bool {
+    matches!(
+        value,
+        Content::Bytes(_)
+            | Content::Seq(_)
+            | Content::Tuple(_)
+            | Content::TupleStruct(_, _)
+            | Content::TupleVariant(_, _, _, _)
+            | Content::NewtypeVariant(_, _, _, _)
+            | Content::Map(_)
+            | Content::Struct(_, _)
+            | Content::StructVariant(_, _, _, _)
+    )
+}
+
 const BB: u8 = b'b'; // \x08
 const TT: u8 = b't'; // \x09
 const NN: u8 = b'n'; // \x0A
@@ -292,21 +362,21 @@ pub fn to_string(value: &Content) -> String {
     ser.into_result()
 }
 
-/// Serializes a value to JSON in single-line format.
+/// Serializes a value to JSON in a compact pretty format.
+///
+/// Every array or object that fits on the current line within
+/// [`COMPACT_MAX_CHARS`] is written on a single line.  Anything larger is
+/// expanded one element per line, as in [`to_string_pretty`], and the same
+/// rule is then applied to each element.  As a result a value that fits on
+/// one line is written exactly as before, and a value that does not is
+/// written like [`to_string_pretty`] except that its small nested values
+/// stay on one line.
 #[allow(unused)]
 pub fn to_string_compact(value: &Content) -> String {
     let mut ser = Serializer::new();
-    ser.format = Format::SingleLine;
+    ser.format = Format::PrettyCompact;
     ser.serialize(value);
-    let rv = ser.into_result();
-    // this is pretty wasteful as we just format twice
-    // but it's acceptable for the way this is used in
-    // insta.
-    if rv.chars().count() > COMPACT_MAX_CHARS {
-        to_string_pretty(value)
-    } else {
-        rv
-    }
+    ser.into_result()
 }
 
 /// Serializes a value to JSON pretty
@@ -356,6 +426,131 @@ fn test_to_string_pretty() {
       "cmdline": [],
       "extra": {}
     }
+    "#);
+}
+
+#[test]
+fn test_to_string_compact() {
+    let content = Content::Map(vec![
+        (
+            Content::from("pos"),
+            Content::Seq(vec![0u32.into(), 14134u32.into()]),
+        ),
+        (Content::from("rule"), Content::from("file")),
+    ]);
+    crate::assert_snapshot!(to_string_compact(&content), @r#"{"pos": [0, 14134], "rule": "file"}"#);
+}
+
+#[test]
+fn test_to_string_compact_nested() {
+    let pair = |rule: &str| {
+        Content::Struct(
+            "Pair",
+            vec![
+                ("pos", Content::Seq(vec![0u32.into(), 14134u32.into()])),
+                ("rule", Content::String(rule.to_string())),
+            ],
+        )
+    };
+    let content = Content::Struct(
+        "File",
+        vec![
+            ("pos", Content::Seq(vec![0u32.into(), 14134u32.into()])),
+            (
+                "pairs",
+                Content::Seq(vec![
+                    pair("file"),
+                    pair("version"),
+                    pair("new_symbols"),
+                    pair("bit_timing"),
+                    pair("nodes"),
+                    pair("value_tables"),
+                ]),
+            ),
+            ("empty_array", Content::Seq(vec![])),
+            ("empty_object", Content::Map(vec![])),
+            ("bytes", Content::Bytes(b"hehe".to_vec())),
+            (
+                "some",
+                Content::Some(Box::new(Content::Seq(vec![1u32.into(), 2u32.into()]))),
+            ),
+            (
+                "newtype_variant",
+                Content::NewtypeVariant(
+                    "Enum",
+                    0,
+                    "variant_a",
+                    Box::new(Content::Struct(
+                        "Inner",
+                        vec![("a", 1u32.into()), ("b", Content::None)],
+                    )),
+                ),
+            ),
+            (
+                "tuple_variant",
+                Content::TupleVariant(
+                    "Enum",
+                    1,
+                    "variant_b",
+                    vec![Content::from("a"), 1u32.into()],
+                ),
+            ),
+            (
+                "struct_variant",
+                Content::StructVariant("Enum", 2, "variant_c", vec![("x", 1u32.into())]),
+            ),
+        ],
+    );
+    crate::assert_snapshot!(to_string_compact(&content), @r#"
+    {
+      "pos": [0, 14134],
+      "pairs": [
+        {"pos": [0, 14134], "rule": "file"},
+        {"pos": [0, 14134], "rule": "version"},
+        {"pos": [0, 14134], "rule": "new_symbols"},
+        {"pos": [0, 14134], "rule": "bit_timing"},
+        {"pos": [0, 14134], "rule": "nodes"},
+        {"pos": [0, 14134], "rule": "value_tables"}
+      ],
+      "empty_array": [],
+      "empty_object": {},
+      "bytes": [104, 101, 104, 101],
+      "some": [1, 2],
+      "newtype_variant": {"variant_a": {"a": 1, "b": null}},
+      "tuple_variant": {"variant_b": ["a", 1]},
+      "struct_variant": {"variant_c": {"x": 1}}
+    }
+    "#);
+}
+
+#[test]
+fn test_to_string_compact_line_width() {
+    // 24 one-character strings render to exactly 120 characters, which fits
+    // on one line.  One more and the array is expanded like the pretty format.
+    let fits = Content::Seq((0..24).map(|_| Content::from("a")).collect());
+    let line = to_string_compact(&fits);
+    assert_eq!(line.chars().count(), COMPACT_MAX_CHARS);
+    assert!(!line.contains('\n'));
+    let too_long = Content::Seq((0..25).map(|_| Content::from("a")).collect());
+    assert_eq!(to_string_compact(&too_long), to_string_pretty(&too_long));
+
+    // Inside an expanded container the indentation and the trailing comma
+    // count against the limit as well.  Both inner arrays render to 118
+    // characters: the first one has to leave room for its comma, the last
+    // one fits exactly.
+    let inner = || Content::Seq(vec![Content::from("x".repeat(114))]);
+    let content = Content::Seq(vec![inner(), inner()]);
+    let rendered = to_string_compact(&content);
+    for line in rendered.lines() {
+        assert!(line.chars().count() <= COMPACT_MAX_CHARS);
+    }
+    crate::assert_snapshot!(rendered, @r#"
+    [
+      [
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      ],
+      ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+    ]
     "#);
 }
 
