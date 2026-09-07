@@ -704,3 +704,70 @@ fn test_metadata_raw_info_no_redaction() {
         assert_yaml_snapshot!("metadata_raw_info_no_redaction", &vec![1, 2, 3]);
     });
 }
+
+#[cfg(all(feature = "yaml", feature = "redactions"))]
+#[test]
+fn test_sorted_redaction_nan_floats() {
+    let floats: Vec<f64> = vec![
+        1.0,
+        f64::NAN,
+        -2.5,
+        0.0,
+        f64::INFINITY,
+        -f64::INFINITY,
+        f64::NAN,
+        42.0,
+    ];
+
+    assert_yaml_snapshot!(
+        &floats,
+        {
+            "." => insta::sorted_redaction()
+        }
+    );
+}
+
+#[cfg(all(feature = "yaml", feature = "redactions"))]
+#[test]
+fn test_sorted_redaction_mixed_width_keys() {
+    #[derive(Serialize)]
+    #[serde(untagged)]
+    enum Mixed {
+        N(u8),
+        C(char),
+        B(u64),
+    }
+
+    let v = vec![Mixed::N(200), Mixed::C('a'), Mixed::B(5)];
+    assert_yaml_snapshot!(
+        &v,
+        {
+            "." => insta::sorted_redaction()
+        }
+    );
+}
+
+#[cfg(all(feature = "yaml", feature = "redactions"))]
+#[test]
+fn test_sorted_redaction_signed_mixed_width_keys() {
+    #[derive(Serialize)]
+    #[serde(untagged)]
+    enum SignedMixed {
+        N(i8),
+        B(i64),
+    }
+
+    let v = vec![
+        SignedMixed::B(100),
+        SignedMixed::N(-50),
+        SignedMixed::B(0),
+        SignedMixed::N(12),
+        SignedMixed::B(-1000),
+    ];
+    assert_yaml_snapshot!(
+        &v,
+        {
+            "." => insta::sorted_redaction()
+        }
+    );
+}

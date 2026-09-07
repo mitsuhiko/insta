@@ -78,10 +78,12 @@ impl Content {
         match *self.resolve_inner() {
             Content::Bool(val) => Key::Bool(val),
             Content::Char(val) => Key::U64(val as u64),
+            Content::U8(val) => Key::U64(val.into()),
             Content::U16(val) => Key::U64(val.into()),
             Content::U32(val) => Key::U64(val.into()),
             Content::U64(val) => Key::U64(val),
             Content::U128(val) => Key::U128(val),
+            Content::I8(val) => Key::I64(val.into()),
             Content::I16(val) => Key::I64(val.into()),
             Content::I32(val) => Key::I64(val.into()),
             Content::I64(val) => Key::I64(val),
