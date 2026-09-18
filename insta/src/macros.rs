@@ -344,11 +344,12 @@ macro_rules! assert_compact_debug_snapshot {
 // This macro handles optional trailing commas.
 #[doc(hidden)]
 #[macro_export]
-macro_rules! _assert_snapshot_base {
+macro_rules! _snapshot_base {
     // If there's an inline literal value, wrap the literal in a
     // `ReferenceValue::Inline`, call self.
-    (transform=$transform:expr, $($arg:expr),*, @$snapshot:literal $(,)?) => {
-        $crate::_assert_snapshot_base!(
+    (func=$func:ident, transform=$transform:expr, $($arg:expr),*, @$snapshot:literal $(,)?) => {
+        $crate::_snapshot_base!(
+            func = $func,
             transform = $transform,
             #[allow(clippy::needless_raw_string_hashes)]
             $crate::_macro_support::InlineValue($snapshot),
@@ -356,21 +357,27 @@ macro_rules! _assert_snapshot_base {
         )
     };
     // If there's no debug_expr, use the stringified value, call self.
-    (transform=$transform:expr, $name:expr, $value:expr $(,)?) => {
-        $crate::_assert_snapshot_base!(transform = $transform, $name, $value, stringify!($value))
+    (func=$func:ident, transform=$transform:expr, $name:expr, $value:expr $(,)?) => {
+        $crate::_snapshot_base!(func = $func, transform = $transform, $name, $value, stringify!($value))
     };
     // If there's no name (and necessarily no debug expr), auto generate the
     // name, call self.
-    (transform=$transform:expr, $value:expr $(,)?) => {
-        $crate::_assert_snapshot_base!(
+    (func=$func:ident, transform=$transform:expr, $value:expr $(,)?) => {
+        $crate::_snapshot_base!(
+            func = $func,
             transform = $transform,
             $crate::_macro_support::AutoName,
             $value
         )
     };
     // The main macro body — every call to this macro should end up here.
-    (transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
-        $crate::_macro_support::assert_snapshot(
+    //
+    // `$func` selects the runtime function (`assert_snapshot` or
+    // `matches_snapshot`). Returns its `Result` without `.unwrap()`ing, so the
+    // asserting variant can panic on it while the non-asserting variant can
+    // inspect it.
+    (func=$func:ident, transform=$transform:expr, $name:expr, $value:expr, $debug_expr:expr $(,)?) => {
+        $crate::_macro_support::$func(
             (
                 $name,
                 #[allow(clippy::redundant_closure_call)]
@@ -383,7 +390,19 @@ macro_rules! _assert_snapshot_base {
             $crate::_macro_support::line!(),
             $debug_expr,
         )
-        .unwrap()
+    };
+}
+
+// The asserting flavor of [`_snapshot_base!`]: run the snapshot operation and
+// `.unwrap()` the result, panicking on mismatch (the pre-existing behavior of
+// every `assert_*_snapshot!` macro). Kept as a named wrapper so the asserting
+// call sites read exactly as before.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _assert_snapshot_base {
+    ($($arg:tt)*) => {
+        $crate::_snapshot_base!(func = assert_snapshot, $($arg)*)
+            .unwrap()
     };
 }
 
@@ -463,6 +482,45 @@ macro_rules! assert_display_snapshot {
 macro_rules! assert_snapshot {
     ($($arg:tt)*) => {
         $crate::_assert_snapshot_base!(transform=|v| $crate::_macro_support::format!("{}", v), $($arg)*)
+    };
+}
+
+/// Check whether a value matches its stored snapshot, returning a `bool`
+/// verdict instead of panicking.
+///
+/// This is the non-asserting counterpart of
+/// [`assert_snapshot!`](crate::assert_snapshot!): it accepts the same calling
+/// forms (named, auto-named, inline `@"…"`) and applies the current bound
+/// [`Settings`](crate::Settings) (filters, redactions) before comparing,
+/// exactly as [`assert_snapshot!`](crate::assert_snapshot!) would — but it
+/// never writes a `.snap.new` file or panics.
+///
+/// Returns `Result<bool, Box<dyn std::error::Error>>`:
+/// - `Ok(true)` — the value matches its reference.
+/// - `Ok(false)` — the value does not match, or no reference snapshot exists
+///   yet. A reference file that exists but cannot be parsed is treated the
+///   same way (no warning — unlike `assert_snapshot!`, this macro regenerates
+///   nothing).
+/// - `Err` — an invalid binary file extension (`.new` / a `new.` prefix) was
+///   given.
+///
+/// Unlike [`assert_snapshot!`](crate::assert_snapshot!), this macro does not
+/// participate in inline-duplicate detection, so it is safe to call inside a
+/// loop with any calling form — including inline `@"…"`.
+///
+/// ```no_run
+/// # use insta::matches_snapshot;
+/// // Ok(true) on match, Ok(false) on mismatch; unwrap_or(false) for polling
+/// let _matches: bool = matches_snapshot!("snapshot_name", "value").unwrap_or(false);
+/// ```
+#[macro_export]
+macro_rules! matches_snapshot {
+    ($($arg:tt)*) => {
+        $crate::_snapshot_base!(
+            func = matches_snapshot,
+            transform = |v| $crate::_macro_support::format!("{}", v),
+            $($arg)*
+        )
     };
 }
 
