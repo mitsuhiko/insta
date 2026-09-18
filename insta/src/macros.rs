@@ -466,6 +466,38 @@ macro_rules! assert_snapshot {
     };
 }
 
+/// Asserts a text snapshot stored in a plain external file.
+///
+/// The first argument is the target path. Relative paths resolve from the
+/// source file containing the assertion. The target contains only the
+/// normalized snapshot text, without Insta metadata.
+///
+/// ```no_run
+/// insta::assert_file_snapshot!("output.txt", "generated output");
+/// ```
+#[macro_export]
+macro_rules! assert_file_snapshot {
+    ($path:expr, $value:expr $(,)?) => {
+        $crate::assert_file_snapshot!($path, $value, stringify!($value));
+    };
+
+    ($path:expr, $value:expr, $debug_expr:expr $(,)?) => {
+        $crate::_macro_support::assert_snapshot(
+            $crate::_macro_support::SnapshotValue::external_file(
+                &$path,
+                $crate::_macro_support::format!("{}", &$value).as_str(),
+            ),
+            $crate::_get_workspace_root!().as_path(),
+            $crate::_function_name!(),
+            $crate::_macro_support::module_path!(),
+            $crate::_macro_support::file!(),
+            $crate::_macro_support::line!(),
+            $debug_expr,
+        )
+        .unwrap()
+    };
+}
+
 /// Settings configuration macro.
 ///
 /// This macro lets you bind some [`Settings`](crate::Settings) temporarily.  The first argument

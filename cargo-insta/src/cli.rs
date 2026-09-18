@@ -631,9 +631,13 @@ fn load_snapshot_containers<'a>(
             };
 
             roots.insert(search_root.clone());
-            for snapshot_container in
-                find_pending_snapshots(&search_root, &target_root, &loc.exts, loc.find_flags)
-            {
+            for snapshot_container in find_pending_snapshots(
+                &loc.workspace_root,
+                &search_root,
+                &target_root,
+                &loc.exts,
+                loc.find_flags,
+            ) {
                 snapshot_containers.push((snapshot_container?, package));
             }
         }
