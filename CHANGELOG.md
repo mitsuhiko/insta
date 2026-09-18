@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- `assert_compact_json_snapshot!` now keeps every array and object that fits within 120 characters on a single line and expands only the ones that do not, instead of switching the whole snapshot to the fully expanded format once it exceeds 120 characters. Snapshots that already fit on one line are unchanged; larger nested snapshots are rendered more compactly and need to be reviewed once. #805
+
 ## 1.48.0
 
 - Add `strip_ansi_escape_codes` setting which removes ANSI escape sequences

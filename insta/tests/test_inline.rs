@@ -241,6 +241,45 @@ fn test_multiline_with_empty_lines() {
 
 #[cfg(feature = "json")]
 #[test]
+fn test_compact_json_nested() {
+    #[derive(serde::Serialize)]
+    struct Pair {
+        pos: (u32, u32),
+        rule: &'static str,
+    }
+
+    #[derive(serde::Serialize)]
+    struct File {
+        pos: (u32, u32),
+        pairs: Vec<Pair>,
+    }
+
+    let file = File {
+        pos: (0, 14134),
+        pairs: ["file", "version", "new_symbols", "bit_timing", "nodes"]
+            .iter()
+            .map(|rule| Pair {
+                pos: (0, 14134),
+                rule,
+            })
+            .collect(),
+    };
+    assert_compact_json_snapshot!(file, @r#"
+    {
+      "pos": [0, 14134],
+      "pairs": [
+        {"pos": [0, 14134], "rule": "file"},
+        {"pos": [0, 14134], "rule": "version"},
+        {"pos": [0, 14134], "rule": "new_symbols"},
+        {"pos": [0, 14134], "rule": "bit_timing"},
+        {"pos": [0, 14134], "rule": "nodes"}
+      ]
+    }
+    "#);
+}
+
+#[cfg(feature = "json")]
+#[test]
 fn test_compact_json() {
     assert_compact_json_snapshot!((1..30).collect::<Vec<_>>(), @"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]");
     assert_compact_json_snapshot!((1..34).collect::<Vec<_>>(), @"
