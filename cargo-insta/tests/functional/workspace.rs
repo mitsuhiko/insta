@@ -730,6 +730,7 @@ fn test_hello() {
     expression: hello()
     ---
     Hello, world!
+    ---
     "#);
 }
 
