@@ -1428,6 +1428,9 @@ fn prepare_test_runner<'snapshot_ref>(
     }
     if cmd.test_runner_options.all_targets {
         proc.arg("--all-targets");
+        // `--all-targets` doesn't include doctests, and cargo rejects it
+        // alongside `--doc`
+        prevents_doc_run = true;
     }
     if let Some(n) = cmd.test_runner_options.jobs {
         // use -j instead of --jobs since both nextest and cargo test use it

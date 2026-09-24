@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Fix `cargo insta test --all-targets --test-runner nextest` failing with
+  "Can't mix --doc with other target selecting options". Like `cargo test
+  --all-targets`, it no longer runs doctests. #460
+
 ## 1.48.0
 
 - Add `strip_ansi_escape_codes` setting which removes ANSI escape sequences
