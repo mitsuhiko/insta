@@ -38,7 +38,8 @@ You can also manually download the binaries here:
 
 - [aarch64-apple-darwin](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-aarch64-apple-darwin.tar.xz) (Apple Silicon macOS)
 - [x86_64-apple-darwin](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-apple-darwin.tar.xz) (Intel macOS)
-- [x86_64-pc-windows-msvc](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-pc-widows-msvc.zip) (x64 Windows)
+- [x86_64-pc-windows-msvc](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-pc-windows-msvc.zip) (x64 Windows)
+- [aarch64-unknown-linux-gnu](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-aarch64-unknown-linux-gnu.tar.xz) (ARM64 Linux, GNU)
 - [x86_64-unknown-linux-gnu](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-unknown-linux-gnu.tar.xz) (x64 Linux, GNU)
 - [x86_64-unknown-linux-musl](https://github.com/mitsuhiko/insta/releases/latest/download/cargo-insta-x86_64-unknown-linux-musl.tar.xz) (x64 Linux, MUSL)
 
