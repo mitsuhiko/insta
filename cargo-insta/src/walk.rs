@@ -48,6 +48,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 /// (e.g., Bazel's output directory) while the source tree remains read-only. The structure
 /// is preserved, so we can map back: `pending_root/relative/path` → `target_root/relative/path`.
 pub(crate) fn find_pending_snapshots<'a>(
+    workspace_root: &'a Path,
     pending_root: &'a Path,
     target_root: &'a Path,
     extensions: &'a [&'a str],
@@ -55,6 +56,7 @@ pub(crate) fn find_pending_snapshots<'a>(
 ) -> impl Iterator<Item = Result<SnapshotContainer, Box<dyn Error>>> + 'a {
     let pending_root_owned = pending_root.to_path_buf();
     let target_root_owned = target_root.to_path_buf();
+    let workspace_root_owned = workspace_root.to_path_buf();
     make_snapshot_walker(pending_root, extensions, flags)
         .filter_map(Result::ok)
         .filter_map(move |entry| {
@@ -72,6 +74,7 @@ pub(crate) fn find_pending_snapshots<'a>(
             if let Some(new_fname) = fname.strip_suffix(".new") {
                 let target_path = compute_target(new_fname)?;
                 Some(SnapshotContainer::load(
+                    &workspace_root_owned,
                     pending_path,
                     target_path,
                     TextSnapshotKind::File,
@@ -82,6 +85,7 @@ pub(crate) fn find_pending_snapshots<'a>(
             {
                 let target_path = compute_target(new_fname)?;
                 Some(SnapshotContainer::load(
+                    &workspace_root_owned,
                     pending_path,
                     target_path,
                     TextSnapshotKind::Inline,
