@@ -69,7 +69,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-insta"
-version = "1.48.0"
+version = "1.49.0"
 dependencies = [
  "cargo_metadata",
  "clap",
@@ -389,7 +389,7 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.48.0"
+version = "1.49.0"
 dependencies = [
  "clap",
  "console 0.16.0",
