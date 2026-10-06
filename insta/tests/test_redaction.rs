@@ -578,6 +578,57 @@ fn test_ordering_newtype_set() {
 
 #[cfg(feature = "json")]
 #[test]
+fn test_sorted_redaction_runs_after_other_redactions() {
+    #[derive(Serialize)]
+    pub struct Row {
+        a: bool,
+        z: u32,
+    }
+
+    // The sorted order must not depend on `a`, which is redacted, even when
+    // the sort is listed first.
+    for (a1, a2) in [(true, false), (false, true)] {
+        insta::allow_duplicates! {
+            let rows = vec![Row { a: a1, z: 1 }, Row { a: a2, z: 2 }];
+            assert_json_snapshot!(rows, {
+                "." => insta::sorted_redaction(),
+                "[].a" => "[redacted]",
+            }, @r#"
+            [
+              {
+                "a": "[redacted]",
+                "z": 1
+              },
+              {
+                "a": "[redacted]",
+                "z": 2
+              }
+            ]
+            "#);
+
+            let mut settings = insta::Settings::new();
+            settings.add_redaction(".", insta::sorted_redaction());
+            settings.add_redaction("[].a", "[redacted]");
+            settings.bind(|| {
+                assert_json_snapshot!(rows, @r#"
+                [
+                  {
+                    "a": "[redacted]",
+                    "z": 1
+                  },
+                  {
+                    "a": "[redacted]",
+                    "z": 2
+                  }
+                ]
+                "#);
+            });
+        }
+    }
+}
+
+#[cfg(feature = "json")]
+#[test]
 fn test_rounded_redaction() {
     #[derive(Debug, Serialize)]
     pub struct MyPoint {

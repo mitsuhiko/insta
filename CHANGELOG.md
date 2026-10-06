@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- `sorted_redaction()` now runs after all other redactions, so the sorted
+  order no longer depends on values that another redaction replaces, whatever
+  order the redactions are listed in. #683
+
 ## 1.49.0
 
 - Allow `Option<&OsStr>` snapshot names, such as `Path::file_name()`,
