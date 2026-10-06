@@ -2,6 +2,15 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Make `glob!` failures say what was searched. When nothing matches, the
+  panic shows the pattern and the resolved base directory, and notes when
+  that directory does not exist. An invalid pattern or an error while walking
+  the files gives a clear message instead of an `unwrap` panic. A missing
+  base directory or a walk error also no longer leaves `glob!` state behind,
+  which made later snapshot failures in the same test binary pass. #398
+
 ## 1.49.0
 
 - Allow `Option<&OsStr>` snapshot names, such as `Path::file_name()`,
