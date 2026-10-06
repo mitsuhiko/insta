@@ -50,27 +50,36 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
         return;
     }
 
-    let glob = GlobBuilder::new(pattern)
+    let glob = match GlobBuilder::new(pattern)
         .case_insensitive(true)
         .literal_separator(true)
         .build()
-        .unwrap()
-        .compile_matcher();
+    {
+        Ok(glob) => glob.compile_matcher(),
+        Err(err) => panic!(
+            "the glob! macro got an invalid pattern '{pattern}': {}",
+            err.kind()
+        ),
+    };
+
+    if !base.exists() {
+        panic_no_match(base, pattern);
+    }
 
     let walker = WalkDir::new(base).follow_links(true);
     let mut glob_found_matches = false;
-
-    GLOB_STACK.lock().unwrap().push(GlobCollector {
-        failed: 0,
-        show_insta_hint: false,
-        fail_fast: get_tool_config(workspace_dir).glob_fail_fast(),
-    });
 
     // step 1: collect all matching files
     let mut all_matching_files = vec![];
     let mut filtered_files = vec![];
     for file in walker {
-        let file = file.unwrap();
+        let file = match file {
+            Ok(file) => file,
+            Err(err) => panic!(
+                "the glob! macro failed while walking {}: {err}",
+                base.display()
+            ),
+        };
         let path = file.path();
         let stripped_path = path.strip_prefix(base).unwrap_or(path);
         if !glob.is_match(stripped_path) {
@@ -89,6 +98,10 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
         filtered_files.push(path.to_path_buf());
     }
 
+    if !glob_found_matches && !settings.allow_empty_glob() {
+        panic_no_match(base, pattern);
+    }
+
     // step 2: sort, determine common prefix and run assertions
     all_matching_files.sort();
     filtered_files.sort();
@@ -97,6 +110,13 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
     // This preserves the original snapshot naming when filtering
     let common_prefix = find_common_prefix(&all_matching_files);
     let matching_files = filtered_files;
+
+    GLOB_STACK.lock().unwrap().push(GlobCollector {
+        failed: 0,
+        show_insta_hint: false,
+        fail_fast: get_tool_config(workspace_dir).glob_fail_fast(),
+    });
+
     for path in &matching_files {
         settings.set_input_file(path);
 
@@ -117,9 +137,6 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
     }
 
     let top = GLOB_STACK.lock().unwrap().pop().unwrap();
-    if !glob_found_matches && !settings.allow_empty_glob() {
-        panic!("the glob! macro did not match any files.");
-    }
 
     if top.failed > 0 {
         if top.show_insta_hint {
@@ -145,6 +162,20 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
     }
 }
 
+fn panic_no_match(base: &Path, pattern: &str) -> ! {
+    let mut base_dir = base.display().to_string();
+    if !base.exists() {
+        base_dir.push_str(" (does not exist)");
+    }
+    panic!(
+        "the glob! macro did not match any files.\n\
+         pattern: {pattern}\n\
+         base directory: {base_dir}\n\
+         The pattern is relative to the base directory, which defaults to the \
+         directory of the file calling glob!."
+    );
+}
+
 fn find_common_prefix(sorted_paths: &[PathBuf]) -> Option<&Path> {
     let first = sorted_paths.first()?;
     let last = sorted_paths.last()?;
@@ -162,5 +193,34 @@ fn find_common_prefix(sorted_paths: &[PathBuf]) -> Option<&Path> {
             prefix.next_back();
         }
         Some(prefix.as_path())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn failed_glob_leaves_no_stack_entry() {
+        let tests_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
+        // A broken symlink makes the walk fail.
+        #[cfg(unix)]
+        let broken_link_dir = {
+            let dir = tempfile::tempdir().unwrap();
+            std::os::unix::fs::symlink(dir.path().join("missing"), dir.path().join("broken.txt"))
+                .unwrap();
+            dir
+        };
+        for (base, pattern) in [
+            (tests_dir.join("missing-dir"), "*.txt"),
+            (tests_dir.clone(), "nonexistent"),
+            (tests_dir.clone(), "inputs/["),
+            #[cfg(unix)]
+            (broken_link_dir.path().to_path_buf(), "*.txt"),
+        ] {
+            let result = std::panic::catch_unwind(|| glob_exec(&tests_dir, &base, pattern, |_| {}));
+            assert!(result.is_err(), "{pattern} in {}", base.display());
+        }
+        assert_eq!(GLOB_STACK.lock().unwrap().len(), 0);
     }
 }
