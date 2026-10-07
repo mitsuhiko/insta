@@ -2,6 +2,12 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
+  which #940 missed, to avoid compiler warnings when used in expression
+  position.
+
 ## 1.49.0
 
 - Allow `Option<&OsStr>` snapshot names, such as `Path::file_name()`,
