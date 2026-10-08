@@ -77,7 +77,7 @@ impl FilePatcher {
                     .inline_snapshots
                     .last()
                     // x.end.0 is 0-origin whereas line is 1-origin
-                    .map_or(false, |x| x.end.0 >= line - 1)
+                    .is_some_and(|x| x.end.0 >= line - 1)
                 {
                     return false;
                 }
