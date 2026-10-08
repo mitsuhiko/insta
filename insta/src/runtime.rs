@@ -571,7 +571,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         let unseen = self
             .snapshot_file
             .as_ref()
-            .map_or(false, |x| fs::metadata(x).is_ok());
+            .is_some_and(|x| fs::metadata(x).is_ok());
         let should_print = self.tool_config.output_behavior() != OutputBehavior::Nothing;
         let snapshot_update = snapshot_update_behavior(&self.tool_config, unseen);
 

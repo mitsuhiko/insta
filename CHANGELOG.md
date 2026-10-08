@@ -2,6 +2,11 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Upgrade to similar 3 for snapshot diffs and raise the minimum supported Rust
+  version to 1.85 for both insta and cargo-insta. #895
+
 ## 1.49.0
 
 - Allow `Option<&OsStr>` snapshot names, such as `Path::file_name()`,

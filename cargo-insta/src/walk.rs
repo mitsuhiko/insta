@@ -124,15 +124,14 @@ pub(crate) fn make_snapshot_walker(root: &Path, extensions: &[&str], flags: Find
         // Skip nested crates (directories with Cargo.toml that aren't the search root).
         // This avoids duplicate snapshots when a package contains nested packages.
         // Not needed when walking a pending_dir (no Cargo.toml files there).
-        if entry.file_type().map_or(false, |ft| ft.is_dir())
+        if entry.file_type().is_some_and(|ft| ft.is_dir())
             && entry.path().join("Cargo.toml").exists()
             && entry.path() != root_path
         {
             return false;
         }
         // Skip hidden directories (unless include_hidden), but always allow files
-        if !include_hidden && !entry.file_type().map_or(false, |x| x.is_file()) && is_hidden(entry)
-        {
+        if !include_hidden && !entry.file_type().is_some_and(|x| x.is_file()) && is_hidden(entry) {
             return false;
         }
 
