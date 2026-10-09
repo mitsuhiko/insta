@@ -67,6 +67,8 @@ pub struct ActualSettings {
     pub strip_ansi_escape_codes: bool,
     #[cfg(feature = "glob")]
     pub allow_empty_glob: bool,
+    #[cfg(feature = "json")]
+    pub compact_nested_json: bool,
 }
 
 impl Clone for ActualSettings {
@@ -89,6 +91,8 @@ impl Clone for ActualSettings {
             strip_ansi_escape_codes: self.strip_ansi_escape_codes,
             #[cfg(feature = "glob")]
             allow_empty_glob: self.allow_empty_glob,
+            #[cfg(feature = "json")]
+            compact_nested_json: self.compact_nested_json,
         }
     }
 }
@@ -165,6 +169,11 @@ impl ActualSettings {
     pub fn allow_empty_glob(&mut self, value: bool) {
         self.allow_empty_glob = value;
     }
+
+    #[cfg(feature = "json")]
+    pub fn compact_nested_json(&mut self, value: bool) {
+        self.compact_nested_json = value;
+    }
 }
 
 /// Configures how insta operates at test time.
@@ -225,6 +234,8 @@ impl Default for Settings {
                 strip_ansi_escape_codes: false,
                 #[cfg(feature = "glob")]
                 allow_empty_glob: false,
+                #[cfg(feature = "json")]
+                compact_nested_json: false,
             }),
         }
     }
@@ -263,6 +274,47 @@ impl Settings {
     /// Returns the current value for map sorting.
     pub fn sort_maps(&self) -> bool {
         self.inner.sort_maps
+    }
+
+    /// Keeps small nested arrays and objects on one line in compact JSON
+    /// snapshots.
+    ///
+    /// [`assert_compact_json_snapshot!`](crate::assert_compact_json_snapshot!)
+    /// writes a snapshot on a single line if it fits within 120 characters and
+    /// otherwise expands it completely, one element per line. With this setting
+    /// enabled, a snapshot that doesn't fit is expanded one level at a time
+    /// instead, and every array or object that fits on its line stays on one
+    /// line.
+    ///
+    /// The default value is `false`.
+    ///
+    /// ```rust
+    /// # use insta::Settings;
+    /// let rows = vec![vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; 4];
+    /// let mut settings = Settings::clone_current();
+    /// settings.set_compact_nested_json(true);
+    /// settings.bind(|| {
+    ///     insta::assert_compact_json_snapshot!(rows, @"
+    ///     [
+    ///       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    ///       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    ///       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    ///       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ///     ]
+    ///     ");
+    /// });
+    /// ```
+    #[cfg(feature = "json")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
+    pub fn set_compact_nested_json(&mut self, value: bool) {
+        self._private_inner_mut().compact_nested_json(value);
+    }
+
+    /// Returns the current value for keeping nested values compact in JSON snapshots.
+    #[cfg(feature = "json")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
+    pub fn compact_nested_json(&self) -> bool {
+        self.inner.compact_nested_json
     }
 
     /// Disables prepending of modules to the snapshot filename.

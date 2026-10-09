@@ -183,3 +183,18 @@ fn test_strip_ansi_escape_codes_inherit() {
         });
     });
 }
+
+#[cfg(feature = "json")]
+#[test]
+fn test_compact_nested_json_default() {
+    let settings = Settings::clone_current();
+    assert!(!settings.compact_nested_json());
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn test_compact_nested_json_set_and_get() {
+    let mut settings = Settings::clone_current();
+    settings.set_compact_nested_json(true);
+    assert!(settings.compact_nested_json());
+}

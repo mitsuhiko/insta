@@ -2,6 +2,10 @@
 
 All notable changes to insta and cargo-insta are documented here.
 
+## Unreleased
+
+- Add `compact_nested_json` setting, which keeps every array and object that fits within 120 characters on one line when `assert_compact_json_snapshot!` has to expand a snapshot, instead of expanding everything. It is off by default, so existing snapshots are unchanged. #805
+
 ## 1.49.0
 
 - Allow `Option<&OsStr>` snapshot names, such as `Path::file_name()`,

@@ -218,6 +218,10 @@ macro_rules! assert_json_snapshot {
 /// in cases where you are working with small result outputs but comes at the cost
 /// of slightly worse diffing behavior.
 ///
+/// Longer output is expanded completely, one element per line.  To keep its
+/// small nested arrays and objects on one line instead, enable
+/// [`Settings::set_compact_nested_json`](crate::Settings::set_compact_nested_json).
+///
 /// Example:
 ///
 /// ```no_run
