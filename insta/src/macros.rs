@@ -409,7 +409,7 @@ macro_rules! _assert_snapshot_base {
 #[macro_export]
 macro_rules! assert_binary_snapshot {
     ($name_and_extension:expr, $value:expr $(,)?) => {
-        $crate::assert_binary_snapshot!($name_and_extension, $value, stringify!($value));
+        $crate::assert_binary_snapshot!($name_and_extension, $value, stringify!($value))
     };
 
     ($name_and_extension:expr, $value:expr, $debug_expr:expr $(,)?) => {
