@@ -4,6 +4,9 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Add the `INSTA_UNREFERENCED` environment variable, which sets the
+  unreferenced snapshot behavior of `cargo insta test` like
+  `--unreferenced` or `test.unreferenced` in the config file. #764
 - Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
   which #940 missed, to avoid compiler warnings when used in expression
   position.
