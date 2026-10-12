@@ -84,6 +84,8 @@
 //!
 //! - [`assert_snapshot!`] for comparing basic snapshots of
 //!   [`Display`](std::fmt::Display) outputs, often strings.
+//! - [`assert_file_snapshot!`] for comparing [`Display`](std::fmt::Display)
+//!   output with a plain external file.
 //! - [`assert_debug_snapshot!`] for comparing [`Debug`] outputs of values.
 //!
 //! The following macros require the use of [`serde::Serialize`]:
