@@ -901,7 +901,9 @@ fn min_indentation(snapshot: &str) -> String {
     let lines = snapshot.trim_end().lines();
 
     lines
-        .filter(|l| !l.is_empty())
+        // Lines with only whitespace don't count; normalization turns them into
+        // empty lines, which would change the indentation on the next pass.
+        .filter(|l| !l.trim_start_matches([' ', '\t']).is_empty())
         .map(leading_space)
         .min_by(|a, b| a.len().cmp(&b.len()))
         .unwrap_or("".into())
@@ -1510,6 +1512,23 @@ a";
 			1
 	2";
     assert_eq!(min_indentation(t), "	".to_string());
+}
+
+#[test]
+fn test_min_indentation_ignores_whitespace_only_lines() {
+    assert_eq!(min_indentation("\n \n    a\n    b"), "    ".to_string());
+    assert_eq!(min_indentation("\n\t\n    a"), "    ".to_string());
+    assert_eq!(normalize_inline("\n \n    a\n    b"), "\n\na\nb");
+}
+
+#[test]
+fn test_inline_snapshot_whitespace_only_line_roundtrip() {
+    // A value with a whitespace-only line must match its own inline literal.
+    let value = TextSnapshotContents::new(" \n    b".to_string(), TextSnapshotKind::Inline);
+    let literal = value.to_inline("    ");
+    let inner = &literal[1..literal.len() - 1];
+    let reparsed = TextSnapshotContents::from_inline_literal(inner);
+    assert!(value.matches_latest(&reparsed));
 }
 
 #[test]
