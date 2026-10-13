@@ -302,6 +302,11 @@ struct PendingSnapshotsCommand {
 struct ShowCommand {
     #[command(flatten)]
     target_args: TargetArgs,
+    /// Show the diff between the pending snapshot and the accepted one.
+    ///
+    /// The path can point to either the `.snap` or the `.snap.new` file.
+    #[arg(long)]
+    diff: bool,
     /// The path to the snapshot file.
     path: PathBuf,
 }
@@ -1487,11 +1492,53 @@ fn get_cargo_nextest_command() -> std::process::Command {
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &[])?;
+    if cmd.diff {
+        return show_diff_cmd(&loc, &cmd.path);
+    }
     let snapshot = Snapshot::from_file(&cmd.path)?;
     let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
     printer.set_snapshot_file(Some(&cmd.path));
     printer.set_show_info(true);
     printer.set_show_diff(false);
+    printer.print();
+    Ok(())
+}
+
+/// Prints the diff between a pending file snapshot and its accepted version.
+fn show_diff_cmd(loc: &LocationInfo, path: &Path) -> Result<(), Box<dyn Error>> {
+    let path_str = path.to_string_lossy();
+    let snapshot_path = match path_str.strip_suffix(".new") {
+        Some(stripped) => PathBuf::from(stripped),
+        None => path.to_path_buf(),
+    };
+    let mut pending_path = PathBuf::from(format!("{}.new", snapshot_path.display()));
+    // With INSTA_PENDING_DIR, pending snapshots live in a separate directory
+    // that mirrors the workspace layout.
+    if !pending_path.is_file() {
+        if let Some(pending_dir) = get_pending_dir() {
+            let absolute = env::current_dir()?.join(&pending_path);
+            if let Some(relative) = strip_prefix_with_fallback(&absolute, &loc.workspace_root) {
+                pending_path = pending_dir.join(relative);
+            }
+        }
+    }
+    if !pending_path.is_file() {
+        return Err(err_msg(format!(
+            "no pending snapshot found for {}",
+            snapshot_path.display()
+        )));
+    }
+
+    let new = Snapshot::from_file(&pending_path)?;
+    let old = if snapshot_path.is_file() {
+        Some(Snapshot::from_file(&snapshot_path)?)
+    } else {
+        None
+    };
+    let mut printer = SnapshotPrinter::new(&loc.workspace_root, old.as_ref(), &new);
+    printer.set_snapshot_file(Some(&snapshot_path));
+    printer.set_show_info(true);
+    printer.set_show_diff(true);
     printer.print();
     Ok(())
 }

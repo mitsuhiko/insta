@@ -4,6 +4,8 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Add `cargo insta show --diff` to print the diff between a pending snapshot
+  and its accepted version, given the path to either file. #886
 - Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
   which #940 missed, to avoid compiler warnings when used in expression
   position.
