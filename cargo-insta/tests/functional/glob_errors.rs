@@ -66,12 +66,12 @@ fn test_no_match() {
         .filter(|line| {
             !line.is_empty() && !line.starts_with("thread '") && !line.starts_with("note: ")
         })
-        .map(|line| match line.find(project) {
-            Some(idx) if line.starts_with("base directory: ") => format!(
-                "base directory: [PROJECT]{}",
-                line[idx + project.len()..].replace('\\', "/")
-            ),
-            _ => line.to_string(),
+        .map(|line| match line.split_once("' in ") {
+            Some((head, path)) => {
+                let rest = path.split_once(project).map_or(path, |(_, rest)| rest);
+                format!("{head}' in [PROJECT]{}", rest.replace('\\', "/"))
+            }
+            None => line.to_string(),
         })
         .join("\n");
 
@@ -79,14 +79,8 @@ fn test_no_match() {
     ---- test_invalid_pattern stdout ----
     the glob! macro got an invalid pattern 'data/[': unclosed character class; missing ']'
     ---- test_missing_base_dir stdout ----
-    the glob! macro did not match any files.
-    pattern: *.txt
-    base directory: [PROJECT]/src/missing (does not exist)
-    The pattern is relative to the base directory, which defaults to the directory of the file calling glob!.
+    the glob! macro did not match any files. It searched for '*.txt' in [PROJECT]/src/missing, which does not exist.
     ---- test_no_match stdout ----
-    the glob! macro did not match any files.
-    pattern: src/data/*.txt
-    base directory: [PROJECT]/src
-    The pattern is relative to the base directory, which defaults to the directory of the file calling glob!.
+    the glob! macro did not match any files. It searched for 'src/data/*.txt' in [PROJECT]/src. The pattern is relative to the base directory, which defaults to the directory of the file calling glob!.
     ");
 }

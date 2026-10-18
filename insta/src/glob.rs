@@ -62,8 +62,13 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
         ),
     };
 
-    if !base.exists() {
-        panic_no_match(base, pattern);
+    // Only a base that is known to be missing is reported as missing. Other
+    // errors, such as a permission error, are reported by the walk below.
+    if let Ok(false) = base.try_exists() {
+        panic!(
+            "the glob! macro did not match any files. It searched for '{pattern}' in {}, which does not exist.",
+            base.display()
+        );
     }
 
     let walker = WalkDir::new(base).follow_links(true);
@@ -99,7 +104,10 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
     }
 
     if !glob_found_matches && !settings.allow_empty_glob() {
-        panic_no_match(base, pattern);
+        panic!(
+            "the glob! macro did not match any files. It searched for '{pattern}' in {}. The pattern is relative to the base directory, which defaults to the directory of the file calling glob!.",
+            base.display()
+        );
     }
 
     // step 2: sort, determine common prefix and run assertions
@@ -162,20 +170,6 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
     }
 }
 
-fn panic_no_match(base: &Path, pattern: &str) -> ! {
-    let mut base_dir = base.display().to_string();
-    if !base.exists() {
-        base_dir.push_str(" (does not exist)");
-    }
-    panic!(
-        "the glob! macro did not match any files.\n\
-         pattern: {pattern}\n\
-         base directory: {base_dir}\n\
-         The pattern is relative to the base directory, which defaults to the \
-         directory of the file calling glob!."
-    );
-}
-
 fn find_common_prefix(sorted_paths: &[PathBuf]) -> Option<&Path> {
     let first = sorted_paths.first()?;
     let last = sorted_paths.last()?;
@@ -203,7 +197,7 @@ mod test {
     #[test]
     fn failed_glob_leaves_no_stack_entry() {
         let tests_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
-        // A broken symlink makes the walk fail.
+        // A NUL byte in the base and a broken symlink make the walk fail.
         #[cfg(unix)]
         let broken_link_dir = {
             let dir = tempfile::tempdir().unwrap();
@@ -213,6 +207,7 @@ mod test {
         };
         for (base, pattern) in [
             (tests_dir.join("missing-dir"), "*.txt"),
+            (tests_dir.join("bad\0dir"), "*.txt"),
             (tests_dir.clone(), "nonexistent"),
             (tests_dir.clone(), "inputs/["),
             #[cfg(unix)]

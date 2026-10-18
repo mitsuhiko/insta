@@ -48,17 +48,28 @@ fn test_empty_glob_reports_pattern_and_base() {
         .join("tests")
         .canonicalize()
         .unwrap();
-    assert!(msg.contains("\npattern: nonexistent\n"), "{msg}");
-    assert!(
-        msg.contains(&format!("\nbase directory: {}\n", base.display())),
-        "{msg}"
+    assert_eq!(
+        msg,
+        format!(
+            "the glob! macro did not match any files. It searched for 'nonexistent' in {}. The pattern is relative to the base directory, which defaults to the directory of the file calling glob!.",
+            base.display()
+        )
     );
 }
 
 #[test]
-#[should_panic(expected = "missing-dir (does not exist)")]
+#[should_panic(expected = "missing-dir, which does not exist.")]
 fn test_missing_base_dir_fails() {
     insta::glob!("missing-dir", "*.txt", |_| {});
+}
+
+/// Only a base directory that is not found is reported as missing. Other
+/// errors, such as a permission error, come from the walk. A NUL byte in the
+/// path gives such an error on every platform.
+#[test]
+#[should_panic(expected = "the glob! macro failed while walking")]
+fn test_base_dir_error_fails() {
+    insta::glob!("bad\0dir", "*.txt", |_| {});
 }
 
 #[test]
