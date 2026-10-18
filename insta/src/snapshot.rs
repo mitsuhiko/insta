@@ -491,7 +491,11 @@ impl Snapshot {
         fields.push(("metadata", self.metadata.as_content()));
 
         if let SnapshotContents::Text(ref content) = self.snapshot {
-            fields.push(("snapshot", Content::from(content.to_string())));
+            // Store the value as is. cargo-insta normalizes it when writing
+            // the inline literal; normalizing it here as well is not
+            // idempotent for every value, so the literal could then fail to
+            // match the value it was accepted from.
+            fields.push(("snapshot", Content::from(content.contents.as_str())));
         }
 
         Content::Struct("Content", fields)
@@ -795,6 +799,20 @@ impl TextSnapshotContents {
             // if we have more than one line we want to change into the block
             // representation mode
             if contents.contains('\n') {
+                // Reading the literal back strips the smallest indentation of
+                // its non-empty lines. Normally that is `indentation`, but if
+                // every non-empty line of `contents` is itself indented (the
+                // value's least indented lines were whitespace-only, and
+                // normalization made them empty), that extra indentation would
+                // be stripped too and the accepted snapshot would not match.
+                // In that case, write the empty lines with the indentation as
+                // well, so they mark how much to strip.
+                let indent_empty_lines = !min_indentation(&contents).is_empty();
+                let indentation = if indent_empty_lines && indentation.is_empty() {
+                    " "
+                } else {
+                    indentation
+                };
                 out.extend(
                     contents
                         .lines()
@@ -804,7 +822,11 @@ impl TextSnapshotContents {
                         .map(|l| {
                             format!(
                                 "\n{i}{l}",
-                                i = if l.is_empty() { "" } else { indentation },
+                                i = if l.is_empty() && !indent_empty_lines {
+                                    ""
+                                } else {
+                                    indentation
+                                },
                                 l = l
                             )
                         })
@@ -901,9 +923,7 @@ fn min_indentation(snapshot: &str) -> String {
     let lines = snapshot.trim_end().lines();
 
     lines
-        // Lines with only whitespace don't count; normalization turns them into
-        // empty lines, which would change the indentation on the next pass.
-        .filter(|l| !l.trim_start_matches([' ', '\t']).is_empty())
+        .filter(|l| !l.is_empty())
         .map(leading_space)
         .min_by(|a, b| a.len().cmp(&b.len()))
         .unwrap_or("".into())
@@ -1514,20 +1534,83 @@ a";
     assert_eq!(min_indentation(t), "	".to_string());
 }
 
-#[test]
-fn test_min_indentation_ignores_whitespace_only_lines() {
-    assert_eq!(min_indentation("\n \n    a\n    b"), "    ".to_string());
-    assert_eq!(min_indentation("\n\t\n    a"), "    ".to_string());
-    assert_eq!(normalize_inline("\n \n    a\n    b"), "\n\na\nb");
+#[cfg(test)]
+fn reparse_inline_literal(literal: &str) -> TextSnapshotContents {
+    // `literal` is a plain `"..."` literal here (no quotes or backslashes in
+    // the values below), so its value is the text between the quotes.
+    let inner = literal
+        .strip_prefix('"')
+        .and_then(|l| l.strip_suffix('"'))
+        .expect("plain string literal");
+    TextSnapshotContents::from_inline_literal(inner)
 }
 
 #[test]
 fn test_inline_snapshot_whitespace_only_line_roundtrip() {
-    // A value with a whitespace-only line must match its own inline literal.
-    let value = TextSnapshotContents::new(" \n    b".to_string(), TextSnapshotKind::Inline);
-    let literal = value.to_inline("    ");
-    let inner = &literal[1..literal.len() - 1];
-    let reparsed = TextSnapshotContents::from_inline_literal(inner);
+    // Accepting a value and rerunning must pass: the value must match the
+    // inline literal written for it. These values have whitespace-only lines
+    // that are less indented than the other lines.
+    // https://github.com/mitsuhiko/insta/pull/949#issuecomment-6179028565
+    for value in [" \n    b", "    a\n \n    b", " \n  \n    b", "\t\n\t\ta"] {
+        let value = TextSnapshotContents::new(value.to_string(), TextSnapshotKind::Inline);
+        for indentation in ["    ", "\t", ""] {
+            let reparsed = reparse_inline_literal(&value.to_inline(indentation));
+            assert!(
+                value.matches_latest(&reparsed),
+                "{value:?} with indentation {indentation:?}: {:?} != {:?}",
+                value.to_string(),
+                reparsed.to_string()
+            );
+        }
+    }
+}
+
+#[test]
+fn test_inline_snapshot_whitespace_only_line_still_compared() {
+    // The whitespace-only line still sets the indentation when comparing, so
+    // the extra space before `x` is a real difference from a snapshot of
+    // `\nx`.
+    // https://github.com/mitsuhiko/insta/pull/949#issuecomment-6179028565
+    let value = TextSnapshotContents::new(" \n  x".to_string(), TextSnapshotKind::Inline);
+    let reference = TextSnapshotContents::from_inline_literal("\n\n    x\n    ");
+    assert_eq!(reference.to_string(), "\nx");
+    assert_eq!(value.to_string(), "\n x");
+    assert!(!value.matches_latest(&reference));
+    assert!(!value.matches_legacy(&reference));
+}
+
+#[test]
+fn test_inline_snapshot_empty_lines_unindented_when_not_needed() {
+    // Values that already round-trip keep the existing output: empty lines are
+    // written without indentation.
+    let value = TextSnapshotContents::new("a\n\n  b".to_string(), TextSnapshotKind::Inline);
+    assert_eq!(value.to_inline("    "), "\"\n    a\n\n      b\n    \"");
+}
+
+#[cfg(feature = "_cargo_insta_internal")]
+#[test]
+fn test_pending_inline_snapshot_whitespace_only_line_roundtrip() {
+    // The path `cargo insta accept` takes: the test run saves a pending inline
+    // snapshot, cargo-insta loads it and writes the literal.
+    let value = " \n    b";
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join(".test.pending-snap");
+    let snapshot = Snapshot::from_components(
+        "test".to_string(),
+        None,
+        MetaData::default(),
+        TextSnapshotContents::new(value.to_string(), TextSnapshotKind::Inline).into(),
+    );
+    PendingInlineSnapshot::new(Some(snapshot), None, 1)
+        .save(&path)
+        .unwrap();
+    let loaded = PendingInlineSnapshot::load_batch(&path).unwrap();
+    let new = match loaded[0].new.as_ref().unwrap().contents() {
+        SnapshotContents::Text(contents) => contents.clone(),
+        SnapshotContents::Binary(_) => unreachable!(),
+    };
+    let reparsed = reparse_inline_literal(&new.to_inline("    "));
+    let value = TextSnapshotContents::new(value.to_string(), TextSnapshotKind::Inline);
     assert!(value.matches_latest(&reparsed));
 }
 

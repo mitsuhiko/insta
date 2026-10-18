@@ -4,9 +4,9 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
-- Ignore whitespace-only lines when computing the indentation of inline
-  snapshots, so a value containing such a line matches its own accepted
-  inline snapshot.
+- When accepting an inline snapshot whose least indented lines are
+  whitespace-only, write the literal so that the value matches it on the next
+  run. How snapshots are compared is unchanged.
 - Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
   which #940 missed, to avoid compiler warnings when used in expression
   position.
