@@ -26,6 +26,10 @@ All notable changes to insta and cargo-insta are documented here.
   which made later snapshot failures in the same test binary pass. #398
 - Fix JSON serialization of maps keyed by `u64` values above `i64::MAX` or
   `u128` values above `i128::MAX`, which were written as negative numbers.
+- Add a `review.inline_indentation` config option to `insta.yaml`. Set to
+  `"nested"`, `cargo insta` writes the contents of multiline inline snapshots
+  one level deeper than the line the `@` is on, rather than aligned with the
+  macro. #951 (@joshka)
 
 ## 1.49.0
 

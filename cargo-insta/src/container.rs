@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use insta::_cargo_insta_support::{ContentError, PendingInlineSnapshot};
+use insta::_cargo_insta_support::{ContentError, InlineIndentation, PendingInlineSnapshot};
 pub(crate) use insta::TextSnapshotKind;
 use insta::{internals::SnapshotContents, Snapshot};
 
@@ -166,7 +166,12 @@ impl SnapshotContainer {
         self.snapshots.iter_mut()
     }
 
-    pub(crate) fn commit(&mut self) -> Result<(), Box<dyn Error>> {
+    /// Applies each snapshot's [`Operation`]. Accepted inline snapshots are
+    /// written with `inline_indentation`, which has no effect on file snapshots.
+    pub(crate) fn commit(
+        &mut self,
+        inline_indentation: InlineIndentation,
+    ) -> Result<(), Box<dyn Error>> {
         // Try removing the snapshot file. If it fails, it's
         // likely because it another process removed it; which
         // is fine — print a message and continue.
@@ -192,6 +197,7 @@ impl SnapshotContainer {
                                 SnapshotContents::Text(c) => c,
                                 _ => unreachable!(),
                             },
+                            inline_indentation,
                         );
                         did_accept = true;
                     }
