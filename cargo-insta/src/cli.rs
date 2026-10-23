@@ -1504,24 +1504,46 @@ fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Prints the diff between a pending file snapshot and its accepted version.
-fn show_diff_cmd(loc: &LocationInfo, path: &Path) -> Result<(), Box<dyn Error>> {
+/// Finds the accepted snapshot and the pending one for a path to either file.
+///
+/// With `INSTA_PENDING_DIR`, a path inside that directory is mapped back to the
+/// accepted snapshot in the workspace, and a pending snapshot there takes
+/// precedence over a `.snap.new` file left next to the accepted one.
+fn resolve_show_diff_paths(
+    loc: &LocationInfo,
+    path: &Path,
+) -> Result<(PathBuf, PathBuf), Box<dyn Error>> {
+    let cwd = env::current_dir()?;
     let path_str = path.to_string_lossy();
-    let snapshot_path = match path_str.strip_suffix(".new") {
-        Some(stripped) => PathBuf::from(stripped),
-        None => path.to_path_buf(),
-    };
-    let mut pending_path = PathBuf::from(format!("{}.new", snapshot_path.display()));
-    // With INSTA_PENDING_DIR, pending snapshots live in a separate directory
-    // that mirrors the workspace layout.
-    if !pending_path.is_file() {
-        if let Some(pending_dir) = get_pending_dir() {
-            let absolute = env::current_dir()?.join(&pending_path);
-            if let Some(relative) = strip_prefix_with_fallback(&absolute, &loc.workspace_root) {
-                pending_path = pending_dir.join(relative);
+    let given = cwd.join(match path_str.strip_suffix(".new") {
+        Some(stripped) => Path::new(stripped),
+        None => path,
+    });
+    let given_pending = PathBuf::from(format!("{}.new", given.display()));
+
+    if let Some(pending_dir) = get_pending_dir() {
+        let pending_dir = cwd.join(pending_dir);
+        // Only the pending file exists inside the pending directory, so match
+        // with that file: the fallback that canonicalizes needs an existing path.
+        if let Some(relative) = strip_prefix_with_fallback(&given_pending, &pending_dir) {
+            // The accepted snapshot is at the same place in the workspace.
+            let relative = relative.to_string_lossy();
+            let relative = relative.strip_suffix(".new").unwrap_or(&relative);
+            return Ok((loc.workspace_root.join(relative), given_pending));
+        }
+        if let Some(relative) = strip_prefix_with_fallback(&given, &loc.workspace_root) {
+            let pending = PathBuf::from(format!("{}.new", pending_dir.join(relative).display()));
+            if pending.is_file() {
+                return Ok((given, pending));
             }
         }
     }
+    Ok((given, given_pending))
+}
+
+/// Prints the diff between a pending file snapshot and its accepted version.
+fn show_diff_cmd(loc: &LocationInfo, path: &Path) -> Result<(), Box<dyn Error>> {
+    let (snapshot_path, pending_path) = resolve_show_diff_paths(loc, path)?;
     if !pending_path.is_file() {
         return Err(err_msg(format!(
             "no pending snapshot found for {}",
