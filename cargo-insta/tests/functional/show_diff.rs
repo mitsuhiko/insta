@@ -153,3 +153,56 @@ fn test_show_diff_pending_dir() {
     assert!(stdout.contains("first value"), "{stdout}");
     assert!(stdout.contains("second value"), "{stdout}");
 }
+
+#[test]
+fn test_show_diff_pending_dir_path_resolution() {
+    let snapshot =
+        |value: &str| format!("---\nsource: src/lib.rs\nexpression: value\n---\n{value}\n");
+    let snapshot_path = "src/snapshots/show_diff_pending_dir_paths__one.snap";
+    let pending_path = format!("pending_output/{snapshot_path}.new");
+    let test_project = TestFiles::new()
+        .add_cargo_toml("show_diff_pending_dir_paths")
+        .add_file("src/lib.rs", String::new())
+        .add_file(snapshot_path, snapshot("first value"))
+        .add_file(&pending_path, snapshot("second value"))
+        .create_project();
+    let pending_dir = test_project.workspace_dir.join("pending_output");
+
+    let show_diff = |path: &str| {
+        let output = test_project
+            .insta_cmd()
+            .args(["show", "--diff", path])
+            .env("INSTA_PENDING_DIR", &pending_dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{path}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap()
+    };
+
+    let expected = show_diff(snapshot_path);
+
+    // The actual pending-file path must resolve to the same accepted snapshot.
+    let from_pending_path = show_diff(&pending_path);
+
+    // A leftover from a run without INSTA_PENDING_DIR must not override it.
+    std::fs::write(
+        test_project
+            .workspace_dir
+            .join(format!("{snapshot_path}.new")),
+        snapshot("stale value"),
+    )
+    .unwrap();
+    let with_stale_adjacent_file = show_diff(snapshot_path);
+
+    assert_eq!(
+        (from_pending_path, with_stale_adjacent_file),
+        (expected.clone(), expected),
+        "both path forms must compare the accepted snapshot with the configured pending snapshot"
+    );
+}
