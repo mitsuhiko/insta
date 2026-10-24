@@ -7,6 +7,8 @@ All notable changes to insta and cargo-insta are documented here.
 - Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
   which #940 missed, to avoid compiler warnings when used in expression
   position.
+- Fix JSON serialization of maps keyed by `u64` values above `i64::MAX` or
+  `u128` values above `i128::MAX`, which were written as negative numbers.
 
 ## 1.49.0
 

@@ -126,6 +126,22 @@ fn test_enum_keyed_map_json() {
     "#);
 }
 
+#[cfg(feature = "json")]
+#[test]
+fn test_large_u64_keyed_map_json() {
+    use std::collections::BTreeMap;
+
+    let mut map = BTreeMap::new();
+    map.insert(1u64, "small");
+    map.insert(u64::MAX, "large");
+    assert_json_snapshot!(map, @r#"
+    {
+      "1": "small",
+      "18446744073709551615": "large"
+    }
+    "#);
+}
+
 #[cfg(feature = "yaml")]
 #[test]
 fn insta_sort_order() {
