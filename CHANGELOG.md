@@ -9,8 +9,6 @@ All notable changes to insta and cargo-insta are documented here.
   those trailing segments. The segments after `**` are matched against the end
   of the path, so a path shorter than that suffix is no longer treated as a
   match. #687
-- Add `cargo insta show --diff` to print the diff between a pending snapshot
-  and its accepted version, given the path to either file. #886
 - When accepting an inline snapshot whose least indented lines are
   whitespace-only, write the literal so that the value matches it on the next
   run. How snapshots are compared is unchanged.
