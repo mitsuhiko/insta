@@ -1,6 +1,6 @@
+use std::cell::RefCell;
 use std::env;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 use globset::{GlobBuilder, GlobMatcher};
 use once_cell::sync::Lazy;
@@ -16,9 +16,35 @@ pub(crate) struct GlobCollector {
     pub(crate) show_insta_hint: bool,
 }
 
-/// the glob stack holds failure count and an indication if `cargo insta review`
-/// should be run.
-pub(crate) static GLOB_STACK: Lazy<Mutex<Vec<GlobCollector>>> = Lazy::new(Mutex::default);
+thread_local! {
+    /// the glob stack holds failure count and an indication if `cargo insta review`
+    /// should be run.  It is thread local, so a snapshot assertion only counts
+    /// towards a `glob!` running on the same thread.
+    pub(crate) static GLOB_STACK: RefCell<Vec<GlobCollector>> = RefCell::default();
+}
+
+/// The entry of a running `glob!` on the glob stack.  It is popped when this is
+/// dropped, so a panic in the closure doesn't leave it behind.
+struct GlobStackEntry;
+
+impl GlobStackEntry {
+    fn push(collector: GlobCollector) -> GlobStackEntry {
+        GLOB_STACK.with(|stack| stack.borrow_mut().push(collector));
+        GlobStackEntry
+    }
+
+    fn pop(self) -> GlobCollector {
+        // popped here, so the drop must not pop again
+        std::mem::forget(self);
+        GLOB_STACK.with(|stack| stack.borrow_mut().pop().unwrap())
+    }
+}
+
+impl Drop for GlobStackEntry {
+    fn drop(&mut self) {
+        GLOB_STACK.with(|stack| stack.borrow_mut().pop());
+    }
+}
 
 static GLOB_FILTER: Lazy<Vec<GlobMatcher>> = Lazy::new(|| {
     env::var("INSTA_GLOB_FILTER")
@@ -119,7 +145,7 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
     let common_prefix = find_common_prefix(&all_matching_files);
     let matching_files = filtered_files;
 
-    GLOB_STACK.lock().unwrap().push(GlobCollector {
+    let stack_entry = GlobStackEntry::push(GlobCollector {
         failed: 0,
         show_insta_hint: false,
         fail_fast: get_tool_config(workspace_dir).glob_fail_fast(),
@@ -144,7 +170,7 @@ pub fn glob_exec<F: FnMut(&Path)>(workspace_dir: &Path, base: &Path, pattern: &s
         });
     }
 
-    let top = GLOB_STACK.lock().unwrap().pop().unwrap();
+    let top = stack_entry.pop();
 
     if top.failed > 0 {
         if top.show_insta_hint {
@@ -216,6 +242,18 @@ mod test {
             let result = std::panic::catch_unwind(|| glob_exec(&tests_dir, &base, pattern, |_| {}));
             assert!(result.is_err(), "{pattern} in {}", base.display());
         }
-        assert_eq!(GLOB_STACK.lock().unwrap().len(), 0);
+        assert_eq!(GLOB_STACK.with(|stack| stack.borrow().len()), 0);
+    }
+
+    #[test]
+    fn panicking_closure_leaves_no_stack_entry() {
+        let tests_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
+        let result = std::panic::catch_unwind(|| {
+            glob_exec(&tests_dir, &tests_dir, "inputs/*.txt", |_| {
+                panic!("closure panicked")
+            })
+        });
+        assert!(result.is_err());
+        assert_eq!(GLOB_STACK.with(|stack| stack.borrow().len()), 0);
     }
 }

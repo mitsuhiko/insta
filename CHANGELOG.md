@@ -26,6 +26,13 @@ All notable changes to insta and cargo-insta are documented here.
   which made later snapshot failures in the same test binary pass. #398
 - Fix JSON serialization of maps keyed by `u64` values above `i64::MAX` or
   `u128` values above `i128::MAX`, which were written as negative numbers.
+- Count snapshot failures only towards a `glob!` on the same thread. With the
+  default parallel test runner, a failing snapshot in another test that ran
+  during a `glob!` was counted by that `glob!`, so the failing test passed. A
+  failing snapshot in a thread spawned inside a `glob!` closure now panics in
+  that thread. A panic in a `glob!` closure, or a failure with
+  `INSTA_GLOB_FAIL_FAST=1`, no longer breaks later snapshots and globs in the
+  same test binary.
 
 ## 1.49.0
 
