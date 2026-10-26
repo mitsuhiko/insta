@@ -1,0 +1,7 @@
+---
+source: insta/tests/test_redaction.rs
+expression: "&v"
+---
+- 5
+- a
+- 200

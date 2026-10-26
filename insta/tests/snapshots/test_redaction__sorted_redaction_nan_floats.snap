@@ -1,0 +1,12 @@
+---
+source: insta/tests/test_redaction.rs
+expression: "&floats"
+---
+- -inf
+- -2.5
+- 0
+- 1
+- 42
+- inf
+- NaN
+- NaN
