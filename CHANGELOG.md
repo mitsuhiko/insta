@@ -11,6 +11,9 @@ All notable changes to insta and cargo-insta are documented here.
   match. #687
 - Add `cargo insta show --diff` to print the diff between a pending snapshot
   and its accepted version, given the path to either file. #886
+- When accepting an inline snapshot whose least indented lines are
+  whitespace-only, write the literal so that the value matches it on the next
+  run. How snapshots are compared is unchanged.
 - Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
   which #940 missed, to avoid compiler warnings when used in expression
   position.
