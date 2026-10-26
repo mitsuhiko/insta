@@ -4,15 +4,63 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
-- Fix `cargo insta test --profile` being forwarded to nextest as the nextest
-  profile instead of the cargo build profile; it now translates to
-  `--cargo-profile` for the nextest runner. Add `--nextest-profile` to select
-  the nextest profile. #910
 - Fix `**` redaction selectors with two or more segments after the wildcard
   (e.g. `.**.a.b` or `.**[].*`) spuriously matching paths too short to contain
   those trailing segments. The segments after `**` are matched against the end
   of the path, so a path shorter than that suffix is no longer treated as a
   match. #687
+- Add `cargo insta show --diff` to print the diff between a pending snapshot
+  and its accepted version, given the path to either file. #886
+- Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
+  which #940 missed, to avoid compiler warnings when used in expression
+  position.
+- Make `glob!` failures say what was searched. When nothing matches, the
+  panic shows the pattern and the resolved base directory, and notes when
+  that directory does not exist. An invalid pattern or an error while walking
+  the files gives a clear message instead of an `unwrap` panic. A missing
+  base directory or a walk error also no longer leaves `glob!` state behind,
+  which made later snapshot failures in the same test binary pass. #398
+
+## 1.49.0
+
+- Allow `Option<&OsStr>` snapshot names, such as `Path::file_name()`,
+  without explicit string conversion. #929 (@dislogical)
+- Add prebuilt `cargo-insta` binaries for ARM64 Linux
+  (`aarch64-unknown-linux-gnu`). #942 (@aljohri)
+- Fix JSON serialization of maps keyed by unit enum variants. Keys use the
+  serialized variant name, including serde renames. #934 (@teddytennant)
+- Remove trailing semicolons from serialization macro bodies to avoid
+  compiler warnings when used in expression position. #940 (@Tiwalun)
+- Mention `INSTA_UPDATE=always` in snapshot mismatch hints for file
+  snapshots. #927 (@hiro-nikaitou)
+- Update the lockfile's `tempfile` and `rustix` dependencies to fix builds
+  with newer Rust toolchains. #939
+- Fix `cargo insta test --all-targets --test-runner nextest` failing with
+  "Can't mix --doc with other target selecting options". Like `cargo test
+  --all-targets`, it no longer runs doctests. #460
+
+## 1.48.0
+
+- Add `strip_ansi_escape_codes` setting which removes ANSI escape sequences
+  (color codes, cursor movement, etc.) from snapshot content before comparison.
+  Requires the `filters` feature. #899 (@pierluigilenoci)
+- Add opt-in support for YAML literal blocks for multiline strings in snapshot
+  metadata fields such as `description` and `expression`. Set
+  `INSTA_YAML_BLOCK_STYLE=1` to enable. #851 (@ivov)
+- Setting `CI=true` normally makes `cargo insta test` behave as though `--check`
+  was passed. Explicit snapshot handling options such as `--accept` now take
+  precedence over this environment variable, allowing users to override this
+  behavior if they want to. #924
+- Fix `cargo insta test --profile` being forwarded to nextest as the nextest
+  profile instead of the cargo build profile; it now translates to
+  `--cargo-profile` for the nextest runner. Add `--nextest-profile` to select
+  the nextest profile. #910
+- Fix `cargo insta pending-snapshots` printing unusable `\\?\`-prefixed paths
+  on Windows. The `--snapshot` filter now also accepts partial paths: any
+  trailing path suffix of the snapshot file matches, so a bare
+  `--snapshot my_test.snap` works. #904
+- Accepting a binary snapshot no longer fails with `os error 2` when its data
+  file is missing (e.g. gitignored and not committed). #914
 
 ## 1.47.2
 

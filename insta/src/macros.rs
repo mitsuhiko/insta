@@ -61,7 +61,7 @@ macro_rules! _get_workspace_root {
 #[macro_export]
 macro_rules! assert_csv_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_serialized_snapshot!(format=Csv, $($arg)*);
+        $crate::_assert_serialized_snapshot!(format=Csv, $($arg)*)
     };
 }
 
@@ -91,7 +91,7 @@ macro_rules! assert_csv_snapshot {
 #[macro_export]
 macro_rules! assert_toml_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_serialized_snapshot!(format=Toml, $($arg)*);
+        $crate::_assert_serialized_snapshot!(format=Toml, $($arg)*)
     };
 }
 
@@ -145,7 +145,7 @@ macro_rules! assert_toml_snapshot {
 #[macro_export]
 macro_rules! assert_yaml_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_serialized_snapshot!(format=Yaml, $($arg)*);
+        $crate::_assert_serialized_snapshot!(format=Yaml, $($arg)*)
     };
 }
 
@@ -175,7 +175,7 @@ macro_rules! assert_yaml_snapshot {
 #[macro_export]
 macro_rules! assert_ron_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_serialized_snapshot!(format=Ron, $($arg)*);
+        $crate::_assert_serialized_snapshot!(format=Ron, $($arg)*)
     };
 }
 
@@ -205,7 +205,7 @@ macro_rules! assert_ron_snapshot {
 #[macro_export]
 macro_rules! assert_json_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_serialized_snapshot!(format=Json, $($arg)*);
+        $crate::_assert_serialized_snapshot!(format=Json, $($arg)*)
     };
 }
 
@@ -236,7 +236,7 @@ macro_rules! assert_json_snapshot {
 #[macro_export]
 macro_rules! assert_compact_json_snapshot {
     ($($arg:tt)*) => {
-        $crate::_assert_serialized_snapshot!(format=JsonCompact, $($arg)*);
+        $crate::_assert_serialized_snapshot!(format=JsonCompact, $($arg)*)
     };
 }
 
@@ -409,7 +409,7 @@ macro_rules! _assert_snapshot_base {
 #[macro_export]
 macro_rules! assert_binary_snapshot {
     ($name_and_extension:expr, $value:expr $(,)?) => {
-        $crate::assert_binary_snapshot!($name_and_extension, $value, stringify!($value));
+        $crate::assert_binary_snapshot!($name_and_extension, $value, stringify!($value))
     };
 
     ($name_and_extension:expr, $value:expr, $debug_expr:expr $(,)?) => {

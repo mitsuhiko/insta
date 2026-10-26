@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -129,6 +130,15 @@ impl<'a> From<(String, &'a str)> for SnapshotValue<'a> {
     fn from((name, content): (String, &'a str)) -> Self {
         SnapshotValue::FileText {
             name: Some(Cow::Owned(name)),
+            content,
+        }
+    }
+}
+
+impl<'a> From<(Option<&'a OsStr>, &'a str)> for SnapshotValue<'a> {
+    fn from((name, content): (Option<&'a OsStr>, &'a str)) -> Self {
+        SnapshotValue::FileText {
+            name: name.map(OsStr::to_string_lossy),
             content,
         }
     }
@@ -676,10 +686,14 @@ impl<'a> SnapshotAssertionContext<'a> {
             && self.tool_config.output_behavior() != OutputBehavior::Nothing
             && !self.is_doctest
         {
-            println!(
-                "{hint}",
-                hint = style("To update snapshots run `cargo insta review`").dim(),
-            );
+            // `INSTA_UPDATE=always` only bypasses review for file snapshots;
+            // inline snapshots always go through a pending file.
+            let hint = if self.snapshot_file.is_some() {
+                "To update snapshots run `cargo insta review` or set `INSTA_UPDATE=always`"
+            } else {
+                "To update snapshots run `cargo insta review`"
+            };
+            println!("{hint}", hint = style(hint).dim());
         }
 
         if update_result != SnapshotUpdateBehavior::InPlace && !self.tool_config.force_pass() {
@@ -702,6 +716,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     glob_collector.failed += 1;
                     if update_result == SnapshotUpdateBehavior::NewFile
                         && self.tool_config.output_behavior() != OutputBehavior::Nothing
+                        && self.snapshot_file.is_some()
                     {
                         glob_collector.show_insta_hint = true;
                     }

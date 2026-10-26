@@ -8,6 +8,9 @@ env:
   RUSTDOCFLAGS: "-Dwarnings"
   RUSTFLAGS: "-D warnings"
 
+# Jobs run on the toolchain pinned in `rust-toolchain.toml`, except where one
+# sets `RUSTUP_TOOLCHAIN` to override it (`check-minver`) or manages its own
+# toolchain (`build-on-msrv`).
 jobs:
   test-latest:
     name: Test on Latest
@@ -20,9 +23,6 @@ jobs:
           - windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - name: Test
@@ -31,12 +31,8 @@ jobs:
   test-current-cargo-insta:
     name: Run the in-tree version of cargo-insta on ourselves
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - name: Test
@@ -45,6 +41,8 @@ jobs:
   build-on-msrv:
     name: Check on MSRV
     runs-on: ubuntu-latest
+    # `cargo msrv` installs and checks the `rust-version` from Cargo.toml itself,
+    # independent of `rust-toolchain.toml`.
     steps:
       - uses: actions/checkout@v4
       - uses: baptiste0928/cargo-install@v3
@@ -62,9 +60,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - run: cargo update
@@ -76,9 +71,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - name: doc
         run: cargo doc --all-features
@@ -87,10 +79,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Run clippy
         run: make lint
@@ -99,15 +87,17 @@ jobs:
     name: Test with minimal version resolution
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      # `cargo minimal-versions` needs nightly for `-Z minimal-versions`. Pinned
+      # because newer nightlies reject the `rustc_*` attributes used in `rustix
+      # v0.36.4`, which it resolves to; bump once a newer nightly is known-good.
+      RUSTUP_TOOLCHAIN: nightly-2026-04-25
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          # Pinned: newer nightlies reject the `rustc_*` attributes used in
-          # `rustix v0.36.4`, which `cargo minimal-versions` resolves to.
-          # Bump once a newer nightly is known-good.
-          toolchain: nightly-2026-04-25
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-hack
       - uses: taiki-e/install-action@cargo-minimal-versions
@@ -118,10 +108,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Run rustfmt
         run: make format-check

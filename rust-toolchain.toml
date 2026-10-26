@@ -1,0 +1,7 @@
+[toolchain]
+# Toolchain for local development and CI. Pinned a couple of releases behind the
+# latest stable, so CI never spontaneously breaks on a new Rust release and
+# contributors don't need the newest Rust to reproduce it. A couple of CI jobs
+# override this (see tests.yml). Bumping it forward (keeping the lag) is welcome.
+channel = "1.95.0"
+components = ["clippy", "rustfmt"]

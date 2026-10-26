@@ -304,6 +304,60 @@ fn test_simple() {
     );
 }
 
+/// Test that `--all-targets` with nextest doesn't run a separate doctest
+/// process. Like `cargo test --all-targets`, it doesn't include doctests, and
+/// `cargo test --doc --all-targets` fails with "Can't mix --doc with other
+/// target selecting options". See https://github.com/mitsuhiko/insta/issues/460
+#[test]
+fn test_nextest_all_targets_skips_doctests() {
+    if !nextest_available() {
+        eprintln!("Skipping test: cargo-nextest not installed");
+        return;
+    }
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_nextest_all_targets_skips_doctests")
+        .add_file(
+            "src/lib.rs",
+            r#"
+/// This is a function with a doctest
+///
+/// ```
+/// assert_eq!(test_nextest_all_targets_skips_doctests::add(2, 2), 4);
+/// ```
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+#[test]
+fn test_simple() {
+    insta::assert_snapshot!("test_value", @"test_value");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args([
+            "test",
+            "--test-runner",
+            "nextest",
+            "--all-targets",
+            "--accept",
+        ])
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(
+        !stderr.contains("warning: insta won't run a separate doctest process"),
+        "No doctest run should happen with --all-targets:\n{stderr}"
+    );
+}
+
 /// Test that legacy format deprecation warnings are visible when running with nextest.
 ///
 /// Nextest suppresses stdout/stderr from passing tests by default. To ensure
