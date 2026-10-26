@@ -302,6 +302,11 @@ struct PendingSnapshotsCommand {
 struct ShowCommand {
     #[command(flatten)]
     target_args: TargetArgs,
+    /// Show the diff between the pending snapshot and the accepted one.
+    ///
+    /// The path can point to either the `.snap` or the `.snap.new` file.
+    #[arg(long)]
+    diff: bool,
     /// The path to the snapshot file.
     path: PathBuf,
 }
@@ -724,6 +729,9 @@ fn review_snapshots(
     let mut accepted = vec![];
     let mut rejected = vec![];
     let mut skipped = vec![];
+    // Track which `--snapshot` filter entries matched something, so we can warn
+    // about entries that hit nothing.
+    let mut matched_filters = vec![false; snapshot_filter.map_or(0, |f| f.len())];
     let mut num = 0;
     let mut show_info = true;
     let mut show_diff = true;
@@ -739,13 +747,22 @@ fn review_snapshots(
         let target_file = snapshot_container.target_file().to_path_buf();
         let snapshot_file = snapshot_container.snapshot_file().map(|x| x.to_path_buf());
         for snapshot_ref in snapshot_container.iter_snapshots() {
+            // The canonical key is what `pending-snapshots` prints and what
+            // `--snapshot` accepts. Show it wherever a snapshot is listed — the
+            // bare snapshot name shown in the diff header is not a usable filter.
+            let key = format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
+
             // if a filter is provided, check if the snapshot reference is included
             if let Some(filter) = snapshot_filter {
-                if !filter
-                    .iter()
-                    .any(|f| snapshot_matches_filter(&target_file, snapshot_ref.line, f))
-                {
-                    skipped.push(snapshot_ref.summary());
+                let mut matched = false;
+                for (i, f) in filter.iter().enumerate() {
+                    if snapshot_matches_filter(&target_file, snapshot_ref.line, f) {
+                        matched_filters[i] = true;
+                        matched = true;
+                    }
+                }
+                if !matched {
+                    skipped.push(key);
                     continue;
                 }
             }
@@ -777,13 +794,11 @@ fn review_snapshots(
 
                 // If we're in review mode (no op), just show instructions and skip
                 if op.is_none() {
-                    let key =
-                        format_snapshot_key(&loc.workspace_root, &target_file, snapshot_ref.line);
                     println!("To accept: cargo insta accept --snapshot '{}'", key);
                     println!("To reject: cargo insta reject --snapshot '{}'", key);
                     println!();
 
-                    skipped.push(snapshot_ref.summary());
+                    skipped.push(key);
                     continue;
                 }
                 // Otherwise fall through to apply the operation (reject)
@@ -831,14 +846,14 @@ fn review_snapshots(
             match op {
                 Operation::Accept | Operation::AcceptAll => {
                     snapshot_ref.op = Operation::Accept;
-                    accepted.push(snapshot_ref.summary());
+                    accepted.push(key);
                 }
                 Operation::Reject | Operation::RejectAll => {
                     snapshot_ref.op = Operation::Reject;
-                    rejected.push(snapshot_ref.summary());
+                    rejected.push(key);
                 }
                 Operation::Skip | Operation::SkipAll => {
-                    skipped.push(snapshot_ref.summary());
+                    skipped.push(key);
                 }
             }
         }
@@ -867,6 +882,21 @@ fn review_snapshots(
             println!("{}:", style("skipped").yellow());
             for item in skipped {
                 println!("  {item}");
+            }
+        }
+    }
+
+    // Warn about any `--snapshot` entry that matched nothing rather than
+    // silently leaving everything skipped. The pending keys to use instead are
+    // already shown in the `skipped:` list above, so we don't repeat them here.
+    if let Some(filters) = snapshot_filter {
+        for (filter, matched) in filters.iter().zip(&matched_filters) {
+            if !*matched {
+                eprintln!(
+                    "{} --snapshot '{}' didn't match any pending snapshot",
+                    style("warning:").bold().yellow(),
+                    filter
+                );
             }
         }
     }
@@ -1487,11 +1517,75 @@ fn get_cargo_nextest_command() -> std::process::Command {
 
 fn show_cmd(cmd: ShowCommand) -> Result<(), Box<dyn Error>> {
     let loc = handle_target_args(&cmd.target_args, &[])?;
+    if cmd.diff {
+        return show_diff_cmd(&loc, &cmd.path);
+    }
     let snapshot = Snapshot::from_file(&cmd.path)?;
     let mut printer = SnapshotPrinter::new(&loc.workspace_root, None, &snapshot);
     printer.set_snapshot_file(Some(&cmd.path));
     printer.set_show_info(true);
     printer.set_show_diff(false);
+    printer.print();
+    Ok(())
+}
+
+/// Finds the accepted snapshot and the pending one for a path to either file.
+///
+/// With `INSTA_PENDING_DIR`, a path inside that directory is mapped back to the
+/// accepted snapshot in the workspace, and a pending snapshot there takes
+/// precedence over a `.snap.new` file left next to the accepted one.
+fn resolve_show_diff_paths(
+    loc: &LocationInfo,
+    path: &Path,
+) -> Result<(PathBuf, PathBuf), Box<dyn Error>> {
+    let cwd = env::current_dir()?;
+    let path_str = path.to_string_lossy();
+    let given = cwd.join(match path_str.strip_suffix(".new") {
+        Some(stripped) => Path::new(stripped),
+        None => path,
+    });
+    let given_pending = PathBuf::from(format!("{}.new", given.display()));
+
+    if let Some(pending_dir) = get_pending_dir() {
+        let pending_dir = cwd.join(pending_dir);
+        // Only the pending file exists inside the pending directory, so match
+        // with that file: the fallback that canonicalizes needs an existing path.
+        if let Some(relative) = strip_prefix_with_fallback(&given_pending, &pending_dir) {
+            // The accepted snapshot is at the same place in the workspace.
+            let relative = relative.to_string_lossy();
+            let relative = relative.strip_suffix(".new").unwrap_or(&relative);
+            return Ok((loc.workspace_root.join(relative), given_pending));
+        }
+        if let Some(relative) = strip_prefix_with_fallback(&given, &loc.workspace_root) {
+            let pending = PathBuf::from(format!("{}.new", pending_dir.join(relative).display()));
+            if pending.is_file() {
+                return Ok((given, pending));
+            }
+        }
+    }
+    Ok((given, given_pending))
+}
+
+/// Prints the diff between a pending file snapshot and its accepted version.
+fn show_diff_cmd(loc: &LocationInfo, path: &Path) -> Result<(), Box<dyn Error>> {
+    let (snapshot_path, pending_path) = resolve_show_diff_paths(loc, path)?;
+    if !pending_path.is_file() {
+        return Err(err_msg(format!(
+            "no pending snapshot found for {}",
+            snapshot_path.display()
+        )));
+    }
+
+    let new = Snapshot::from_file(&pending_path)?;
+    let old = if snapshot_path.is_file() {
+        Some(Snapshot::from_file(&snapshot_path)?)
+    } else {
+        None
+    };
+    let mut printer = SnapshotPrinter::new(&loc.workspace_root, old.as_ref(), &new);
+    printer.set_snapshot_file(Some(&snapshot_path));
+    printer.set_show_info(true);
+    printer.set_show_diff(true);
     printer.print();
     Ok(())
 }
