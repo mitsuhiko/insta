@@ -240,6 +240,9 @@
 //!   auto_review: true/false
 //!   # automatically assume --accept-unseen was passed to cargo insta test
 //!   auto_accept_unseen: true/false
+//!   # how to handle unreferenced snapshots after a successful test run,
+//!   # also set by INSTA_UNREFERENCED, default "ignore"
+//!   unreferenced: "auto" | "reject" | "delete" | "warn" | "ignore"
 //!
 //! # these are used by cargo insta review
 //! review:

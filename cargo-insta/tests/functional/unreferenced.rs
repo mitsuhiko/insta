@@ -502,3 +502,118 @@ exports[`Component renders correctly 1`] = `
         "Vitest snapshot should be preserved"
     );
 }
+
+/// `INSTA_UNREFERENCED` sets the unreferenced behavior when no flag is passed,
+/// and takes precedence over the config file.
+#[test]
+fn test_unreferenced_env_var() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_unreferenced_env_var")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_snapshot() {
+    insta::assert_snapshot!("Hello, world!");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    // The config file says to ignore unreferenced snapshots; the env var should win.
+    test_project.update_file(
+        "insta.yaml",
+        r#"
+test:
+  unreferenced: ignore
+"#
+        .to_string(),
+    );
+
+    let unreferenced_path = test_project
+        .workspace_dir
+        .join("src/snapshots/test_unreferenced_env_var__unused_snapshot.snap");
+    std::fs::write(
+        &unreferenced_path,
+        r#"---
+source: src/lib.rs
+expression: "Unused snapshot"
+---
+Unused snapshot
+"#,
+    )
+    .unwrap();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--", "--nocapture"])
+        .env("INSTA_UNREFERENCED", "reject")
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "Command should fail with INSTA_UNREFERENCED=reject"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("encountered unreferenced snapshots"),
+        "Expected error message about unreferenced snapshots, got: {stderr}"
+    );
+    assert!(unreferenced_path.exists());
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--", "--nocapture"])
+        .env("INSTA_UNREFERENCED", "delete")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(
+        !unreferenced_path.exists(),
+        "INSTA_UNREFERENCED=delete should remove the unreferenced snapshot"
+    );
+
+    // An explicit flag still takes precedence over the env var.
+    std::fs::write(
+        &unreferenced_path,
+        r#"---
+source: src/lib.rs
+expression: "Unused snapshot"
+---
+Unused snapshot
+"#,
+    )
+    .unwrap();
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--unreferenced=ignore", "--", "--nocapture"])
+        .env("INSTA_UNREFERENCED", "reject")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(unreferenced_path.exists());
+
+    // An invalid value is reported as an error.
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--", "--nocapture"])
+        .env("INSTA_UNREFERENCED", "bogus")
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("invalid value for env var 'INSTA_UNREFERENCED'"),
+        "Expected error mentioning INSTA_UNREFERENCED, got: {stdout}"
+    );
+}

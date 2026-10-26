@@ -299,12 +299,15 @@ impl ToolConfig {
                 _ => return Err(Error::Env("INSTA_TEST_RUNNER_FALLBACK")),
             },
             #[cfg(feature = "_cargo_insta_internal")]
-            test_unreferenced: {
-                resolve(&cfg, &["test", "unreferenced"])
+            test_unreferenced: match env::var("INSTA_UNREFERENCED").as_deref() {
+                Err(_) | Ok("") => resolve(&cfg, &["test", "unreferenced"])
                     .and_then(|x| x.as_str())
                     .unwrap_or("ignore")
                     .parse::<UnreferencedSnapshots>()
-                    .map_err(|_| Error::Config("unreferenced"))?
+                    .map_err(|_| Error::Config("unreferenced"))?,
+                Ok(val) => val
+                    .parse::<UnreferencedSnapshots>()
+                    .map_err(|_| Error::Env("INSTA_UNREFERENCED"))?,
             },
             #[cfg(feature = "_cargo_insta_internal")]
             auto_review: resolve(&cfg, &["test", "auto_review"])
