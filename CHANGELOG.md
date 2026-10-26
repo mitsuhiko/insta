@@ -4,6 +4,11 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Fix `**` redaction selectors with two or more segments after the wildcard
+  (e.g. `.**.a.b` or `.**[].*`) spuriously matching paths too short to contain
+  those trailing segments. The segments after `**` are matched against the end
+  of the path, so a path shorter than that suffix is no longer treated as a
+  match. #687
 - Add `cargo insta show --diff` to print the diff between a pending snapshot
   and its accepted version, given the path to either file. #886
 - Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
