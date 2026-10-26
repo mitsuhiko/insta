@@ -287,22 +287,8 @@ impl Content {
             Content::U8(v) => Some(i64::from(v)),
             Content::U16(v) => Some(i64::from(v)),
             Content::U32(v) => Some(i64::from(v)),
-            Content::U64(v) => {
-                let rv = v as i64;
-                if rv as u64 == v {
-                    Some(rv)
-                } else {
-                    None
-                }
-            }
-            Content::U128(v) => {
-                let rv = v as i64;
-                if rv as u128 == v {
-                    Some(rv)
-                } else {
-                    None
-                }
-            }
+            Content::U64(v) => i64::try_from(v).ok(),
+            Content::U128(v) => i64::try_from(v).ok(),
             Content::I8(v) => Some(i64::from(v)),
             Content::I16(v) => Some(i64::from(v)),
             Content::I32(v) => Some(i64::from(v)),
@@ -322,14 +308,8 @@ impl Content {
     /// Returns the value as i128
     pub fn as_i128(&self) -> Option<i128> {
         match *self.resolve_inner() {
-            Content::U128(v) => {
-                let rv = v as i128;
-                if rv as u128 == v {
-                    Some(rv)
-                } else {
-                    None
-                }
-            }
+            Content::U64(v) => Some(i128::from(v)),
+            Content::U128(v) => i128::try_from(v).ok(),
             Content::I128(v) => Some(v),
             _ => self.as_i64().map(i128::from),
         }

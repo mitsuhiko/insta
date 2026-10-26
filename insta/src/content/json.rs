@@ -166,6 +166,8 @@ impl Serializer {
                         self.write_escaped_str(&num.to_string());
                     } else if let Some(num) = real_key.as_i128() {
                         self.write_escaped_str(&num.to_string());
+                    } else if let Some(num) = real_key.as_u128() {
+                        self.write_escaped_str(&num.to_string());
                     } else {
                         panic!("cannot serialize maps without string keys to JSON");
                     }
@@ -370,6 +372,25 @@ fn test_to_string_num_keys() {
     {
       "42": true,
       "-23": false
+    }
+    "#);
+}
+
+#[test]
+fn test_to_string_large_unsigned_keys() {
+    let content = Content::Map(vec![
+        (Content::from(1u64 << 63), Content::from(true)),
+        (Content::from(u64::MAX), Content::from(false)),
+        (Content::from(1u128 << 127), Content::from(true)),
+        (Content::from(u128::MAX), Content::from(false)),
+    ]);
+    let json = to_string_pretty(&content);
+    crate::assert_snapshot!(&json, @r#"
+    {
+      "9223372036854775808": true,
+      "18446744073709551615": false,
+      "170141183460469231731687303715884105728": true,
+      "340282366920938463463374607431768211455": false
     }
     "#);
 }
