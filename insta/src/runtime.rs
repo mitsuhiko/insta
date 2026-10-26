@@ -669,11 +669,13 @@ impl<'a> SnapshotAssertionContext<'a> {
         let fail_fast = {
             #[cfg(feature = "glob")]
             {
-                if let Some(top) = crate::glob::GLOB_STACK.lock().unwrap().last() {
-                    top.fail_fast
-                } else {
-                    true
-                }
+                crate::glob::GLOB_STACK.with(|stack| {
+                    if let Some(top) = stack.borrow().last() {
+                        top.fail_fast
+                    } else {
+                        true
+                    }
+                })
             }
             #[cfg(not(feature = "glob"))]
             {
@@ -711,16 +713,21 @@ impl<'a> SnapshotAssertionContext<'a> {
             // the end.
             #[cfg(feature = "glob")]
             {
-                let mut stack = crate::glob::GLOB_STACK.lock().unwrap();
-                if let Some(glob_collector) = stack.last_mut() {
-                    glob_collector.failed += 1;
-                    if update_result == SnapshotUpdateBehavior::NewFile
-                        && self.tool_config.output_behavior() != OutputBehavior::Nothing
-                        && self.snapshot_file.is_some()
-                    {
-                        glob_collector.show_insta_hint = true;
+                let in_glob = crate::glob::GLOB_STACK.with(|stack| {
+                    if let Some(glob_collector) = stack.borrow_mut().last_mut() {
+                        glob_collector.failed += 1;
+                        if update_result == SnapshotUpdateBehavior::NewFile
+                            && self.tool_config.output_behavior() != OutputBehavior::Nothing
+                            && self.snapshot_file.is_some()
+                        {
+                            glob_collector.show_insta_hint = true;
+                        }
+                        true
+                    } else {
+                        false
                     }
-
+                });
+                if in_glob {
                     print_or_panic!(
                         fail_fast,
                         "snapshot assertion from glob for '{}' failed in line {}",

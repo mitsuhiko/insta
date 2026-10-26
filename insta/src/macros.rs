@@ -533,7 +533,9 @@ macro_rules! with_settings {
 /// Another effect of the globbing system is that snapshot failures within the glob macro
 /// are deferred until the end of of it.  In other words this means that each snapshot
 /// assertion within the `glob!` block are reported.  It can be disabled by setting
-/// `INSTA_GLOB_FAIL_FAST` environment variable to `1`.
+/// `INSTA_GLOB_FAIL_FAST` environment variable to `1`.  Only assertions on the
+/// thread that runs `glob!` are deferred.  A failing assertion in a thread spawned
+/// by the closure panics in that thread, as it would outside of `glob!`.
 ///
 /// Note: Parent directory traversal patterns (e.g., "../**/*.rs") are not supported in the
 /// two-argument form of this macro currently. If you need to access parent
