@@ -1,0 +1,6 @@
+---
+source: insta/tests/test_matches_snapshot.rs
+assertion_line: 21
+expression: "\"hello world\""
+---
+hello world

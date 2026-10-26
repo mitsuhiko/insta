@@ -331,6 +331,7 @@ impl<'a> SnapshotAssertionContext<'a> {
         module_path: &'a str,
         assertion_file: &'a str,
         assertion_line: u32,
+        asserting: bool,
     ) -> Result<SnapshotAssertionContext<'a>, Box<dyn Error>> {
         let tool_config = get_tool_config(workspace);
         let snapshot_name;
@@ -370,15 +371,20 @@ impl<'a> SnapshotAssertionContext<'a> {
                         }
                         Err(err) => {
                             // If we can't parse the snapshot (e.g., invalid YAML,
-                            // merge conflicts, truncated file), log a warning and
-                            // proceed. The test will generate a new pending snapshot.
-                            elog!(
-                                "{}: Failed to parse snapshot file; \
-                                 a new snapshot will be generated: {}\n  Error: {}",
-                                style("warning").yellow().bold(),
-                                file.display(),
-                                err
-                            );
+                            // merge conflicts, truncated file), proceed as if no
+                            // reference existed. The asserting path logs a warning
+                            // here because it will generate a new pending snapshot to
+                            // repair the file; the non-asserting path does not write
+                            // anything, so it stays silent.
+                            if asserting {
+                                elog!(
+                                    "{}: Failed to parse snapshot file; \
+                                     a new snapshot will be generated: {}\n  Error: {}",
+                                    style("warning").yellow().bold(),
+                                    file.display(),
+                                    err
+                                );
+                            }
                         }
                     }
                 }
@@ -393,7 +399,7 @@ impl<'a> SnapshotAssertionContext<'a> {
                     duplication_key = Some(format!(
                         "inline:{function_name}|{assertion_file}|{assertion_line}"
                     ));
-                } else {
+                } else if asserting {
                     prevent_inline_duplicate(function_name, assertion_file, assertion_line);
                 }
                 snapshot_name = detect_snapshot_name(function_name, module_path)
@@ -851,6 +857,79 @@ where
     }
 }
 
+/// Build the [`SnapshotContents`] for a text snapshot value, applying the
+/// current bound [`Settings`] (ANSI stripping + filters). Shared between
+/// [`assert_snapshot`] (which then writes the pending snapshot / panics) and
+/// [`matches_snapshot`] (which only compares), so both paths apply identical
+/// processing to the value.
+fn build_text_contents(content: &str, is_file: bool) -> SnapshotContents {
+    // strip ANSI escape codes if enabled
+    #[cfg(feature = "filters")]
+    let content = Settings::with(|settings| {
+        if settings.strip_ansi_escape_codes() {
+            crate::filters::strip_ansi_escape_codes(content)
+        } else {
+            std::borrow::Cow::Borrowed(content)
+        }
+    });
+
+    // apply filters if they are available
+    #[cfg(feature = "filters")]
+    let content = Settings::with(|settings| settings.filters().apply_to(&content));
+
+    let kind = if is_file {
+        TextSnapshotKind::File
+    } else {
+        TextSnapshotKind::Inline
+    };
+
+    TextSnapshotContents::new(content.into(), kind).into()
+}
+
+/// Turn a [`SnapshotValue`] into the [`SnapshotContents`] that will be stored,
+/// applying the current bound [`Settings`] (ANSI stripping + filters) to text
+/// values and validating binary extensions. Shared by [`assert_snapshot`] and
+/// [`matches_snapshot`] so both process the value identically.
+fn build_snapshot_contents(
+    snapshot_value: SnapshotValue,
+    is_file: bool,
+) -> Result<SnapshotContents, Box<dyn Error>> {
+    Ok(match snapshot_value {
+        SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
+            build_text_contents(content, is_file)
+        }
+        SnapshotValue::Binary {
+            content, extension, ..
+        } => {
+            if extension == "new" {
+                return Err("'.new' is not allowed as a file extension".into());
+            }
+            if extension.starts_with("new.") {
+                return Err("file extensions starting with 'new.' are not allowed".into());
+            }
+            SnapshotContents::Binary(Some(Rc::new(content)))
+        }
+    })
+}
+
+/// Compare `new_snapshot` against the stored reference (`ctx.old_snapshot`)
+/// using the current bound [`Settings`], honoring `require_full_match`. Returns
+/// `false` when no reference snapshot exists yet.
+fn snapshot_matches(ctx: &SnapshotAssertionContext<'_>, new_snapshot: &Snapshot) -> bool {
+    Settings::with(|settings| {
+        ctx.old_snapshot
+            .as_ref()
+            .map(|x| {
+                if ctx.tool_config.require_full_match() {
+                    settings.comparator().matches_fully(x, new_snapshot)
+                } else {
+                    settings.comparator().matches(x, new_snapshot)
+                }
+            })
+            .unwrap_or(false)
+    })
+}
+
 /// This function is invoked from the macros to run the main assertion logic.
 ///
 /// This will create the assertion context, run the main logic to assert
@@ -874,48 +953,12 @@ pub fn assert_snapshot(
         module_path,
         assertion_file,
         assertion_line,
+        true,
     )?;
 
     ctx.cleanup_previous_pending_binary_snapshots()?;
 
-    let content = match snapshot_value {
-        SnapshotValue::FileText { content, .. } | SnapshotValue::InlineText { content, .. } => {
-            // strip ANSI escape codes if enabled
-            #[cfg(feature = "filters")]
-            let content = Settings::with(|settings| {
-                if settings.strip_ansi_escape_codes() {
-                    crate::filters::strip_ansi_escape_codes(content)
-                } else {
-                    std::borrow::Cow::Borrowed(content)
-                }
-            });
-
-            // apply filters if they are available
-            #[cfg(feature = "filters")]
-            let content = Settings::with(|settings| settings.filters().apply_to(&content));
-
-            let kind = match ctx.snapshot_file {
-                Some(_) => TextSnapshotKind::File,
-                None => TextSnapshotKind::Inline,
-            };
-
-            TextSnapshotContents::new(content.into(), kind).into()
-        }
-        SnapshotValue::Binary {
-            content, extension, ..
-        } => {
-            assert!(
-                extension != "new",
-                "'.new' is not allowed as a file extension"
-            );
-            assert!(
-                !extension.starts_with("new."),
-                "file extensions starting with 'new.' are not allowed",
-            );
-
-            SnapshotContents::Binary(Some(Rc::new(content)))
-        }
-    };
+    let content = build_snapshot_contents(snapshot_value, ctx.snapshot_file.is_some())?;
 
     let new_snapshot = ctx.new_snapshot(content, expr);
 
@@ -933,18 +976,7 @@ pub fn assert_snapshot(
         }
     });
 
-    let pass = Settings::with(|settings| {
-        ctx.old_snapshot
-            .as_ref()
-            .map(|x| {
-                if ctx.tool_config.require_full_match() {
-                    settings.comparator().matches_fully(x, &new_snapshot)
-                } else {
-                    settings.comparator().matches(x, &new_snapshot)
-                }
-            })
-            .unwrap_or(false)
-    });
+    let pass = snapshot_matches(&ctx, &new_snapshot);
 
     if pass {
         ctx.cleanup_passing()?;
@@ -963,6 +995,54 @@ pub fn assert_snapshot(
     }
 
     Ok(())
+}
+
+/// Non-asserting counterpart of [`assert_snapshot`]: resolves the snapshot
+/// name/file, loads the reference, applies the bound [`Settings`] (filters,
+/// redactions) to the value, and compares — exactly as [`assert_snapshot`]
+/// would — but never writes a `.snap.new` file or panics.
+///
+/// Like [`assert_snapshot`], it registers file snapshots as referenced (so
+/// `cargo insta test --unreferenced` won't flag a snapshot that is only ever
+/// checked, never asserted), but it writes no pending snapshot otherwise.
+///
+/// Returns `Ok(true)` on a match, `Ok(false)` on a mismatch or when no
+/// reference exists yet. A reference that exists but fails to parse is
+/// treated the same as a missing one — silently, since this path writes
+/// nothing and has nothing to regenerate — and `Err` only for an invalid
+/// binary extension.
+///
+/// The inline-duplicate detection (`allow_duplicates!`) is skipped here, so it
+/// is safe to call in a loop with any calling form.
+#[allow(clippy::too_many_arguments)]
+pub fn matches_snapshot(
+    snapshot_value: SnapshotValue<'_>,
+    workspace: &Path,
+    function_name: &str,
+    module_path: &str,
+    assertion_file: &str,
+    assertion_line: u32,
+    expr: &str,
+) -> Result<bool, Box<dyn Error>> {
+    let ctx = SnapshotAssertionContext::prepare(
+        &snapshot_value,
+        workspace,
+        function_name,
+        module_path,
+        assertion_file,
+        assertion_line,
+        false,
+    )?;
+
+    let content = build_snapshot_contents(snapshot_value, ctx.snapshot_file.is_some())?;
+    let new_snapshot = ctx.new_snapshot(content, expr);
+
+    // memoize the snapshot file if requested, as part of potentially removing unreferenced snapshots
+    if let Some(ref snapshot_file) = ctx.snapshot_file {
+        memoize_snapshot_file(snapshot_file);
+    }
+
+    Ok(snapshot_matches(&ctx, &new_snapshot))
 }
 
 #[allow(rustdoc::private_doc_tests)]
