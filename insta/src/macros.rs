@@ -612,3 +612,33 @@ macro_rules! allow_duplicates {
         })
     }
 }
+
+/// Like [`allow_duplicates!`] but for async code.
+///
+/// The block is turned into a future (like an `async` block) that allows
+/// duplicate assertions while it runs, including across `.await` points.
+///
+/// ```rust
+/// # async fn is_even(x: u32) -> bool { x % 2 == 0 }
+/// # async fn foo() {
+/// insta::allow_duplicates_async! {
+///     for x in (0..10).step_by(2) {
+///         let is_even = is_even(x).await;
+///         insta::assert_debug_snapshot!(is_even, @"true");
+///     }
+/// }
+/// .await;
+/// # }
+/// ```
+///
+/// The returned future is not `Send`, so it can be awaited directly (for
+/// example in a `#[tokio::test]`) but not spawned onto a multi-threaded
+/// executor.
+#[macro_export]
+macro_rules! allow_duplicates_async {
+    ($($x:tt)*) => {
+        $crate::_macro_support::with_allow_duplicates_async(async {
+            $($x)*
+        })
+    }
+}

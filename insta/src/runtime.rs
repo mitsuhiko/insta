@@ -3,11 +3,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
+use std::future::Future;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::rc::Rc;
 use std::str;
 use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use std::{borrow::Cow, env};
 
 use crate::settings::Settings;
@@ -848,6 +851,41 @@ where
     match rv {
         Ok(rv) => rv,
         Err(payload) => std::panic::resume_unwind(payload),
+    }
+}
+
+/// Like [`with_allow_duplicates`] but for futures.
+///
+/// The recorded snapshots are kept in the returned future and made current
+/// for every poll, so duplicates are detected across `.await` points.
+pub fn with_allow_duplicates_async<F: Future>(future: F) -> impl Future<Output = F::Output> {
+    struct AllowDuplicatesFuture<F> {
+        recorded: BTreeMap<String, Snapshot>,
+        future: F,
+    }
+
+    impl<F: Future> Future for AllowDuplicatesFuture<F> {
+        type Output = F::Output;
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            // SAFETY: `future` is pinned when `self` is and is never moved out.
+            // `recorded` is not structurally pinned.
+            let this = unsafe { self.get_unchecked_mut() };
+            let future = unsafe { Pin::new_unchecked(&mut this.future) };
+            let recorded = std::mem::take(&mut this.recorded);
+            RECORDED_DUPLICATES.with(|x| x.borrow_mut().push(recorded));
+            let rv = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| future.poll(cx)));
+            this.recorded = RECORDED_DUPLICATES.with(|x| x.borrow_mut().pop().unwrap());
+            match rv {
+                Ok(rv) => rv,
+                Err(payload) => std::panic::resume_unwind(payload),
+            }
+        }
+    }
+
+    AllowDuplicatesFuture {
+        recorded: BTreeMap::new(),
+        future,
     }
 }
 
