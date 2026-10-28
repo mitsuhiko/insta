@@ -26,6 +26,9 @@ All notable changes to insta and cargo-insta are documented here.
   which made later snapshot failures in the same test binary pass. #398
 - Fix JSON serialization of maps keyed by `u64` values above `i64::MAX` or
   `u128` values above `i128::MAX`, which were written as negative numbers.
+- Add `allow_duplicates_async!`, which works like `allow_duplicates!` for
+  async code. It returns a future that allows duplicate assertions across
+  `.await` points. #369
 
 ## 1.49.0
 

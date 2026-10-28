@@ -1,4 +1,9 @@
-use insta::{allow_duplicates, assert_debug_snapshot};
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll, Wake, Waker};
+
+use insta::{allow_duplicates, allow_duplicates_async, assert_debug_snapshot};
 
 #[cfg(feature = "filters")]
 #[test]
@@ -78,4 +83,61 @@ fn test_basic_duplicates_assertion_failed() {
             assert_debug_snapshot!(is_even, @"true");
         }
     }
+}
+
+/// Polls a future to completion on the current thread.
+fn block_on<F: Future>(future: F) -> F::Output {
+    struct NoopWaker;
+
+    impl Wake for NoopWaker {
+        fn wake(self: Arc<Self>) {}
+    }
+
+    let waker = Waker::from(Arc::new(NoopWaker));
+    let mut cx = Context::from_waker(&waker);
+    let mut future = Box::pin(future);
+    loop {
+        if let Poll::Ready(rv) = future.as_mut().poll(&mut cx) {
+            return rv;
+        }
+    }
+}
+
+/// Returns `Poll::Pending` once, so the caller gets polled again.
+struct YieldNow(bool);
+
+impl Future for YieldNow {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
+        if self.0 {
+            Poll::Ready(())
+        } else {
+            self.0 = true;
+            Poll::Pending
+        }
+    }
+}
+
+#[test]
+fn test_async_duplicates_passes() {
+    block_on(allow_duplicates_async! {
+        for x in (0..10).step_by(2) {
+            YieldNow(false).await;
+            let is_even = x % 2 == 0;
+            assert_debug_snapshot!(is_even, @"true");
+        }
+    });
+}
+
+#[test]
+#[should_panic = "Result does not match previous snapshot in allow-duplicates block"]
+fn test_async_duplicates_assertion_failed() {
+    block_on(allow_duplicates_async! {
+        for x in (0..10).step_by(3) {
+            YieldNow(false).await;
+            let is_even = x % 2 == 0;
+            assert_debug_snapshot!(is_even, @"true");
+        }
+    });
 }
