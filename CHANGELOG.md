@@ -26,6 +26,12 @@ All notable changes to insta and cargo-insta are documented here.
   which made later snapshot failures in the same test binary pass. #398
 - Fix JSON serialization of maps keyed by `u64` values above `i64::MAX` or
   `u128` values above `i128::MAX`, which were written as negative numbers.
+- With `INSTA_YAML_BLOCK_STYLE=1`, write an indentation indicator for literal
+  blocks whose first line starts with whitespace. Without it, that whitespace
+  was lost when the YAML was read back, or the snapshot file could not be
+  parsed at all. `assert_yaml_snapshot!` output for such strings changes too,
+  so those snapshots need to be accepted again, and affected metadata may need
+  `--force-update-snapshots` once.
 
 ## 1.49.0
 
