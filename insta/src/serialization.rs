@@ -46,6 +46,12 @@ pub fn serialize_content(mut content: Content, format: SerializationFormat) -> S
     match format {
         SerializationFormat::Yaml => yaml::to_string(&content)[4..].to_string(),
         SerializationFormat::Json => json::to_string_pretty(&content),
+        #[cfg(feature = "json")]
+        SerializationFormat::JsonCompact
+            if Settings::with(|settings| settings.compact_nested_json()) =>
+        {
+            json::to_string_compact_nested(&content)
+        }
         SerializationFormat::JsonCompact => json::to_string_compact(&content),
         #[cfg(feature = "csv")]
         SerializationFormat::Csv => {
