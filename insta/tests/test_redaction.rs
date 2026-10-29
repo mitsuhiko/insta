@@ -451,6 +451,42 @@ fn test_redact_recursive_array() {
     "#);
 }
 
+#[cfg(feature = "json")]
+#[test]
+fn test_redact_deep_wildcard_suffix_length() {
+    // The segments after `**` are matched against the *end* of the path, so a
+    // path must be at least as long as that suffix to match. `.**.a.b` must
+    // therefore only match a value reached via `.a.b`, never a top-level `b`:
+    // the path `.b` is a single segment and cannot contain the two-segment
+    // `.a.b` suffix.
+    //
+    // This pins the fix for the length guard in `selector_is_match`. Previously
+    // the backward match zipped the suffix against the reversed path and
+    // truncated to the shorter side, so `.b` matched against the trailing `.b`
+    // alone and the top-level `b` was redacted by mistake.
+    #[derive(Serialize)]
+    struct Inner {
+        b: u32,
+    }
+
+    #[derive(Serialize)]
+    struct Root {
+        b: u32,
+        a: Inner,
+    }
+
+    assert_json_snapshot!(Root { b: 1, a: Inner { b: 2 } }, {
+        ".**.a.b" => "[redacted]",
+    }, @r#"
+    {
+      "b": 1,
+      "a": {
+        "b": "[redacted]"
+      }
+    }
+    "#);
+}
+
 #[cfg(feature = "yaml")]
 #[test]
 fn test_struct_array_redaction() {

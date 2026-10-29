@@ -4,9 +4,28 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Fix `**` redaction selectors with two or more segments after the wildcard
+  (e.g. `.**.a.b` or `.**[].*`) spuriously matching paths too short to contain
+  those trailing segments. The segments after `**` are matched against the end
+  of the path, so a path shorter than that suffix is no longer treated as a
+  match. #687
+- When accepting an inline snapshot whose least indented lines are
+  whitespace-only, write the literal so that the value matches it on the next
+  run. How snapshots are compared is unchanged.
 - Remove the trailing semicolon from the `assert_binary_snapshot!` macro body,
   which #940 missed, to avoid compiler warnings when used in expression
   position.
+- Add the `INSTA_UNREFERENCED` environment variable, which sets the
+  unreferenced snapshot behavior of `cargo insta test` like
+  `--unreferenced` or `test.unreferenced` in the config file. #764
+- Make `glob!` failures say what was searched. When nothing matches, the
+  panic shows the pattern and the resolved base directory, and notes when
+  that directory does not exist. An invalid pattern or an error while walking
+  the files gives a clear message instead of an `unwrap` panic. A missing
+  base directory or a walk error also no longer leaves `glob!` state behind,
+  which made later snapshot failures in the same test binary pass. #398
+- Fix JSON serialization of maps keyed by `u64` values above `i64::MAX` or
+  `u128` values above `i128::MAX`, which were written as negative numbers.
 - Add `compact_nested_json` setting, which keeps every array and object that fits within 120 characters on one line when `assert_compact_json_snapshot!` has to expand a snapshot, instead of expanding everything. It is off by default, so existing snapshots are unchanged. #805
 
 ## 1.49.0

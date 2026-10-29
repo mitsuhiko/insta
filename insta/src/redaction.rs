@@ -388,7 +388,24 @@ impl<'a> Selector<'a> {
             let forward_sel = &selector[..idx];
             let backward_sel = &selector[idx + 1..];
 
-            if path.len() <= idx {
+            // `**` matches zero or more path segments between the forward part
+            // (the segments before `**`) and the backward part (those after
+            // it). The backward part is matched against the *tail* of the path
+            // by zipping both in reverse, so the path must be long enough to
+            // hold the forward and backward parts without them overlapping.
+            // The old check (`path.len() <= idx`) only accounted for the
+            // forward part: when the backward part had two or more segments, a
+            // too-short path slipped through and the reverse `zip` silently
+            // truncated to the shorter side, matching only the final
+            // segment(s). For example `.**.a.b` would match a one-segment path
+            // like a top-level `b` (comparing `b` against the trailing `.b`
+            // alone) and redact it. Requiring room for both ends fixes that.
+            //
+            // With no backward part, `**` must still consume at least one
+            // segment (hence `.max(1)`), so `.**` never matches the root and
+            // `.foo.**` never matches `foo` itself — preserving the previous
+            // behavior for those common cases.
+            if path.len() < forward_sel.len() + backward_sel.len().max(1) {
                 return false;
             }
 
@@ -471,6 +488,24 @@ impl<'a> Selector<'a> {
         redaction: &Redaction,
         path: &mut Vec<PathItem>,
     ) -> Content {
+        // On a match we redact and stop descending. For a deep wildcard this
+        // means `.**` only redacts the shallowest match on each branch:
+        // `.** => rounded_redaction(n)` rounds the top-level value but not
+        // numbers nested inside arrays, because the array matches `**` first and
+        // descent stops here.
+        //
+        // From scratch this is arguably the wrong default. JSONPath `..` and jq
+        // `..` recurse into every descendant, and the cleaner model is to redact
+        // on a match and then keep descending into the result (which also lets
+        // overlapping selectors like `.a` and `.a.b` compose instead of the
+        // first swallowing the second). We keep stop-on-match purely for
+        // backwards compatibility: existing `.** => sorted_redaction()` /
+        // `dynamic_redaction(...)` snapshots depend on it, and recursing would
+        // resort / re-redact nested collections and silently change their
+        // output. To reach every leaf through arrays and maps, give the wildcard
+        // a trailing segment instead — `.**.<field>` (see
+        // `test_redact_recursive_array`).
+        // Background: https://github.com/mitsuhiko/insta/issues/687
         if self.is_match(path) {
             redaction.redact(value, path)
         } else {
