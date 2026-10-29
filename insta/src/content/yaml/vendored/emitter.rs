@@ -270,10 +270,16 @@ impl<'a> YamlEmitter<'a> {
     ///   second line
     /// ```
     fn emit_literal_block(&mut self, s: &str, indicator: ChompingIndicator) -> EmitResult {
+        write!(self.writer, " |")?;
+        // Without an indentation indicator, parsers take the indentation from
+        // the first non-empty line, so its leading whitespace would be lost.
+        if s.trim_start_matches('\n').starts_with([' ', '\t']) {
+            write!(self.writer, "{}", self.best_indent)?;
+        }
         match indicator {
-            ChompingIndicator::Strip => writeln!(self.writer, " |-")?,
-            ChompingIndicator::Clip => writeln!(self.writer, " |")?,
-            ChompingIndicator::Keep => writeln!(self.writer, " |+")?,
+            ChompingIndicator::Strip => writeln!(self.writer, "-")?,
+            ChompingIndicator::Clip => writeln!(self.writer)?,
+            ChompingIndicator::Keep => writeln!(self.writer, "+")?,
         }
 
         let content_indent =
@@ -739,5 +745,55 @@ a:
 
         let expected = "---\ncontent: Just a single line";
         assert_eq!(expected, writer, "actual:\n{writer}");
+    }
+
+    #[test]
+    // A first line starting with whitespace needs an indentation indicator
+    fn test_literal_block_with_leading_spaces() {
+        let h = vec![(
+            Yaml::String("description".into()),
+            Yaml::String("    indented\nnot indented".into()),
+        )];
+        let doc = Yaml::Hash(h);
+
+        let mut writer = String::new();
+        {
+            let mut emitter = YamlEmitter::new(&mut writer);
+            emitter.use_literal_blocks(true);
+            emitter.dump(&doc).unwrap();
+        }
+
+        let expected = "---\ndescription: |2-\n      indented\n  not indented\n";
+        assert_eq!(expected, writer, "actual:\n{writer}");
+        assert_eq!(YamlLoader::load_from_str(&writer).unwrap()[0], doc);
+    }
+
+    #[test]
+    // Leading whitespace must survive a round trip, also in nested blocks
+    fn test_literal_block_leading_whitespace_round_trip() {
+        for s in [
+            "\tindented\nnot indented",
+            "        return x;\n    }",
+            "\n    fn main() {\n        foo();\n    }\n",
+        ] {
+            let doc = Yaml::Hash(vec![
+                (Yaml::String("description".into()), Yaml::String(s.into())),
+                (
+                    Yaml::String("info".into()),
+                    Yaml::Array(vec![Yaml::String(s.into())]),
+                ),
+            ]);
+
+            let mut writer = String::new();
+            {
+                let mut emitter = YamlEmitter::new(&mut writer);
+                emitter.use_literal_blocks(true);
+                emitter.dump(&doc).unwrap();
+            }
+
+            let docs = YamlLoader::load_from_str(&writer)
+                .unwrap_or_else(|e| panic!("{e}\nemitted:\n{writer}"));
+            assert_eq!(docs[0], doc, "emitted:\n{writer}");
+        }
     }
 }
