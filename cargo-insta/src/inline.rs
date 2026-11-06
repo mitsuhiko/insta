@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use insta::_cargo_insta_support::TextSnapshotContents;
+use insta::_cargo_insta_support::{InlineIndentation, TextSnapshotContents};
 use proc_macro2::{LineColumn, TokenTree};
 
 use syn::__private::ToTokens;
@@ -14,6 +14,7 @@ use syn::spanned::Spanned;
 struct InlineSnapshot {
     start: (usize, usize),
     end: (usize, usize),
+    /// Leading whitespace of the line the macro starts on.
     indentation: String,
 }
 
@@ -92,7 +93,14 @@ impl FilePatcher {
         self.inline_snapshots[id].start.0 + 1
     }
 
-    pub(crate) fn set_new_content(&mut self, id: usize, snapshot: &TextSnapshotContents) {
+    /// Replaces the literal of the snapshot at `id` with `snapshot`, written
+    /// with `inline_indentation`, and updates the positions of later snapshots.
+    pub(crate) fn set_new_content(
+        &mut self,
+        id: usize,
+        snapshot: &TextSnapshotContents,
+        inline_indentation: InlineIndentation,
+    ) {
         let inline = &mut self.inline_snapshots[id];
 
         // find prefix and suffix on the first and last lines
@@ -105,9 +113,34 @@ impl FilePatcher {
             .skip(inline.end.1)
             .collect();
 
+        let literal = match inline_indentation {
+            InlineIndentation::Aligned => snapshot.to_inline(&inline.indentation),
+            InlineIndentation::Nested => {
+                // Use the literal's line rather than the macro's, so that when
+                // a call is split over several lines the closing delimiter
+                // lines up with the `@`. That line is shallower than the macro
+                // if it starts inside an earlier multiline argument.
+                let line_indentation = leading_whitespace(&prefix);
+                let closing_indentation = if line_indentation.len() < inline.indentation.len() {
+                    &inline.indentation
+                } else {
+                    &line_indentation
+                };
+                // Use a tab if the code is indented with tabs (#679)
+                let level = if closing_indentation.ends_with('\t') {
+                    "\t"
+                } else {
+                    "    "
+                };
+                snapshot.to_inline_indented(
+                    &format!("{closing_indentation}{level}"),
+                    closing_indentation,
+                )
+            }
+        };
+
         // replace lines
-        let snapshot_line_contents =
-            [prefix, snapshot.to_inline(&inline.indentation), suffix].join("");
+        let snapshot_line_contents = [prefix, literal, suffix].join("");
 
         self.lines.splice(
             inline.start.0..=inline.end.0,
@@ -131,10 +164,7 @@ impl FilePatcher {
         fn indentation(macro_start: LineColumn, code_lines: &[String]) -> String {
             // Only capture leading whitespace from the line, not arbitrary code
             // that might precede the macro (fixes issue #833)
-            code_lines[macro_start.line - 1]
-                .chars()
-                .take_while(|c| c.is_whitespace())
-                .collect()
+            leading_whitespace(&code_lines[macro_start.line - 1])
         }
 
         fn scan_for_path_start(tokens: &[TokenTree], pos: usize, code_lines: &[String]) -> String {
@@ -310,6 +340,10 @@ impl FilePatcher {
             .find(|(macro_start, macro_end, _)| line >= *macro_start && line <= *macro_end)
             .map(|(_, _, snapshot)| snapshot)
     }
+}
+
+fn leading_whitespace(line: &str) -> String {
+    line.chars().take_while(|c| c.is_whitespace()).collect()
 }
 
 #[cfg(test)]

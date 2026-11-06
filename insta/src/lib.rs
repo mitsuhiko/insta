@@ -172,6 +172,39 @@
 //! review the proposed changes and update the source files on acceptance
 //! automatically.
 //!
+//! Multiline inline snapshots are written aligned with the macro:
+//!
+//! ```no_run
+//! # use insta::assert_snapshot;
+//! assert_snapshot!("first\nsecond", @"
+//! first
+//! second
+//! ");
+//! ```
+//!
+//! Indentation shared by all lines is ignored when comparing, so a snapshot can
+//! be indented differently and still pass, but it's rewritten when its value is
+//! next updated.  Set `review.inline_indentation` to `"nested"` in the
+//! [config file](#settings) to have `cargo-insta` write the contents one level
+//! deeper than the line the `@` is on, with the closing quote on that line's
+//! indentation:
+//!
+//! ```no_run
+//! # use insta::assert_snapshot;
+//! assert_snapshot!("first\nsecond", @"
+//!     first
+//!     second
+//! ");
+//!
+//! assert_snapshot!(
+//!     "first\nsecond",
+//!     @"
+//!         first
+//!         second
+//!     "
+//! );
+//! ```
+//!
 //! # Features
 //!
 //! The following features exist:
@@ -253,6 +286,11 @@
 //!   # show a warning if undiscovered (ignored or hidden) snapshots are found.
 //!   # defaults to true but creates a performance hit.
 //!   warn_undiscovered: true / false
+//!   # how cargo-insta indents multiline inline snapshots, including with
+//!   # cargo insta test --accept: "aligned" with the macro, or "nested" one level
+//!   # (four spaces, or a tab if the code uses tabs) deeper than the line the
+//!   # `@` is on. defaults to "aligned".
+//!   inline_indentation: "aligned" | "nested"
 //! ```
 //!
 //! # External Diff Tools
@@ -357,8 +395,8 @@ pub mod _cargo_insta_support {
     pub use crate::{
         content::Error as ContentError,
         env::{
-            get_pending_dir, Error as ToolConfigError, OutputBehavior, SnapshotUpdate, TestRunner,
-            ToolConfig, UnreferencedSnapshots,
+            get_pending_dir, Error as ToolConfigError, InlineIndentation, OutputBehavior,
+            SnapshotUpdate, TestRunner, ToolConfig, UnreferencedSnapshots,
         },
         output::SnapshotPrinter,
         snapshot::PendingInlineSnapshot,

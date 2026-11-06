@@ -1,3 +1,5 @@
+use std::process::Stdio;
+
 use insta::assert_snapshot;
 
 use crate::TestFiles;
@@ -603,4 +605,232 @@ fn test_cr_preserved() {
         "Should not show legacy format warning after fix: {}",
         combined
     );
+}
+
+/// With `review.inline_indentation: nested`, multiline values are written one
+/// level deeper than the line the literal starts on.
+#[test]
+fn test_inline_indentation_nested() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_inline_indentation_nested")
+        .add_file(
+            "insta.yaml",
+            r#"
+review:
+  inline_indentation: nested
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_new() {
+    insta::assert_snapshot!("Tasks\n  write tape\n> run test", @"");
+}
+
+#[test]
+fn test_multiline_call() {
+    insta::assert_snapshot!(
+        "a\nb",
+        @""
+    );
+}
+
+#[test]
+fn test_hand_indented() {
+    insta::assert_snapshot!("a\nnew", @"
+        a
+        old
+    ");
+}
+
+#[test]
+fn test_single_line() {
+    insta::assert_snapshot!("a", @"");
+}
+
+#[test]
+fn test_after_multiline_argument() {
+    insta::assert_snapshot!(format!("{}", "a
+b"), @"");
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    assert_snapshot!(test_project.diff("src/lib.rs"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,14 +1,21 @@
+     
+     #[test]
+     fn test_new() {
+    -    insta::assert_snapshot!("Tasks\n  write tape\n> run test", @"");
+    +    insta::assert_snapshot!("Tasks\n  write tape\n> run test", @"
+    +        Tasks
+    +          write tape
+    +        > run test
+    +    ");
+     }
+     
+     #[test]
+     fn test_multiline_call() {
+         insta::assert_snapshot!(
+             "a\nb",
+    -        @""
+    +        @"
+    +            a
+    +            b
+    +        "
+         );
+     }
+     
+    @@ -16,17 +23,20 @@
+     fn test_hand_indented() {
+         insta::assert_snapshot!("a\nnew", @"
+             a
+    -        old
+    +        new
+         ");
+     }
+     
+     #[test]
+     fn test_single_line() {
+    -    insta::assert_snapshot!("a", @"");
+    +    insta::assert_snapshot!("a", @"a");
+     }
+     
+     #[test]
+     fn test_after_multiline_argument() {
+         insta::assert_snapshot!(format!("{}", "a
+    -b"), @"");
+    +b"), @"
+    +        a
+    +        b
+    +    ");
+     }
+    "#);
+
+    // The written snapshots pass
+    let output = test_project.insta_cmd().args(["test"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// `review.inline_indentation: nested` indents with a tab when the code does
+#[test]
+fn test_inline_indentation_nested_tabs() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_inline_indentation_nested_tabs")
+        .add_file(
+            "insta.yaml",
+            r#"
+review:
+  inline_indentation: nested
+"#
+            .to_string(),
+        )
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn test_tabs() {
+    insta::assert_snapshot!("a\nb", @"");
+}
+
+#[test]
+fn test_alignment_spaces_after_tab() {
+    insta::assert_snapshot!(
+    ..."a\nb",
+    ...@""
+    );
+}
+"#
+            .replace("    ", "\t")
+            .replace("...", "    "),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--accept"])
+        .output()
+        .unwrap();
+
+    assert!(&output.status.success());
+
+    assert_snapshot!(test_project.diff("src/lib.rs").replace('\t', "<tab>"), @r#"
+    --- Original: src/lib.rs
+    +++ Updated: src/lib.rs
+    @@ -1,13 +1,19 @@
+     
+     #[test]
+     fn test_tabs() {
+    -<tab>insta::assert_snapshot!("a\nb", @"");
+    +<tab>insta::assert_snapshot!("a\nb", @"
+    +<tab><tab>a
+    +<tab><tab>b
+    +<tab>");
+     }
+     
+     #[test]
+     fn test_alignment_spaces_after_tab() {
+     <tab>insta::assert_snapshot!(
+     <tab>    "a\nb",
+    -<tab>    @""
+    +<tab>    @"
+    +<tab>        a
+    +<tab>        b
+    +<tab>    "
+     <tab>);
+     }
+    "#);
+}
+
+/// A `review.inline_indentation` that isn't a known name is an error, rather
+/// than silently keeping the default
+#[test]
+fn test_inline_indentation_invalid() {
+    for value in ["sideways", "true"] {
+        let test_project = TestFiles::new()
+            .add_cargo_toml("test_inline_indentation_invalid")
+            .add_file(
+                "insta.yaml",
+                format!(
+                    r#"
+review:
+  inline_indentation: {value}
+"#
+                ),
+            )
+            .add_file("src/lib.rs", "".to_string())
+            .create_project();
+
+        let output = test_project
+            .insta_cmd()
+            .args(["test"])
+            .stdout(Stdio::piped())
+            .output()
+            .unwrap();
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("invalid value for config 'inline_indentation'"),
+            "Expected error mentioning inline_indentation for {value}, got: {stdout}"
+        );
+    }
 }
