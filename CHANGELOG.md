@@ -4,6 +4,11 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Recognize edition 2024 merged doctests as doctests.  `cargo insta test`
+  again warns that inline snapshots in doctests can't be updated, instead of
+  silently passing, and file snapshots in merged doctests now fail with a
+  message instead of being written to rustdoc's temporary directory, where
+  they were lost.  Doctests marked `standalone_crate` work as before.
 - Fix `**` redaction selectors with two or more segments after the wildcard
   (e.g. `.**.a.b` or `.**[].*`) spuriously matching paths too short to contain
   those trailing segments. The segments after `**` are matched against the end
