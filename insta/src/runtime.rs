@@ -834,9 +834,11 @@ fn record_snapshot_duplicate(
             printer.set_snapshot_file(ctx.snapshot_file.as_deref());
             printer.set_title(Some("Differences in Block"));
             printer.set_snapshot_hints("previous assertion", "current assertion");
-            if ctx.tool_config.output_behavior() == OutputBehavior::Diff {
-                printer.set_show_diff(true);
+            let output = ctx.tool_config.output_behavior();
+            if matches!(output, OutputBehavior::Diff | OutputBehavior::Summary) {
+                printer.show_info_for_both_assertions();
             }
+            printer.set_show_diff(output == OutputBehavior::Diff);
             printer.print();
             panic!(
                 "snapshot assertion for '{}' failed in line {}. Result \

@@ -31,6 +31,8 @@ All notable changes to insta and cargo-insta are documented here.
   which made later snapshot failures in the same test binary pass. #398
 - Fix JSON serialization of maps keyed by `u64` values above `i64::MAX` or
   `u128` values above `i128::MAX`, which were written as negative numbers.
+- Show both assertions' descriptions and info when snapshots disagree inside
+  `allow_duplicates!`. #424
 
 ## 1.49.0
 
