@@ -50,6 +50,9 @@ All notable changes to insta and cargo-insta are documented here.
   `"nested"`, `cargo insta` writes the contents of multiline inline snapshots
   one level deeper than the line the `@` is on, rather than aligned with the
   macro. #951 (@joshka)
+- `sorted_redaction()` now runs after all other redactions, so the sorted
+  order no longer depends on values that another redaction replaces, whatever
+  order the redactions are listed in. #683
 
 ## 1.49.0
 

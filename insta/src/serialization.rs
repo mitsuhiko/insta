@@ -203,10 +203,13 @@ pub fn serialize_value_redacted<S: Serialize>(
     format: SerializationFormat,
 ) -> String {
     let serializer = ContentSerializer::<ValueError>::new();
-    let mut content = Serialize::serialize(s, serializer).unwrap();
-    for (selector, redaction) in redactions {
-        content = selector.redact(content, redaction);
-    }
+    let content = Serialize::serialize(s, serializer).unwrap();
+    let content = crate::redaction::apply_redactions(
+        content,
+        redactions
+            .iter()
+            .map(|(selector, redaction)| (selector, redaction)),
+    );
     serialize_content(content, format)
 }
 

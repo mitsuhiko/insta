@@ -55,6 +55,10 @@ pub enum Redaction {
     Static(Content),
     /// Redaction with new content.
     Dynamic(Box<dyn Fn(Content, ContentPath<'_>) -> Content + Sync + Send>),
+    /// Sorts the value, as created by [`sorted_redaction`].
+    ///
+    /// Sort redactions are applied after all other redactions.
+    Sort,
 }
 
 macro_rules! impl_from {
@@ -140,6 +144,9 @@ where
 /// (which need to retain order) and sets (which should be given a stable order)
 /// look the same.
 ///
+/// Sort redactions are applied after all other redactions, so the sorted
+/// order does not depend on values that another redaction replaces.
+///
 /// ```rust
 /// # use insta::{Settings, sorted_redaction};
 /// # let mut settings = Settings::new();
@@ -147,41 +154,41 @@ where
 /// ```
 #[cfg_attr(docsrs, doc(cfg(feature = "redactions")))]
 pub fn sorted_redaction() -> Redaction {
-    fn sort(mut value: Content, _path: ContentPath) -> Content {
-        match value.resolve_inner_mut() {
-            Content::Seq(ref mut val) => {
-                val.sort_by(|a, b| match (a.as_key(), b.as_key()) {
-                    (crate::content::Key::Other, _) | (_, crate::content::Key::Other) => {
-                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-                    }
-                    (ref a, ref b) => a.cmp(b),
-                });
-            }
-            Content::Map(ref mut val) => {
-                val.sort_by(|a, b| match (a.0.as_key(), b.0.as_key()) {
-                    (crate::content::Key::Other, _) | (_, crate::content::Key::Other) => {
-                        a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
-                    }
-                    (ref a, ref b) => a.cmp(b),
-                });
-            }
-            Content::Struct(_, ref mut fields)
-            | Content::StructVariant(_, _, _, ref mut fields) => {
-                fields.sort_by(|a, b| match a.0.cmp(b.0) {
-                    std::cmp::Ordering::Equal => match (a.1.as_key(), b.1.as_key()) {
-                        (crate::content::Key::Other, _) | (_, crate::content::Key::Other) => {
-                            a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
-                        }
-                        (ref a, ref b) => a.cmp(b),
-                    },
-                    ord => ord,
-                });
-            }
-            _ => {}
+    Redaction::Sort
+}
+
+fn sort_content(mut value: Content) -> Content {
+    match value.resolve_inner_mut() {
+        Content::Seq(ref mut val) => {
+            val.sort_by(|a, b| match (a.as_key(), b.as_key()) {
+                (crate::content::Key::Other, _) | (_, crate::content::Key::Other) => {
+                    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                }
+                (ref a, ref b) => a.cmp(b),
+            });
         }
-        value
+        Content::Map(ref mut val) => {
+            val.sort_by(|a, b| match (a.0.as_key(), b.0.as_key()) {
+                (crate::content::Key::Other, _) | (_, crate::content::Key::Other) => {
+                    a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+                }
+                (ref a, ref b) => a.cmp(b),
+            });
+        }
+        Content::Struct(_, ref mut fields) | Content::StructVariant(_, _, _, ref mut fields) => {
+            fields.sort_by(|a, b| match a.0.cmp(b.0) {
+                std::cmp::Ordering::Equal => match (a.1.as_key(), b.1.as_key()) {
+                    (crate::content::Key::Other, _) | (_, crate::content::Key::Other) => {
+                        a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+                    }
+                    (ref a, ref b) => a.cmp(b),
+                },
+                ord => ord,
+            });
+        }
+        _ => {}
     }
-    dynamic_redaction(sort)
+    value
 }
 
 /// Creates a redaction that rounds floating point numbers to a given
@@ -211,8 +218,23 @@ impl Redaction {
         match *self {
             Redaction::Static(ref new_val) => new_val.clone(),
             Redaction::Dynamic(ref callback) => callback(value, ContentPath(path)),
+            Redaction::Sort => sort_content(value),
         }
     }
+}
+
+/// Applies redactions in order, except that sort redactions run last.
+pub(crate) fn apply_redactions<'a, I>(mut content: Content, redactions: I) -> Content
+where
+    I: IntoIterator<Item = (&'a Selector<'a>, &'a Redaction)>,
+{
+    let (sorts, others): (Vec<_>, Vec<_>) = redactions
+        .into_iter()
+        .partition(|(_, redaction)| matches!(redaction, Redaction::Sort));
+    for (selector, redaction) in others.into_iter().chain(sorts) {
+        content = selector.redact(content, redaction);
+    }
+    content
 }
 
 #[derive(Parser)]

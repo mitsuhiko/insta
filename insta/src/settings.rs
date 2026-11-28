@@ -40,11 +40,13 @@ impl<'a> From<Vec<(&'a str, Redaction)>> for Redactions {
 #[cfg(feature = "redactions")]
 impl Redactions {
     /// Applies all redactions to the given content.
-    pub(crate) fn apply_to_content(&self, mut content: Content) -> Content {
-        for (selector, redaction) in self.0.iter() {
-            content = selector.redact(content, redaction);
-        }
-        content
+    pub(crate) fn apply_to_content(&self, content: Content) -> Content {
+        crate::redaction::apply_redactions(
+            content,
+            self.0
+                .iter()
+                .map(|(selector, redaction)| (selector, &**redaction)),
+        )
     }
 }
 
