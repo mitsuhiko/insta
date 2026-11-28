@@ -40,6 +40,12 @@ All notable changes to insta and cargo-insta are documented here.
   that thread. A panic in a `glob!` closure, or a failure with
   `INSTA_GLOB_FAIL_FAST=1`, no longer breaks later snapshots and globs in the
   same test binary.
+- With `INSTA_YAML_BLOCK_STYLE=1`, write an indentation indicator for literal
+  blocks whose first line starts with whitespace. Without it, that whitespace
+  was lost when the YAML was read back, or the snapshot file could not be
+  parsed at all. `assert_yaml_snapshot!` output for such strings changes too,
+  so those snapshots need to be accepted again, and affected metadata may need
+  `--force-update-snapshots` once.
 
 ## 1.49.0
 
