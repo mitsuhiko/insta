@@ -46,6 +46,10 @@ All notable changes to insta and cargo-insta are documented here.
   parsed at all. `assert_yaml_snapshot!` output for such strings changes too,
   so those snapshots need to be accepted again, and affected metadata may need
   `--force-update-snapshots` once.
+- Add a `review.inline_indentation` config option to `insta.yaml`. Set to
+  `"nested"`, `cargo insta` writes the contents of multiline inline snapshots
+  one level deeper than the line the `@` is on, rather than aligned with the
+  macro. #951 (@joshka)
 
 ## 1.49.0
 

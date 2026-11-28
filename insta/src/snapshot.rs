@@ -771,7 +771,21 @@ impl TextSnapshotContents {
 
     /// Returns the string literal, including `#` delimiters, to insert into a
     /// Rust source file.
+    ///
+    /// The lines of a multiline value and the closing delimiter are indented
+    /// with `indentation`. Values written on a single line ignore it.
     pub fn to_inline(&self, indentation: &str) -> String {
+        self.to_inline_indented(indentation, indentation)
+    }
+
+    /// Like [`to_inline`](Self::to_inline), but indents the lines of a
+    /// multiline value with `indentation` and the closing delimiter with
+    /// `closing_indentation`.
+    ///
+    /// Only the written literal differs: the closing line is whitespace, so
+    /// `closing_indentation` doesn't affect how the literal is compared.
+    #[doc(hidden)]
+    pub fn to_inline_indented(&self, indentation: &str, closing_indentation: &str) -> String {
         let contents = self.normalize();
         let mut out = String::new();
 
@@ -808,11 +822,12 @@ impl TextSnapshotContents {
                 // In that case, write the empty lines with the indentation as
                 // well, so they mark how much to strip.
                 let indent_empty_lines = !min_indentation(&contents).is_empty();
-                let indentation = if indent_empty_lines && indentation.is_empty() {
-                    " "
-                } else {
-                    indentation
-                };
+                let (indentation, closing_indentation) =
+                    if indent_empty_lines && indentation.is_empty() {
+                        (" ", " ")
+                    } else {
+                        (indentation, closing_indentation)
+                    };
                 out.extend(
                     contents
                         .lines()
@@ -830,9 +845,9 @@ impl TextSnapshotContents {
                                 l = l
                             )
                         })
-                        // `lines` removes the final line ending — add back. Include
-                        // indentation so the closing delimited aligns with the full string.
-                        .chain(Some(format!("\n{indentation}"))),
+                        // `lines` removes the final line ending — add back, with
+                        // `closing_indentation` before the closing delimiter.
+                        .chain(Some(format!("\n{closing_indentation}"))),
                 );
             } else {
                 out.push_str(contents.as_str());
@@ -1191,6 +1206,32 @@ b
 
     b
     ""##
+    );
+
+    // The closing delimiter can be indented less than the contents
+    assert_eq!(
+        TextSnapshotContents::new("a\n\n  b".to_string(), TextSnapshotKind::Inline)
+            .to_inline_indented("        ", "    "),
+        r##""
+        a
+
+          b
+    ""##
+    );
+
+    // Reading that literal back and writing it again gives the same literal,
+    // so accepting an unchanged value doesn't rewrite it
+    let literal = TextSnapshotContents::new("a\n\n  b".to_string(), TextSnapshotKind::Inline)
+        .to_inline_indented("        ", "    ");
+    let reread = reparse_inline_literal(&literal);
+    assert_eq!(reread.to_string(), "a\n\n  b");
+    assert_eq!(reread.to_inline_indented("        ", "    "), literal);
+
+    // Single-line values ignore indentation
+    assert_eq!(
+        TextSnapshotContents::new("ab".to_string(), TextSnapshotKind::Inline)
+            .to_inline_indented("        ", "    "),
+        r#""ab""#
     );
 
     assert_eq!(
@@ -1554,15 +1595,28 @@ fn test_inline_snapshot_whitespace_only_line_roundtrip() {
     for value in [" \n    b", "    a\n \n    b", " \n  \n    b", "\t\n\t\ta"] {
         let value = TextSnapshotContents::new(value.to_string(), TextSnapshotKind::Inline);
         for indentation in ["    ", "\t", ""] {
-            let reparsed = reparse_inline_literal(&value.to_inline(indentation));
-            assert!(
-                value.matches_latest(&reparsed),
-                "{value:?} with indentation {indentation:?}: {:?} != {:?}",
-                value.to_string(),
-                reparsed.to_string()
-            );
+            for literal in [
+                value.to_inline(indentation),
+                value.to_inline_indented(indentation, ""),
+            ] {
+                let reparsed = reparse_inline_literal(&literal);
+                assert!(
+                    value.matches_latest(&reparsed),
+                    "{value:?} with indentation {indentation:?}: {:?} != {:?}",
+                    value.to_string(),
+                    reparsed.to_string()
+                );
+            }
         }
     }
+}
+
+#[test]
+fn test_to_inline_empty_indentation_whitespace_only_line() {
+    // With no indentation, the closing delimiter gets the same fallback
+    // indentation as the contents
+    let value = TextSnapshotContents::new(" \n    b".to_string(), TextSnapshotKind::Inline);
+    assert_eq!(value.to_inline(""), "\"\n \n    b\n \"");
 }
 
 #[test]

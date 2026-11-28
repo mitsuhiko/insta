@@ -852,7 +852,7 @@ fn review_snapshots(
                 }
             }
         }
-        snapshot_container.commit()?;
+        snapshot_container.commit(loc.tool_config.review_inline_indentation())?;
     }
 
     if op.is_none() && apply_to_all.is_none() {

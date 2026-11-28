@@ -85,6 +85,17 @@ pub enum UnreferencedSnapshots {
     Ignore,
 }
 
+/// How `cargo-insta` indents multiline inline snapshots it writes.
+#[cfg(feature = "_cargo_insta_internal")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InlineIndentation {
+    /// Contents and closing delimiter are aligned with the macro.
+    Aligned,
+    /// Contents are one level deeper than the line the literal starts on, and
+    /// the closing delimiter is aligned with that line.
+    Nested,
+}
+
 /// Snapshot update flag
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SnapshotUpdate {
@@ -148,6 +159,8 @@ pub struct ToolConfig {
     review_include_hidden: bool,
     #[cfg(feature = "_cargo_insta_internal")]
     review_warn_undiscovered: bool,
+    #[cfg(feature = "_cargo_insta_internal")]
+    review_inline_indentation: InlineIndentation,
     #[cfg(feature = "_cargo_insta_internal")]
     disable_nextest_doctest: bool,
 }
@@ -330,6 +343,11 @@ impl ToolConfig {
                 .and_then(|x| x.as_bool())
                 .unwrap_or(true),
             #[cfg(feature = "_cargo_insta_internal")]
+            review_inline_indentation: resolve(&cfg, &["review", "inline_indentation"])
+                .map_or(Some("aligned"), |x| x.as_str())
+                .and_then(|x| x.parse::<InlineIndentation>().ok())
+                .ok_or(Error::Config("inline_indentation"))?,
+            #[cfg(feature = "_cargo_insta_internal")]
             disable_nextest_doctest: resolve(&cfg, &["test", "disable_nextest_doctest"])
                 .and_then(|x| x.as_bool())
                 .unwrap_or(false),
@@ -401,6 +419,11 @@ impl ToolConfig {
 
     pub fn review_warn_undiscovered(&self) -> bool {
         self.review_warn_undiscovered
+    }
+
+    /// Returns how to indent multiline inline snapshots when writing them.
+    pub fn review_inline_indentation(&self) -> InlineIndentation {
+        self.review_inline_indentation
     }
 
     pub fn disable_nextest_doctest(&self) -> bool {
@@ -559,6 +582,19 @@ impl std::str::FromStr for UnreferencedSnapshots {
             "delete" => Ok(UnreferencedSnapshots::Delete),
             "warn" => Ok(UnreferencedSnapshots::Warn),
             "ignore" => Ok(UnreferencedSnapshots::Ignore),
+            _ => Err(()),
+        }
+    }
+}
+
+#[cfg(feature = "_cargo_insta_internal")]
+impl std::str::FromStr for InlineIndentation {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<InlineIndentation, ()> {
+        match value {
+            "aligned" => Ok(InlineIndentation::Aligned),
+            "nested" => Ok(InlineIndentation::Nested),
             _ => Err(()),
         }
     }
