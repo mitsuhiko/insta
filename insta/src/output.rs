@@ -16,6 +16,7 @@ pub struct SnapshotPrinter<'a> {
     old_snapshot_hint: &'a str,
     new_snapshot_hint: &'a str,
     show_info: bool,
+    show_previous_info: bool,
     show_diff: bool,
     title: Option<&'a str>,
     line: Option<u32>,
@@ -35,6 +36,7 @@ impl<'a> SnapshotPrinter<'a> {
             old_snapshot_hint: "old snapshot",
             new_snapshot_hint: "new results",
             show_info: false,
+            show_previous_info: false,
             show_diff: false,
             title: None,
             line: None,
@@ -49,6 +51,11 @@ impl<'a> SnapshotPrinter<'a> {
 
     pub fn set_show_info(&mut self, yes: bool) {
         self.show_info = yes;
+    }
+
+    pub(crate) fn show_info_for_both_assertions(&mut self) {
+        self.show_info = true;
+        self.show_previous_info = true;
     }
 
     pub fn set_show_diff(&mut self, yes: bool) {
@@ -98,7 +105,31 @@ impl<'a> SnapshotPrinter<'a> {
     }
 
     fn print_info(&self) {
-        print_info(self.new_snapshot.metadata());
+        let fields = |metadata: &'a MetaData| {
+            (
+                metadata.expression(),
+                metadata.description(),
+                metadata.private_info(),
+            )
+        };
+        let current = self.new_snapshot.metadata();
+        let previous = self
+            .old_snapshot
+            .map(Snapshot::metadata)
+            .filter(|previous| self.show_previous_info && fields(previous) != fields(current));
+        if let Some(previous) = previous {
+            for (label, metadata) in [
+                (self.old_snapshot_hint, previous),
+                (self.new_snapshot_hint, current),
+            ] {
+                if fields(metadata) != (None, None, None) {
+                    println!("{label}:");
+                    print_info(metadata);
+                }
+            }
+        } else {
+            print_info(current);
+        }
     }
 
     fn print_snapshot(&self) {
