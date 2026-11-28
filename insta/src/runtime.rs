@@ -197,7 +197,22 @@ impl<'a> From<BinarySnapshotValue<'a>> for SnapshotValue<'a> {
 }
 
 fn is_doctest(function_name: &str) -> bool {
-    function_name.starts_with("rust_out::main::_doctest")
+    // Before edition 2024, and with `standalone_crate`, each doctest is its
+    // own crate named `rust_out`.
+    function_name.starts_with("rust_out::main::_doctest") || is_merged_doctest(function_name)
+}
+
+/// Since edition 2024 rustdoc merges doctests into one crate, named after the
+/// edition (`doctest_bundle_2024`), with a module per doctest (`__doctest_0`).
+/// `file!()` then names a temporary file, not the file with the doctest in it.
+fn is_merged_doctest(function_name: &str) -> bool {
+    let mut parts = function_name.split("::");
+    parts
+        .next()
+        .map_or(false, |krate| krate.starts_with("doctest_bundle_"))
+        && parts
+            .next()
+            .map_or(false, |module| module.starts_with("__doctest_"))
 }
 
 fn detect_snapshot_name(function_name: &str, module_path: &str) -> Result<String, &'static str> {
@@ -353,6 +368,9 @@ impl<'a> SnapshotAssertionContext<'a> {
                             .into()
                     }
                 };
+                if is_merged_doctest(function_name) {
+                    panic!("Cannot locate snapshot files in merged doctests (edition 2024), as rustdoc does not say which file the doctest is in.  Use an inline snapshot, or mark the doctest `standalone_crate`.");
+                }
                 if allow_duplicates() {
                     duplication_key = Some(format!("named:{module_path}|{name}"));
                 }
@@ -669,11 +687,13 @@ impl<'a> SnapshotAssertionContext<'a> {
         let fail_fast = {
             #[cfg(feature = "glob")]
             {
-                if let Some(top) = crate::glob::GLOB_STACK.lock().unwrap().last() {
-                    top.fail_fast
-                } else {
-                    true
-                }
+                crate::glob::GLOB_STACK.with(|stack| {
+                    if let Some(top) = stack.borrow().last() {
+                        top.fail_fast
+                    } else {
+                        true
+                    }
+                })
             }
             #[cfg(not(feature = "glob"))]
             {
@@ -711,16 +731,21 @@ impl<'a> SnapshotAssertionContext<'a> {
             // the end.
             #[cfg(feature = "glob")]
             {
-                let mut stack = crate::glob::GLOB_STACK.lock().unwrap();
-                if let Some(glob_collector) = stack.last_mut() {
-                    glob_collector.failed += 1;
-                    if update_result == SnapshotUpdateBehavior::NewFile
-                        && self.tool_config.output_behavior() != OutputBehavior::Nothing
-                        && self.snapshot_file.is_some()
-                    {
-                        glob_collector.show_insta_hint = true;
+                let in_glob = crate::glob::GLOB_STACK.with(|stack| {
+                    if let Some(glob_collector) = stack.borrow_mut().last_mut() {
+                        glob_collector.failed += 1;
+                        if update_result == SnapshotUpdateBehavior::NewFile
+                            && self.tool_config.output_behavior() != OutputBehavior::Nothing
+                            && self.snapshot_file.is_some()
+                        {
+                            glob_collector.show_insta_hint = true;
+                        }
+                        true
+                    } else {
+                        false
                     }
-
+                });
+                if in_glob {
                     print_or_panic!(
                         fail_fast,
                         "snapshot assertion from glob for '{}' failed in line {}",
@@ -816,9 +841,11 @@ fn record_snapshot_duplicate(
             printer.set_snapshot_file(ctx.snapshot_file.as_deref());
             printer.set_title(Some("Differences in Block"));
             printer.set_snapshot_hints("previous assertion", "current assertion");
-            if ctx.tool_config.output_behavior() == OutputBehavior::Diff {
-                printer.set_show_diff(true);
+            let output = ctx.tool_config.output_behavior();
+            if matches!(output, OutputBehavior::Diff | OutputBehavior::Summary) {
+                printer.show_info_for_both_assertions();
             }
+            printer.set_show_diff(output == OutputBehavior::Diff);
             printer.print();
             panic!(
                 "snapshot assertion for '{}' failed in line {}. Result \
@@ -991,3 +1018,22 @@ pub fn assert_snapshot(
 /// insta::assert_snapshot!(some_string, @"Coucou je suis un joli bug");
 /// ```
 const _DOCTEST1: bool = false;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn detects_doctests() {
+        // Edition 2021, and edition 2024 with `standalone_crate`.
+        assert!(is_doctest("rust_out::main::_doctest_main_src_lib_rs_9_0"));
+        // Edition 2024, merged.
+        assert!(is_doctest("doctest_bundle_2024::__doctest_0::main"));
+        assert!(is_merged_doctest("doctest_bundle_2024::__doctest_12::main"));
+        assert!(!is_merged_doctest(
+            "rust_out::main::_doctest_main_src_lib_rs_9_0"
+        ));
+        assert!(!is_doctest("my_crate::tests::test_doctest_bundle"));
+        assert!(!is_doctest("doctest_bundle_2024"));
+    }
+}

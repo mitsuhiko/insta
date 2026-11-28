@@ -4,6 +4,11 @@ All notable changes to insta and cargo-insta are documented here.
 
 ## Unreleased
 
+- Recognize edition 2024 merged doctests as doctests.  `cargo insta test`
+  again warns that inline snapshots in doctests can't be updated, instead of
+  silently passing, and file snapshots in merged doctests now fail with a
+  message instead of being written to rustdoc's temporary directory, where
+  they were lost.  Doctests marked `standalone_crate` work as before.
 - Fix `**` redaction selectors with two or more segments after the wildcard
   (e.g. `.**.a.b` or `.**[].*`) spuriously matching paths too short to contain
   those trailing segments. The segments after `**` are matched against the end
@@ -26,6 +31,15 @@ All notable changes to insta and cargo-insta are documented here.
   which made later snapshot failures in the same test binary pass. #398
 - Fix JSON serialization of maps keyed by `u64` values above `i64::MAX` or
   `u128` values above `i128::MAX`, which were written as negative numbers.
+- Show both assertions' descriptions and info when snapshots disagree inside
+  `allow_duplicates!`. #424
+- Count snapshot failures only towards a `glob!` on the same thread. With the
+  default parallel test runner, a failing snapshot in another test that ran
+  during a `glob!` was counted by that `glob!`, so the failing test passed. A
+  failing snapshot in a thread spawned inside a `glob!` closure now panics in
+  that thread. A panic in a `glob!` closure, or a failure with
+  `INSTA_GLOB_FAIL_FAST=1`, no longer breaks later snapshots and globs in the
+  same test binary.
 - With `INSTA_YAML_BLOCK_STYLE=1`, write an indentation indicator for literal
   blocks whose first line starts with whitespace. Without it, that whitespace
   was lost when the YAML was read back, or the snapshot file could not be

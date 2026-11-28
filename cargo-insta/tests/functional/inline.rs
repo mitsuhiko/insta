@@ -1,4 +1,7 @@
+use std::process::Stdio;
+
 use insta::assert_snapshot;
+use itertools::Itertools;
 
 use crate::TestFiles;
 
@@ -336,6 +339,70 @@ fn test_hashtag_escape() {
     +    "###);
      }
     "####);
+}
+
+#[test]
+fn test_duplicate_assertion_info() {
+    let test_project = TestFiles::new()
+        .add_cargo_toml("test_duplicate_assertion_info")
+        .add_file(
+            "src/lib.rs",
+            r#"
+#[test]
+fn compare_dialects() {
+    use insta::internals::Content;
+
+    insta::allow_duplicates! {
+        for (dialect, result) in [("sqlite", "one"), ("duckdb", "two")] {
+            let info = Content::Map(vec![(Content::from("dialect"), Content::from(dialect))]);
+            insta::with_settings!({description => format!("Running on {dialect}"), raw_info => &info}, {
+                insta::assert_snapshot!(result, @"one");
+            });
+        }
+    }
+}
+
+#[test]
+fn shared_context() {
+    insta::allow_duplicates! {
+        for (result, file) in [("one", "Cargo.toml"), ("two", "src/lib.rs")] {
+            insta::with_settings!({description => "Running on the same database", input_file => file}, {
+                insta::assert_snapshot!(result, @"one");
+            });
+        }
+    }
+}
+"#
+            .to_string(),
+        )
+        .create_project();
+
+    let output = test_project
+        .insta_cmd()
+        .args(["test", "--check", "--", "--test-threads=1"])
+        .stdout(Stdio::piped())
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let context = stdout
+        .lines()
+        .filter(|line| {
+            line.ends_with("assertion:")
+                || line.starts_with("Running on")
+                || line.starts_with("dialect:")
+        })
+        .join("\n");
+
+    assert_snapshot!(context, @"
+    previous assertion:
+    Running on sqlite
+    dialect: sqlite
+    current assertion:
+    Running on duckdb
+    dialect: duckdb
+    Running on the same database
+    ");
 }
 
 #[test]
